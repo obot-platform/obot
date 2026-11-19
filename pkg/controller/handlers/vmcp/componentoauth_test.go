@@ -21,22 +21,22 @@ import (
 
 const (
 	probeFixedURL = "https://fixed.example.com/mcp"
-	probeSevenURL = "https://tenant.example.com/seven?token=secret"
-	probeEightURL = "https://tenant.example.com/eight"
-	probeSeven    = "vp1seven"
-	probeEight    = "vp1eight"
-	probeUsers    = "vp1users"
+	// probeConfiguredURL is the URL the vMCP fixes for the hostname-constrained component.
+	probeConfiguredURL = "https://tenant.example.com/seven?token=secret"
+	probeSeven         = "vp1seven"
+	probeEight         = "vp1eight"
+	probeUsers         = "vp1users"
 )
 
-// fakeProber answers probes from a result per URL, and resolves the URL a profile's configuration sets for a component
-// whose URL comes from configuration, when the profile grants the component.
+// fakeProber answers probes from a result per URL, and resolves the URL that the vMCP fixes for a component whose URL
+// comes from configuration.
 type fakeProber struct {
 	lock sync.Mutex
 	// results are what a probe of each URL finds; a URL without one fails.
 	results map[string]bool
 	// failing are URLs whose probe fails.
 	failing map[string]bool
-	// urls are the URLs each profile's configuration sets.
+	// urls are the URLs the vMCP fixes, by component ID.
 	urls   map[string]string
 	probed []string
 }
@@ -66,11 +66,11 @@ func (f *fakeProber) ProbeOAuthRequirement(_ context.Context, url, _ string) (bo
 	return required, nil
 }
 
-func (f *fakeProber) ComponentTarget(_ context.Context, _ v1.VMCP, profile *types.VMCPProfile, component types.VMCPComponent) (vmcpconfig.ComponentTarget, error) {
+func (f *fakeProber) ComponentTarget(_ context.Context, _ v1.VMCP, component types.VMCPComponent) (vmcpconfig.ComponentTarget, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	if profile != nil && vmcpconfig.ProfileGrantsComponent(*profile, component.ID) && f.urls[profile.ID] != "" {
-		return vmcpconfig.ComponentTarget{URL: f.urls[profile.ID], Configured: true}, nil
+	if url := f.urls[component.ID]; url != "" {
+		return vmcpconfig.ComponentTarget{URL: url}, nil
 	}
 	return vmcpconfig.ComponentTarget{Missing: []string{"__url"}}, nil
 }
@@ -102,31 +102,35 @@ func probeRemote(id, fixedURL, hostname string) types.VMCPComponent {
 	}}}
 }
 
-// probeTestVMCP returns a shared vMCP with a remote component whose definition fixes its URL, one whose URL comes from
-// configuration, and components that are not probed: a remote that takes a header, one with static OAuth, a server
-// that is not remote, and a remote that no agent-capable profile grants. Agents 7 and 8 have a profile each, and every
-// user a third, which names no agent and alone grants the last remote.
+// probeTestVMCP returns a shared vMCP with a remote component whose definition fixes its URL, one whose URL the vMCP
+// fixes, and components that are not probed: a remote whose URL nothing fixes, a remote that takes a header, one with
+// static OAuth, a server that is not remote, and a remote that no agent-capable profile grants. Agents 7 and 8 have a
+// profile each, and every user a third, which names no agent and alone grants the last remote.
 func probeTestVMCP() *v1.VMCP {
 	header := probeRemote("header", "https://header.example.com/mcp", "")
 	header.CatalogEntry.Manifest.Config = []types.MCPConfig{{Key: "X-API-Key", Usage: types.Header}}
 	static := probeRemote("static", "https://static.example.com/mcp", "")
 	static.CatalogEntry.Manifest.RemoteConfig.StaticOAuthRequired = true
-	agentComponents := map[string]types.VMCPComponentSet{"fixed": {}, "configured": {}, "header": {}, "static": {}, "local": {}}
-	return &v1.VMCP{Name: "vmcp1probe", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-		Components: []types.VMCPComponent{
-			probeRemote("fixed", probeFixedURL, ""),
-			probeRemote("configured", "", "tenant.example.com"),
-			header,
-			static,
-			{ID: "local", Name: "local"},
-			probeRemote("users-only", "https://users.example.com/mcp", ""),
+	agentComponents := map[string]types.VMCPComponentSet{"fixed": {}, "configured": {}, "unfixed": {}, "header": {}, "static": {}, "local": {}}
+	return &v1.VMCP{Name: "vmcp1probe", Namespace: "default", Spec: v1.VMCPSpec{
+		Manifest: types.VMCPManifest{
+			Components: []types.VMCPComponent{
+				probeRemote("fixed", probeFixedURL, ""),
+				probeRemote("configured", "", "tenant.example.com"),
+				probeRemote("unfixed", "", "tenant.example.com"),
+				header,
+				static,
+				{ID: "local", Name: "local"},
+				probeRemote("users-only", "https://users.example.com/mcp", ""),
+			},
+			Profiles: []types.VMCPProfile{
+				{ID: probeSeven, Name: "seven", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: agentComponents}},
+				{ID: probeEight, Name: "eight", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "8"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: agentComponents}},
+				{ID: probeUsers, Name: "users", Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+			},
 		},
-		Profiles: []types.VMCPProfile{
-			{ID: probeSeven, Name: "seven", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: agentComponents}},
-			{ID: probeEight, Name: "eight", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "8"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: agentComponents}},
-			{ID: probeUsers, Name: "users", Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
-		},
-	}}}
+		ComponentStaticConfigurationHashes: map[string]string{"configured": "fixed-url"},
+	}}
 }
 
 func newProbeHarness(t *testing.T, vmcp *v1.VMCP) *probeHarness {
@@ -136,9 +140,9 @@ func newProbeHarness(t *testing.T, vmcp *v1.VMCP) *probeHarness {
 		client: fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(&v1.VMCP{}).WithObjects(vmcp).Build(),
 		key:    kclient.ObjectKeyFromObject(vmcp),
 		prober: &fakeProber{
-			results: map[string]bool{probeFixedURL: true, probeSevenURL: false},
+			results: map[string]bool{probeFixedURL: true},
 			failing: map[string]bool{},
-			urls:    map[string]string{probeSeven: probeSevenURL, probeEight: probeEightURL},
+			urls:    map[string]string{"configured": probeConfiguredURL},
 		},
 		now: time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC),
 	}
@@ -170,27 +174,23 @@ func (h *probeHarness) update(change func(*v1.VMCP)) {
 	require.NoError(h.t, h.client.Update(h.t.Context(), current))
 }
 
-// probeOf returns what vmcp's status records for component at url.
-func probeOf(t *testing.T, vmcp *v1.VMCP, componentID, url string) v1.VMCPComponentOAuthProbe {
+// targetHash returns the target hash of vmcp's component with componentID.
+func targetHash(t *testing.T, vmcp *v1.VMCP, componentID string) string {
 	t.Helper()
-	digest := vmcpconfig.ComponentOAuthURLDigest(vmcp.Name, componentID, url)
-	for _, probe := range vmcp.Status.ComponentOAuth[componentID].Probes {
-		if probe.URLDigest == digest {
-			return probe
-		}
-	}
-	t.Fatalf("no probe of component %q at %s is recorded", componentID, url)
-	return v1.VMCPComponentOAuthProbe{}
+	components := vmcpconfig.ComponentsForInstance(*vmcp, v1.VMCPInstance{})
+	index := slices.IndexFunc(components, func(component types.VMCPComponent) bool { return component.ID == componentID })
+	require.GreaterOrEqual(t, index, 0)
+	return vmcpconfig.ComponentOAuthTargetHash(*vmcp, components[index])
 }
 
-// TestProbeComponentOAuthProbesWhatAgentsReach checks which components and URLs are probed: each remote component that
-// an agent-capable profile grants, at its fixed URL or at each URL its profiles' configuration resolves to, and none
-// that takes headers, requires static OAuth, is not remote, or that only users are granted. Results are recorded by
-// digest of the URL, for the component's definition, and the status never holds a URL.
+// TestProbeComponentOAuthProbesWhatAgentsReach checks which components are probed: each remote component that an
+// agent-capable profile grants, at the URL its definition or the vMCP fixes, and none whose URL nothing fixes, that
+// takes headers, requires static OAuth, is not remote, or that only users are granted. Each result is recorded once
+// per component, for its target, and the status never holds a URL.
 func TestProbeComponentOAuthProbesWhatAgentsReach(t *testing.T) {
 	h := newProbeHarness(t, probeTestVMCP())
 	probed, delay, stored := h.run()
-	require.Equal(t, []string{probeFixedURL, probeEightURL, probeSevenURL}, probed)
+	require.Equal(t, []string{probeFixedURL, probeConfiguredURL}, probed)
 	require.Equal(t, []string{"configured", "fixed"}, slices.Sorted(func(yield func(string) bool) {
 		for id := range stored.Status.ComponentOAuth {
 			if !yield(id) {
@@ -199,13 +199,10 @@ func TestProbeComponentOAuthProbesWhatAgentsReach(t *testing.T) {
 		}
 	}))
 	for componentID, record := range stored.Status.ComponentOAuth {
-		components := vmcpconfig.ComponentsForInstance(*stored, v1.VMCPInstance{})
-		index := slices.IndexFunc(components, func(component types.VMCPComponent) bool { return component.ID == componentID })
-		require.Equal(t, vmcpconfig.ProfileOAuthGrantDefinitionHash(components[index]), record.DefinitionHash)
+		require.Equal(t, targetHash(t, stored, componentID), record.TargetHash)
 	}
-	require.Equal(t, v1.VMCPComponentOAuthRequired, probeOf(t, stored, "fixed", probeFixedURL).Required)
-	require.Equal(t, v1.VMCPComponentOAuthNotRequired, probeOf(t, stored, "configured", probeSevenURL).Required)
-	failed := probeOf(t, stored, "configured", probeEightURL)
+	require.Equal(t, v1.VMCPComponentOAuthRequired, stored.Status.ComponentOAuth["fixed"].Required)
+	failed := stored.Status.ComponentOAuth["configured"]
 	require.Equal(t, v1.VMCPComponentOAuthUnknown, failed.Required)
 	require.Equal(t, 1, failed.Failures)
 	require.Equal(t, h.now, failed.CheckedAt.UTC())
@@ -214,7 +211,7 @@ func TestProbeComponentOAuthProbesWhatAgentsReach(t *testing.T) {
 
 	encoded, err := json.Marshal(stored.Status)
 	require.NoError(t, err)
-	for _, url := range []string{probeFixedURL, probeSevenURL, probeEightURL, "tenant.example.com", "secret"} {
+	for _, url := range []string{probeFixedURL, probeConfiguredURL, "tenant.example.com", "secret"} {
 		require.NotContains(t, string(encoded), url)
 	}
 
@@ -227,65 +224,68 @@ func TestProbeComponentOAuthProbesWhatAgentsReach(t *testing.T) {
 	require.Equal(t, resourceVersion, stored.ResourceVersion)
 }
 
-// TestProbeComponentOAuthSchedule checks when URLs are probed again: a failed probe after a wait that doubles with each
-// failure in a row, up to componentOAuthRetryMax, and a successful one componentOAuthRecheckInterval later. A failure
-// after a success keeps what the success found; a first failure is unknown.
+// TestProbeComponentOAuthSchedule checks when components are probed again: a failed probe after a wait that doubles
+// with each failure in a row, up to componentOAuthRetryMax, and a successful one componentOAuthRecheckInterval later.
+// A failure after a success keeps what the success found; a first failure is unknown.
 func TestProbeComponentOAuthSchedule(t *testing.T) {
 	h := newProbeHarness(t, probeTestVMCP())
 	start := h.now
 	h.run()
 
-	// The failing URL is probed again after 1, 2, 4 and 8 minutes, each wait doubling.
+	// The failing component is probed again after 1, 2, 4 and 8 minutes, each wait doubling.
 	waits := []time.Duration{time.Minute, 2 * time.Minute, 4 * time.Minute, 8 * time.Minute}
 	for i, wait := range waits[:len(waits)-1] {
 		h.now = h.now.Add(wait)
 		probed, delay, stored := h.run()
-		require.Equal(t, []string{probeEightURL}, probed, "retry %d", i+1)
+		require.Equal(t, []string{probeConfiguredURL}, probed, "retry %d", i+1)
 		require.Equal(t, waits[i+1], delay, "retry %d", i+1)
-		probe := probeOf(t, stored, "configured", probeEightURL)
-		require.Equal(t, i+2, probe.Failures)
-		require.Equal(t, v1.VMCPComponentOAuthUnknown, probe.Required)
+		record := stored.Status.ComponentOAuth["configured"]
+		require.Equal(t, i+2, record.Failures)
+		require.Equal(t, v1.VMCPComponentOAuthUnknown, record.Required)
 	}
-	require.Equal(t, componentOAuthRetryMax, nextComponentOAuthProbe(v1.VMCPComponentOAuthProbe{Failures: 30}).Sub(time.Time{}))
+	require.Equal(t, componentOAuthRetryMax, nextComponentOAuthProbe(v1.VMCPComponentOAuth{Failures: 30}).Sub(time.Time{}))
 
-	// It succeeds: the next probe of every URL is the daily recheck.
-	h.prober.results[probeEightURL] = true
+	// It succeeds: the next probe of every component is the daily recheck.
+	h.prober.results[probeConfiguredURL] = true
 	h.now = h.now.Add(8 * time.Minute)
 	probed, delay, stored := h.run()
-	require.Equal(t, []string{probeEightURL}, probed)
-	probe := probeOf(t, stored, "configured", probeEightURL)
-	require.Equal(t, v1.VMCPComponentOAuthRequired, probe.Required)
-	require.Zero(t, probe.Failures)
+	require.Equal(t, []string{probeConfiguredURL}, probed)
+	record := stored.Status.ComponentOAuth["configured"]
+	require.Equal(t, v1.VMCPComponentOAuthRequired, record.Required)
+	require.Zero(t, record.Failures)
 	require.Equal(t, start.Add(componentOAuthRecheckInterval).Sub(h.now), delay)
 
-	// The daily recheck probes every URL again. A failure keeps what the last success found.
-	h.prober.failing[probeEightURL] = true
+	// The daily recheck probes every component again. A failure keeps what the last success found.
+	h.prober.failing[probeConfiguredURL] = true
 	h.now = h.now.Add(componentOAuthRecheckInterval)
 	probed, delay, stored = h.run()
-	require.Equal(t, []string{probeFixedURL, probeEightURL, probeSevenURL}, probed)
-	probe = probeOf(t, stored, "configured", probeEightURL)
-	require.Equal(t, v1.VMCPComponentOAuthRequired, probe.Required)
-	require.Equal(t, 1, probe.Failures)
+	require.Equal(t, []string{probeFixedURL, probeConfiguredURL}, probed)
+	record = stored.Status.ComponentOAuth["configured"]
+	require.Equal(t, v1.VMCPComponentOAuthRequired, record.Required)
+	require.Equal(t, 1, record.Failures)
 	require.Equal(t, componentOAuthRetryBase, delay)
-	require.Equal(t, v1.VMCPComponentOAuthRequired, probeOf(t, stored, "fixed", probeFixedURL).Required)
+	require.Equal(t, v1.VMCPComponentOAuthRequired, stored.Status.ComponentOAuth["fixed"].Required)
 }
 
 // TestProbeComponentOAuthReprobesChanges checks that a change to what agents reach is probed at once: a component
-// whose definition changes, and a profile whose configuration now resolves to another URL, whose old URL's result is
-// dropped; and that results are dropped for components no agent-capable profile grants any more, and for a personal
-// vMCP.
+// whose definition changes, and one whose URL the vMCP now fixes to another value; and that results are dropped for
+// components no agent-capable profile grants any more, and for a personal vMCP.
 func TestProbeComponentOAuthReprobesChanges(t *testing.T) {
 	h := newProbeHarness(t, probeTestVMCP())
 	h.run()
 
-	// Agent 7's profile's configuration now sets another URL.
+	// The vMCP now fixes another URL for the component.
 	const changedURL = "https://tenant.example.com/changed"
-	h.prober.urls[probeSeven] = changedURL
+	h.prober.urls["configured"] = changedURL
 	h.prober.results[changedURL] = true
+	h.update(func(vmcp *v1.VMCP) {
+		vmcp.Spec.ComponentStaticConfigurationHashes["configured"] = "changed-url"
+	})
 	probed, _, stored := h.run()
 	require.Equal(t, []string{changedURL}, probed)
-	require.Equal(t, v1.VMCPComponentOAuthRequired, probeOf(t, stored, "configured", changedURL).Required)
-	require.Len(t, stored.Status.ComponentOAuth["configured"].Probes, 2, "the result for the URL no profile reaches any more is dropped")
+	require.Equal(t, v1.VMCPComponentOAuthRequired, stored.Status.ComponentOAuth["configured"].Required)
+	require.Zero(t, stored.Status.ComponentOAuth["configured"].Failures, "the result for the URL no longer fixed is dropped")
+	require.Equal(t, targetHash(t, stored, "configured"), stored.Status.ComponentOAuth["configured"].TargetHash)
 
 	// A new definition is probed anew, even at the same URL.
 	h.update(func(vmcp *v1.VMCP) {
@@ -293,10 +293,9 @@ func TestProbeComponentOAuthReprobesChanges(t *testing.T) {
 	})
 	probed, _, stored = h.run()
 	require.Equal(t, []string{probeFixedURL}, probed)
-	components := vmcpconfig.ComponentsForInstance(*stored, v1.VMCPInstance{})
-	require.Equal(t, vmcpconfig.ProfileOAuthGrantDefinitionHash(components[0]), stored.Status.ComponentOAuth["fixed"].DefinitionHash)
+	require.Equal(t, targetHash(t, stored, "fixed"), stored.Status.ComponentOAuth["fixed"].TargetHash)
 
-	// A component no agent-capable profile grants is not probed, and its results are dropped.
+	// A component no agent-capable profile grants is not probed, and its result is dropped.
 	h.update(func(vmcp *v1.VMCP) {
 		for i := range vmcp.Spec.Manifest.Profiles[:2] {
 			delete(vmcp.Spec.Manifest.Profiles[i].Permissions.AllowedComponents, "fixed")

@@ -54,7 +54,7 @@ func grantTestDatabases() []grantTestDatabase {
 	}})
 }
 
-// TestMCPOAuthGrantWrites checks the writes of vMCP profile grants: only a profile's owner can hold one, a grant keeps
+// TestMCPOAuthGrantWrites checks the writes of vMCP agent OAuth grants: only a vMCP's grant owner can hold one, a grant keeps
 // who authorized it across refreshes, an invalid grant is never refreshed back to life, and a new authorization
 // replaces it and clears its state. None of them triggers an MCPServer.
 func TestMCPOAuthGrantWrites(t *testing.T) {
@@ -66,13 +66,13 @@ func TestMCPOAuthGrantWrites(t *testing.T) {
 				triggered = append(triggered, mcpID)
 				return nil
 			}
-			owner, mcpID := principal.ProfileGrant("vmcp1test", "vp1agents"), "vmcp1test/component"
+			owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
 			conf := &oauth2.Config{ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: "https://provider.test/token"}, Scopes: []string{"read", "write"}}
 
-			// No user's or agent's token can be written as a grant.
-			for _, notAGrant := range []string{"7", "agent:7", "vmcp-profile:malformed"} {
-				require.ErrorIs(t, client.ReplaceMCPOAuthGrant(t.Context(), notAGrant, mcpID, grantTestURL, "grant", "1", conf, &oauth2.Token{AccessToken: "a"}), ErrNotProfileGrant)
-				require.ErrorIs(t, client.DeleteMCPOAuthGrantsForOwners(t.Context(), []string{owner, notAGrant}), ErrNotProfileGrant)
+			// No user's or agent's token can be written or deleted as a grant.
+			for _, notAGrant := range []string{"7", "agent:7", "vmcp-agent-oauth:", "vmcp-profile:vmcp1test/vp1agents"} {
+				require.ErrorIs(t, client.ReplaceMCPOAuthGrant(t.Context(), notAGrant, mcpID, grantTestURL, "grant", "1", conf, &oauth2.Token{AccessToken: "a"}), ErrNotAgentOAuthGrant)
+				require.ErrorIs(t, client.DeleteMCPOAuthGrantsForOwner(t.Context(), notAGrant), ErrNotAgentOAuthGrant)
 			}
 
 			require.NoError(t, client.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, grantTestURL, "grant-1", "1", conf, &oauth2.Token{AccessToken: "first", RefreshToken: "refresh"}))
@@ -120,12 +120,12 @@ func TestMCPOAuthGrantWrites(t *testing.T) {
 }
 
 // TestMCPOAuthGrantDeletesAreExact checks that grants are deleted by the IDs listed for them, so a grant written since
-// is kept, and that deleting a profile's grants leaves every user's and agent's token alone.
+// is kept, and that deleting a vMCP's grants leaves every other vMCP's grants and every user's and agent's token alone.
 func TestMCPOAuthGrantDeletesAreExact(t *testing.T) {
 	for _, database := range grantTestDatabases() {
 		t.Run(database.name, func(t *testing.T) {
 			client := database.open(t)
-			owner, other := principal.ProfileGrant("vmcp1test", "vp1agents"), principal.ProfileGrant("vmcp1test", "vp1other")
+			owner, other := principal.AgentOAuthGrantOwner("vmcp1test"), principal.AgentOAuthGrantOwner("vmcp1other")
 			mcpID := "vmcp1test/component"
 			conf := &oauth2.Config{ClientID: "client"}
 			token := &oauth2.Token{AccessToken: "token"}
@@ -139,30 +139,26 @@ func TestMCPOAuthGrantDeletesAreExact(t *testing.T) {
 			_, err := client.GetMCPOAuthToken(t.Context(), owner, mcpID, grantTestURL)
 			require.NoError(t, err, "a grant written after the listing was deleted")
 
-			owners, err := client.MCPOAuthGrantOwners(t.Context(), []string{owner, other, principal.ProfileGrant("vmcp1test", "vp1none")})
-			require.NoError(t, err)
-			require.ElementsMatch(t, []string{owner, other}, owners)
-
-			require.NoError(t, client.DeleteMCPOAuthGrantsForOwners(t.Context(), []string{owner}))
+			require.NoError(t, client.DeleteMCPOAuthGrantsForOwner(t.Context(), owner))
 			_, err = client.GetMCPOAuthToken(t.Context(), owner, mcpID, grantTestURL)
 			require.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 			for _, kept := range []string{other, "7", "agent:7"} {
 				_, err := client.GetMCPOAuthToken(t.Context(), kept, mcpID, grantTestURL)
-				require.NoError(t, err, "the token of %s was deleted with another profile's grants", kept)
+				require.NoError(t, err, "the token of %s was deleted with another vMCP's grants", kept)
 			}
 		})
 	}
 }
 
-// TestMCPOAuthGrantPendingStateIsBound checks that the pending authorization of a profile's grant is stored only with
+// TestMCPOAuthGrantPendingStateIsBound checks that the pending authorization of a vMCP's grant is stored only with
 // the administrator and component definition it is bound to, and that the binding is read back with it.
 func TestMCPOAuthGrantPendingStateIsBound(t *testing.T) {
 	for _, database := range grantTestDatabases() {
 		t.Run(database.name, func(t *testing.T) {
 			client := database.open(t)
-			owner := principal.ProfileGrant("vmcp1test", "vp1agents")
+			owner := principal.AgentOAuthGrantOwner("vmcp1test")
 			conf := &oauth2.Config{ClientID: "client", ClientSecret: "secret"}
-			require.ErrorIs(t, client.CreateMCPOAuthGrantPendingState(t.Context(), "7", "vmcp1test/component", grantTestURL, "", "1", "hash", "state", "verifier", "", conf), ErrNotProfileGrant)
+			require.ErrorIs(t, client.CreateMCPOAuthGrantPendingState(t.Context(), "7", "vmcp1test/component", grantTestURL, "", "1", "hash", "state", "verifier", "", conf), ErrNotAgentOAuthGrant)
 			require.Error(t, client.CreateMCPOAuthGrantPendingState(t.Context(), owner, "vmcp1test/component", grantTestURL, "", "", "hash", "state", "verifier", "", conf))
 			require.Error(t, client.CreateMCPOAuthGrantPendingState(t.Context(), owner, "vmcp1test/component", grantTestURL, "", "1", "", "state", "verifier", "", conf))
 
@@ -190,7 +186,7 @@ func TestMCPOAuthGrantDiscoveryRevision(t *testing.T) {
 	for _, database := range grantTestDatabases() {
 		t.Run(database.name, func(t *testing.T) {
 			client := database.open(t)
-			owner, mcpID := principal.ProfileGrant("vmcp1test", "vp1agents"), "vmcp1test/component"
+			owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
 			keys := []types.MCPOAuthTokenKey{{UserID: owner, MCPID: mcpID}}
 			conf := &oauth2.Config{ClientID: "client"}
 			revision := func() string {
@@ -210,7 +206,7 @@ func TestMCPOAuthGrantDiscoveryRevision(t *testing.T) {
 			require.NotEqual(t, first, invalid)
 			require.NoError(t, client.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, grantTestURL, "grant-2", "1", conf, &oauth2.Token{AccessToken: "c"}))
 			require.NotEqual(t, invalid, revision())
-			require.NoError(t, client.DeleteMCPOAuthGrantsForOwners(t.Context(), []string{owner}))
+			require.NoError(t, client.DeleteMCPOAuthGrantsForOwner(t.Context(), owner))
 			require.Equal(t, none, revision())
 		})
 	}

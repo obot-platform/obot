@@ -1575,7 +1575,7 @@ func (o *oauth) startAuthorization(ctx context.Context, connectURL, authenticate
 // not a token is stored for it, so that an administrator can replace a grant that still works. The authorization ends
 // at opt.CallbackHandler's callback, which stores the token. Client credentials are resolved as for any other
 // authorization: static credentials from opt.ClientLookup first, then a client ID metadata document, then dynamic
-// registration. Its only caller is the start of a vMCP profile's OAuth grant, which an administrator asks for.
+// registration. Its only caller is the start of a vMCP's agent OAuth grant, which an administrator asks for.
 //
 // It learns how the server asks for OAuth from unauthenticated requests sent with the OAuth client, which carries none
 // of the server's configured headers and no token (probeOAuthChallenge), and starts from, in order:
@@ -1626,11 +1626,11 @@ func (m *SessionManager) StartOAuthAuthorization(ctx context.Context, server Ser
 }
 
 // ProbeOAuthRequirement learns whether the remote MCP server at serverURL, reached through the tunnel tunnelName if it
-// is set, asks its callers for OAuth, for the vMCP controller, which records the answer for agent readiness and profile
-// status to read (pkg/controller/handlers/vmcp). It never runs on a request. It sends the same unauthenticated requests
-// as the start of a profile grant (probeOAuthChallenge), with the OAuth client, which carries none of the server's
-// configured headers and no token, and ends any session it opens. Every request is bounded by the client's timeout, and
-// all of them by ctx.
+// is set, asks its callers for OAuth, for the vMCP controller, which records the answer for agent readiness and the
+// vMCP's agent setup to read (pkg/controller/handlers/vmcp). It never runs on a request. It sends the same
+// unauthenticated requests as the start of an agent OAuth grant (probeOAuthChallenge), with the OAuth client, which
+// carries none of the server's configured headers and no token, and ends any session it opens. Every request is
+// bounded by the client's timeout, and all of them by ctx.
 //
 // The server asks for OAuth (true) when:
 //

@@ -16,6 +16,7 @@
  *    and keep all types for that domain inside it.
  */
 import type { MCPCatalogEntryServerManifest, MCPConfig, ObotHeader } from '../admin/types';
+import type { AgentReadinessReason } from '../agent-identities/types';
 
 // Access control rules
 
@@ -728,19 +729,14 @@ export interface VMCPStatus {
 	ready?: boolean;
 }
 
-// Agent setup of a vMCP profile (apiclient/types/vmcp.go). Nothing here carries a configuration value or
-// a token: configuration is reported by key name only.
-export interface VMCPProfileConfigurationStatus {
-	set: string[];
-	missingRequired: string[];
-	optionalUnset: string[];
-}
+// What agents need from a shared vMCP (apiclient/types/vmcp.go). It is the vMCP's alone: profiles hold
+// no data for agents. Nothing here carries a configuration value or a token.
+export type VMCPAgentOAuthState = 'authorized' | 'missing' | 'invalid';
 
-export type VMCPProfileOAuthState = 'authorized' | 'missing' | 'invalid';
-
-export interface VMCPProfileOAuthStatus {
+// The OAuth grant a vMCP holds for one component, which every agent granted the component uses.
+export interface VMCPAgentOAuthStatus {
 	required: boolean;
-	state: VMCPProfileOAuthState;
+	state: VMCPAgentOAuthState;
 	/** The user ID of the administrator who authorized the grant. */
 	authorizedBy?: string;
 	authorizedAt?: string;
@@ -752,26 +748,26 @@ export interface VMCPProfileOAuthStatus {
 	invalidReason?: string;
 }
 
-export interface VMCPProfileComponentStatus {
+export interface VMCPAgentSetupComponent {
 	componentID: string;
-	configuration: VMCPProfileConfigurationStatus;
-	oauth?: VMCPProfileOAuthStatus;
+	ready: boolean;
+	/**
+	 * Why the component keeps the agents granted it from the vMCP, as agent readiness reports them:
+	 * configuration_required for each key the vMCP or its catalog entry must fix (key names only),
+	 * oauth_required and oauth_invalid.
+	 */
+	reasons: AgentReadinessReason[];
+	/** Present only for a remote component, the only kind that can hold a grant. */
+	oauth?: VMCPAgentOAuthStatus;
 }
 
-export interface VMCPProfileStatus {
-	profileID: string;
-	agentCapable: boolean;
-	components: VMCPProfileComponentStatus[];
-	/** Cleared configuration is still being collected: agents no longer get it, but the profile counts as having data. */
-	pendingCollection?: boolean;
+export interface VMCPAgentSetup {
+	vmcpID: string;
+	/** The components that a profile naming an agent grants, in manifest order. */
+	components: VMCPAgentSetupComponent[];
 }
 
-// A string sets the key, null (or blank) clears it, and a key left out is unchanged.
-export interface VMCPProfileConfigurationUpdate {
-	components: Record<string, Record<string, string | null>>;
-}
-
-export interface VMCPProfileOAuthAuthorization {
+export interface VMCPAgentOAuthAuthorization {
 	authURL: string;
 	/** authURL is Obot's local login URL, to run with `obot mcp login` on the administrator's own machine. */
 	localhostCallback?: boolean;

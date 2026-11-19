@@ -38,14 +38,16 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 		return nil
 	}
 	config := vmcpconfig.ConnectionConfiguration(component)
-	credential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)}, vmcpconfig.ConfigurationCredentialName())
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return err
-	}
 	values := map[string]string{}
-	for _, c := range config {
-		if value, ok := credential.Secrets[vmcpconfig.ConfigurationKey(component.ID, c.Key)]; ok {
-			values[c.Key] = value
+	if vmcpconfig.InstanceTakesUserConfiguration(instance) {
+		credential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)}, vmcpconfig.ConfigurationCredentialName())
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return err
+		}
+		for _, c := range config {
+			if value, ok := credential.Secrets[vmcpconfig.ConfigurationKey(component.ID, c.Key)]; ok {
+				values[c.Key] = value
+			}
 		}
 	}
 	if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{

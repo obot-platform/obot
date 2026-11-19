@@ -113,10 +113,11 @@ type SessionManager struct {
 
 	webhookHelper *WebhookHelper
 
-	// profileOAuthGrants holds the OAuth grants of vMCP profiles, which agents' connections to vMCP components use, and
-	// which decide, with the profiles' configuration, whether an agent can connect to a vMCP (vmcpaccess.AgentReadiness).
+	// agentOAuthGrants holds the agent OAuth grants of vMCPs, which agents' connections to vMCP components use, and
+	// which decide, with the configuration the vMCP fixes, whether an agent can connect to a vMCP
+	// (vmcpaccess.AgentReadiness).
 	// Without it, agents use no OAuth token at all, and cannot connect to a vMCP.
-	profileOAuthGrants *vmcpaccess.ProfileOAuthGrantStore
+	agentOAuthGrants *vmcpaccess.AgentOAuthGrantStore
 }
 
 type RemoteMCPURLValidationConfig struct {
@@ -227,10 +228,10 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 	return sm, nil
 }
 
-// SetProfileOAuthGrants sets the store of vMCP profile OAuth grants, which agents' connections to vMCP components use,
+// SetAgentOAuthGrants sets the store of vMCPs' agent OAuth grants, which agents' connections to vMCP components use,
 // and which agent readiness reads. Set it before the session manager serves connections.
-func (sm *SessionManager) SetProfileOAuthGrants(grants *vmcpaccess.ProfileOAuthGrantStore) {
-	sm.profileOAuthGrants = grants
+func (sm *SessionManager) SetAgentOAuthGrants(grants *vmcpaccess.AgentOAuthGrantStore) {
+	sm.agentOAuthGrants = grants
 }
 
 func (sm *SessionManager) MCPRuntimeBackend() string {

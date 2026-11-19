@@ -144,7 +144,16 @@ var (
 		},
 		{
 			method: http.MethodGet,
-			path:   "/api/vmcps/" + agentTestVMCP + "/profiles/vp1agent/status",
+			path:   "/api/vmcps/" + agentTestVMCP + "/agent-setup",
+		},
+		// The vMCP's agent OAuth grants, which agents use but only administrators authorize and revoke.
+		{
+			method: http.MethodPost,
+			path:   "/api/vmcps/" + agentTestVMCP + "/agent-oauth/component",
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/api/vmcps/" + agentTestVMCP + "/agent-oauth/component",
 		},
 		{
 			method: http.MethodPost,

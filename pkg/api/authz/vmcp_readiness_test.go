@@ -12,10 +12,10 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-// TestReadinessAuthorization checks the readiness routes: the status of a vMCP profile, and the vMCPs an agent can use
-// and whether it is ready for each. Administrators and owners reach them, read-only administrators and auditors may
-// read them and change nothing, and no other user does, nor does any agent, including the agent the readiness is about
-// and the agent the profile is for.
+// TestReadinessAuthorization checks the readiness routes: a vMCP's agent setup, and the vMCPs an agent can use and
+// whether it is ready for each. Administrators and owners reach them, read-only administrators and auditors may read
+// them and change nothing, and no other user does, nor does any agent, including the agent the readiness is about and
+// the agent a profile names.
 func TestReadinessAuthorization(t *testing.T) {
 	vmcp := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest("vmcp1readiness"),
@@ -49,8 +49,7 @@ func TestReadinessAuthorization(t *testing.T) {
 	paths := []string{
 		"/api/agents/7/vmcps",
 		"/api/agents/7/vmcps/vmcp1readiness/readiness",
-		"/api/vmcps/vmcp1readiness/profiles/vp1agent/status",
-		"/api/vmcps/vmcp1readiness/profiles/vp1everyone/status",
+		"/api/vmcps/vmcp1readiness/agent-setup",
 	}
 	for _, tt := range []struct {
 		name   string
@@ -85,11 +84,11 @@ func TestReadinessAuthorization(t *testing.T) {
 			caller: person(types.GroupPowerUserPlus, types.GroupPowerUser),
 		},
 		{
-			name:   "user the profile names",
+			name:   "user a profile names",
 			caller: person(),
 		},
 		{
-			name:   "agent the profile names",
+			name:   "agent a profile names",
 			caller: agent,
 		},
 	} {

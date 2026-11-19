@@ -22,33 +22,33 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// profileGrantBinding is what the pending authorization of a vMCP profile's grant is bound to.
-type profileGrantBinding struct {
+// agentGrantBinding is what the pending authorization of a vMCP's agent OAuth grant is bound to.
+type agentGrantBinding struct {
 	// initiatorUserID is the encoded principal of the administrator who started the authorization. Only they can
 	// complete it.
 	initiatorUserID string
-	// definitionHash is the component's vmcpconfig.ProfileOAuthGrantDefinitionHash when the authorization started.
+	// definitionHash is the component's vmcpconfig.AgentOAuthGrantDefinitionHash when the authorization started.
 	definitionHash string
 }
 
-// SetProfileOAuthGrants sets the store of the OAuth grants administrators authorize on vMCP profiles. Set it before
-// the factory serves requests.
-func (f *MCPOAuthHandlerFactory) SetProfileOAuthGrants(grants *vmcpconfig.ProfileOAuthGrantStore) {
-	f.profileGrants = grants
+// SetAgentOAuthGrants sets the store of the OAuth grants administrators authorize on shared vMCPs for agents. Set it
+// before the factory serves requests.
+func (f *MCPOAuthHandlerFactory) SetAgentOAuthGrants(grants *vmcpconfig.AgentOAuthGrantStore) {
+	f.agentGrants = grants
 }
 
-// StartProfileOAuthGrant starts an administrator's authorization of the OAuth grant a vMCP profile holds for one of
-// the vMCP's components, which every agent that resolves to the profile then uses headlessly. It returns the URL the
-// administrator opens; the provider redirects back to the MCP OAuth callback (oauthCallback), which stores the grant
-// (completeProfileGrantCallback).
+// StartAgentOAuthGrant starts an administrator's authorization of the OAuth grant a shared vMCP holds for one of its
+// components, which every agent that a profile of the vMCP grants the component then uses headlessly. It returns the
+// URL the administrator opens; the provider redirects back to the MCP OAuth callback (oauthCallback), which stores the
+// grant (completeAgentOAuthGrantCallback).
 //
-// The profile must be agent-capable, and the component a remote server. The grant is bound to the upstream URL that an
-// agent using the profile's grants reaches (profileGrantTargetURL): the URL the component's definition fixes, or else
-// the one its URL configuration resolves to for the profile. The pending authorization is stored for the profile's
-// grant owner, never the administrator, bound to the administrator, to that URL, and to the component's definition. The
-// OAuth client is resolved as for any authorization: the catalog's static credentials first, then a client ID
-// metadata document, then dynamic registration. The grant holds only the authorization; the static credentials stay
-// the catalog's.
+// A profile that names an agent must grant the component, and the component must be a remote server
+// (vmcpconfig.AgentOAuthGrantTarget). The grant is bound to the upstream URL that an agent's connection to the
+// component reaches (agentGrantTargetURL): the URL the component's definition fixes, or else the one built from the
+// values the vMCP and the catalog entry fix. The pending authorization is stored for the vMCP's grant owner, never the
+// administrator, bound to the administrator, to that URL, and to the component's definition. The OAuth client is
+// resolved as for any authorization: the catalog's static credentials first, then a client ID metadata document, then
+// dynamic registration. The grant holds only the authorization; the static credentials stay the catalog's.
 //
 // How the component asks for OAuth is learned with unauthenticated requests to that URL, which carry none of its
 // configured headers and no grant's token (mcp.SessionManager.StartOAuthAuthorization): a challenge to initialize, a
@@ -60,14 +60,14 @@ func (f *MCPOAuthHandlerFactory) SetProfileOAuthGrants(grants *vmcpconfig.Profil
 // own connection: the callback URL is a random loopback port (upstreamRedirectURL), the pending state is a local login
 // state, and the administrator gets Obot's local login URL (localLoginURL), which `obot mcp login` opens and relays the
 // provider's callback from (LocalhostCallback). Everything else about the grant is the same.
-func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID, profileID, componentID string) (types.VMCPProfileOAuthAuthorization, error) {
-	var none types.VMCPProfileOAuthAuthorization
-	if f.profileGrants == nil {
-		return none, fmt.Errorf("vMCP profile OAuth grants are not configured")
+func (f *MCPOAuthHandlerFactory) StartAgentOAuthGrant(req api.Context, vmcpID, componentID string) (types.VMCPAgentOAuthAuthorization, error) {
+	var none types.VMCPAgentOAuthAuthorization
+	if f.agentGrants == nil {
+		return none, fmt.Errorf("vMCP agent OAuth grants are not configured")
 	}
 	initiator, ok := principal.FromUserInfo(req.User)
 	if !ok || initiator.Kind != principal.KindUser || !req.UserIsAdmin() && !req.UserIsOwner() {
-		return none, types.NewErrForbidden("only an administrator can authorize a vMCP profile's OAuth grant")
+		return none, types.NewErrForbidden("only an administrator can authorize a vMCP's agent OAuth grant")
 	}
 
 	var vmcp v1.VMCP
@@ -76,16 +76,16 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 	} else if err != nil {
 		return none, err
 	}
-	profile, component, err := vmcpconfig.ProfileOAuthGrantTarget(&vmcp, profileID, componentID)
+	component, err := vmcpconfig.AgentOAuthGrantTarget(&vmcp, componentID)
 	if err != nil {
 		return none, err
 	}
-	target, err := f.profileGrantTargetURL(req.Context(), vmcp, profile, component)
+	target, err := f.agentGrantTargetURL(req.Context(), vmcp, component)
 	if err != nil {
 		return none, err
 	}
-	// A URL that comes from configuration is never put into an error, which reaches the administrator who started the
-	// authorization, and may be seen by those who do not configure it.
+	// A URL that comes from the vMCP's fixed configuration is never put into an error, which reaches the administrator
+	// who started the authorization, and may be seen by those who do not configure it.
 	_, fixed := vmcpconfig.StaticComponentTargetURL(component)
 	redact := func(err error) error {
 		switch httpErr, isHTTP := errors.AsType[*types.ErrHTTP](err); {
@@ -97,22 +97,22 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 			return errors.New(vmcpconfig.RedactURL(err.Error(), target))
 		}
 	}
-	server, cfg := profileGrantServer(vmcp, component, target)
+	server, cfg := agentGrantServer(vmcp, component, target)
 	if cfg.TunnelName == "" {
 		if err := mcp.ValidateRemoteMCPURL(req.Context(), cfg.URL, f.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
 			return none, redact(types.NewErrBadRequest("component %q has an upstream URL that cannot be reached: %v", component.ID, err))
 		}
 	}
 
-	owner := principal.ProfileGrant(vmcp.Name, profileID)
-	mcpID := vmcpconfig.ProfileOAuthGrantMCPID(vmcp.Name, component.ID)
+	owner := principal.AgentOAuthGrantOwner(vmcp.Name)
+	mcpID := vmcpconfig.AgentOAuthGrantMCPID(vmcp.Name, component.ID)
 	oauthHandler, opt, err := f.prepareUpstreamOAuth(req, server, cfg, owner, mcpID, "")
 	if err != nil {
 		return none, redact(err)
 	}
-	oauthHandler.profileGrant = &profileGrantBinding{
+	oauthHandler.agentGrant = &agentGrantBinding{
 		initiatorUserID: initiator.String(),
-		definitionHash:  vmcpconfig.ProfileOAuthGrantDefinitionHash(component),
+		definitionHash:  vmcpconfig.AgentOAuthGrantDefinitionHash(component),
 	}
 
 	authURL, err := f.mcpSessionManager.StartOAuthAuthorization(req.Context(), cfg, opt, server.Spec.Manifest.RemoteConfig.StaticOAuthRequired)
@@ -125,18 +125,18 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 	if authURL, err = f.localLoginURL(authURL, cfg); err != nil {
 		return none, redact(err)
 	}
-	slog.Info("Started the authorization of a vMCP profile's OAuth grant", "vmcp", vmcp.Name, "profile", profileID, "component", component.ID, "administrator", initiator.ID, "localhostCallback", cfg.LocalhostCallbackEnabled)
-	return types.VMCPProfileOAuthAuthorization{AuthURL: authURL, LocalhostCallback: cfg.LocalhostCallbackEnabled}, nil
+	slog.Info("Started the authorization of a vMCP's agent OAuth grant", "vmcp", vmcp.Name, "component", component.ID, "administrator", initiator.ID, "localhostCallback", cfg.LocalhostCallbackEnabled)
+	return types.VMCPAgentOAuthAuthorization{AuthURL: authURL, LocalhostCallback: cfg.LocalhostCallbackEnabled}, nil
 }
 
-// profileGrantTargetURL returns the upstream URL a profile's grant for component is bound to: the URL that the
-// connection of an agent whose profile it is reaches (vmcpconfig.ProfileGrantTarget). For a component whose definition
-// fixes the URL, that is the fixed URL. Otherwise it is resolved from configuration as the agent's component server is
-// configured (mcp.SessionManager.ComponentTarget): the profile's values and the vMCP's fixed values. A URL that needs a
-// value the profile does not set is refused until an administrator configures the profile, and one that does not
-// satisfy the component's hostname is refused, as configuring it is.
-func (f *MCPOAuthHandlerFactory) profileGrantTargetURL(ctx context.Context, vmcp v1.VMCP, profile types.VMCPProfile, component types.VMCPComponent) (string, error) {
-	target, refused, err := vmcpconfig.ProfileGrantTarget(ctx, f.mcpSessionManager, vmcp, profile, component)
+// agentGrantTargetURL returns the upstream URL the vMCP's grant for component is bound to: the URL that an agent's
+// connection to the component reaches (vmcpconfig.ResolveComponentTarget). For a component whose definition fixes the
+// URL, that is the fixed URL. Otherwise it is resolved as the agent's component server is configured
+// (mcp.SessionManager.ComponentTarget): from the values the vMCP and the catalog entry fix. A URL that needs a value
+// neither fixes is refused until an administrator fixes it, since agents could not reach it either, and one that does
+// not satisfy the component's hostname is refused, as fixing it is.
+func (f *MCPOAuthHandlerFactory) agentGrantTargetURL(ctx context.Context, vmcp v1.VMCP, component types.VMCPComponent) (string, error) {
+	target, refused, err := vmcpconfig.ResolveComponentTarget(ctx, f.mcpSessionManager, vmcp, component)
 	switch {
 	case err != nil:
 		return "", err
@@ -150,23 +150,22 @@ func (f *MCPOAuthHandlerFactory) profileGrantTargetURL(ctx context.Context, vmcp
 				ComponentID: component.ID,
 				Code:        types.AgentReadinessConfigurationRequired,
 				Field:       key,
-				ProfileID:   profile.ID,
 			})
 		}
 		return "", api.NewErrHTTPWithReasons(
 			http.StatusBadRequest,
-			fmt.Sprintf("the upstream URL of component %q needs %s, which profile %q does not configure; configure the profile first", component.ID, strings.Join(target.Missing, ", "), profile.ID),
+			fmt.Sprintf("the upstream URL of component %q needs %s, which agents cannot be given: set it as fixed on the vMCP or on the catalog entry first", component.ID, strings.Join(target.Missing, ", ")),
 			reasons,
 		)
 	}
 	return target.URL, nil
 }
 
-// profileGrantServer returns the server a profile's grant for component is authorized against, at target, the URL the
-// grant is bound to (profileGrantTargetURL), and otherwise built from the component's definition alone, including
+// agentGrantServer returns the server the vMCP's grant for component is authorized against, at target, the URL the
+// grant is bound to (agentGrantTargetURL), and otherwise built from the component's definition alone, including
 // whether its provider redirects to a localhost callback: no component server is needed. Neither carries a configured
 // header or credential: OAuth discovery and the code exchange never send them.
-func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent, target string) (v1.MCPServer, mcp.ServerConfig) {
+func agentGrantServer(vmcp v1.VMCP, component types.VMCPComponent, target string) (v1.MCPServer, mcp.ServerConfig) {
 	remote := component.CatalogEntry.Manifest.RemoteConfig
 	server := v1.MCPServer{
 		Namespace: vmcp.Namespace,
@@ -193,7 +192,7 @@ func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent, target stri
 		TunnelName:               remote.TunnelName,
 		LocalhostCallbackEnabled: remote.LocalhostCallbackEnabled,
 		LocalhostCallbackPath:    remote.LocalhostCallbackPath,
-		MCPServerName:            vmcpconfig.ProfileOAuthGrantMCPID(vmcp.Name, component.ID),
+		MCPServerName:            vmcpconfig.AgentOAuthGrantMCPID(vmcp.Name, component.ID),
 		MCPServerDisplayName:     component.Name,
 		MCPServerNamespace:       vmcp.Namespace,
 		MCPCatalogEntryName:      component.MCPServerCatalogEntryID,
@@ -201,21 +200,21 @@ func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent, target stri
 	}
 }
 
-// completeProfileGrantCallback completes the authorization of a vMCP profile's grant at the MCP OAuth callback, for
-// pending, the authorization its state names. The grant is stored only after every check below passes:
+// completeAgentOAuthGrantCallback completes the authorization of a vMCP's agent OAuth grant at the MCP OAuth callback,
+// for pending, the authorization its state names. The grant is stored only after every check below passes:
 //
 //   - The caller is the administrator who started the authorization, still an administrator. Anyone else is refused
 //     without consuming the attempt, so its administrator can still complete it.
 //   - The attempt has not expired, and is consumed, so no callback, from anyone, can use it again.
-//   - The vMCP, the profile and the component still exist, the profile can still hold grants, and the component
-//     still has the definition the authorization started with, and still reaches the same upstream URL for the
-//     profile: a change to the profile's URL configuration in between refuses the grant. This is checked before the
-//     code is exchanged, and again, from a fresh read, as the grant is stored (vmcpconfig.ProfileOAuthGrantStore.Authorize).
-func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, pending *gatewaytypes.MCPOAuthPendingState) error {
-	if f.profileGrants == nil {
-		return fmt.Errorf("vMCP profile OAuth grants are not configured")
+//   - The vMCP and the component still exist, a profile that names an agent still grants the component, and the
+//     component still has the definition the authorization started with, and still reaches the same upstream URL: a
+//     change to the URL the vMCP fixes in between refuses the grant. This is checked before the code is exchanged, and
+//     again, from a fresh read, as the grant is stored (vmcpconfig.AgentOAuthGrantStore.Authorize).
+func (f *MCPOAuthHandlerFactory) completeAgentOAuthGrantCallback(req api.Context, pending *gatewaytypes.MCPOAuthPendingState) error {
+	if f.agentGrants == nil {
+		return fmt.Errorf("vMCP agent OAuth grants are not configured")
 	}
-	vmcpID, profileID, ok := principal.ParseProfileGrant(pending.UserID)
+	vmcpID, ok := principal.ParseAgentOAuthGrantOwner(pending.UserID)
 	componentID, hasComponent := strings.CutPrefix(pending.MCPID, vmcpID+"/")
 	if !ok || !hasComponent || componentID == "" || pending.GrantInitiatorUserID == "" || pending.GrantDefinitionHash == "" {
 		return types.NewErrForbidden("authentication attempt is not bound to an administrator")
@@ -224,7 +223,7 @@ func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, p
 		return types.NewErrForbidden("authentication attempt belongs to another administrator")
 	}
 	if !req.UserIsAdmin() && !req.UserIsOwner() {
-		return types.NewErrForbidden("only an administrator can authorize a vMCP profile's OAuth grant")
+		return types.NewErrForbidden("only an administrator can authorize a vMCP's agent OAuth grant")
 	}
 	// A local login attempt, relayed by `obot mcp login` from a localhost callback, must have the relay's loopback-only
 	// redirect, and lives only as long as the relay waits for it.
@@ -242,14 +241,14 @@ func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, p
 	}
 
 	key := kclient.ObjectKey{Namespace: req.Namespace(), Name: vmcpID}
-	check := func(vmcp *v1.VMCP, profile types.VMCPProfile, component types.VMCPComponent) error {
+	check := func(vmcp *v1.VMCP, component types.VMCPComponent) error {
 		changed := types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("component %q of vMCP %q changed since its authorization started; start a new authorization", component.ID, vmcp.Name))
-		if vmcpconfig.ProfileOAuthGrantDefinitionHash(component) != pending.GrantDefinitionHash {
+		if vmcpconfig.AgentOAuthGrantDefinitionHash(component) != pending.GrantDefinitionHash {
 			return changed
 		}
-		target, err := f.profileGrantTargetURL(req.Context(), *vmcp, profile, component)
+		target, err := f.agentGrantTargetURL(req.Context(), *vmcp, component)
 		if _, refused := errors.AsType[*types.ErrHTTP](err); refused || err == nil && target != pending.URL {
-			// The URL the profile's agents reach is not the one the administrator authorized, or no longer resolves.
+			// The URL agents reach is not the one the administrator authorized, or no longer resolves.
 			return changed
 		}
 		return err
@@ -257,10 +256,9 @@ func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, p
 	var vmcp v1.VMCP
 	err := req.Storage.Get(req.Context(), key, &vmcp)
 	if err == nil {
-		var profile types.VMCPProfile
 		var component types.VMCPComponent
-		if profile, component, err = vmcpconfig.ProfileOAuthGrantTarget(&vmcp, profileID, componentID); err == nil {
-			err = check(&vmcp, profile, component)
+		if component, err = vmcpconfig.AgentOAuthGrantTarget(&vmcp, componentID); err == nil {
+			err = check(&vmcp, component)
 		}
 	} else if apierrors.IsNotFound(err) {
 		err = types.NewErrNotFound("vMCP %q not found", vmcpID)
@@ -291,10 +289,10 @@ func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, p
 
 	conf, token, err := f.stateMgr.exchange(req.Context(), consumed, req.URL.Query().Get("code"))
 	if err != nil {
-		slog.Warn("Failed to exchange the code of a vMCP profile's OAuth grant", "vmcp", vmcpID, "profile", profileID, "component", componentID, "error", err)
+		slog.Warn("Failed to exchange the code of a vMCP's agent OAuth grant", "vmcp", vmcpID, "component", componentID, "error", err)
 		return types.NewErrBadRequest("upstream authentication failed")
 	}
-	if _, err := f.profileGrants.Authorize(req.Context(), req.Storage, key, profileID, componentID, check, func(ctx context.Context, owner, mcpID, grantID string) error {
+	if _, err := f.agentGrants.Authorize(req.Context(), req.Storage, key, componentID, check, func(ctx context.Context, owner, mcpID, grantID string) error {
 		return f.stateMgr.gatewayClient.ReplaceMCPOAuthGrant(ctx, owner, mcpID, consumed.URL, grantID, consumed.GrantInitiatorUserID, conf, token)
 	}); err != nil {
 		return err
@@ -304,17 +302,16 @@ func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, p
 	// the latest authorization, so this is the history. The target is its hostname: the URL may carry configured values.
 	f.stateMgr.gatewayClient.RecordAdminAuditEvent(req.Context(), client.AdminAuditEventInput{
 		Actor:        consumed.GrantInitiatorUserID,
-		Action:       gatewaytypes.AdminAuditActionVMCPProfileOAuthAuthorize,
-		ResourceKind: gatewaytypes.AdminAuditResourceVMCPProfile,
-		ResourceID:   profileID,
-		ParentID:     vmcpID,
+		Action:       gatewaytypes.AdminAuditActionVMCPAgentOAuthAuthorize,
+		ResourceKind: gatewaytypes.AdminAuditResourceVMCP,
+		ResourceID:   vmcpID,
 		Details: map[string]any{
 			"componentID": componentID,
 			"scopes":      conf.Scopes,
 			"hostname":    vmcpconfig.URLHostname(consumed.URL),
 		},
 	})
-	slog.Info("Stored a vMCP profile's OAuth grant", "vmcp", vmcpID, "profile", profileID, "component", componentID, "administrator", consumed.GrantInitiatorUserID, "scopes", strings.Join(conf.Scopes, " "))
+	slog.Info("Stored a vMCP's agent OAuth grant", "vmcp", vmcpID, "component", componentID, "administrator", consumed.GrantInitiatorUserID, "scopes", strings.Join(conf.Scopes, " "))
 	if relayed {
 		// Tell the waiting relay that the authorization is complete.
 		completeLocalLogin(req, consumed, nil)

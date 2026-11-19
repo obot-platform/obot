@@ -24,8 +24,9 @@ func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *typ
 }
 
 // MatchingProfiles returns the profiles whose subjects name u, in order (subjects.Evaluate). Users match their user
-// ID, subjects:*, and their auth provider and Obot groups; agents match only their agent ID, so an agent matches at
-// most one profile (AgentProfile). A caller that is not a well-formed user or agent principal matches no profile.
+// ID, subjects:*, and their auth provider and Obot groups; agents match only the profiles that name their agent ID.
+// A caller named by several profiles is granted the union of what they grant (AllowedTools, EnabledComponents), an
+// agent as a user. A caller that is not a well-formed user or agent principal matches no profile.
 func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
 	caller, ok := subjects.CallerFromUserInfo(u)
 	if !ok {
@@ -103,9 +104,9 @@ func InstanceGrant(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types
 }
 
 // ProfileGrantsComponent reports whether profile grants the component with componentID: it allows all components, or
-// has an entry for the component in AllowedComponents, even one that grants no tools. A profile's setup for agents
-// covers only the components it grants, and only those take their configuration and OAuth grant from it
-// (profileForComponent).
+// has an entry for the component in AllowedComponents, even one that grants no tools. The vMCP's agent setup covers
+// the components that profiles naming agents grant (AgentGrantedComponents), and an agent uses the vMCP's OAuth grant
+// only for the components its profiles grant.
 func ProfileGrantsComponent(profile types.VMCPProfile, componentID string) bool {
 	if profile.Permissions.AllowAllComponents {
 		return true

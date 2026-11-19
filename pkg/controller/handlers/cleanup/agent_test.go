@@ -451,7 +451,8 @@ func TestAgentCleanupDeleteCascadesToConnectionCredentials(t *testing.T) {
 		return router.Request{Ctx: ctx, Client: storage, Object: obj, Namespace: obj.GetNamespace(), Name: obj.GetName()}
 	}
 
-	// The configuration sync writes each connection's credential.
+	// The configuration sync writes each connection's credential. An agent's carries nothing from its instance's
+	// configuration credential, which is never read for an agent.
 	sync := mcpserverinstance.New(gateway)
 	connectionContext := map[string]string{}
 	for tag, owner := range owners {
@@ -460,7 +461,11 @@ func TestAgentCleanupDeleteCascadesToConnectionCredentials(t *testing.T) {
 		connectionContext[tag] = owner + "-" + connection.Name
 		credential, err := gateway.RevealCredential(ctx, []string{connectionContext[tag]}, connection.Name)
 		require.NoError(t, err)
-		require.Equal(t, map[string]string{"TOKEN": tag + "-token"}, credential.Secrets)
+		want := map[string]string{}
+		if tag == "user" {
+			want["TOKEN"] = "user-token"
+		}
+		require.Equal(t, want, credential.Secrets, tag)
 	}
 
 	require.NoError(t, DeletedAgent(request(event), nil))

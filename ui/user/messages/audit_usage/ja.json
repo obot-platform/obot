@@ -243,6 +243,7 @@
 	"audit_usage_exports_admin_resource_kind_api_key": "API キー",
 	"audit_usage_exports_admin_resource_kind_model_access_policy": "モデルアクセスポリシー",
 	"audit_usage_exports_admin_resource_kind_skill_access_rule": "スキルアクセスルール",
+	"audit_usage_exports_admin_resource_kind_vmcp": "vMCP",
 	"audit_usage_exports_admin_resource_kind_vmcp_profile": "vMCP プロファイル",
 	"audit_usage_exports_advanced_options": "詳細オプション",
 	"audit_usage_exports_already_configured": "ストレージプロバイダーは設定済みです",

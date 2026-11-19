@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	// sharedGrantRefreshTimeout bounds waiting for, and holding, the refresh lock of a vMCP profile's grant.
+	// sharedGrantRefreshTimeout bounds waiting for, and holding, the refresh lock of a vMCP's agent OAuth grant.
 	sharedGrantRefreshTimeout = time.Minute
 	// sharedGrantSaveAttempts is how many times a refreshed grant is saved before the refresh is given up. The
 	// provider may have rotated the refresh token, so a refresh that is not saved can leave the grant unusable.
@@ -26,15 +26,15 @@ const (
 )
 
 var (
-	// ErrOAuthGrantInvalid reports that a vMCP profile's OAuth grant no longer works: it was revoked, its target
+	// ErrOAuthGrantInvalid reports that a vMCP's agent OAuth grant no longer works: it was revoked, its target
 	// changed, or the provider refused to refresh it. An administrator must authorize it again; until then no agent
-	// that uses it can reach the component, and none falls back to another profile's grant.
-	ErrOAuthGrantInvalid = errors.New("the vMCP profile's OAuth grant is no longer valid and must be authorized again")
-	// ErrOAuthGrantUnavailable reports that a vMCP profile's OAuth grant could not be refreshed for a reason that may
+	// that uses it can reach the component, and none connects to it without the grant.
+	ErrOAuthGrantInvalid = errors.New("the vMCP's agent OAuth grant is no longer valid and must be authorized again")
+	// ErrOAuthGrantUnavailable reports that a vMCP's agent OAuth grant could not be refreshed for a reason that may
 	// pass, such as the provider being unreachable or failing. The grant is left valid.
-	ErrOAuthGrantUnavailable = errors.New("the vMCP profile's OAuth grant could not be refreshed")
+	ErrOAuthGrantUnavailable = errors.New("the vMCP's agent OAuth grant could not be refreshed")
 
-	errProfileGrantWrite = errors.New("a vMCP profile's OAuth grant is written only through its administrator's authorization")
+	errAgentOAuthGrantWrite = errors.New("a vMCP's agent OAuth grant is written only through its administrator's authorization")
 )
 
 type GlobalTokenStore interface {
@@ -70,7 +70,7 @@ type storageBackedTokenSource struct {
 	source oauth2.TokenSource
 }
 
-// sharedGrantRefresher refreshes a vMCP profile's grant for one connection, under the grant's refresh lock. It reads
+// sharedGrantRefresher refreshes a vMCP's agent OAuth grant for one connection, under the grant's refresh lock. It reads
 // the grant, and the client it was issued to, again under the lock, so a grant replaced meanwhile is refreshed with
 // its own client.
 type sharedGrantRefresher struct {
@@ -118,23 +118,23 @@ func (t *tokenStore) RefreshTokenConfig(ctx context.Context, config *oauth2.Conf
 }
 
 func (t *tokenStore) SetTokenConfig(ctx context.Context, config *oauth2.Config, token *oauth2.Token) error {
-	if principal.IsProfileGrant(t.userID) {
-		// A profile's grant is stored only by its administrator's callback, bound to who authorized it.
-		return errProfileGrantWrite
+	if principal.IsAgentOAuthGrantOwner(t.userID) {
+		// A vMCP's grant is stored only by its administrator's callback, bound to who authorized it.
+		return errAgentOAuthGrantWrite
 	}
 	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.userID, t.mcpID, t.mcpURL, "", config, token)
 }
 
 func (t *tokenStore) DeleteTokenConfig(ctx context.Context) error {
-	if principal.IsProfileGrant(t.userID) {
-		// A profile's grant is deleted only with its profile or component, or when an administrator resets it.
-		return errProfileGrantWrite
+	if principal.IsAgentOAuthGrantOwner(t.userID) {
+		// A vMCP's grant is deleted only with its component or vMCP, or when an administrator revokes it.
+		return errAgentOAuthGrantWrite
 	}
 	return t.gatewayClient.DeleteMCPOAuthTokenForURL(ctx, t.userID, t.mcpID, t.mcpURL)
 }
 
 func (t *tokenStore) TokenSource(ctx context.Context) (oauth2.TokenSource, error) {
-	if principal.IsProfileGrant(t.userID) {
+	if principal.IsAgentOAuthGrantOwner(t.userID) {
 		return t.sharedGrantTokenSource(ctx)
 	}
 	config, token, err := t.GetTokenConfig(ctx)
@@ -151,7 +151,7 @@ func (t *tokenStore) TokenSource(ctx context.Context) (oauth2.TokenSource, error
 	return newStorageBackedTokenSource(t, config, token, httpClient), nil
 }
 
-// sharedGrantTokenSource returns the token source of a vMCP profile's grant, which many agents, on every replica,
+// sharedGrantTokenSource returns the token source of a vMCP's agent OAuth grant, which many agents, on every replica,
 // use at once. A grant marked invalid has none: ErrOAuthGrantInvalid.
 //
 // Its refresh is not the per-connection one of a user's token, which would let every caller refresh the same
@@ -243,7 +243,7 @@ func (r *sharedGrantRefresher) Token() (*oauth2.Token, error) {
 		if err != nil {
 			// The provider may have rotated the refresh token, so this connection keeps the token it got, and later
 			// callers may find the grant refused; nothing better can be done without the database.
-			slog.Error("Failed to save a refreshed vMCP profile OAuth grant", "owner", t.userID, "mcpID", t.mcpID, "error", err)
+			slog.Error("Failed to save a refreshed vMCP agent OAuth grant", "owner", t.userID, "mcpID", t.mcpID, "error", err)
 		}
 		result = refreshed
 		return nil
@@ -262,11 +262,11 @@ func (r *sharedGrantRefresher) invalidate(locked *gateway.MCPOAuthRefresh, grant
 	t := r.store
 	marked, err := locked.Invalidate(grant.GrantID, reason)
 	if err != nil {
-		slog.Error("Failed to mark a vMCP profile OAuth grant invalid", "owner", t.userID, "mcpID", t.mcpID, "error", err)
+		slog.Error("Failed to mark a vMCP agent OAuth grant invalid", "owner", t.userID, "mcpID", t.mcpID, "error", err)
 		return
 	}
 	if marked {
-		slog.Warn("Marked a vMCP profile OAuth grant invalid; an administrator must authorize it again", "owner", t.userID, "mcpID", t.mcpID, "reason", reason)
+		slog.Warn("Marked a vMCP agent OAuth grant invalid; an administrator must authorize it again", "owner", t.userID, "mcpID", t.mcpID, "reason", reason)
 	}
 }
 
@@ -288,7 +288,7 @@ func refreshFailure(err error) string {
 	return "token endpoint unreachable"
 }
 
-// usableGrant reports whether grant, a vMCP profile's grant, is for the URL this store's connection reaches and is not
+// usableGrant reports whether grant, a vMCP's agent OAuth grant, is for the URL this store's connection reaches and is not
 // marked invalid.
 func (t *tokenStore) usableGrant(grant *gatewaytypes.MCPOAuthToken) bool {
 	return grant.URL == t.mcpURL && grant.InvalidatedAt == nil

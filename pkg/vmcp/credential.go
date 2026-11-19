@@ -6,6 +6,7 @@ import (
 	"uuid"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 )
@@ -61,6 +62,15 @@ func StaticConfigurationCredentialContext(vmcpID string) string {
 // InstanceConfigurationCredentialContext scopes user configuration to a VMCP instance.
 func InstanceConfigurationCredentialContext(instanceID string) string {
 	return "vmcp-instance/" + instanceID
+}
+
+// InstanceTakesUserConfiguration reports whether the configuration credential of instance
+// (InstanceConfigurationCredentialContext) is read for its component servers and connections: a user's holds the
+// values the user entered. An agent never enters configuration and is given only values fixed for everyone, by the
+// vMCP or the catalog entry, so an agent's is never read, whatever is stored there.
+func InstanceTakesUserConfiguration(instance v1.VMCPInstance) bool {
+	_, agent := principal.ParseAgent(instance.Spec.UserID)
+	return !agent
 }
 
 // ConfigurationKey qualifies a configuration key with its VMCP component ID.
@@ -197,7 +207,8 @@ func ValidateAndEncodeUserConfiguration(manifest types.VMCPManifest, configurati
 
 // ComponentServerConfiguration returns the configuration a component's server is given, by plain key: the vMCP's
 // fixed values (staticConfiguration, keyed by ConfigurationKey) for its fixed keys, and the connection's own values
-// (userConfiguration, likewise keyed) for its user-allowed keys, which for an agent are those its profiles resolve to.
+// (userConfiguration, likewise keyed) for its user-allowed keys, which an agent's connection never has: nothing enters
+// configuration for an agent.
 func ComponentServerConfiguration(component types.VMCPComponent, staticConfiguration, userConfiguration map[string]string) map[string]string {
 	configuration := make(map[string]string)
 	for _, policy := range component.Configuration {

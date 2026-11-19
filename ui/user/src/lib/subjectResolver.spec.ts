@@ -2,7 +2,6 @@ import type { OrgUser } from '$lib/services';
 import type { Profile } from '$lib/services';
 import { agentDisplayName, type AgentIdentity } from '$lib/services/agent-identities';
 import {
-	agentSubjectName,
 	convertSubjectsToTableData,
 	hasAccessWithinSubjects,
 	resolveSubjectFromGroup,
@@ -142,9 +141,8 @@ describe('agent subjects', () => {
 			['6', { displayName: 'Old bot', status: 'deleted' as const }],
 			['8', { displayName: '', status: 'deleted' as const }]
 		]);
-		expect(agentSubjectName('6', agents)).toBe('Old bot (Deleted)');
+		expect(agentDisplayName(agents, '6')).toBe('Old bot (Deleted)');
 		expect(agentDisplayName(agents, '6', 'Stale row name')).toBe('Old bot (Deleted)');
-		expect(agentSubjectName('8', agents)).toBe('Deleted agent (8)');
 		// The row's name stands in for a deleted agent's name that the lookup lacks.
 		expect(agentDisplayName(agents, '8', 'Row bot')).toBe('Row bot (Deleted)');
 		expect(agentDisplayName(agents, '8')).toBe('Deleted agent (8)');

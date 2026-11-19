@@ -80,7 +80,7 @@ func TestVMCPHandlerRejectsProhibitedRequiredConfiguration(t *testing.T) {
 				GatewayClient: newHandlerTestGateway(t),
 				User:          principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}),
 			}
-			handler := NewVMCPHandler(nil, "", "", nil)
+			handler := NewVMCPHandler(nil, "", "")
 			switch operation {
 			case "create":
 				err = handler.Create(ctx)
@@ -178,7 +178,7 @@ func TestMigratedVMCPAllowsAdminToDisableComponentForceSingleUser(t *testing.T) 
 	}
 	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+vmcp.Name, strings.NewReader(`{"displayName":"Migrated vMCP","components":[{"id":"one","mcpServerCatalogEntryID":"entry","forceSingleUser":false}]}`))
 	request.SetPathValue("vmcp_id", vmcp.Name)
-	err := NewVMCPHandler(nil, "", "", nil).Update(api.Context{
+	err := NewVMCPHandler(nil, "", "").Update(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
 		GatewayClient:  newHandlerTestGateway(t),
 		Request:        request,
@@ -231,7 +231,7 @@ func TestVMCPHandlerUpdateRejectsCatalogSyncedVMCP(t *testing.T) {
 			storage.onUpdate = func(kclient.Object) { t.Fatal("rejected request updated a resource") }
 			request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+vmcp.Name, strings.NewReader(tc.body))
 			request.SetPathValue("vmcp_id", vmcp.Name)
-			err := NewVMCPHandler(nil, "", "", nil).Update(api.Context{
+			err := NewVMCPHandler(nil, "", "").Update(api.Context{
 				ResponseWriter: httptest.NewRecorder(),
 				GatewayClient:  newHandlerTestGateway(t),
 				Request:        request,
@@ -250,7 +250,7 @@ func TestVMCPHandlerUpdateMissingVMCPReturnsGetError(t *testing.T) {
 	storage := newVMCPTestStorage()
 	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/missing", strings.NewReader("{not json"))
 	request.SetPathValue("vmcp_id", "missing")
-	err := NewVMCPHandler(nil, "", "", nil).Update(api.Context{
+	err := NewVMCPHandler(nil, "", "").Update(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
 		GatewayClient:  newHandlerTestGateway(t),
 		Request:        request,
@@ -383,7 +383,7 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 		{Key: "USER_HEADER", Policy: types.VMCPConfigurationPolicyUserAllowed},
 	}
 
-	created := callVMCPCreate(t, storage, gatewayClient, NewVMCPHandler(nil, "", "", nil), manifest, principaltest.AsUser(&user.DefaultInfo{
+	created := callVMCPCreate(t, storage, gatewayClient, NewVMCPHandler(nil, "", ""), manifest, principaltest.AsUser(&user.DefaultInfo{
 		Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin},
 	}))
 	if !published {
@@ -460,7 +460,7 @@ func TestVMCPHandlerUpdatePreservesStaticConfiguration(t *testing.T) {
 		t.Run(fmt.Sprintf("versioned=%t", versioned), func(t *testing.T) {
 			storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 			gatewayClient := newHandlerTestGateway(t)
-			handler := NewVMCPHandler(nil, "", "", nil)
+			handler := NewVMCPHandler(nil, "", "")
 			admin := principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}})
 			manifest := testVMCPManifest()
 			manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
@@ -603,7 +603,7 @@ func TestVMCPHandlerUpdateUndoesStaticConfigurationWhenTheWriteFails(t *testing.
 		t.Run(tt.name, func(t *testing.T) {
 			storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 			gatewayClient := newHandlerTestGateway(t)
-			handler := NewVMCPHandler(nil, "", "", nil)
+			handler := NewVMCPHandler(nil, "", "")
 			admin := &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}
 			manifest := testVMCPManifest()
 			manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
@@ -702,7 +702,7 @@ func TestVMCPHandlerUpdateDefaultsFromStoredPersonalScope(t *testing.T) {
 	}
 	storage := newVMCPTestStorage(vmcp)
 	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPHandler(nil, "", "", nil)
+	handler := NewVMCPHandler(nil, "", "")
 
 	body, err := json.Marshal(vmcp.Spec.Manifest)
 	if err != nil {
@@ -753,7 +753,7 @@ func TestVMCPHandlerCreateDefersCleanupWhenPublishingStaticConfigurationFails(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = NewVMCPHandler(nil, "", "", nil).Create(api.Context{
+	err = NewVMCPHandler(nil, "", "").Create(api.Context{
 		Request:       httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
 		Storage:       storage,
 		GatewayClient: gatewayClient,
@@ -796,7 +796,7 @@ func TestVMCPDeletesDeferCredentialCleanup(t *testing.T) {
 				Finalizers: []string{v1.VMCPFinalizer},
 			},
 			pathKey: "vmcp_id",
-			delete:  NewVMCPHandler(nil, "", "", nil).Delete,
+			delete:  NewVMCPHandler(nil, "", "").Delete,
 		},
 		{
 			name: "vMCP instance",
@@ -840,7 +840,7 @@ func TestVMCPHandlerDeleteRejectsCatalogSyncedVMCP(t *testing.T) {
 	storage := newVMCPTestStorage(vmcp)
 	request := httptest.NewRequest(http.MethodDelete, "/api/vmcps/"+vmcp.Name, nil)
 	request.SetPathValue("vmcp_id", vmcp.Name)
-	err := NewVMCPHandler(nil, "", "", nil).Delete(api.Context{Request: request, Storage: storage})
+	err := NewVMCPHandler(nil, "", "").Delete(api.Context{Request: request, Storage: storage})
 	var httpErr *types.ErrHTTP
 	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest || !strings.Contains(httpErr.Message, "cannot delete vMCP vmcp1synced synced from a catalog") {
 		t.Fatalf("expected 400 for catalog synced vMCP, got %v", err)
@@ -859,7 +859,7 @@ func TestVMCPHandlerDeleteMissingVMCPSucceeds(t *testing.T) {
 	storage := newVMCPTestStorage()
 	request := httptest.NewRequest(http.MethodDelete, "/api/vmcps/missing", nil)
 	request.SetPathValue("vmcp_id", "missing")
-	if err := NewVMCPHandler(nil, "", "", nil).Delete(api.Context{Request: request, Storage: storage}); err != nil {
+	if err := NewVMCPHandler(nil, "", "").Delete(api.Context{Request: request, Storage: storage}); err != nil {
 		t.Fatalf("expected deleting a missing vMCP to succeed, got %v", err)
 	}
 }
@@ -905,7 +905,7 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 	}
 	storage := newVMCPTestStorage(visible, hiddenShared, hiddenPersonal)
 	recorder := httptest.NewRecorder()
-	err := NewVMCPHandler(nil, "", "", nil).List(api.Context{
+	err := NewVMCPHandler(nil, "", "").List(api.Context{
 		ResponseWriter: recorder,
 		Request:        httptest.NewRequest(http.MethodGet, "/api/vmcps", nil),
 		Storage:        storage,
@@ -1114,7 +1114,7 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 				listURL += "?all=true"
 			}
 			recorder := httptest.NewRecorder()
-			if err := NewVMCPHandler(nil, "", "", nil).List(api.Context{
+			if err := NewVMCPHandler(nil, "", "").List(api.Context{
 				ResponseWriter: recorder,
 				Request:        httptest.NewRequest(http.MethodGet, listURL, nil),
 				Storage:        storage,
@@ -1134,7 +1134,7 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/api/vmcps/"+vmcp.Name, nil)
 			request.SetPathValue("vmcp_id", vmcp.Name)
 			recorder = httptest.NewRecorder()
-			if err := NewVMCPHandler(nil, "", "", nil).Get(api.Context{
+			if err := NewVMCPHandler(nil, "", "").Get(api.Context{
 				ResponseWriter: recorder,
 				Request:        request,
 				Storage:        storage,
@@ -1543,7 +1543,7 @@ func vmcpHandlerForTest(t *testing.T, storage kclient.Client) *VMCPHandler {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	return NewVMCPHandler(accesscontrolrule.NewAccessControlRuleHelper(indexer, storage), "", "", nil)
+	return NewVMCPHandler(accesscontrolrule.NewAccessControlRuleHelper(indexer, storage), "", "")
 }
 
 func TestVMCPComponentSnapshots(t *testing.T) {
@@ -2332,7 +2332,7 @@ func TestVMCPHandlerListMinimal(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
-			err := NewVMCPHandler(nil, "", "", nil).List(api.Context{
+			err := NewVMCPHandler(nil, "", "").List(api.Context{
 				ResponseWriter: recorder,
 				Request:        httptest.NewRequest(http.MethodGet, "/api/vmcps"+tc.query, nil),
 				Storage:        storage,

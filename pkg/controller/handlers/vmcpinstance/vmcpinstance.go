@@ -27,25 +27,14 @@ import (
 
 type Handler struct {
 	revealCredential func(context.Context, []string, string) (gatewaytypes.Credential, error)
-	upsertCredential func(context.Context, gatewaytypes.Credential) error
-	deleteCredential func(context.Context, string, string) (bool, error)
 	userInfo         func(context.Context, principal.Principal) (kuser.Info, error)
-	// profileConfiguration reads the profile configuration that agents' instances are given.
-	profileConfiguration agentConfigurationValues
-}
-
-type agentConfigurationValues interface {
-	AgentConfigurationValues(ctx context.Context, vmcpID string, configuration vmcpconfig.AgentConfiguration) (map[string]string, error)
 }
 
 func New(gatewayClient *gateway.Client) *Handler {
 	handler := &Handler{}
 	if gatewayClient != nil {
 		handler.revealCredential = gatewayClient.RevealCredential
-		handler.upsertCredential = gatewayClient.UpsertCredential
-		handler.deleteCredential = gatewayClient.DeleteCredential
 		handler.userInfo = gatewayClient.IdentityInfo
-		handler.profileConfiguration = vmcpconfig.NewProfileConfigurationStore(gatewayClient)
 	}
 	return handler
 }
@@ -201,14 +190,16 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 	if instance.Status.ConfigurationCheckHash == checkHash {
 		return nil
 	}
-	credential, err := h.revealCredential(req.Ctx,
-		[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)},
-		vmcpconfig.ConfigurationCredentialName(),
-	)
-	if err == nil {
-		configuration = userAllowedConfiguration(effective, credential.Secrets)
-	} else if !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return fmt.Errorf("reveal configuration credential for VMCP instance %q: %w", instance.Name, err)
+	if vmcpconfig.InstanceTakesUserConfiguration(*instance) {
+		credential, err := h.revealCredential(req.Ctx,
+			[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)},
+			vmcpconfig.ConfigurationCredentialName(),
+		)
+		if err == nil {
+			configuration = userAllowedConfiguration(effective, credential.Secrets)
+		} else if !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return fmt.Errorf("reveal configuration credential for VMCP instance %q: %w", instance.Name, err)
+		}
 	}
 
 	var missing []string

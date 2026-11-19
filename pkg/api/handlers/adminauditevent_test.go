@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
-	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -211,75 +210,6 @@ func TestAdminAuditEventsAPI(t *testing.T) {
 	}
 }
 
-// TestProfileConfigurationAuditNeverRecordsValues checks that setting and clearing a profile's configuration records
-// the keys and the revision, and leaves no trace of the values, which are known here, in the stored row.
-func TestProfileConfigurationAuditNeverRecordsValues(t *testing.T) {
-	vmcp := profileConfigurationTestVMCP()
-	storage := newProfileConfigurationTestStorage(vmcp)
-	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient))
-	handler.collectionTimeout = 50 * time.Millisecond
-	const (
-		secretRegion  = "sk-live-REGION-0123456789abcdef"
-		secretVerbose = "https://user:hunter2@internal.example.com/path?token=SECRETQUERY"
-	)
-
-	_, err := callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1seven", map[string]any{
-		"components": map[string]any{"api": map[string]any{"REGION": secretRegion, "VERBOSE": secretVerbose}},
-	})
-	require.NoError(t, err)
-	// Saving the same values again publishes no revision, and records nothing.
-	_, err = callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1seven", map[string]any{
-		"components": map[string]any{"api": map[string]any{"REGION": secretRegion, "VERBOSE": secretVerbose}},
-	})
-	require.NoError(t, err)
-	_, err = callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1seven", map[string]any{
-		"components": map[string]any{"api": map[string]any{"VERBOSE": nil}},
-	})
-	require.NoError(t, err)
-	// A request that is refused records nothing.
-	_, err = callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1seven", map[string]any{
-		"components": map[string]any{"api": map[string]any{"ADMIN_TOKEN": "sk-live-FIXED-0123456789"}},
-	})
-	requireHTTPStatus(t, err, http.StatusBadRequest)
-	_, err = callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPost, vmcp.Name, "vp1seven", nil)
-	require.NoError(t, err)
-	// Resetting what is already reset records nothing.
-	_, err = callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPost, vmcp.Name, "vp1seven", nil)
-	require.NoError(t, err)
-
-	events := storedAdminAuditEvents(t, gatewayClient)
-	require.Len(t, events, 3)
-	for _, event := range events {
-		require.Equal(t, "admin", event.ActorUserID)
-		require.Equal(t, "vmcpProfile", event.ResourceKind)
-		require.Equal(t, "vp1seven", event.ResourceID)
-		require.Equal(t, vmcp.Name, event.ParentID)
-	}
-	require.Equal(t, "vmcp.profile.configuration.update", events[0].Action)
-	require.Equal(t, "vmcp.profile.configuration.update", events[1].Action)
-	require.Equal(t, "vmcp.profile.configuration.reset", events[2].Action)
-
-	region, verbose := vmcpconfig.ConfigurationKey("api", "REGION"), vmcpconfig.ConfigurationKey("api", "VERBOSE")
-	first, second, reset := adminAuditEventDetails(t, events[0]), adminAuditEventDetails(t, events[1]), adminAuditEventDetails(t, events[2])
-	require.Equal(t, []any{region, verbose}, first["set"])
-	require.Equal(t, []any{verbose}, second["cleared"])
-	require.Equal(t, []any{region}, second["keys"])
-	require.NotEmpty(t, first["revision"])
-	require.NotEqual(t, first["revision"], second["revision"])
-	require.Equal(t, []any{region}, reset["cleared"])
-	require.Equal(t, second["revision"], reset["revision"])
-
-	// Nothing of any value is in any row, in any column.
-	for _, event := range events {
-		row, err := json.Marshal(event)
-		require.NoError(t, err)
-		for _, secret := range []string{secretRegion, secretVerbose, "hunter2", "SECRETQUERY", "internal.example.com", "0123456789", "sk-live"} {
-			require.NotContains(t, string(row), secret)
-		}
-	}
-}
-
 // TestSubjectChangesAreAudited checks that policies write an event only for the changes that add or remove agent
 // subjects, with the diff, on create, update and delete. The selector wildcard names no agent, so changing it records
 // nothing.
@@ -403,7 +333,7 @@ func TestSubjectChangesAreAudited(t *testing.T) {
 func TestProfileSubjectChangesAreAudited(t *testing.T) {
 	storageClient := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gateway := newHandlerTestGateway(t)
-	handler := NewVMCPHandler(nil, "", "", nil)
+	handler := NewVMCPHandler(nil, "", "")
 	named, err := gateway.CreateAgent(t.Context(), gt.Agent{DisplayName: "builder"})
 	require.NoError(t, err)
 	namedID := strconv.FormatUint(uint64(named.ID), 10)

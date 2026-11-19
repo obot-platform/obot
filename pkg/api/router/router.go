@@ -52,8 +52,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	})
 
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
-	oauthChecker.SetProfileOAuthGrants(services.VMCPProfileOAuthGrants)
-	vmcpProfileOAuth := handlers.NewVMCPProfileOAuthHandler(oauthChecker, services.VMCPProfileOAuthGrants)
+	oauthChecker.SetAgentOAuthGrants(services.VMCPAgentOAuthGrants)
+	vmcpAgentOAuth := handlers.NewVMCPAgentOAuthHandler(oauthChecker, services.VMCPAgentOAuthGrants)
 
 	mcpGateway, err := mcpgateway.NewHandler(
 		ctx,
@@ -88,8 +88,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.EntitlementProvider)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
 	agentIdentities := handlers.NewAgentIdentityHandler(services.MCPSessionManager)
-	vmcps := handlers.NewVMCPHandler(services.AccessControlRuleHelper, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel, services.VMCPProfileData)
-	vmcpProfileConfiguration := handlers.NewVMCPProfileConfigurationHandler(services.VMCPProfileConfiguration)
+	vmcps := handlers.NewVMCPHandler(services.AccessControlRuleHelper, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel)
 	vmcpInstances := handlers.NewVMCPInstanceHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
 	mdmAssetSources := handlers.NewMDMAssetSourceHandler()
@@ -229,8 +228,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/components/{component_id}/configuration-presence", vmcps.ConfigurationPresence)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/deconfigure", vmcps.Deconfigure)
 	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}", vmcps.Delete)
-	vmcpProfileConfiguration.RegisterRoutes(mux.HandleFunc)
-	vmcpProfileOAuth.RegisterRoutes(mux.HandleFunc)
+	vmcpAgentOAuth.RegisterRoutes(mux.HandleFunc)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews", mcpCatalogs.GenerateVMCPComponentToolPreviews)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateVMCPComponentToolPreviewsOAuthURL)
 

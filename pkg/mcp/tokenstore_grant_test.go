@@ -102,7 +102,7 @@ func newGrantTestGateway(t *testing.T) *gatewayclient.Client {
 	return gateway
 }
 
-// storeExpiredGrant stores a profile grant whose access token has expired, issued by endpoint.
+// storeExpiredGrant stores a vMCP agent OAuth grant whose access token has expired, issued by endpoint.
 func storeExpiredGrant(t *testing.T, gateway *gatewayclient.Client, owner, mcpID string, endpoint *rotatingTokenEndpoint) {
 	t.Helper()
 	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, grantTestURL, "grant-1", "1", &oauth2.Config{
@@ -197,13 +197,13 @@ func postgresGrantGateways(t *testing.T, n int) []*gatewayclient.Client {
 	return gateways
 }
 
-// TestSharedGrantRefreshesOnce checks that many agents whose shared profile grant expired at once refresh it once:
+// TestSharedGrantRefreshesOnce checks that many agents whose shared vMCP grant expired at once refresh it once:
 // every caller but the first finds the token the first stored, rather than refreshing a refresh token the provider
 // has already rotated, which would fail and invalidate the grant for everyone.
 func TestSharedGrantRefreshesOnce(t *testing.T) {
 	gateway := newGrantTestGateway(t)
 	endpoint := newRotatingTokenEndpoint(t, "refresh-initial")
-	owner, mcpID := principal.ProfileGrant("vmcp1test", "vp1agents"), "vmcp1test/component"
+	owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
 	storeExpiredGrant(t, gateway, owner, mcpID, endpoint)
 
 	results := refreshConcurrently(t, []*gatewayclient.Client{gateway}, owner, mcpID, 20)
@@ -231,7 +231,7 @@ func TestSharedGrantRefreshesOnceAcrossPostgresReplicas(t *testing.T) {
 	first, second := replicas[0], replicas[1]
 
 	endpoint := newRotatingTokenEndpoint(t, "refresh-initial")
-	owner, mcpID := principal.ProfileGrant("vmcp1test", "vp1agents"), "vmcp1test/component"
+	owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
 	storeExpiredGrant(t, first, owner, mcpID, endpoint)
 
 	results := refreshConcurrently(t, []*gatewayclient.Client{first, second}, owner, mcpID, 10)
@@ -281,7 +281,7 @@ func TestSharedGrantRefreshFailures(t *testing.T) {
 				gateway = postgresGrantGateways(t, 1)[0]
 			}
 			endpoint := newRotatingTokenEndpoint(t, "refresh-initial")
-			owner, mcpID := principal.ProfileGrant("vmcp1test", "vp1agents"), "vmcp1test/component"
+			owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
 			storeExpiredGrant(t, gateway, owner, mcpID, endpoint)
 			if tt.refresh != "" {
 				endpoint.lock.Lock()
@@ -322,7 +322,7 @@ func TestSharedGrantRefreshFailures(t *testing.T) {
 func TestSharedGrantTargetBinding(t *testing.T) {
 	gateway := newGrantTestGateway(t)
 	endpoint := newRotatingTokenEndpoint(t, "refresh-initial")
-	owner, mcpID := principal.ProfileGrant("vmcp1test", "vp1agents"), "vmcp1test/component"
+	owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
 	storeExpiredGrant(t, gateway, owner, mcpID, endpoint)
 	store := NewGlobalTokenStore(gateway)
 
@@ -340,11 +340,12 @@ func TestSharedGrantTargetBinding(t *testing.T) {
 func TestSharedGrantRefreshesOfManyGrantsKeepThePool(t *testing.T) {
 	gateway := postgresGrantGateways(t, 1)[0]
 	endpoints := make([]*rotatingTokenEndpoint, 8)
-	owners := make([]string, len(endpoints))
+	owner := principal.AgentOAuthGrantOwner("vmcp1test")
+	mcpIDs := make([]string, len(endpoints))
 	for i := range endpoints {
 		endpoints[i] = newRotatingTokenEndpoint(t, "refresh-initial")
-		owners[i] = principal.ProfileGrant("vmcp1test", "vp1profile"+string('a'+rune(i)))
-		storeExpiredGrant(t, gateway, owners[i], "vmcp1test/component", endpoints[i])
+		mcpIDs[i] = "vmcp1test/component-" + string('a'+rune(i))
+		storeExpiredGrant(t, gateway, owner, mcpIDs[i], endpoints[i])
 	}
 	store := NewGlobalTokenStore(gateway)
 	ctx, cancel := context.WithTimeout(endpointContext(t), 30*time.Second)
@@ -357,7 +358,7 @@ func TestSharedGrantRefreshesOfManyGrantsKeepThePool(t *testing.T) {
 	for i := range endpoints {
 		for range 3 {
 			wait.Go(func() {
-				source, err := store.ForUserAndMCP(owners[i], "vmcp1test/component", grantTestURL).TokenSource(ctx)
+				source, err := store.ForUserAndMCP(owner, mcpIDs[i], grantTestURL).TokenSource(ctx)
 				if err == nil {
 					_, err = source.Token()
 				}

@@ -95,8 +95,9 @@ type wireCaller struct {
 }
 
 // wireFixture is a shared vMCP whose one component is a shared remote server that takes a user-supplied X-Token
-// header, with a profile for agent 7, one for agent 8 and one for every user. Agent 7, agent 8 and user 7 are each
-// connected, and each connection carries its own X-Token value.
+// header, with a profile for agent 7, one for agent 8 and one for every user, and the vMCP's one agent OAuth grant for
+// the component, which both agents use. Agent 7, agent 8 and user 7 are each connected, and each connection carries
+// its own X-Token value.
 //
 // It serves the whole path a caller's MCP request takes, each hop over HTTP: an outer gateway that resolves the
 // caller's vMCP configuration with the session manager and mints its composite loopback token; the composite
@@ -259,7 +260,7 @@ func wireLoopbackCaller(claims *persistent.TokenContext) user.Info {
 
 func newWireFixture(t *testing.T) *wireFixture {
 	t.Helper()
-	upstream := newWireUpstream(t, "seven-grant", "eight-grant", "user-seven-own")
+	upstream := newWireUpstream(t, "vmcp-grant", "user-seven-own")
 	component := types.VMCPComponent{
 		ID:            wireComponent,
 		Name:          "one",
@@ -267,7 +268,8 @@ func newWireFixture(t *testing.T) *wireFixture {
 		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
 			Runtime:      types.RuntimeRemote,
 			RemoteConfig: &types.RemoteCatalogConfig{FixedURL: upstream.server.URL},
-			Config:       []types.MCPConfig{{Key: wireHeader, Required: true, Usage: types.Header}},
+			// Optional, so that agents, which are never given a value a user would enter, can use the component.
+			Config: []types.MCPConfig{{Key: wireHeader, Usage: types.Header}},
 		}},
 	}
 	profile := func(id string, subject types.Subject) types.VMCPProfile {
@@ -302,16 +304,14 @@ func newWireFixture(t *testing.T) *wireFixture {
 			outer: gatewayclient.AgentUserInfo(&gatewaytypes.Agent{ID: 7}, []string{types.GroupMCP, types.GroupAuthenticated}, map[string][]string{
 				"authorized_mcp_ids": {"*"},
 			}),
-			token:  "agent-seven-value",
-			bearer: "seven-grant",
+			bearer: "vmcp-grant",
 		},
 		{
 			name: "agent 8",
 			outer: gatewayclient.AgentUserInfo(&gatewaytypes.Agent{ID: 8}, []string{types.GroupMCP, types.GroupAuthenticated}, map[string][]string{
 				"authorized_mcp_ids": {"*"},
 			}),
-			token:  "agent-eight-value",
-			bearer: "eight-grant",
+			bearer: "vmcp-grant",
 		},
 		{
 			// The user with agent 7's numeric ID.
@@ -362,23 +362,10 @@ func newWireFixture(t *testing.T) *wireFixture {
 
 	gateway, db := newHeadlessTestGatewayClient(t)
 
-	// An administrator configures the header for each agent's profile.
-	configurations := vmcpaccess.NewProfileConfigurationStore(gateway)
-	for _, profile := range []struct{ id, value string }{{id: "vp1seven", value: callers[0].token}, {id: "vp1eight", value: callers[1].token}} {
-		_, err := configurations.Update(t.Context(), storageClient, kclient.ObjectKeyFromObject(vmcp), profile.id, map[string]map[string]*string{wireComponent: {wireHeader: new(profile.value)}})
-		require.NoError(t, err)
-	}
-	require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), vmcp))
 	for _, caller := range callers {
-		// What the VMCPInstance controller records once it has synchronized the instance, including, for an agent, its
-		// profiles' current configuration.
+		// What the VMCPInstance controller records once it has synchronized the instance.
 		var instance v1.VMCPInstance
 		require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: caller.instance}, &instance))
-		if principal.IsAgent(caller.outer) {
-			configuration := vmcpaccess.ResolveAgentConfiguration(*vmcp, instance, caller.outer)
-			instance.Status.AgentConfigurationRevision = configuration.Revision
-			instance.Status.AgentConfigurationRevisions = configuration.Revisions
-		}
 		instance.Status.ConfigurationCheckHash = vmcpaccess.ConfigurationCheckHash(vmcpaccess.EnabledComponents(caller.outer, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, instance)), "")
 		require.NoError(t, storageClient.Update(t.Context(), &instance))
 		// What the MCPServerInstance controller records once it has copied the connection's configuration.
@@ -389,21 +376,23 @@ func newWireFixture(t *testing.T) *wireFixture {
 	}
 	for _, caller := range callers {
 		owner, _ := principal.CallerOwner(caller.outer)
-		// What the MCPServerInstance controller copies from the instance's configuration, which for an agent comes from
-		// its profiles and for a user from the user's own entries (SyncVMCPConfiguration).
+		// What the MCPServerInstance controller copies from the instance's configuration (SyncVMCPConfiguration): a
+		// user's own entries, and nothing for an agent, which is never given a value a user would enter.
+		secrets := map[string]string{}
+		if caller.token != "" {
+			secrets[wireHeader] = caller.token
+		}
 		require.NoError(t, gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
 			Context: owner + "-" + caller.connection,
 			Name:    caller.connection,
-			Secrets: map[string]string{wireHeader: caller.token},
+			Secrets: secrets,
 		}))
 	}
-	// The grants an administrator authorized for the agents' profiles, and the user's own token for the user's
-	// connection.
+	// The grant an administrator authorized once on the vMCP for the component, which every agent granted the component
+	// uses, and the user's own token for the user's connection.
 	conf := &oauth2.Config{ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: "https://provider.test/token"}}
-	for _, grant := range []struct{ profile, token string }{{profile: "vp1seven", token: "seven-grant"}, {profile: "vp1eight", token: "eight-grant"}} {
-		require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), principal.ProfileGrant(vmcp.Name, grant.profile), vmcpaccess.ProfileOAuthGrantMCPID(vmcp.Name, wireComponent), upstream.server.URL, "grant-"+grant.profile, "1",
-			conf, &oauth2.Token{AccessToken: grant.token, TokenType: "Bearer", Expiry: time.Now().Add(time.Hour)}))
-	}
+	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), principal.AgentOAuthGrantOwner(vmcp.Name), vmcpaccess.AgentOAuthGrantMCPID(vmcp.Name, wireComponent), upstream.server.URL, "grant-vmcp", "1",
+		conf, &oauth2.Token{AccessToken: "vmcp-grant", TokenType: "Bearer", Expiry: time.Now().Add(time.Hour)}))
 	require.NoError(t, gateway.ReplaceMCPOAuthToken(t.Context(), "7", callers[2].connection, upstream.server.URL, "", conf,
 		&oauth2.Token{AccessToken: "user-seven-own", TokenType: "Bearer", Expiry: time.Now().Add(time.Hour)}))
 
@@ -451,8 +440,8 @@ func newWireFixture(t *testing.T) *wireFixture {
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 		&rest.Config{Host: "http://kubernetes.invalid"}, cluster, cluster, storageClient, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)
-	grants := vmcpaccess.NewProfileOAuthGrantStore(gateway)
-	manager.SetProfileOAuthGrants(grants)
+	grants := vmcpaccess.NewAgentOAuthGrantStore(gateway)
+	manager.SetAgentOAuthGrants(grants)
 	handler = &Handler{ctx: t.Context(), mcpSessionManager: manager, globalTokenStore: globalTokens, auditLogCollector: new(recordingProxyAuditCollector)}
 
 	composite, err := mmmcp.New(t.Context(), &mmmcpconfig.Config{}, mmmcp.Options{
@@ -631,9 +620,11 @@ func (f *wireFixture) challenges(t *testing.T) []gatewaytypes.MCPOAuthChallenge 
 }
 
 // TestSharedComponentHeadersOnTheWire runs agents and a user through the whole vMCP path at once, each over its own
-// stateful MCP session, to a shared component whose only user-supplied input is a header. The upstream must see each
-// caller's header value, and the OAuth token selected for it, only on that caller's requests: each agent's value with
-// its own profile's grant, and the value of user 7, whose numeric ID is agent 7's, with the user's own token. Every request the upstream receives carries exactly one caller's pair.
+// stateful MCP session, to a shared component whose only user-supplied input is an optional header. The upstream must
+// see each caller's header value, and the OAuth token selected for it, only on that caller's requests: no value with
+// the vMCP's one agent OAuth grant for both agents, since agents are never given a value a user would enter, and the
+// value of user 7, whose numeric ID is agent 7's, with the user's own token. Every request the upstream receives
+// carries exactly one caller's pair.
 func TestSharedComponentHeadersOnTheWire(t *testing.T) {
 	f := newWireFixture(t)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
@@ -687,9 +678,9 @@ func TestSharedComponentHeadersOnTheWire(t *testing.T) {
 }
 
 // TestAgentMidSessionUpstreamRefusal checks what an agent with a working session gets when the upstream starts
-// refusing its profile's grant: with a 401 challenge, and then with an insufficient_scope challenge. Each time the
-// agent's request is answered with a 409 that names the component's grant, in the profile that holds it, as invalid,
-// without a challenge header, and no MCP OAuth challenge or pending authorization is stored. A user on the same
+// refusing the vMCP's grant: with a 401 challenge, and then with an insufficient_scope challenge. Each time the agent's
+// request is answered with a 409 that names the component's grant as invalid, with no profile, since the fix is on the
+// vMCP, without a challenge header, and no MCP OAuth challenge or pending authorization is stored. A user on the same
 // component, in the same situation, is challenged, and the challenge is stored for the user's connection.
 func TestAgentMidSessionUpstreamRefusal(t *testing.T) {
 	f := newWireFixture(t)
@@ -702,11 +693,11 @@ func TestAgentMidSessionUpstreamRefusal(t *testing.T) {
 		{status: http.StatusForbidden, challenge: `Bearer error="insufficient_scope", scope="write", resource_metadata="https://provider.test/metadata"`},
 	} {
 		t.Run(strconv.Itoa(refusal.status), func(t *testing.T) {
-			// A working session: the agent's request reaches the upstream with its profile's grant.
+			// A working session: the agent's request reaches the upstream with the vMCP's grant.
 			session, responses := f.connect(t, agent)
 			seen, err := whoami(ctx, session)
 			require.NoError(t, err)
-			require.Equal(t, "Bearer seven-grant", seen["authorization"])
+			require.Equal(t, "Bearer vmcp-grant", seen["authorization"])
 			require.Equal(t, agent.token, seen["token"])
 			f.upstream.requests()
 			before := responses.count()
@@ -722,13 +713,13 @@ func TestAgentMidSessionUpstreamRefusal(t *testing.T) {
 			require.NotContains(t, last.body, "private provider error")
 			require.Equal(t, vmcpaccess.AgentReadinessFailure{
 				Error:   vmcpaccess.AgentOAuthRequiredError,
-				Reasons: []vmcpaccess.ReadinessReason{{ComponentID: wireComponent, Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1seven"}},
+				Reasons: []vmcpaccess.ReadinessReason{{ComponentID: wireComponent, Code: types.AgentReadinessOAuthInvalid}},
 			}, readAgentFailure(t, strings.NewReader(last.body)))
-			// The refused request reached the upstream with the agent's profile's grant, never another profile's.
+			// The refused request reached the upstream with the vMCP's grant, never with another token.
 			requests := f.upstream.requests()
 			require.NotEmpty(t, requests)
 			for _, request := range requests {
-				require.Equal(t, "Bearer seven-grant", request.authorization)
+				require.Equal(t, "Bearer vmcp-grant", request.authorization)
 			}
 			requireNoOAuthState(t, f.db)
 		})
@@ -738,8 +729,8 @@ func TestAgentMidSessionUpstreamRefusal(t *testing.T) {
 	session, _ := f.connect(t, agent)
 	seen, err := whoami(ctx, session)
 	require.NoError(t, err)
-	require.Equal(t, "Bearer seven-grant", seen["authorization"])
-	stored, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(wireVMCP, "vp1seven"), vmcpaccess.ProfileOAuthGrantMCPID(wireVMCP, wireComponent), f.upstream.server.URL)
+	require.Equal(t, "Bearer vmcp-grant", seen["authorization"])
+	stored, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.AgentOAuthGrantOwner(wireVMCP), vmcpaccess.AgentOAuthGrantMCPID(wireVMCP, wireComponent), f.upstream.server.URL)
 	require.NoError(t, err)
 	require.Nil(t, stored.InvalidatedAt)
 

@@ -75,7 +75,7 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 		return fmt.Errorf("reveal static configuration for VMCP %q: %w", vmcp.Name, err)
 	}
 	var userConfiguration map[string]string
-	if !shared {
+	if !shared && vmcpconfig.InstanceTakesUserConfiguration(instance) {
 		userConfiguration, err = h.revealVMCPConfiguration(
 			req,
 			vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),

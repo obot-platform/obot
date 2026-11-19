@@ -9,6 +9,7 @@
 	import CreateVMcpButton from '$lib/components/vmcps/CreateVMcpButton.svelte';
 	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
 	import VMcpActions from '$lib/components/vmcps/VMcpActions.svelte';
+	import VMcpAgentSetup from '$lib/components/vmcps/VMcpAgentSetup.svelte';
 	import VMcpCatalogSyncedIndicator from '$lib/components/vmcps/VMcpCatalogSyncedIndicator.svelte';
 	import VMcpCreationHint from '$lib/components/vmcps/VMcpCreationHint.svelte';
 	import VMcpDragOverlay from '$lib/components/vmcps/VMcpDragOverlay.svelte';
@@ -66,6 +67,8 @@
 		vmcpInstances
 	} from '$lib/stores';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { AGENT_SETUP_VIEW } from '$lib/vmcpAgentSetupLinks';
+	import { vmcpNamesAgent } from '$lib/vmcpProfileSubjects';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -91,7 +94,12 @@
 	}: Props = $props();
 
 	let view = $derived(
-		(page.url.searchParams.get('view') as 'graph' | 'profiles' | 'inspector' | undefined) ?? 'graph'
+		(page.url.searchParams.get('view') as
+			| 'graph'
+			| 'profiles'
+			| typeof AGENT_SETUP_VIEW
+			| 'inspector'
+			| undefined) ?? 'graph'
 	);
 	let showRightPanel = $state(responsive.isMobile ? false : true);
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
@@ -159,12 +167,25 @@
 		)
 	);
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
+	// Agent setup is the vMCP's, for the components that profiles naming an agent grant. Only an
+	// administrator authorizes OAuth for agents, and only once a saved profile names an agent. It is
+	// kept outside the manifest, so it stays available on a catalog-synced vMCP.
+	let canAccessAgentSetup = $derived(
+		Boolean(
+			selectedVMcp?.id &&
+			!selectedVMcp.userID &&
+			profile.current.isAdmin?.() &&
+			vmcpNamesAgent(selectedVMcp.profiles)
+		)
+	);
 	let hasEntries = $derived(mcpServersAndEntries.current.entries.length > 0);
 	let canEdit = $derived(
 		!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp.userID
 	);
 	let viewType = $derived(
-		(view === 'profiles' && !canAccessProfiles) || (view === 'inspector' && !canAccessTester)
+		(view === 'profiles' && !canAccessProfiles) ||
+			(view === AGENT_SETUP_VIEW && !canAccessAgentSetup) ||
+			(view === 'inspector' && !canAccessTester)
 			? 'graph'
 			: view
 	);
@@ -644,6 +665,12 @@
 		setUrlParamAndUpdateUrl(page.url, 'query', value);
 	};
 
+	// The administrator who authorized a grant, by the name the directory has for them.
+	function adminName(id: string) {
+		const user = usersMap.get(id);
+		return user ? (user.displayName ?? user.email ?? user.username ?? user.id) : undefined;
+	}
+
 	function handleBack() {
 		if (profilesPanel?.leaveEditor()) return;
 		if (onBack) {
@@ -714,8 +741,13 @@
 					selectedVMcp = updated;
 				}}
 				readonly={!canEdit || isCatalogSyncedVMcp(selectedVMcp)}
-				agentSetup={Boolean(profile.current.isAdmin?.())}
 			/>
+		{:else if viewType === AGENT_SETUP_VIEW}
+			{#if selectedVMcp}
+				<div class="mx-auto w-full max-w-4xl p-3 pt-0">
+					<VMcpAgentSetup vmcp={selectedVMcp} userName={adminName} />
+				</div>
+			{/if}
 		{:else if viewType === 'inspector'}
 			{#if selectedVMcp}
 				<div class="flex h-full min-h-0 flex-col p-3 pt-14">
@@ -843,7 +875,12 @@
 </Layout>
 
 {#snippet toggleSubview()}
-	<div class={twMerge('p-2 w-fit', viewType !== 'profiles' && 'absolute z-40 top-0 left-0')}>
+	<div
+		class={twMerge(
+			'p-2 w-fit',
+			viewType !== 'profiles' && viewType !== AGENT_SETUP_VIEW && 'absolute z-40 top-0 left-0'
+		)}
+	>
 		<div class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300">
 			<button
 				class={twMerge(
@@ -866,6 +903,19 @@
 					}}
 				>
 					{m.vmcps_profiles()}
+				</button>
+			{/if}
+			{#if canAccessAgentSetup}
+				<button
+					class={twMerge(
+						'tab text-xs min-w-24',
+						viewType === AGENT_SETUP_VIEW && 'tab-active bg-base-300 dark:bg-base-100'
+					)}
+					onclick={() => {
+						setUrlParamAndUpdateUrl(page.url, 'view', AGENT_SETUP_VIEW);
+					}}
+				>
+					{m.vmcps_agent_setup_title()}
 				</button>
 			{/if}
 			{#if canAccessTester}

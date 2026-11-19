@@ -18,16 +18,13 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// noGrants is a gateway whose vMCP profiles hold no OAuth grant.
+// noGrants is a gateway in which no vMCP holds an agent OAuth grant.
 type noGrants struct{}
 
 func (noGrants) MCPOAuthGrantMetadata(context.Context, []string, []string) ([]gatewaytypes.MCPOAuthGrantMetadata, error) {
-	return nil, nil
-}
-
-func (noGrants) MCPOAuthGrantOwners(context.Context, []string) ([]string, error) {
 	return nil, nil
 }
 
@@ -35,15 +32,15 @@ func (noGrants) DeleteMCPOAuthGrants(context.Context, string, string, []string) 
 	return nil
 }
 
-func (noGrants) DeleteMCPOAuthGrantsForOwners(context.Context, []string) error {
+func (noGrants) DeleteMCPOAuthGrantsForOwner(context.Context, string) error {
 	return nil
 }
 
-// newAgentTestManager returns a session manager that connects to vMCPs stored in storageClient, whose profiles hold no
+// newAgentTestManager returns a session manager that connects to vMCPs stored in storageClient, which hold no agent
 // OAuth grant.
 func newAgentTestManager(storageClient storage.Client) *SessionManager {
 	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
-	manager.SetProfileOAuthGrants(vmcpaccess.NewProfileOAuthGrantStore(noGrants{}))
+	manager.SetAgentOAuthGrants(vmcpaccess.NewAgentOAuthGrantStore(noGrants{}))
 	return manager
 }
 
@@ -272,8 +269,9 @@ func TestVMCPConnectionsAreIsolatedPerPrincipal(t *testing.T) {
 }
 
 // TestAgentConnectRefusedUntilReady checks that an agent is refused, with the reasons, when a component enabled for
-// it needs setup that its profile does not give it, while a user still connects to the same vMCP through the profile
-// that names every user, which never applies to the agent.
+// it needs setup that the vMCP does not give it, while a user still connects to the same vMCP through the profile that
+// names every user, which never applies to the agent. The reasons name the component, and no profile: every fix is on
+// the vMCP.
 func TestAgentConnectRefusedUntilReady(t *testing.T) {
 	profiles := []types.VMCPProfile{
 		{
@@ -304,7 +302,6 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 				ComponentID: "one",
 				Code:        types.AgentReadinessConfigurationRequired,
 				Field:       "X-Token",
-				ProfileID:   "vp1agent",
 			}},
 		},
 		{
@@ -317,7 +314,6 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			wantReasons: []vmcpaccess.ReadinessReason{{
 				ComponentID: "one",
 				Code:        types.AgentReadinessOAuthRequired,
-				ProfileID:   "vp1agent",
 			}},
 		},
 	} {
@@ -351,6 +347,72 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 				t.Fatalf("user connection = %#v, want the component, attributed to the profile for every user", cfg)
 			}
 		})
+	}
+}
+
+// TestAgentConnectNeedsValuesFixedForEveryone checks that a component needing a value a user would enter keeps an agent
+// out, naming the component, until the vMCP fixes the value for everyone; and that an optional one never does.
+func TestAgentConnectNeedsValuesFixedForEveryone(t *testing.T) {
+	vmcp, shared := sharedComponentVMCP("vmcp1values", types.VMCPProfile{
+		ID:          "vp1agent",
+		Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "5"}},
+		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+	})
+	component := &vmcp.Spec.Manifest.Components[0]
+	component.CatalogEntry.Manifest.Config = []types.MCPConfig{
+		{Key: "X-Region", Usage: types.Header, Required: true},
+		{Key: "X-Verbose", Usage: types.Header},
+	}
+	component.Configuration = []types.VMCPConfigurationPolicy{
+		{Key: "X-Region", Policy: types.VMCPConfigurationPolicyUserAllowed},
+		{Key: "X-Verbose", Policy: types.VMCPConfigurationPolicyUserAllowed},
+	}
+	storageClient := newVMCPTestStorage(vmcp, shared)
+	runVMCPInstanceController(t, storageClient, vmcp.DeepCopy())
+	manager := newAgentTestManager(storageClient)
+
+	_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, asAgent(5, 11))
+	notReady, ok := errors.AsType[*vmcpaccess.AgentNotReadyError](err)
+	if !ok {
+		t.Fatalf("agent connect error = %v, want an AgentNotReadyError", err)
+	}
+	want := []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessConfigurationRequired, Field: "X-Region"}}
+	if failure := notReady.Failure(); failure.Error != vmcpaccess.AgentConfigurationRequiredError || !slices.Equal(failure.Reasons, want) {
+		t.Fatalf("failure = %#v, want %q with %#v", failure, vmcpaccess.AgentConfigurationRequiredError, want)
+	}
+
+	// The vMCP fixes the required value; the optional one stays a user's, and agents go without it.
+	var current v1.VMCP
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &current); err != nil {
+		t.Fatal(err)
+	}
+	current.Spec.Manifest.Components[0].Configuration[0].Policy = types.VMCPConfigurationPolicyFixed
+	if err := storageClient.Update(t.Context(), &current); err != nil {
+		t.Fatal(err)
+	}
+	var instances v1.VMCPInstanceList
+	if err := storageClient.List(t.Context(), &instances); err != nil {
+		t.Fatal(err)
+	}
+	if len(instances.Items) != 1 {
+		t.Fatalf("instances = %#v, want the agent's", instances.Items)
+	}
+	syncedVMCPInstanceForUser(&instances.Items[0], &current, asAgent(5, 0))
+	if err := storageClient.Update(t.Context(), &instances.Items[0]); err != nil {
+		t.Fatal(err)
+	}
+	// The MCPServerInstance controller resynchronizes the agent's connection for the component's new policies.
+	var connection v1.MCPServerInstance
+	if err := storageClient.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "msi1" + instances.Items[0].Name + "-one"}, &connection); err != nil {
+		t.Fatal(err)
+	}
+	connection.Spec.Config = vmcpaccess.ConnectionConfiguration(current.Spec.Manifest.Components[0])
+	connection.Status.VMCPConfigurationHash = vmcpaccess.ConnectionConfigurationHash(connection.Spec.Config, instances.Items[0])
+	if err := storageClient.Update(t.Context(), &connection); err != nil {
+		t.Fatal(err)
+	}
+	if cfg := connectVMCP(t, manager, vmcp.Name, asAgent(5, 11)); len(cfg.Components) != 1 {
+		t.Fatalf("agent connection = %#v, want the component", cfg)
 	}
 }
 
@@ -406,4 +468,111 @@ func TestSelectorWildcardProfileNeverAppliesToAgents(t *testing.T) {
 	if len(unnamed.Components) != 0 || unnamed.AuditLogMetadata[AuditLogProfiles] != "" {
 		t.Fatalf("unnamed agent connection = %#v, want no component and no profile", unnamed)
 	}
+}
+
+// TestAgentInSeveralProfilesGetsTheirUnion checks that an agent named by two profiles of a vMCP is granted the union of
+// what they grant, as a user is: the components of both, and the tools of both on a component they share; that its
+// calls are attributed to every profile that names it; that an agent named by only one of them gets only that one's;
+// and that removing the agent from one profile takes away only what that profile alone granted.
+func TestAgentInSeveralProfilesGetsTheirUnion(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1union",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+			DisplayName: "Union",
+			Components:  []types.VMCPComponent{{ID: "one", Name: "one"}, {ID: "two", Name: "two"}},
+			Profiles: []types.VMCPProfile{
+				{
+					ID:       "vp1readers",
+					Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "5"}, {Type: types.SubjectTypeAgent, ID: "6"}},
+					Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
+						"one": {AllowedTools: []string{"read"}},
+					}},
+				},
+				{
+					ID:       "vp1writers",
+					Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "5"}},
+					Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
+						"one": {AllowedTools: []string{"write"}},
+						"two": {AllowedTools: []string{"deploy"}},
+					}},
+				},
+			},
+		}},
+	}
+	sharedOne := vmcpComponentServer("ms1shared-one", "", "", "one", "one", "https://one.example.com/mcp")
+	sharedOne.Spec.VMCPID = vmcp.Name
+	sharedTwo := vmcpComponentServer("ms1shared-two", "", "", "two", "two", "https://two.example.com/mcp")
+	sharedTwo.Spec.VMCPID = vmcp.Name
+	storageClient := newVMCPTestStorage(vmcp, sharedOne, sharedTwo)
+	runVMCPInstanceController(t, storageClient, vmcp.DeepCopy())
+	manager := newAgentTestManager(storageClient)
+
+	toolsByComponent := func(cfg ServerConfig) map[string][]string {
+		tools := map[string][]string{}
+		for _, component := range cfg.Components {
+			for _, tool := range component.Tools {
+				tools[component.ComponentID] = append(tools[component.ComponentID], tool.Name)
+			}
+			slices.Sort(tools[component.ComponentID])
+		}
+		return tools
+	}
+
+	both := connectVMCP(t, manager, vmcp.Name, asAgent(5, 11))
+	if got, want := toolsByComponent(both), map[string][]string{"one": {"read", "write"}, "two": {"deploy"}}; !equalToolMaps(got, want) {
+		t.Fatalf("agent in both profiles: tools = %v, want %v", got, want)
+	}
+	if got := both.AuditLogMetadata[AuditLogProfiles]; got != "vp1readers,vp1writers" {
+		t.Fatalf("agent in both profiles: audit profiles = %q, want both profiles", got)
+	}
+	one := connectVMCP(t, manager, vmcp.Name, asAgent(6, 12))
+	if got, want := toolsByComponent(one), map[string][]string{"one": {"read"}}; !equalToolMaps(got, want) {
+		t.Fatalf("agent in one profile: tools = %v, want %v", got, want)
+	}
+	if got := one.AuditLogMetadata[AuditLogProfiles]; got != "vp1readers" {
+		t.Fatalf("agent in one profile: audit profiles = %q, want only its profile", got)
+	}
+
+	// Removing agent 5 from the writers' profile takes away only what that profile granted.
+	var current v1.VMCP
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &current); err != nil {
+		t.Fatal(err)
+	}
+	current.Spec.Manifest.Profiles[1].Subjects = []types.Subject{{Type: types.SubjectTypeAgent, ID: "999"}}
+	if err := storageClient.Update(t.Context(), &current); err != nil {
+		t.Fatal(err)
+	}
+	var instances v1.VMCPInstanceList
+	if err := storageClient.List(t.Context(), &instances); err != nil {
+		t.Fatal(err)
+	}
+	for i := range instances.Items {
+		if instances.Items[i].Spec.UserID != principal.Agent(5).String() {
+			continue
+		}
+		syncedVMCPInstanceForUser(&instances.Items[i], &current, asAgent(5, 0))
+		if err := storageClient.Update(t.Context(), &instances.Items[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	narrowed := connectVMCP(t, manager, vmcp.Name, asAgent(5, 11))
+	if got, want := toolsByComponent(narrowed), map[string][]string{"one": {"read"}}; !equalToolMaps(got, want) {
+		t.Fatalf("agent removed from one profile: tools = %v, want %v", got, want)
+	}
+	if got := narrowed.AuditLogMetadata[AuditLogProfiles]; got != "vp1readers" {
+		t.Fatalf("agent removed from one profile: audit profiles = %q, want only the profile that still names it", got)
+	}
+}
+
+func equalToolMaps(a, b map[string][]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for key, tools := range a {
+		if !slices.Equal(tools, b[key]) {
+			return false
+		}
+	}
+	return true
 }

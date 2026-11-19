@@ -753,3 +753,51 @@ func TestResolvedComponentURLTreatsFixedValuesAsAdminText(t *testing.T) {
 		t.Fatalf("resolvedComponentURL() = %q; want it rejected when the user sets the domain", url)
 	}
 }
+
+// TestSyncVMCPConfigurationGivesAgentsOnlyFixedValues checks that an agent's dedicated component server is given the
+// values the vMCP fixes and never a value a user would enter, even one stored for the agent's instance, which is never
+// read for an agent.
+func TestSyncVMCPConfigurationGivesAgentsOnlyFixedValues(t *testing.T) {
+	component := types.VMCPComponent{
+		ID:   "component-one",
+		Name: "one",
+		Configuration: []types.VMCPConfigurationPolicy{
+			{Key: "STATIC", Policy: types.VMCPConfigurationPolicyFixed},
+			{Key: "REGION", Policy: types.VMCPConfigurationPolicyUserAllowed},
+		},
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1agent", Namespace: "default", Spec: v1.VMCPSpec{
+		Manifest:                types.VMCPManifest{Components: []types.VMCPComponent{component}},
+		StaticConfigurationHash: "static-hash",
+	}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1agent", Namespace: "default", Spec: v1.VMCPInstanceSpec{
+		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+		UserID:   "agent:7",
+	}}
+	server := &v1.MCPServer{Name: "ms1agent", Namespace: "default", Spec: v1.MCPServerSpec{
+		UserID:          instance.Spec.UserID,
+		VMCPInstanceID:  instance.Name,
+		VMCPComponentID: component.ID,
+	}}
+	storageClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(&v1.MCPServer{}).WithObjects(vmcp, instance, server).Build()
+	require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), server))
+
+	gatewayClient := newTestGatewayClient(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+		Name:    vmcpconfig.ConfigurationCredentialName(),
+		Secrets: map[string]string{vmcpconfig.ConfigurationKey(component.ID, "STATIC"): "admin-value"},
+	}))
+	// What an earlier Obot copied to the agent's instance from its profile.
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+		Name:    vmcpconfig.ConfigurationCredentialName(),
+		Secrets: map[string]string{vmcpconfig.ConfigurationKey(component.ID, "REGION"): "stored-value"},
+	}))
+
+	handler := &Handler{gatewayClient: gatewayClient}
+	require.NoError(t, handler.SyncVMCPConfiguration(router.Request{Ctx: t.Context(), Client: storageClient, Object: server}, nil))
+	credential, err := gatewayClient.RevealCredential(t.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"STATIC": "admin-value"}, credential.Secrets)
+}

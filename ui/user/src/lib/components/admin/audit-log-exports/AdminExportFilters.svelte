@@ -48,12 +48,10 @@
 		'model_access_policy.subjects.update',
 		'skill_access_rule.subjects.update',
 		'vmcp.profile.subjects.update',
-		'vmcp.profile.configuration.update',
-		'vmcp.profile.configuration.reset',
-		'vmcp.profile.oauth.authorize',
-		'vmcp.profile.oauth.reset',
-		'vmcp.profile.oauth.invalidate',
-		'vmcp.profile.oauth.delete'
+		'vmcp.agent_oauth.authorize',
+		'vmcp.agent_oauth.revoke',
+		'vmcp.agent_oauth.invalidate',
+		'vmcp.agent_oauth.delete'
 	];
 
 	// The actor of the changes Obot makes itself, such as invalidating an OAuth grant.
@@ -78,6 +76,8 @@
 	const resourceKindOptions = [
 		{ id: 'agent', label: m.audit_usage_agent() },
 		{ id: 'apiKey', label: m.audit_usage_exports_admin_resource_kind_api_key() },
+		// A vMCP's agent OAuth grants are recorded against the vMCP, with the component in the details.
+		{ id: 'vmcp', label: m.audit_usage_exports_admin_resource_kind_vmcp() },
 		{ id: 'vmcpProfile', label: m.audit_usage_exports_admin_resource_kind_vmcp_profile() },
 		{
 			id: 'modelAccessPolicy',

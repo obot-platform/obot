@@ -433,8 +433,8 @@ func TestMCPValidateCatalogSupportsVMCPs(t *testing.T) {
 }
 
 // TestMCPValidateCatalogChecksVMCPAgentSubjects checks that validate-catalog accepts a catalog vMCP that names an agent
-// by ID, which it cannot check exists, since agent IDs belong to one deployment, and refuses the agent wildcard, an ID
-// that is not an agent's decimal ID, and an agent named by two profiles.
+// by ID, which it cannot check exists, since agent IDs belong to one deployment, in one profile or several, and refuses
+// the agent wildcard and an ID that is not an agent's decimal ID.
 func TestMCPValidateCatalogChecksVMCPAgentSubjects(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
@@ -468,6 +468,7 @@ func TestMCPValidateCatalogChecksVMCPAgentSubjects(t *testing.T) {
 			wantErr: "agent subject ID must be the decimal ID of an agent",
 		},
 		{
+			// An agent named by several profiles gets the union of their grants, as a user does.
 			name: "an agent named by two profiles",
 			profiles: `  - name: builder
     subjects:
@@ -476,7 +477,6 @@ func TestMCPValidateCatalogChecksVMCPAgentSubjects(t *testing.T) {
     subjects:
       - {type: agent, id: "7"}
 `,
-			wantErr: `agent "7" is named by profiles "builder" and "reviewer"`,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

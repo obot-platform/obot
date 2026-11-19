@@ -31,12 +31,11 @@ func TestWriteErrorWithReasons(t *testing.T) {
 		ComponentID: "github",
 		Code:        types.AgentReadinessConfigurationRequired,
 		Field:       "__url",
-		ProfileID:   "vp1agents",
 	}}))
 
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-	require.JSONEq(t, `{"error":"needs __url","reasons":[{"componentID":"github","code":"configuration_required","field":"__url","profileID":"vp1agents"}]}`, rec.Body.String())
+	require.JSONEq(t, `{"error":"needs __url","reasons":[{"componentID":"github","code":"configuration_required","field":"__url"}]}`, rec.Body.String())
 }
 
 func TestWriteErrorWithReasonsAlwaysHasReasonsList(t *testing.T) {

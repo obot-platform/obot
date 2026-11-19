@@ -155,13 +155,13 @@ func TestAdminAuditNeverRecordsKeySecrets(t *testing.T) {
 	}, adminAuditDetails(t, rows[0]))
 }
 
-// TestAdminAuditOfGrantInvalidation checks that a profile grant that is marked invalid is recorded as the system's
-// change, once, and that a grant that is already invalid, replaced or gone is not.
+// TestAdminAuditOfGrantInvalidation checks that a vMCP's agent OAuth grant that is marked invalid is recorded as the
+// system's change, against the vMCP, once, and that a grant that is already invalid, replaced or gone is not.
 func TestAdminAuditOfGrantInvalidation(t *testing.T) {
 	for _, database := range grantTestDatabases() {
 		t.Run(database.name, func(t *testing.T) {
 			c := database.open(t)
-			owner, mcpID := principal.ProfileGrant("vmcp1test", "vp1agents"), "vmcp1test/component"
+			owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
 			conf := &oauth2.Config{ClientID: "client"}
 			require.NoError(t, c.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, grantTestURL, "grant-1", "1", conf, &oauth2.Token{AccessToken: "a"}))
 
@@ -172,10 +172,10 @@ func TestAdminAuditOfGrantInvalidation(t *testing.T) {
 			events := adminAuditEvents(t, c)
 			require.Len(t, events, 1)
 			require.Equal(t, types.AdminAuditActorSystem, events[0].ActorUserID)
-			require.Equal(t, "vmcp.profile.oauth.invalidate", events[0].Action)
-			require.Equal(t, "vmcpProfile", events[0].ResourceKind)
-			require.Equal(t, "vp1agents", events[0].ResourceID)
-			require.Equal(t, "vmcp1test", events[0].ParentID)
+			require.Equal(t, "vmcp.agent_oauth.invalidate", events[0].Action)
+			require.Equal(t, "vmcp", events[0].ResourceKind)
+			require.Equal(t, "vmcp1test", events[0].ResourceID)
+			require.Empty(t, events[0].ParentID)
 			require.Equal(t, map[string]any{
 				"componentID": "component",
 				"grantID":     "grant-1",
@@ -211,7 +211,7 @@ func TestListAdminAuditEvents(t *testing.T) {
 	}{
 		{"1", "agent.create", "agent", "7"},
 		{"2", "agent.key.create", "apiKey", "9"},
-		{"system", "vmcp.profile.oauth.invalidate", "vmcpProfile", "vp1"},
+		{"system", "vmcp.agent_oauth.invalidate", "vmcp", "vmcp1"},
 		{"1", "agent.delete", "agent", "7"},
 	} {
 		require.NoError(t, c.db.WithContext(t.Context()).Create(&types.AdminAuditEvent{
@@ -234,28 +234,28 @@ func TestListAdminAuditEvents(t *testing.T) {
 	}
 
 	got, total := actions(AdminAuditEventOptions{})
-	require.Equal(t, []string{"agent.delete", "vmcp.profile.oauth.invalidate", "agent.key.create", "agent.create"}, got)
+	require.Equal(t, []string{"agent.delete", "vmcp.agent_oauth.invalidate", "agent.key.create", "agent.create"}, got)
 	require.EqualValues(t, 4, total)
 	got, _ = actions(AdminAuditEventOptions{Oldest: true})
-	require.Equal(t, []string{"agent.create", "agent.key.create", "vmcp.profile.oauth.invalidate", "agent.delete"}, got)
+	require.Equal(t, []string{"agent.create", "agent.key.create", "vmcp.agent_oauth.invalidate", "agent.delete"}, got)
 
 	got, total = actions(AdminAuditEventOptions{ResourceKinds: []string{"agent"}, ResourceIDs: []string{"7"}})
 	require.Equal(t, []string{"agent.delete", "agent.create"}, got)
 	require.EqualValues(t, 2, total)
 	got, _ = actions(AdminAuditEventOptions{Actors: []string{"system"}})
-	require.Equal(t, []string{"vmcp.profile.oauth.invalidate"}, got)
+	require.Equal(t, []string{"vmcp.agent_oauth.invalidate"}, got)
 	got, _ = actions(AdminAuditEventOptions{Actors: []string{"2", "system"}})
-	require.Equal(t, []string{"vmcp.profile.oauth.invalidate", "agent.key.create"}, got)
+	require.Equal(t, []string{"vmcp.agent_oauth.invalidate", "agent.key.create"}, got)
 	got, _ = actions(AdminAuditEventOptions{Actions: []string{"agent.delete"}})
 	require.Equal(t, []string{"agent.delete"}, got)
 	got, _ = actions(AdminAuditEventOptions{Since: base.Add(time.Hour), Until: base.Add(3 * time.Hour)})
-	require.Equal(t, []string{"vmcp.profile.oauth.invalidate", "agent.key.create"}, got)
+	require.Equal(t, []string{"vmcp.agent_oauth.invalidate", "agent.key.create"}, got)
 	got, _ = actions(AdminAuditEventOptions{ResourceKinds: []string{"nothing"}})
 	require.Empty(t, got)
 
 	// Paging keeps the total of the filter.
 	got, total = actions(AdminAuditEventOptions{Limit: 2, Offset: 1})
-	require.Equal(t, []string{"vmcp.profile.oauth.invalidate", "agent.key.create"}, got)
+	require.Equal(t, []string{"vmcp.agent_oauth.invalidate", "agent.key.create"}, got)
 	require.EqualValues(t, 4, total)
 }
 

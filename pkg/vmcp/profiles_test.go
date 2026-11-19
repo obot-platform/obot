@@ -230,7 +230,7 @@ func TestInstanceGrant(t *testing.T) {
 }
 
 // TestMatchingProfiles checks which profiles name a caller: a user through their ID, the selector wildcard and their
-// groups, and an agent only through a subject that names it by ID. AgentProfile is the one profile that names an agent.
+// groups, and an agent only through subjects that name it by ID, in every profile that does.
 func TestMatchingProfiles(t *testing.T) {
 	profile := func(name string, s ...types.Subject) types.VMCPProfile {
 		return types.VMCPProfile{ID: "vp1" + name, Name: name, Subjects: s}
@@ -243,14 +243,14 @@ func TestMatchingProfiles(t *testing.T) {
 		profile("agent-5", types.Subject{Type: types.SubjectTypeAgent, ID: "5"}, types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
 		profile("team", types.Subject{Type: types.SubjectTypeGroup, ID: "team"}),
 		profile("admins", types.Subject{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}),
+		profile("agent-5-again", types.Subject{Type: types.SubjectTypeAgent, ID: "5"}),
 	}
 	groups := map[string][]string{"auth_provider_groups": {"team"}, "obot_groups": {types.GroupAdmin}}
 
 	for _, tt := range []struct {
-		name         string
-		u            kuser.Info
-		want         []string
-		agentProfile string
+		name string
+		u    kuser.Info
+		want []string
 	}{
 		{
 			name: "user 5 in groups matches every user, their ID and their groups",
@@ -258,10 +258,9 @@ func TestMatchingProfiles(t *testing.T) {
 			want: []string{"every-user", "user-5", "agent-5", "team", "admins"},
 		},
 		{
-			name:         "agent 5 matches only the profile that names it",
-			u:            agentInfo(5, groups),
-			want:         []string{"agent-5"},
-			agentProfile: "agent-5",
+			name: "agent 5 matches every profile that names it, and nothing else",
+			u:    agentInfo(5, groups),
+			want: []string{"agent-5", "agent-5-again"},
 		},
 		{
 			name: "agent 6 matches no profile",
@@ -284,13 +283,67 @@ func TestMatchingProfiles(t *testing.T) {
 			if !reflect.DeepEqual(names, tt.want) {
 				t.Fatalf("MatchingProfiles() = %v, want %v", names, tt.want)
 			}
-			got := AgentProfile(tt.u, types.VMCPManifest{Profiles: profiles})
-			switch {
-			case tt.agentProfile == "" && got != nil:
-				t.Fatalf("AgentProfile() = %q, want none", got.Name)
-			case tt.agentProfile != "" && (got == nil || got.Name != tt.agentProfile):
-				t.Fatalf("AgentProfile() = %v, want %q", got, tt.agentProfile)
-			}
 		})
+	}
+}
+
+// TestAgentInSeveralProfilesGetsTheUnion checks that an agent named by two profiles of a vMCP is granted the union of
+// their components and tools, as a user is, and that removing the agent from one profile takes away only what that
+// profile granted it.
+func TestAgentInSeveralProfilesGetsTheUnion(t *testing.T) {
+	agent := agentInfo(7, nil)
+	components := []types.VMCPComponent{{ID: "mail"}, {ID: "files"}, {ID: "calendar"}}
+	builders := types.VMCPProfile{
+		ID:       "vp1builders",
+		Name:     "builders",
+		Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}, {Type: types.SubjectTypeAgent, ID: "8"}},
+		Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
+			"mail":  {AllowedTools: []string{"send"}},
+			"files": {AllowedTools: []string{"read"}},
+		}},
+	}
+	reviewers := types.VMCPProfile{
+		ID:       "vp1reviewers",
+		Name:     "reviewers",
+		Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
+		Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
+			"files":    {AllowedTools: []string{"write"}},
+			"calendar": {AllowedTools: []string{"*"}},
+		}},
+	}
+	enabled := func(profiles ...types.VMCPProfile) []string {
+		t.Helper()
+		vmcp := v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: profiles}}}
+		ids := []string{}
+		for _, component := range EnabledComponents(agent, vmcp, slices.Clone(components)) {
+			ids = append(ids, component.ID)
+		}
+		return ids
+	}
+	tool := func(componentID, name string) types.VMCPToolReference {
+		return types.VMCPToolReference{ComponentID: componentID, Name: name}
+	}
+
+	if got := enabled(builders, reviewers); !reflect.DeepEqual(got, []string{"mail", "files", "calendar"}) {
+		t.Fatalf("components of an agent in two profiles = %v, want the union", got)
+	}
+	want := []types.VMCPToolReference{tool("calendar", "*"), tool("files", "read"), tool("files", "write"), tool("mail", "send")}
+	if got := AllowedTools(agent, []types.VMCPProfile{builders, reviewers}, nil); !reflect.DeepEqual(got, want) {
+		t.Fatalf("tools of an agent in two profiles = %v, want %v", got, want)
+	}
+
+	// Removing the agent from the reviewers profile keeps what builders grants it, and only that.
+	reviewers.Subjects = []types.Subject{{Type: types.SubjectTypeAgent, ID: "9"}}
+	if got := enabled(builders, reviewers); !reflect.DeepEqual(got, []string{"mail", "files"}) {
+		t.Fatalf("components after leaving one profile = %v, want the other profile's", got)
+	}
+	want = []types.VMCPToolReference{tool("files", "read"), tool("mail", "send")}
+	if got := AllowedTools(agent, []types.VMCPProfile{builders, reviewers}, nil); !reflect.DeepEqual(got, want) {
+		t.Fatalf("tools after leaving one profile = %v, want %v", got, want)
+	}
+
+	// Another agent named by only one of them gets only that profile's grants.
+	if got := EnabledComponents(agentInfo(8, nil), v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{builders, reviewers}}}}, slices.Clone(components)); len(got) != 2 {
+		t.Fatalf("components of agent 8 = %v, want only the builders profile's", got)
 	}
 }

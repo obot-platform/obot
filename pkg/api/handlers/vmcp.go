@@ -34,17 +34,13 @@ type VMCPHandler struct {
 	acrHelper                 *accesscontrolrule.Helper
 	mcpBackend                string
 	secretBindingAllowedLabel string
-	// profileData holds the data stored for profiles outside the manifest, which an update may not drop by replacing
-	// a profile (vmcpconfig.CheckReplacedProfiles).
-	profileData vmcpconfig.ProfileDataStore
 }
 
-func NewVMCPHandler(acrHelper *accesscontrolrule.Helper, mcpBackend, secretBindingAllowedLabel string, profileData vmcpconfig.ProfileDataStore) *VMCPHandler {
+func NewVMCPHandler(acrHelper *accesscontrolrule.Helper, mcpBackend, secretBindingAllowedLabel string) *VMCPHandler {
 	return &VMCPHandler{
 		acrHelper:                 acrHelper,
 		mcpBackend:                mcpBackend,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
-		profileData:               profileData,
 	}
 }
 
@@ -262,12 +258,6 @@ func (h *VMCPHandler) Update(req api.Context) error {
 
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
-	}
-	// Checked before ReconcileProfileIDs, which gives the profiles sent without IDs their new IDs.
-	if violation, err := vmcpconfig.CheckReplacedProfiles(req.Context(), h.profileData, vmcp.Name, vmcp.Spec.Manifest, manifest); err != nil {
-		return err
-	} else if violation != nil {
-		return types.NewErrBadRequest("invalid VMCP manifest: %v", violation)
 	}
 	if err := vmcpconfig.ReconcileProfileIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)

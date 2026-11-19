@@ -186,30 +186,6 @@ func (c *Client) EnsureCredential(ctx context.Context, credential types.Credenti
 	return c.RevealCredential(ctx, []string{credential.Context}, credential.Name)
 }
 
-// CredentialContextsWithCredentials returns the contexts, among contexts, that hold at least one credential. It answers
-// with one query and decrypts nothing.
-func (c *Client) CredentialContextsWithCredentials(ctx context.Context, contexts []string) ([]string, error) {
-	if len(contexts) == 0 {
-		return nil, nil
-	}
-	var found []string
-	if err := c.db.WithContext(ctx).Model(new(types.Credential)).Distinct("context").Where("context IN ?", contexts).Pluck("context", &found).Error; err != nil {
-		return nil, fmt.Errorf("failed to find credential contexts: %w", err)
-	}
-	return found, nil
-}
-
-// DeleteCredentialsInContexts deletes every credential in contexts with one statement. Deleting nothing succeeds.
-func (c *Client) DeleteCredentialsInContexts(ctx context.Context, contexts []string) error {
-	if len(contexts) == 0 {
-		return nil
-	}
-	if err := c.db.WithContext(ctx).Where("context IN ?", contexts).Delete(&types.Credential{}).Error; err != nil {
-		return fmt.Errorf("failed to delete credentials: %w", err)
-	}
-	return nil
-}
-
 // DeleteCredential deletes a credential if it exists and returns whether a credential was deleted.
 func (c *Client) DeleteCredential(ctx context.Context, context, name string) (bool, error) {
 	result := c.db.WithContext(ctx).Where("context = ? AND name = ?", context, name).Delete(&types.Credential{})

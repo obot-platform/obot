@@ -12,13 +12,11 @@ const notReady: AgentVMCPReadiness = {
 	vmcpDisplayName: 'Mail vMCP',
 	ready: false,
 	disabled: false,
-	profileID: 'vp1own',
 	reasons: [
-		{ code: 'configuration_required', componentID: 'gmail', field: 'TENANT', profileID: 'vp1own' },
-		{ code: 'oauth_required', componentID: 'gmail', profileID: 'vp1own' },
-		{ code: 'oauth_invalid', componentID: 'calendar', profileID: 'vp1own' }
-	],
-	pendingSync: false
+		{ code: 'configuration_required', componentID: 'gmail', field: 'TENANT' },
+		{ code: 'oauth_required', componentID: 'gmail' },
+		{ code: 'oauth_invalid', componentID: 'calendar' }
+	]
 };
 
 function mockAgent(readiness: AgentVMCPReadiness[]) {
@@ -26,7 +24,10 @@ function mockAgent(readiness: AgentVMCPReadiness[]) {
 		http.get('/api/agents/7/access', () =>
 			HttpResponse.json({
 				...emptyAgentAccess,
-				vmcpProfiles: [{ vmcpID: 'vmcp1mail', profileID: 'vp1own', profileName: 'Build bots' }],
+				vmcpProfiles: [
+					{ vmcpID: 'vmcp1mail', profileID: 'vp1own', profileName: 'Build bots' },
+					{ vmcpID: 'vmcp1mail', profileID: 'vp1more', profileName: 'More bots' }
+				],
 				modelAccessPolicies: [{ id: 'map1', displayName: 'Bot models' }],
 				skillAccessRules: [{ id: 'sar1', displayName: 'Bot skills' }]
 			})
@@ -41,7 +42,9 @@ describe('AgentAccessReadiness', () => {
 		mockAgent([notReady]);
 		render(AgentAccessReadiness, { agentId: '7' });
 
+		// An agent may be in several profiles of one vMCP, and gets the union of what they grant.
 		await expect.element(page.getByText('vmcp1mail · Build bots')).toBeVisible();
+		await expect.element(page.getByText('vmcp1mail · More bots')).toBeVisible();
 		await expect.element(page.getByText('Bot models')).toBeVisible();
 		await expect.element(page.getByText('Bot skills')).toBeVisible();
 		await expect.element(page.getByText('Named', { exact: true })).not.toBeInTheDocument();
@@ -49,73 +52,49 @@ describe('AgentAccessReadiness', () => {
 		await expect.element(page.getByText('Everyone', { exact: true })).not.toBeInTheDocument();
 	});
 
-	it('links each reason to the profile that fixes it, at the field or button', async () => {
+	it("links each reason to the vMCP's agent setup, at the component or button it is about", async () => {
 		mockAgent([notReady]);
 		render(AgentAccessReadiness, { agentId: '7' });
 
-		await expect.element(page.getByText('gmail needs a configuration value: TENANT')).toBeVisible();
-		const fieldLink = page.getByRole('link', { name: 'Fix in profile Build bots' }).first();
-		await expect
-			.element(fieldLink)
-			.toHaveAttribute(
-				'href',
-				`/vmcps/vmcp1mail?view=profiles&profileID=vp1own#${encodeURIComponent('agent-config-gmail-TENANT')}`
-			);
-		await expect
-			.element(page.getByRole('link', { name: 'Fix in profile Build bots' }).nth(1))
-			.toHaveAttribute(
-				'href',
-				`/vmcps/vmcp1mail?view=profiles&profileID=vp1own#${encodeURIComponent('agent-oauth-gmail')}`
-			);
-		// An invalid grant is fixed by authorizing it again in the same profile.
-		await expect
-			.element(page.getByRole('link', { name: 'Fix in profile Build bots' }).nth(2))
-			.toHaveAttribute(
-				'href',
-				`/vmcps/vmcp1mail?view=profiles&profileID=vp1own#${encodeURIComponent('agent-oauth-calendar')}`
-			);
-	});
-
-	it('shows which profile each value comes from', async () => {
-		mockAgent([notReady]);
-		worker.use(
-			http.get('/api/agents/7/vmcps/vmcp1mail/readiness', () =>
-				HttpResponse.json({
-					...notReady,
-					sources: [
-						{ kind: 'configuration', componentID: 'gmail', field: 'REGION', profileID: 'vp1own' },
-						{ kind: 'oauth', componentID: 'gmail', profileID: 'vp1own' }
-					]
-				})
-			)
-		);
-		render(AgentAccessReadiness, { agentId: '7' });
-
-		await page.getByRole('button', { name: 'Show where its values come from' }).click();
+		// Agents get only the values the vMCP or its catalog entry fix, so that is where it is fixed, or the
+		// component stops being granted to the agent.
 		await expect
 			.element(
-				page
-					.getByRole('listitem')
-					.filter({ hasText: 'gmail: REGION, from profile Build bots' })
-					.last()
+				page.getByText(
+					"gmail needs TENANT, which agents can't set: fix it on the vMCP or its catalog entry, or stop granting gmail to the agent"
+				)
 			)
 			.toBeVisible();
+		const links = page.getByRole('link', { name: "Fix in the vMCP's agent setup" });
 		await expect
-			.element(
-				page
-					.getByRole('listitem')
-					.filter({ hasText: 'gmail: OAuth authorization, from profile Build bots' })
-					.last()
-			)
-			.toBeVisible();
-		await page.getByRole('button', { name: 'Hide sources' }).click();
+			.element(links.first())
+			.toHaveAttribute(
+				'href',
+				`/vmcps/vmcp1mail?view=agent-setup#${encodeURIComponent('agent-component-gmail')}`
+			);
 		await expect
-			.element(page.getByRole('link', { name: 'from profile Build bots' }))
-			.not.toBeInTheDocument();
+			.element(links.nth(1))
+			.toHaveAttribute(
+				'href',
+				`/vmcps/vmcp1mail?view=agent-setup#${encodeURIComponent('agent-oauth-gmail')}`
+			);
+		// An invalid grant is fixed by authorizing it again on the vMCP, never in a profile.
+		await expect
+			.element(links.nth(2))
+			.toHaveAttribute(
+				'href',
+				`/vmcps/vmcp1mail?view=agent-setup#${encodeURIComponent('agent-oauth-calendar')}`
+			);
+		await expect.element(page.getByRole('link', { name: /profile/ })).not.toBeInTheDocument();
 	});
 
 	it('names components as the vMCP does, falling back to their IDs', async () => {
-		mockAgent([notReady]);
+		mockAgent([
+			{
+				...notReady,
+				reasons: [...notReady.reasons, { code: 'oauth_required', componentID: 'gone' }]
+			}
+		]);
 		worker.use(
 			http.get('/api/vmcps/vmcp1mail', () =>
 				HttpResponse.json({
@@ -128,46 +107,20 @@ describe('AgentAccessReadiness', () => {
 						}
 					]
 				})
-			),
-			http.get('/api/agents/7/vmcps/vmcp1mail/readiness', () =>
-				HttpResponse.json({
-					...notReady,
-					sources: [
-						{ kind: 'oauth', componentID: 'gmail', profileID: 'vp1own' },
-						{ kind: 'oauth', componentID: 'gone', profileID: 'vp1own' }
-					]
-				})
 			)
 		);
 		render(AgentAccessReadiness, { agentId: '7' });
 
-		await expect.element(page.getByText('Gmail needs a configuration value: TENANT')).toBeVisible();
+		await expect
+			.element(page.getByText(/^Gmail needs TENANT, which agents can't set/))
+			.toBeVisible();
 		await expect.element(page.getByText('Gmail needs OAuth authorization')).toBeVisible();
 		await expect
 			.element(page.getByText(/The OAuth grant for Calendar no longer works/))
 			.toBeVisible();
 		await expect.element(page.getByText(/^gmail /)).not.toBeInTheDocument();
 
-		await page.getByRole('button', { name: 'Show where its values come from' }).click();
-		await expect
-			.element(page.getByRole('listitem').filter({ hasText: 'Gmail: OAuth authorization' }).last())
-			.toBeVisible();
 		// A component the vMCP no longer has keeps its ID.
-		await expect
-			.element(page.getByRole('listitem').filter({ hasText: 'gone: OAuth authorization' }).last())
-			.toBeVisible();
-	});
-
-	it('says so when the sources cannot be loaded', async () => {
-		mockAgent([notReady]);
-		worker.use(
-			http.get('/api/agents/7/vmcps/vmcp1mail/readiness', () =>
-				HttpResponse.json({ error: 'nope' }, { status: 500 })
-			)
-		);
-		render(AgentAccessReadiness, { agentId: '7' });
-
-		await page.getByRole('button', { name: 'Show where its values come from' }).click();
-		await expect.element(page.getByText('Failed to load the sources.')).toBeVisible();
+		await expect.element(page.getByText('gone needs OAuth authorization')).toBeVisible();
 	});
 });

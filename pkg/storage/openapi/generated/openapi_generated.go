@@ -41,7 +41,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess":                 schema_obot_platform_obot_apiclient_types_AgentIdentityPolicyAccess(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess":            schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason":                      schema_obot_platform_obot_apiclient_types_AgentReadinessReason(ref),
-		"github.com/obot-platform/obot/apiclient/types.AgentReadinessSource":                      schema_obot_platform_obot_apiclient_types_AgentReadinessSource(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadiness":                        schema_obot_platform_obot_apiclient_types_AgentVMCPReadiness(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadinessList":                    schema_obot_platform_obot_apiclient_types_AgentVMCPReadinessList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServer":                           schema_obot_platform_obot_apiclient_types_AllowlistServer(ref),
@@ -385,6 +384,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.UserDefaultRoleSetting":                    schema_obot_platform_obot_apiclient_types_UserDefaultRoleSetting(ref),
 		"github.com/obot-platform/obot/apiclient/types.UserList":                                  schema_obot_platform_obot_apiclient_types_UserList(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCP":                                      schema_obot_platform_obot_apiclient_types_VMCP(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPAgentOAuthAuthorization":               schema_obot_platform_obot_apiclient_types_VMCPAgentOAuthAuthorization(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPAgentOAuthStatus":                      schema_obot_platform_obot_apiclient_types_VMCPAgentOAuthStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPAgentSetup":                            schema_obot_platform_obot_apiclient_types_VMCPAgentSetup(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPAgentSetupComponent":                   schema_obot_platform_obot_apiclient_types_VMCPAgentSetupComponent(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponent":                             schema_obot_platform_obot_apiclient_types_VMCPComponent(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponentSet":                          schema_obot_platform_obot_apiclient_types_VMCPComponentSet(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus":                       schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref),
@@ -398,13 +401,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.VMCPList":                                  schema_obot_platform_obot_apiclient_types_VMCPList(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPManifest":                              schema_obot_platform_obot_apiclient_types_VMCPManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfile":                               schema_obot_platform_obot_apiclient_types_VMCPProfile(ref),
-		"github.com/obot-platform/obot/apiclient/types.VMCPProfileComponentStatus":                schema_obot_platform_obot_apiclient_types_VMCPProfileComponentStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus":            schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationUpdate":            schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationUpdate(ref),
-		"github.com/obot-platform/obot/apiclient/types.VMCPProfileOAuthAuthorization":             schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthAuthorization(ref),
-		"github.com/obot-platform/obot/apiclient/types.VMCPProfileOAuthStatus":                    schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfilePermissions":                    schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref),
-		"github.com/obot-platform/obot/apiclient/types.VMCPProfileStatus":                         schema_obot_platform_obot_apiclient_types_VMCPProfileStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPStatus":                                schema_obot_platform_obot_apiclient_types_VMCPStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPToolReference":                         schema_obot_platform_obot_apiclient_types_VMCPToolReference(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookStatus":                             schema_obot_platform_obot_apiclient_types_WebhookStatus(ref),
@@ -614,16 +611,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.UserRoleChangeList{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref),
 		v1.UserRoleChangeSpec{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref),
 		v1.VMCP{}.OpenAPIModelName():                                                              schema_storage_apis_obotobotai_v1_VMCP(ref),
+		v1.VMCPAgentOAuthGrant{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_VMCPAgentOAuthGrant(ref),
 		v1.VMCPComponentOAuth{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_VMCPComponentOAuth(ref),
-		v1.VMCPComponentOAuthProbe{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_VMCPComponentOAuthProbe(ref),
 		v1.VMCPComponentStatus{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref),
 		v1.VMCPInstance{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_VMCPInstance(ref),
 		v1.VMCPInstanceList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_VMCPInstanceList(ref),
 		v1.VMCPInstanceSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_VMCPInstanceSpec(ref),
 		v1.VMCPInstanceStatus{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_VMCPInstanceStatus(ref),
 		v1.VMCPList{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPList(ref),
-		v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName():                                  schema_storage_apis_obotobotai_v1_VMCPProfileConfigurationRevision(ref),
-		v1.VMCPProfileOAuthGrant{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_VMCPProfileOAuthGrant(ref),
 		v1.VMCPSpec{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPSpec(ref),
 		v1.VMCPStatus{}.OpenAPIModelName():                                                        schema_storage_apis_obotobotai_v1_VMCPStatus(ref),
 		coordinationv1.Lease{}.OpenAPIModelName():                                                 schema_k8sio_api_coordination_v1_Lease(ref),
@@ -937,7 +932,7 @@ func schema_obot_platform_obot_apiclient_types_AdminAuditEvent(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AdminAuditEvent is one change an administrator, or Obot on its own, made to an agent, an agent's API key, a policy or profile that names agents, or a profile's configuration or OAuth grants. It never carries a secret value.",
+				Description: "AdminAuditEvent is one change an administrator, or Obot on its own, made to an agent, an agent's API key, a policy or profile that names agents, or a vMCP's agent OAuth grants. It never carries a secret value.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -961,7 +956,7 @@ func schema_obot_platform_obot_apiclient_types_AdminAuditEvent(ref common.Refere
 					},
 					"action": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Action is what was done, such as agent.create, agent.key.revoke or vmcp.profile.configuration.update.",
+							Description: "Action is what was done, such as agent.create, agent.key.revoke or vmcp.agent_oauth.authorize.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -969,7 +964,7 @@ func schema_obot_platform_obot_apiclient_types_AdminAuditEvent(ref common.Refere
 					},
 					"resourceKind": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ResourceKind is agent, apiKey, vmcpProfile, modelAccessPolicy or skillAccessRule, and ResourceID the ID of the resource: for a profile, its profile ID.",
+							Description: "ResourceKind is agent, apiKey, vmcp, vmcpProfile, modelAccessPolicy or skillAccessRule, and ResourceID the ID of the resource: for a profile, its profile ID. A vMCP's agent OAuth grant is recorded against the vMCP, with the component in Details.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -991,7 +986,7 @@ func schema_obot_platform_obot_apiclient_types_AdminAuditEvent(ref common.Refere
 					},
 					"details": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Details depends on the action. It names what changed (fields, configuration keys, subjects, scopes), never the values of secrets.",
+							Description: "Details depends on the action. It names what changed (fields, subjects, scopes, components), never the values of secrets.",
 							Type:        []string{"string"},
 							Format:      "byte",
 						},
@@ -1014,7 +1009,7 @@ func schema_obot_platform_obot_apiclient_types_AdminAuditEventExportFilters(ref 
 				Properties: map[string]spec.Schema{
 					"resourceKinds": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ResourceKinds are agent, apiKey, vmcpProfile, modelAccessPolicy or skillAccessRule.",
+							Description: "ResourceKinds are agent, apiKey, vmcp, vmcpProfile, modelAccessPolicy or skillAccessRule.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1491,7 +1486,7 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref common.Re
 					},
 					"vmcpProfiles": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VMCPProfiles are the profiles of shared vMCPs that name the agent, at most one per vMCP.",
+							Description: "VMCPProfiles are the profiles of shared vMCPs that name the agent. An agent named by several profiles of a vMCP is granted the union of their components and tools, as a user is.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1718,7 +1713,7 @@ func schema_obot_platform_obot_apiclient_types_AgentReadinessReason(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AgentReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value.",
+				Description: "AgentReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value. Every reason is fixed on the vMCP: a configuration reason by setting the value as fixed on the vMCP or on the component's catalog entry, or by no longer granting the component to the agent; an OAuth reason by authorizing the component in the vMCP's agent setup.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"componentID": {
@@ -1743,58 +1738,8 @@ func schema_obot_platform_obot_apiclient_types_AgentReadinessReason(ref common.R
 							Format:      "",
 						},
 					},
-					"profileID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ProfileID is the profile where an administrator fixes the reason: the agent's profile, which also holds its grants.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 				Required: []string{"code"},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_AgentReadinessSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "AgentReadinessSource is the profile that supplies something an agent uses on a vMCP. It names the key, never the value, and never a token.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is AgentSourceConfiguration or AgentSourceOAuth.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"componentID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"field": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Field is the configuration key. It is empty for an OAuth grant.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"profileID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-				},
-				Required: []string{"kind", "componentID", "profileID"},
 			},
 		},
 	}
@@ -1836,16 +1781,9 @@ func schema_obot_platform_obot_apiclient_types_AgentVMCPReadiness(ref common.Ref
 							Format:      "",
 						},
 					},
-					"profileID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ProfileID is the profile that names the agent. An agent is named by at most one profile of a vMCP, and is granted the vMCP only through it.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"reasons": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Reasons are why the agent cannot use the vMCP. It is empty when it can.",
+							Description: "Reasons are why the agent cannot use the vMCP, for the components that the profiles naming it grant. It is empty when it can.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1856,32 +1794,12 @@ func schema_obot_platform_obot_apiclient_types_AgentVMCPReadiness(ref common.Ref
 							},
 						},
 					},
-					"sources": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Sources are the profiles that supply the agent's configuration values and OAuth grants. The list of an agent's vMCPs leaves it out.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentReadinessSource"),
-									},
-								},
-							},
-						},
-					},
-					"pendingSync": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PendingSync reports that the agent has connected before, and its connection has not yet received the configuration its profiles now resolve to. The next connect waits for it.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 				},
 				Required: []string{"vmcpID", "ready", "disabled", "reasons"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason", "github.com/obot-platform/obot/apiclient/types.AgentReadinessSource"},
+			"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"},
 	}
 }
 
@@ -3380,7 +3298,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogScopeDetails(ref common.R
 					},
 					"profileIDs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ProfileIDs are the vMCP profiles that granted the caller its permissions. For an agent, it is the one profile that names it, which also supplies its configuration and OAuth grants.",
+							Description: "ProfileIDs are the vMCP profiles that granted the caller its permissions, every one that names it, for an agent as for a user.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -19726,6 +19644,200 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_VMCPAgentOAuthAuthorization(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPAgentOAuthAuthorization starts an administrator's authorization of a vMCP's agent OAuth grant for one component. The administrator opens AuthURL; the provider's callback stores the grant on the vMCP.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"localhostCallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is Obot's local login URL rather than the provider's: the administrator runs `obot mcp login <AuthURL>` on their own machine, which listens for the callback and relays it to Obot in their browser, as for a user's own connection. Only the authorization needs the relay; agents use and refresh the grant without it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"authURL"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPAgentOAuthStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPAgentOAuthStatus is the OAuth grant a vMCP holds for one component, which every agent that a profile of the vMCP grants the component uses. It describes the grant, never its tokens.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required reports that the component is known to need OAuth: a remote server that requires administrator static OAuth, one that the vMCP holds a grant for, working or not, or one that Obot's background probe, which connects without credentials, found asks for OAuth. A probe that failed, or has not run yet, counts as not required.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "State is VMCPAgentOAuthAuthorized, VMCPAgentOAuthMissing or VMCPAgentOAuthInvalid.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authorizedBy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizedBy is the administrator who authorized the grant, as a user ID.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authorizedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizedAt is when the grant was authorized.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Target is the upstream URL the grant was authorized for, for a component whose catalog entry fixes the URL: that URL is catalog data. Agents use the grant only for that URL. It is empty when the URL comes from the vMCP's fixed configuration, which is never returned: see TargetHostname.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"targetHostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetHostname is, for a component whose URL comes from the vMCP's fixed configuration (a hostname-constrained URL or a URL template), only the hostname of the URL the grant was authorized for, never its port, path, query or userinfo. It is not a URL.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scopes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scopes are the scopes the grant was authorized with.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"invalidReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InvalidReason says why an invalid grant stopped working.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"required", "state"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPAgentSetup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPAgentSetup is what agents need from a shared vMCP before they can use it, for each component that a profile naming an agent grants. It is the vMCP's alone: profiles hold no data for agents. It never carries a configuration value or a token.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Components are the components that at least one profile naming an agent (VMCPProfile.IsAgentCapable) grants, in manifest order. It is empty when no profile names an agent.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPAgentSetupComponent"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcpID", "components"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPAgentSetupComponent"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPAgentSetupComponent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPAgentSetupComponent is the setup for agents of one component of a vMCP.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready reports that nothing about the component keeps an agent that is granted it from the vMCP: Reasons is empty.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"reasons": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reasons are why the component keeps every agent that is granted it from the vMCP, as agent readiness reports them: AgentReadinessConfigurationRequired for each required key that agents cannot be given, because neither the vMCP nor the catalog entry fixes it, and AgentReadinessOAuthRequired or AgentReadinessOAuthInvalid when the component needs OAuth and the vMCP holds no working grant for it. They never carry a value.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"),
+									},
+								},
+							},
+						},
+					},
+					"oauth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuth is the vMCP's agent OAuth grant for the component. It is set only for a remote component, the only kind that can hold one.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.VMCPAgentOAuthStatus"),
+						},
+					},
+				},
+				Required: []string{"componentID", "ready", "reasons"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason", "github.com/obot-platform/obot/apiclient/types.VMCPAgentOAuthStatus"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_VMCPComponent(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20323,7 +20435,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceC
 				Properties: map[string]spec.Schema{
 					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ID is the profile's immutable identity, which profile configuration and OAuth grants are stored under. The API assigns it: a request keeps a profile's ID by sending it back, and a profile sent without one is a new profile, even if it has the name of a profile being removed. Catalog YAML may set it; otherwise catalog sync derives it from the vMCP and profile names, so renaming a profile in YAML without an ID makes it a new profile.",
+							Description: "ID is the profile's immutable identity, which audit records name the profile by. The API assigns it: a request keeps a profile's ID by sending it back, and a profile sent without one is a new profile, even if it has the name of a profile being removed. Catalog YAML may set it; otherwise catalog sync derives it from the vMCP and profile names, so renaming a profile in YAML without an ID makes it a new profile.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -20362,241 +20474,6 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceC
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_VMCPProfileComponentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfileComponentStatus is the setup of one component on a vMCP profile.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"componentID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"configuration": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus"),
-						},
-					},
-					"oauth": {
-						SchemaProps: spec.SchemaProps{
-							Description: "OAuth is the profile's OAuth grant for the component. Only a remote component can have one.",
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.VMCPProfileOAuthStatus"),
-						},
-					},
-				},
-				Required: []string{"componentID", "configuration"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus", "github.com/obot-platform/obot/apiclient/types.VMCPProfileOAuthStatus"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfileConfigurationStatus names the configuration keys of a component that a profile can set, by whether it sets them. It never carries their values.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"set": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Set are the keys the profile sets.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-					"missingRequired": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MissingRequired are the required keys the profile does not set.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-					"optionalUnset": {
-						SchemaProps: spec.SchemaProps{
-							Description: "OptionalUnset are the optional keys the profile does not set.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"set", "missingRequired", "optionalUnset"},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationUpdate(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfileConfigurationUpdate changes the configuration that a vMCP profile gives the agents it applies to, by component ID and then configuration key. A value replaces the key's value, and null (or a blank value) clears the key. Keys left out keep their values. Only keys a user would enter on their own connection (the userAllowed policy) can be set; fixed values always come from the vMCP.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"components": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type: []string{"object"},
-										AdditionalProperties: &spec.SchemaOrBool{
-											Allows: true,
-											Schema: &spec.Schema{
-												SchemaProps: spec.SchemaProps{
-													Type:   []string{"string"},
-													Format: "",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"components"},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthAuthorization(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfileOAuthAuthorization starts an administrator's authorization of a vMCP profile's OAuth grant for one component. The administrator opens AuthURL; the provider's callback stores the grant for the profile.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"authURL": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"localhostCallback": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is Obot's local login URL rather than the provider's: the administrator runs `obot mcp login <AuthURL>` on their own machine, which listens for the callback and relays it to Obot in their browser, as for a user's own connection. Only the authorization needs the relay; agents use and refresh the grant without it.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"authURL"},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfileOAuthStatus is the OAuth grant a vMCP profile holds for one component, which every agent that resolves to the profile uses. It describes the grant, never its tokens.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"required": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Required reports that the component is known to need OAuth: a remote server that requires administrator static OAuth, one that any profile of the vMCP holds a grant for, working or not, or one that Obot's background probe, which connects without credentials, found asks for OAuth at the URL the profile's agents reach. A probe that failed, or has not run yet, counts as not required.",
-							Default:     false,
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"state": {
-						SchemaProps: spec.SchemaProps{
-							Description: "State is VMCPProfileOAuthAuthorized, VMCPProfileOAuthMissing or VMCPProfileOAuthInvalid.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"authorizedBy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AuthorizedBy is the administrator who authorized the grant, as a user ID.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"authorizedAt": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AuthorizedAt is when the grant was authorized.",
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Target is the upstream URL the grant was authorized for, for a component whose catalog entry fixes the URL: that URL is catalog data. Agents use the grant only for that URL. It is empty when the URL comes from configuration, which is never returned: see TargetHostname.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"targetHostname": {
-						SchemaProps: spec.SchemaProps{
-							Description: "TargetHostname is, for a component whose URL comes from configuration (a hostname-constrained URL or a URL template), only the hostname of the URL the grant was authorized for, never its port, path, query or userinfo. It is not a URL.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"scopes": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Scopes are the scopes the grant was authorized with.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-					"invalidReason": {
-						SchemaProps: spec.SchemaProps{
-							Description: "InvalidReason says why an invalid grant stopped working.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"required", "state"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20627,57 +20504,6 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref common
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.VMCPComponentSet"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_VMCPProfileStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfileStatus reports how far a vMCP profile is set up for agents, the agents it names by ID. It never carries a configuration value.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"profileID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"agentCapable": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AgentCapable reports whether the profile names an agent (VMCPProfile.IsAgentCapable). Only such a profile can be given configuration.",
-							Default:     false,
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"components": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Components cover the components the profile grants (allowAllComponents, or an entry in allowedComponents). Only those take their configuration and OAuth grant from the profile.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPProfileComponentStatus"),
-									},
-								},
-							},
-						},
-					},
-					"pendingCollection": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PendingCollection reports that revisions of the profile's configuration that it no longer uses are still stored, until no agent's instance uses them and the vMCP controller deletes them. Agents are no longer given their values, but until then the profile counts as having data, even after a reset.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"profileID", "agentCapable", "components"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.VMCPProfileComponentStatus"},
 	}
 }
 
@@ -30212,53 +30038,51 @@ func schema_storage_apis_obotobotai_v1_VMCP(ref common.ReferenceCallback) common
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_VMCPComponentOAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_VMCPAgentOAuthGrant(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VMCPComponentOAuth records the probes of one component, for its current definition.",
+				Description: "VMCPAgentOAuthGrant records the agent OAuth grants that may be stored for one component of a vMCP.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"definitionHash": {
+					"componentID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DefinitionHash is the component's definition (vmcp.ProfileOAuthGrantDefinitionHash) that the probes were made for. A change to it discards them, and the component is probed again.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
-					"probes": {
+					"grantIDs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Probes are the results for each URL that agents' connections to the component reach: the URL its definition fixes, or each distinct URL that the configuration of its profiles resolves to.",
+							Description: "GrantIDs identify the grants that may be stored for the component: the one last published, and any being written since. Only one is stored at a time, and it has one of these IDs.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.VMCPComponentOAuthProbe{}.OpenAPIModelName()),
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"definitionHash"},
+				Required: []string{"componentID"},
 			},
 		},
-		Dependencies: []string{
-			v1.VMCPComponentOAuthProbe{}.OpenAPIModelName()},
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_VMCPComponentOAuthProbe(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_VMCPComponentOAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VMCPComponentOAuthProbe is the result of probing one URL of a component.",
+				Description: "VMCPComponentOAuth records the probe of one component, for its current target.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"urlDigest": {
+					"targetHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "URLDigest is the digest of the URL probed (vmcp.ComponentOAuthURLDigest), never the URL, which may come from configuration.",
+							Description: "TargetHash identifies what the probe was made for (vmcp.ComponentOAuthTargetHash): the component's definition and the values fixed for everyone that its URL is built from. A change to it discards the probe, and the component is probed again.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -30274,7 +30098,7 @@ func schema_storage_apis_obotobotai_v1_VMCPComponentOAuthProbe(ref common.Refere
 					},
 					"checkedAt": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CheckedAt is when the URL was last probed, whether the probe succeeded or not.",
+							Description: "CheckedAt is when the component was last probed, whether the probe succeeded or not.",
 							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
@@ -30286,7 +30110,7 @@ func schema_storage_apis_obotobotai_v1_VMCPComponentOAuthProbe(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"urlDigest", "required", "checkedAt"},
+				Required: []string{"targetHash", "required", "checkedAt"},
 			},
 		},
 		Dependencies: []string{
@@ -30567,28 +30391,6 @@ func schema_storage_apis_obotobotai_v1_VMCPInstanceStatus(ref common.ReferenceCa
 							Format: "",
 						},
 					},
-					"agentConfigurationRevision": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AgentConfigurationRevision identifies the profile configuration that the configuration credential of an agent's instance was last resolved from (vmcp.AgentConfiguration.Revision). Agents never enter configuration: the vMCP instance controller copies it from the agent's profiles, and an agent's connect waits until this matches the vMCP's current profile configuration. It is empty for a user's instance.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"agentConfigurationRevisions": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AgentConfigurationRevisions are the profile configuration revisions, by profile ID, that supplied a value to AgentConfigurationRevision. The vMCP controller keeps a superseded revision while any instance records it here.",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
 				},
 			},
 		},
@@ -30639,96 +30441,6 @@ func schema_storage_apis_obotobotai_v1_VMCPList(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			v1.VMCP{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_VMCPProfileConfigurationRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfileConfigurationRevision records the configuration of one vMCP profile. Each change to it is stored as a new credential, a revision, which is published here with the keys it sets, so the configuration an agent resolves to and the revision its values are copied from always agree.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name names the credential of the current revision, in the profile's credential context. It is empty when the profile has no configuration.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"keys": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Keys are the configuration keys the current revision sets, as vmcp.ConfigurationKey encodes them. They never carry a value.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-					"superseded": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Superseded are earlier revisions. The vMCP controller deletes each once no agent's instance records that its configuration was resolved from it.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_VMCPProfileOAuthGrant(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfileOAuthGrant records the OAuth grants that may be stored for one component of one vMCP profile.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"profileID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"componentID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"grantIDs": {
-						SchemaProps: spec.SchemaProps{
-							Description: "GrantIDs identify the grants that may be stored for the component: the one last published, and any being written since. Only one is stored at a time, and it has one of these IDs.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"profileID", "componentID"},
-			},
-		},
 	}
 }
 
@@ -30866,42 +30578,14 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 							},
 						},
 					},
-					"profileIDs": {
+					"agentOAuthGrants": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ProfileIDs are the profile IDs the vMCP controller last observed in the manifest. A profile whose ID is here but no longer in the manifest was deleted, so the controller deletes the data stored outside the manifest for it (vmcp.ProfileDataStore) and then records the manifest's IDs. A handler that stores such data for a profile must first make sure its ID is recorded here, so that a deletion the controller has not yet observed still cleans it up.",
+							Description: "AgentOAuthGrants record the OAuth grants that administrators authorize on the vMCP for agents, one per component (pkg/vmcp agent OAuth grants). The grants are in the gateway database, never here. Each grant is recorded before it is stored, so the vMCP controller deletes every one it may have stored when its component leaves the manifest, and the store deletes exactly the recorded ones when an administrator revokes it.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-					"profileConfigurationRevisions": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ProfileConfigurationRevisions record, by profile ID, the configuration that administrators set on agent-capable profiles for agents (pkg/vmcp profile configuration). The values are in credentials, never here. A profile without configuration has no entry, unless it has superseded revisions left to delete.",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"profileOAuthGrants": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ProfileOAuthGrants record the OAuth grants that administrators authorize on agent-capable profiles for agents, by profile and component (pkg/vmcp profile OAuth grants). The grants are in the gateway database, never here. Each grant is recorded before it is stored, so the vMCP controller deletes every one it may have stored when its component leaves the manifest, and the store deletes exactly the recorded ones when an administrator resets it.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.VMCPProfileOAuthGrant{}.OpenAPIModelName()),
+										Ref: ref(v1.VMCPAgentOAuthGrant{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -30909,7 +30593,7 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 					},
 					"componentOAuth": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ComponentOAuth records, by component ID, whether the remote components that agents reach ask for OAuth, as the vMCP controller last found by probing them without any credential. Agent readiness and profile status read it, and never probe. It never holds a URL: each result is keyed by a digest of the URL it is for.",
+							Description: "ComponentOAuth records, by component ID, whether the remote components that agents reach ask for OAuth, as the vMCP controller last found by probing them without any credential. Agent readiness and the vMCP's agent setup read it, and never probe. It never holds a URL.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -30925,7 +30609,7 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			v1.VMCPComponentOAuth{}.OpenAPIModelName(), v1.VMCPComponentStatus{}.OpenAPIModelName(), v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName(), v1.VMCPProfileOAuthGrant{}.OpenAPIModelName()},
+			v1.VMCPAgentOAuthGrant{}.OpenAPIModelName(), v1.VMCPComponentOAuth{}.OpenAPIModelName(), v1.VMCPComponentStatus{}.OpenAPIModelName()},
 	}
 }
 

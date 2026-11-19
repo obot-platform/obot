@@ -54,7 +54,7 @@ func (c *Controller) setupRoutes() {
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	vmcpinstance := vmcpinstance.New(c.services.GatewayClient)
-	vmcpHandler := vmcphandler.New(c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.VMCPProfileData, c.services.VMCPProfileConfiguration, c.services.VMCPProfileOAuthGrants)
+	vmcpHandler := vmcphandler.New(c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.VMCPAgentOAuthGrants)
 	vmcpHandler.SetComponentOAuthProber(c.services.MCPSessionManager)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GatewayClient, c.services.MCPHTTPWebhookBaseImage)
@@ -188,16 +188,15 @@ func (c *Controller) setupRoutes() {
 	// VMCP
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.PruneUnauthorizedComponents)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.ReconcileProfiles)
-	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.CollectProfileConfiguration)
-	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.CollectProfileOAuthGrants)
+	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.CollectAgentOAuthGrants)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.SyncStatus)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.EnsureMCPServers)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.DetectDrift)
 	// Last, so the probes, which reach remote servers, delay none of the vMCP's other handlers.
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.ProbeComponentOAuth)
-	// The vMCP's one finalizer deletes the data stored for its profiles, then its static configuration.
+	// The vMCP's one finalizer deletes its agent OAuth grants, then its static configuration.
 	root.Type(&v1.VMCP{}).FinalizeFunc(v1.VMCPFinalizer, func(req router.Request, resp router.Response) error {
-		if err := vmcpHandler.RemoveProfileData(req, resp); err != nil {
+		if err := vmcpHandler.RemoveAgentOAuthGrants(req, resp); err != nil {
 			return err
 		}
 		return credentialCleanup.RemoveVMCPStaticConfigurationCredentials(req, resp)
@@ -209,8 +208,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.ReconcileToolSelection)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServers)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServerInstances)
-	// Before SyncUserConfigurationHash, which records the configuration this writes for an agent's instance.
-	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.SyncAgentProfileConfiguration)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.SyncUserConfigurationHash)
 	root.Type(&v1.VMCPInstance{}).FinalizeFunc(v1.VMCPInstanceFinalizer, credentialCleanup.RemoveVMCPInstanceConfigurationCredentials)
 

@@ -77,7 +77,7 @@ func TestVMCPRevealReturnsOnlyFixedConfiguration(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/reveal", nil)
 			request.SetPathValue("vmcp_id", vmcp.Name)
-			require.NoError(t, NewVMCPHandler(nil, "", "", nil).Reveal(api.Context{
+			require.NoError(t, NewVMCPHandler(nil, "", "").Reveal(api.Context{
 				ResponseWriter: recorder,
 				Request:        request,
 				Storage:        newVMCPTestStorage(vmcp),
@@ -122,7 +122,7 @@ func TestVMCPComponentConfigurationPresence(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.SetPathValue("vmcp_id", vmcp.Name)
 		req.SetPathValue("component_id", componentID)
-		err := NewVMCPHandler(nil, "", "", nil).ConfigurationPresence(api.Context{
+		err := NewVMCPHandler(nil, "", "").ConfigurationPresence(api.Context{
 			ResponseWriter: recorder,
 			Request:        req,
 			Storage:        storage,
@@ -171,7 +171,7 @@ func TestVMCPDeconfigureDeletesConfigurationAndPublishesHashes(t *testing.T) {
 
 			request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/deconfigure", nil)
 			request.SetPathValue("vmcp_id", vmcp.Name)
-			require.NoError(t, NewVMCPHandler(nil, "", "", nil).Deconfigure(api.Context{
+			require.NoError(t, NewVMCPHandler(nil, "", "").Deconfigure(api.Context{
 				User:           &user.DefaultInfo{UID: "user-1"},
 				ResponseWriter: httptest.NewRecorder(),
 				Request:        request,

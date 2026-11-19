@@ -47,14 +47,6 @@ type VMCPInstanceStatus struct {
 	Configured                   bool     `json:"configured,omitempty"`
 	MissingRequiredConfiguration []string `json:"missingRequiredConfiguration,omitempty"`
 	UserConfigurationHash        string   `json:"userConfigurationHash,omitempty"`
-	// AgentConfigurationRevision identifies the profile configuration that the configuration credential of an agent's
-	// instance was last resolved from (vmcp.AgentConfiguration.Revision). Agents never enter configuration: the vMCP
-	// instance controller copies it from the agent's profiles, and an agent's connect waits until this matches the
-	// vMCP's current profile configuration. It is empty for a user's instance.
-	AgentConfigurationRevision string `json:"agentConfigurationRevision,omitempty"`
-	// AgentConfigurationRevisions are the profile configuration revisions, by profile ID, that supplied a value to
-	// AgentConfigurationRevision. The vMCP controller keeps a superseded revision while any instance records it here.
-	AgentConfigurationRevisions map[string]string `json:"agentConfigurationRevisions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

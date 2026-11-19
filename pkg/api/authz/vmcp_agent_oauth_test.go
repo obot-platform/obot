@@ -12,12 +12,13 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-// TestVMCPProfileConfigurationAuthorization checks that only administrators, and owners, who have every
-// administrator's rule, set the configuration of a vMCP's profiles. Auditors, who read vMCPs, users the profile names,
-// and agents, including the agent the profile is for, reach neither route.
-func TestVMCPProfileConfigurationAuthorization(t *testing.T) {
+// TestVMCPAgentOAuthAuthorization checks that only administrators, and owners, who have every administrator's rule,
+// authorize and revoke a vMCP's agent OAuth grants. Read-only administrators and auditors, who read vMCPs, users a
+// profile names, who may reset their own component OAuth on the vMCP, and agents, including the agents a profile names,
+// reach neither route.
+func TestVMCPAgentOAuthAuthorization(t *testing.T) {
 	vmcp := &v1.VMCP{
-		ObjectMeta: objectMetaForAuthzTest("vmcp1profiles"),
+		ObjectMeta: objectMetaForAuthzTest("vmcp1grants"),
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 			Components: []types.VMCPComponent{{ID: "component"}},
 			Profiles: []types.VMCPProfile{
@@ -45,23 +46,12 @@ func TestVMCPProfileConfigurationAuthorization(t *testing.T) {
 		CanAccessLLMProxy: true,
 		MCPServerIDs:      []string{"*"},
 	})
-	routes := []agentTestRoute{
-		{
-			method: http.MethodPut,
-			path:   "/api/vmcps/vmcp1profiles/profiles/vp1agent/configuration",
-		},
-		{
-			method: http.MethodPost,
-			path:   "/api/vmcps/vmcp1profiles/profiles/vp1agent/configuration/reset",
-		},
-		{
-			method: http.MethodPut,
-			path:   "/api/vmcps/vmcp1profiles/profiles/vp1everyone/configuration",
-		},
-		{
-			method: http.MethodPost,
-			path:   "/api/vmcps/vmcp1profiles/profiles/vp1everyone/configuration/reset",
-		},
+	var routes []agentTestRoute
+	for _, method := range []string{http.MethodPost, http.MethodDelete} {
+		routes = append(routes, agentTestRoute{
+			method: method,
+			path:   "/api/vmcps/vmcp1grants/agent-oauth/component",
+		})
 	}
 	for _, tt := range []struct {
 		name    string
@@ -79,6 +69,10 @@ func TestVMCPProfileConfigurationAuthorization(t *testing.T) {
 			allowed: true,
 		},
 		{
+			name:   "read-only administrator",
+			caller: person(types.GroupAdminReadonly),
+		},
+		{
 			name:   "auditor",
 			caller: person(types.GroupAuditor),
 		},
@@ -87,12 +81,11 @@ func TestVMCPProfileConfigurationAuthorization(t *testing.T) {
 			caller: person(types.GroupPowerUserPlus, types.GroupPowerUser),
 		},
 		{
-			// Every user matches the selector wildcard profile, which lets them read and connect to the vMCP only.
-			name:   "user the profile names",
+			name:   "user a profile names",
 			caller: person(),
 		},
 		{
-			name:   "agent the profile names",
+			name:   "agent a profile names",
 			caller: agent,
 		},
 	} {
@@ -105,8 +98,8 @@ func TestVMCPProfileConfigurationAuthorization(t *testing.T) {
 		})
 	}
 
-	// An auditor still reads the vMCP, so the refusal is about writing profile configuration.
-	if !authorizer.Authorize(httptest.NewRequest(http.MethodGet, "/api/vmcps/vmcp1profiles", nil), person(types.GroupAuditor)) {
-		t.Fatal("an auditor cannot read the vMCP")
+	// A user a profile names still resets their own OAuth for the component, which is not the vMCP's agent grant.
+	if !authorizer.Authorize(httptest.NewRequest(http.MethodDelete, "/api/vmcps/vmcp1grants/components/component/oauth", nil), person()) {
+		t.Fatal("a user of the vMCP cannot reset their own component OAuth")
 	}
 }

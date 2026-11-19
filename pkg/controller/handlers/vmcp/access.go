@@ -25,25 +25,17 @@ type Handler struct {
 	userInfo    func(context.Context, principal.Principal) (kuser.Info, error)
 	acrHelper   *accesscontrolrule.Helper
 	credentials credentialClient
-	profileData vmcpconfig.ProfileDataStore
-	// profileConfiguration deletes superseded profile configuration revisions. Profile deletion goes through
-	// profileData, which includes it.
-	profileConfiguration profileConfigurationCollector
-	// profileOAuthGrants deletes the OAuth grants of components removed from a vMCP. Profile deletion goes through
-	// profileData, which includes it.
-	profileOAuthGrants profileOAuthGrantCollector
+	// agentOAuthGrants deletes the agent OAuth grants of components removed from a vMCP, and of a vMCP being deleted.
+	agentOAuthGrants agentOAuthGrantCollector
 	// componentOAuth probes remote components for whether they ask for OAuth (ProbeComponentOAuth).
 	componentOAuth ComponentOAuthProber
 	// now is the clock of the probes' schedule. Nil is time.Now.
 	now func() time.Time
 }
 
-type profileConfigurationCollector interface {
-	CollectSuperseded(ctx context.Context, vmcp *v1.VMCP, instances []v1.VMCPInstance) (bool, error)
-}
-
-type profileOAuthGrantCollector interface {
+type agentOAuthGrantCollector interface {
 	DeleteRemovedComponentGrants(ctx context.Context, vmcp *v1.VMCP) (bool, error)
+	DeleteVMCPGrants(ctx context.Context, vmcp v1.VMCP) error
 }
 
 type credentialClient interface {
@@ -52,13 +44,10 @@ type credentialClient interface {
 	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
 }
 
-func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, profileData vmcpconfig.ProfileDataStore, profileConfiguration *vmcpconfig.ProfileConfigurationStore, profileOAuthGrants *vmcpconfig.ProfileOAuthGrantStore) *Handler {
-	handler := &Handler{userInfo: gatewayClient.IdentityInfo, acrHelper: acrHelper, credentials: gatewayClient, profileData: profileData}
-	if profileConfiguration != nil {
-		handler.profileConfiguration = profileConfiguration
-	}
-	if profileOAuthGrants != nil {
-		handler.profileOAuthGrants = profileOAuthGrants
+func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, agentOAuthGrants *vmcpconfig.AgentOAuthGrantStore) *Handler {
+	handler := &Handler{userInfo: gatewayClient.IdentityInfo, acrHelper: acrHelper, credentials: gatewayClient}
+	if agentOAuthGrants != nil {
+		handler.agentOAuthGrants = agentOAuthGrants
 	}
 	return handler
 }

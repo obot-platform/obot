@@ -96,14 +96,6 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		return ServerConfig{}, fmt.Errorf("VMCP instance %q does not belong to VMCP %q and user %q", instance.Name, vmcpID, userID)
 	}
 
-	if principal.IsAgent(user) {
-		// An agent's instance is given its configuration from its profiles. Wait for the copy of their current
-		// revisions first: it changes the configuration that the wait below, and the component waits after it, follow.
-		instance, err = sm.waitForAgentConfiguration(ctx, vmcp, instance, user)
-		if err != nil {
-			return ServerConfig{}, err
-		}
-	}
 	instance, err = sm.waitForVMCPInstanceConfiguration(ctx, vmcp, instance, user)
 	if err != nil {
 		return ServerConfig{}, err
@@ -220,7 +212,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	// composite's configuration, so that an authorization failure of the component is reported to the agent as the grant
 	// being invalid.
 	for i, grant := range agentReadiness.Grants {
-		if grant.ProfileID != "" {
+		if grant.Held() {
 			components[i].OAuthGrant = newOAuthGrantRef(grant)
 		}
 	}
@@ -267,41 +259,24 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 }
 
 // AgentReadiness reports whether agent can use vmcp through instance, or nil when it has not connected, as a connect
-// decides it (vmcpaccess.AgentReadiness, with the session manager's store of profile OAuth grants). The readiness API
+// decides it (vmcpaccess.AgentReadiness, with the session manager's store of agent OAuth grants). The readiness API
 // uses it, so that it never reports an agent ready that a connect refuses.
 func (sm *SessionManager) AgentReadiness(ctx context.Context, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info) (vmcpaccess.AgentReadinessReport, error) {
-	return vmcpaccess.AgentReadiness(ctx, sm.profileOAuthGrants, vmcp, instance, agent)
+	return vmcpaccess.AgentReadiness(ctx, sm.agentOAuthGrants, vmcp, instance, agent)
 }
 
-// newOAuthGrantRef names the grant an agent uses for a component, as SelectAgentGrants selected it.
-func newOAuthGrantRef(grant vmcpaccess.AgentOAuthGrant) *OAuthGrantRef {
-	return &OAuthGrantRef{ComponentID: grant.ComponentID, ProfileID: grant.ProfileID, Owner: grant.Owner, MCPID: grant.MCPID}
+// newOAuthGrantRef names the grant an agent uses for a component, as SelectGrants selected it.
+func newOAuthGrantRef(grant vmcpaccess.ComponentOAuthGrant) *OAuthGrantRef {
+	return &OAuthGrantRef{ComponentID: grant.ComponentID, Owner: grant.Owner, MCPID: grant.MCPID}
 }
 
-// contributingProfileIDs returns the IDs of the profiles that grant the caller its permissions on a shared vMCP. A
-// personal vMCP has no profiles.
+// contributingProfileIDs returns the IDs of the profiles that grant the caller its permissions on a shared vMCP: every
+// profile that names it, for an agent as for a user. A personal vMCP has no profiles.
 func contributingProfileIDs(user kuser.Info, vmcp v1.VMCP) []string {
 	if vmcp.Spec.UserID != "" {
 		return nil
 	}
-	return vmcpaccess.ProfileIDs(types.VMCPManifest{Profiles: vmcpaccess.MatchingProfiles(user, vmcp.Spec.Manifest.Profiles)})
-}
-
-// waitForAgentConfiguration waits for the VMCPInstance controller to copy the configuration that an agent's profiles
-// give it, as the vMCP's current status publishes their revisions, to the agent's instance
-// (v1.VMCPInstanceStatus.AgentConfigurationRevision). Until then, the instance may hold another revision's values.
-func (sm *SessionManager) waitForAgentConfiguration(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, user kuser.Info) (*v1.VMCPInstance, error) {
-	want := vmcpaccess.ResolveAgentConfiguration(*vmcp, *instance, user).Revision
-	if instance.Status.AgentConfigurationRevision == want {
-		return instance, nil
-	}
-	instance, err := wait.For(ctx, sm.storageClient, instance, func(current *v1.VMCPInstance) (bool, error) {
-		return current.Status.AgentConfigurationRevision == want, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("wait for vMCP connection profile configuration to sync: %w", err)
-	}
-	return instance, nil
+	return vmcpaccess.ProfileIDs(vmcpaccess.MatchingProfiles(user, vmcp.Spec.Manifest.Profiles))
 }
 
 // waitForVMCPInstanceConfiguration waits for the VMCPInstance controller to process

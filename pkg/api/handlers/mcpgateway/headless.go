@@ -63,13 +63,9 @@ func agentReadinessResponse(failure vmcpaccess.AgentReadinessFailure) *mcpRespon
 // required configuration. Connect-time readiness normally refuses the agent first; this covers configuration that
 // goes missing in between.
 func agentConfigurationRequiredResponse(componentID string, missing []string) *mcpResponse {
-	failure := vmcpaccess.AgentReadinessFailure{Error: vmcpaccess.AgentConfigurationRequiredError}
-	for _, field := range missing {
-		failure.Reasons = append(failure.Reasons, vmcpaccess.ReadinessReason{
-			ComponentID: componentID,
-			Code:        types.AgentReadinessConfigurationRequired,
-			Field:       field,
-		})
+	failure := vmcpaccess.AgentReadinessFailure{
+		Error:   vmcpaccess.AgentConfigurationRequiredError,
+		Reasons: vmcpaccess.ConfigurationRequiredReasons(componentID, missing),
 	}
 	return agentReadinessResponse(failure)
 }
@@ -90,10 +86,9 @@ func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.Au
 			matched[i] = true
 			reason := vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: types.AgentReadinessOAuthRequired}
 			if target.OAuthGrant != nil {
-				// The connection used the grant of the agent's profile, so the upstream refused that grant, or refused it
-				// more scopes than it was authorized with. Only an administrator can authorize it again; the agent never
-				// falls back from it to another profile's grant.
-				reason = vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: types.AgentReadinessOAuthInvalid, ProfileID: target.OAuthGrant.ProfileID}
+				// The connection used the vMCP's grant, so the upstream refused that grant, or refused it more scopes than
+				// it was authorized with. Only an administrator can authorize it again, on the vMCP.
+				reason = vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: types.AgentReadinessOAuthInvalid}
 			}
 			if !slices.Contains(failure.Reasons, reason) {
 				failure.Reasons = append(failure.Reasons, reason)
@@ -106,20 +101,20 @@ func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.Au
 	return agentReadinessResponse(failure), nil
 }
 
-// agentOAuthGrantInvalidResponse is the response to an agent whose connection to a vMCP component would use an OAuth
-// grant of its profile that no longer works (mcp.AgentOAuthGrantError, mcp.ErrOAuthGrantInvalid). At the component hop,
+// agentOAuthGrantInvalidResponse is the response to an agent whose connection to a vMCP component would use the vMCP's
+// agent OAuth grant that no longer works (mcp.AgentOAuthGrantError, mcp.ErrOAuthGrantInvalid). At the component hop,
 // the caller is the composite loopback acting for the agent, so the response is a bare 401, as for a component that
 // challenges an agent (rewriteHeadlessAuthorizationResponse): the composite reports it as the component's
 // authorization failure, and answers the agent with a 409 that names the component and the grant as invalid
 // (agentOAuthRequiredResponse). Anywhere else the agent is answered with that 409 directly. Neither carries
 // WWW-Authenticate, and no challenge is created.
-func agentOAuthGrantInvalidResponse(req api.Context, componentID, profileID string) *mcpResponse {
+func agentOAuthGrantInvalidResponse(req api.Context, componentID string) *mcpResponse {
 	if principal.IsComponentHop(req.User) {
 		return mcpTextResponse(http.StatusUnauthorized, "MCP server requires authentication")
 	}
 	return agentReadinessResponse(vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: types.AgentReadinessOAuthInvalid, ProfileID: profileID}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: types.AgentReadinessOAuthInvalid}},
 	})
 }
 

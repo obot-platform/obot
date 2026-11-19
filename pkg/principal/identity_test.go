@@ -406,8 +406,8 @@ func TestCallerOwner(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "profile grant owner",
-			caller:  marked(ProfileGrant("vmcp1", "profile1"), KindUser),
+			name:    "agent OAuth grant owner",
+			caller:  marked(AgentOAuthGrantOwner("vmcp1"), KindUser),
 			wantErr: true,
 		},
 	} {

@@ -74,20 +74,13 @@ export interface AgentIdentityAccess {
 
 export type AgentReadinessCode = 'configuration_required' | 'oauth_required' | 'oauth_invalid';
 
+// Every reason is fixed on the vMCP's agent setup: a value fixed on the vMCP or its catalog entry, or
+// an OAuth grant authorized there.
 export interface AgentReadinessReason {
 	componentID?: string;
 	code: AgentReadinessCode;
 	// The configuration key that is missing, never its value.
 	field?: string;
-	profileID?: string;
-}
-
-// The profile that supplies something an agent uses on a vMCP. It names the key, never the value.
-export interface AgentReadinessSource {
-	kind: 'configuration' | 'oauth';
-	componentID: string;
-	field?: string;
-	profileID: string;
 }
 
 export interface AgentVMCPReadiness {
@@ -95,12 +88,7 @@ export interface AgentVMCPReadiness {
 	vmcpDisplayName?: string;
 	ready: boolean;
 	disabled: boolean;
-	// The profile that names the agent.
-	profileID?: string;
 	reasons: AgentReadinessReason[];
-	// Only on the readiness of a single vMCP.
-	sources?: AgentReadinessSource[];
-	pendingSync?: boolean;
 }
 
 // An entry of the admin change audit (apiclient/types/adminauditevent.go).

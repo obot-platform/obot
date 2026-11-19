@@ -18,7 +18,7 @@ import (
 
 // AgentReadinessSource decides whether an agent can connect to a vMCP. The MCP session manager, whose connect path
 // refuses an agent that is not ready, implements it, so that the readiness API is computed as that connect path
-// computes it, with the same store of profile OAuth grants.
+// computes it, with the same store of agent OAuth grants.
 type AgentReadinessSource interface {
 	AgentReadiness(ctx context.Context, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info) (vmcpconfig.AgentReadinessReport, error)
 }
@@ -27,9 +27,9 @@ type AgentReadinessSource interface {
 // the request from the vMCPs' current state, and nothing it reads is a cached summary.
 //
 // It costs one list of vMCPs and one list of the agent's instances, then, for each vMCP, the readiness checks:
-// configuration is read from the vMCP's published key names, so costs nothing, and the grants of the components that
-// can hold an OAuth grant cost one query of the gateway database (plus the credential read that resolves a URL the
-// profiles configure, for a component whose URL is configured). A vMCP no profile names the agent for is not listed.
+// configuration is checked against the vMCP's manifest, so costs nothing, and the vMCP's grants for the components
+// that can hold an OAuth grant cost one query of the gateway database (plus the credential read that resolves a URL the
+// vMCP fixes, for a component whose URL comes from configuration). A vMCP no profile names the agent for is not listed.
 func (h *AgentIdentityHandler) ListVMCPReadiness(req api.Context) error {
 	agent, err := pathAgent(req)
 	if err != nil {
@@ -51,7 +51,7 @@ func (h *AgentIdentityHandler) ListVMCPReadiness(req api.Context) error {
 		if len(vmcpconfig.MatchingProfiles(info, vmcp.Spec.Manifest.Profiles)) == 0 {
 			continue
 		}
-		item, err := h.vmcpReadiness(req, vmcp, instances[vmcp.Name], info, agent.Status() == types.UserStatusDisabled, false)
+		item, err := h.vmcpReadiness(req, vmcp, instances[vmcp.Name], info, agent.Status() == types.UserStatusDisabled)
 		if err != nil {
 			return err
 		}
@@ -60,8 +60,7 @@ func (h *AgentIdentityHandler) ListVMCPReadiness(req api.Context) error {
 	return req.Write(types.AgentVMCPReadinessList{Items: items})
 }
 
-// GetVMCPReadiness returns whether an agent can use one vMCP, why not, and which profiles supply its configuration and
-// grants. A vMCP that does not exist, is personal, is being deleted, or that no profile names the agent for is 404, as
+// GetVMCPReadiness returns whether an agent can use one vMCP, and why not. A vMCP that does not exist, is personal, is being deleted, or that no profile names the agent for is 404, as
 // it is not among the vMCPs the agent can access.
 func (h *AgentIdentityHandler) GetVMCPReadiness(req api.Context) error {
 	agent, err := pathAgent(req)
@@ -84,58 +83,26 @@ func (h *AgentIdentityHandler) GetVMCPReadiness(req api.Context) error {
 		return err
 	}
 
-	item, err := h.vmcpReadiness(req, vmcp, instances[vmcp.Name], info, agent.Status() == types.UserStatusDisabled, true)
+	item, err := h.vmcpReadiness(req, vmcp, instances[vmcp.Name], info, agent.Status() == types.UserStatusDisabled)
 	if err != nil {
 		return err
 	}
 	return req.Write(item)
 }
 
-// vmcpReadiness computes whether agent can use vmcp, with the checks of the connect path. withSources adds the profiles
-// that supply its configuration and grants.
-func (h *AgentIdentityHandler) vmcpReadiness(req api.Context, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info, disabled, withSources bool) (types.AgentVMCPReadiness, error) {
+// vmcpReadiness computes whether agent can use vmcp, with the checks of the connect path.
+func (h *AgentIdentityHandler) vmcpReadiness(req api.Context, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info, disabled bool) (types.AgentVMCPReadiness, error) {
 	report, err := h.readiness.AgentReadiness(req.Context(), vmcp, instance, agent)
 	if err != nil {
 		return types.AgentVMCPReadiness{}, fmt.Errorf("compute readiness of agent %s for vMCP %q: %w", agent.GetUID(), vmcp.Name, err)
 	}
-	result := convertAgentReadiness(vmcp, report, disabled)
-	if !withSources {
-		return result, nil
-	}
-
-	for _, component := range report.Configuration.Components {
-		for _, source := range component.Sources {
-			result.Sources = append(result.Sources, types.AgentReadinessSource{
-				Kind:        types.AgentSourceConfiguration,
-				ComponentID: source.ComponentID,
-				Field:       source.Field,
-				ProfileID:   source.ProfileID,
-			})
-		}
-	}
-	for _, grant := range report.Grants {
-		if grant.ProfileID != "" {
-			result.Sources = append(result.Sources, types.AgentReadinessSource{
-				Kind:        types.AgentSourceOAuth,
-				ComponentID: grant.ComponentID,
-				ProfileID:   grant.ProfileID,
-			})
-		}
-	}
-	return result, nil
-}
-
-func convertAgentReadiness(vmcp v1.VMCP, report vmcpconfig.AgentReadinessReport, disabled bool) types.AgentVMCPReadiness {
-	result := types.AgentVMCPReadiness{
+	return types.AgentVMCPReadiness{
 		VMCPID:          vmcp.Name,
 		VMCPDisplayName: vmcp.Spec.Manifest.DisplayName,
 		Ready:           report.Readiness.Ready(),
 		Disabled:        disabled,
-		ProfileID:       report.Readiness.ProfileID,
 		Reasons:         append([]types.AgentReadinessReason{}, report.Readiness.Reasons...),
-		PendingSync:     report.PendingSync,
-	}
-	return result
+	}, nil
 }
 
 // agentInfo is the caller the policy matchers and the readiness checks evaluate for agent. An agent is in no group,

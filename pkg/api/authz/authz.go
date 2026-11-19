@@ -216,8 +216,8 @@ var (
 		"GET /api/vmcps",
 		"GET /api/vmcps/{vmcp_id}",
 		"GET /api/vmcps/{vmcp_id}/components/{component_id}/configuration-presence",
-		// How far a profile is set up for agents, from what is stored: it never carries a value or a token.
-		"GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status",
+		// What agents need from a shared vMCP, from what is stored: it never carries a value or a token.
+		"GET /api/vmcps/{vmcp_id}/agent-setup",
 		"GET /api/vmcp-instances",
 		"GET /api/vmcp-instances/",
 		"GET /api/all-mcps",
@@ -426,7 +426,7 @@ var (
 			"GET /api/vmcps/{vmcp_id}/resources/{resource_uri}",
 			"GET /api/vmcps/{vmcp_id}/prompts",
 			"GET /api/vmcps/{vmcp_id}/prompts/{prompt_name}",
-			"GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status",
+			"GET /api/vmcps/{vmcp_id}/agent-setup",
 			"GET /api/vmcp-instances",
 			"GET /api/vmcp-instances/",
 			"/api/audit-log-exports",

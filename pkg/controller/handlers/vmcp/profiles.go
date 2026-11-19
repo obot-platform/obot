@@ -1,138 +1,46 @@
 package vmcp
 
 import (
-	"errors"
-	"fmt"
-	"log/slog"
-	"maps"
-	"slices"
-
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
-	"k8s.io/apimachinery/pkg/fields"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ReconcileProfiles keeps the vMCP's profiles identified and their stored data in step with the manifest. It gives
-// each profile stored before profiles had IDs its derived ID, once, and deletes the data stored for profiles that the
-// manifest no longer has, by comparing the profile IDs last recorded in status with the manifest's.
+// ReconcileProfiles gives each profile of a vMCP stored before profiles had IDs its derived ID, once. Profiles hold no
+// data of their own, so a profile's removal needs nothing else.
 func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error {
 	vmcp := req.Object.(*v1.VMCP)
 	if !vmcp.DeletionTimestamp.IsZero() {
-		// The finalizer deletes the data of every profile.
 		return nil
 	}
-
 	// The API and catalog sync assign IDs when they save a vMCP, so only a vMCP stored before profiles had IDs lacks
 	// them. Its profiles get the IDs catalog sync derives, so a catalog-synced vMCP keeps them on its next sync.
 	if vmcpconfig.AssignDerivedProfileIDs(vmcp.Name, &vmcp.Spec.Manifest) {
 		return req.Client.Update(req.Ctx, vmcp)
 	}
-
-	current := vmcpconfig.ProfileIDs(vmcp.Spec.Manifest)
-	removed := slices.DeleteFunc(vmcpconfig.RecordedProfileIDs(*vmcp), func(id string) bool {
-		return slices.Contains(current, id)
-	})
-	if len(removed) > 0 {
-		if err := h.deleteProfileData(req, vmcp.Name, removed); err != nil {
-			return err
-		}
-		slog.Info("Deleted the data of removed vMCP profiles", "vmcp", vmcp.Name, "profiles", removed)
-	}
-
-	changed := !slices.Equal(vmcp.Status.ProfileIDs, current)
-	vmcp.Status.ProfileIDs = current
-	for _, id := range removed {
-		if _, ok := vmcp.Status.ProfileConfigurationRevisions[id]; ok {
-			delete(vmcp.Status.ProfileConfigurationRevisions, id)
-			changed = true
-		}
-	}
-	if vmcpconfig.RemoveProfileOAuthGrantRecords(vmcp, removed) {
-		changed = true
-	}
-	if !changed {
-		return nil
-	}
-	return req.Client.Status().Update(req.Ctx, vmcp)
+	return nil
 }
 
-// RemoveProfileData deletes the data stored for every profile of a vMCP being deleted: those in its manifest and those
-// last recorded in its status, which include profiles removed just before the deletion.
-func (h *Handler) RemoveProfileData(req router.Request, _ router.Response) error {
+// CollectAgentOAuthGrants deletes the agent OAuth grants of components the vMCP no longer has, by the records of the
+// grants in status, which every grant is recorded in before it is stored (vmcpconfig.AgentOAuthGrantStore.Authorize).
+func (h *Handler) CollectAgentOAuthGrants(req router.Request, _ router.Response) error {
 	vmcp := req.Object.(*v1.VMCP)
-	ids := vmcpconfig.ProfileIDs(vmcp.Spec.Manifest)
-	for _, id := range vmcpconfig.RecordedProfileIDs(*vmcp) {
-		if !slices.Contains(ids, id) {
-			ids = append(ids, id)
-		}
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	return h.deleteProfileData(req, vmcp.Name, ids)
-}
-
-// CollectProfileConfiguration deletes the superseded configuration revisions of the vMCP's profiles once no agent's
-// instance records that its configuration was copied from them. Only then is a revision unused: an instance keeps
-// recording the revision it was last resolved from until the vMCP instance controller copies the current one.
-//
-// Instances are listed only while a revision waits to be deleted, and listing them watches them, so an instance that
-// moves to the current revision rechecks the vMCP. A vMCP whose profiles carry no configuration never watches its
-// instances.
-func (h *Handler) CollectProfileConfiguration(req router.Request, _ router.Response) error {
-	vmcp := req.Object.(*v1.VMCP)
-	if !vmcp.DeletionTimestamp.IsZero() || h.profileConfiguration == nil {
-		// The finalizer deletes every revision of a vMCP being deleted.
-		return nil
-	}
-	if !slices.ContainsFunc(slices.Collect(maps.Values(vmcp.Status.ProfileConfigurationRevisions)), func(revision v1.VMCPProfileConfigurationRevision) bool {
-		return len(revision.Superseded) > 0
-	}) {
-		return nil
-	}
-
-	var instances v1.VMCPInstanceList
-	if err := req.List(&instances, &kclient.ListOptions{
-		Namespace:     vmcp.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.manifest.vmcpID", vmcp.Name),
-	}); err != nil {
-		return err
-	}
-	changed, err := h.profileConfiguration.CollectSuperseded(req.Ctx, vmcp, instances.Items)
-	if changed {
-		// Revisions already deleted are recorded as deleted even if a later one failed.
-		if updateErr := req.Client.Status().Update(req.Ctx, vmcp); updateErr != nil {
-			return errors.Join(err, updateErr)
-		}
-	}
-	return err
-}
-
-// CollectProfileOAuthGrants deletes the OAuth grants that profiles hold for components the vMCP no longer has. Unlike
-// a profile's data, which ReconcileProfiles deletes when the profile goes, a component's grants are keyed by component,
-// so removing a component needs its own trigger: the records of the grants in status, which every grant is recorded in
-// before it is stored (vmcpconfig.ProfileOAuthGrantStore.Authorize).
-func (h *Handler) CollectProfileOAuthGrants(req router.Request, _ router.Response) error {
-	vmcp := req.Object.(*v1.VMCP)
-	if !vmcp.DeletionTimestamp.IsZero() || h.profileOAuthGrants == nil || len(vmcp.Status.ProfileOAuthGrants) == 0 {
+	if !vmcp.DeletionTimestamp.IsZero() || h.agentOAuthGrants == nil || len(vmcp.Status.AgentOAuthGrants) == 0 {
 		// The finalizer deletes every grant of a vMCP being deleted.
 		return nil
 	}
-	changed, err := h.profileOAuthGrants.DeleteRemovedComponentGrants(req.Ctx, vmcp)
+	changed, err := h.agentOAuthGrants.DeleteRemovedComponentGrants(req.Ctx, vmcp)
 	if err != nil || !changed {
 		return err
 	}
 	return req.Client.Status().Update(req.Ctx, vmcp)
 }
 
-func (h *Handler) deleteProfileData(req router.Request, vmcpID string, profileIDs []string) error {
-	if h.profileData == nil {
+// RemoveAgentOAuthGrants deletes every agent OAuth grant of a vMCP being deleted. It runs in the vMCP's finalizer, and
+// can run again after any failure.
+func (h *Handler) RemoveAgentOAuthGrants(req router.Request, _ router.Response) error {
+	if h.agentOAuthGrants == nil {
 		return nil
 	}
-	if err := h.profileData.DeleteProfileData(req.Ctx, vmcpID, profileIDs); err != nil {
-		return fmt.Errorf("failed to delete the data of vMCP %q profiles %v: %w", vmcpID, profileIDs, err)
-	}
-	return nil
+	return h.agentOAuthGrants.DeleteVMCPGrants(req.Ctx, *req.Object.(*v1.VMCP))
 }

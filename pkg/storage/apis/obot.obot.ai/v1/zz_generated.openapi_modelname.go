@@ -1036,13 +1036,13 @@ func (in VMCP) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VMCPComponentOAuth) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPComponentOAuth"
+func (in VMCPAgentOAuthGrant) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPAgentOAuthGrant"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VMCPComponentOAuthProbe) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPComponentOAuthProbe"
+func (in VMCPComponentOAuth) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPComponentOAuth"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -1073,16 +1073,6 @@ func (in VMCPInstanceStatus) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VMCPList) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VMCPProfileConfigurationRevision) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPProfileConfigurationRevision"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VMCPProfileOAuthGrant) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPProfileOAuthGrant"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

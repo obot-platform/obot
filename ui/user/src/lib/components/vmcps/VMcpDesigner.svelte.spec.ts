@@ -2592,6 +2592,96 @@ describe('VMcpDesigner.svelte', () => {
 		});
 	});
 
+	// Agent setup is the vMCP's, for the components profiles naming an agent grant. It appears only once a
+	// saved profile names an agent, and only to an administrator.
+	describe('agent setup', () => {
+		function agentVMcp() {
+			const vmcp = orgVMcp();
+			vmcp.profiles = [
+				...(vmcp.profiles ?? []),
+				{
+					id: 'vp1bots',
+					name: 'Bots',
+					subjects: [{ type: 'agent', id: '5' }],
+					vmcpPermissions: { allowAllComponents: true }
+				}
+			];
+			return vmcp;
+		}
+
+		function mockAgentSetup(vmcp: VMCP) {
+			const componentID = `component-${componentEntry.id}`;
+			const loaded = vi.fn();
+			worker.use(
+				http.get(`/api/vmcps/${vmcp.id}/agent-setup`, () => {
+					loaded();
+					return HttpResponse.json({
+						vmcpID: vmcp.id,
+						components: [{ componentID, ready: true, reasons: [] }]
+					});
+				})
+			);
+			return loaded;
+		}
+
+		const agentSetupTab = () => page.getByRole('button', { name: 'Agent setup', exact: true });
+
+		it('offers no agent setup when no profile names an agent', async () => {
+			// All Obot Users never includes an agent.
+			await renderDesigner([componentEntry], orgVMcp());
+
+			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
+			await expect.element(agentSetupTab()).not.toBeInTheDocument();
+		});
+
+		it('shows the agent setup of the vMCP once a profile names an agent', async () => {
+			const vmcp = agentVMcp();
+			const loaded = mockAgentSetup(vmcp);
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(agentSetupTab()).toBeVisible();
+			await agentSetupTab().click();
+			await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
+			await expect
+				.element(page.getByRole('region', { name: componentEntry.manifest.name! }))
+				.toBeVisible();
+			expect(loaded).toHaveBeenCalled();
+		});
+
+		it('opens the agent setup a link from the agent page names', async () => {
+			const vmcp = agentVMcp();
+			mockAgentSetup(vmcp);
+			(appPage.url as URL).searchParams.set('view', 'agent-setup');
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
+		});
+
+		it('keeps the agent setup available on a catalog-synced vMCP', async () => {
+			const vmcp = agentVMcp();
+			vmcp.sourceURL = 'https://github.com/example/catalog';
+			mockAgentSetup(vmcp);
+			(appPage.url as URL).searchParams.set('view', 'agent-setup');
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
+		});
+
+		it('offers no agent setup to someone who is not an administrator', async () => {
+			const vmcp = agentVMcp();
+			const loaded = mockAgentSetup(vmcp);
+			(appPage.url as URL).searchParams.set('view', 'agent-setup');
+			await renderDesigner([componentEntry], vmcp, { groups: [Group.AUDITOR] });
+
+			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
+			await expect.element(agentSetupTab()).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('heading', { name: 'Agent setup' }))
+				.not.toBeInTheDocument();
+			expect(loaded).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('when the viewer is not an admin or owner', () => {
 		const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
 

@@ -8,7 +8,7 @@ Obot credentials serve different connections. Manage them according to their own
 |---|---|
 | Client API key | [Agent authorization scopes](../functionality/agent-auth-scopes.md), under **Identity & Access > API Keys**; deleting a scope invalidates its keys |
 | Agent API key | [Agent identities](./agent-identities.md#create-a-key); revoking a key, or disabling or deleting its agent, invalidates it |
-| Agent upstream configuration and OAuth grants | [Agent setup on vMCP profiles](../mcp-gateway/agent-setup.md) |
+| Agent upstream OAuth grants | [Agent setup on the vMCP](../mcp-gateway/agent-setup.md#oauth), one grant per component shared by every agent granted it; **Revoke**, removing the component, or deleting the vMCP deletes it ([details](#agent-oauth-grants)) |
 | Upstream MCP OAuth application | [Static OAuth](../mcp-gateway/server-configuration.md#static-oauth); changing application credentials can interrupt use |
 | Shared or user-supplied MCP configuration | [vMCP configuration policies](../mcp-gateway/server-types.md#virtual-mcps-configuration-policies) |
 | Externally managed Kubernetes Secret | [Secret bindings](../concepts/mcp-hosting.md#mcp-servers-kubernetes-secret-bindings), including the required discovery/resolution label |
@@ -18,6 +18,20 @@ Obot credentials serve different connections. Manage them according to their own
 Application-level encryption is disabled by default. Read the [encryption coverage](./credentials.md#overview-encrypted-resources-and-fields) before enabling a provider. It protects selected database and credential fields, not entire records, exported logs, or backups. Existing data may require a separate migration.
 
 Preserve key access when restoring encrypted data; losing the key or KMS permissions can make a database backup unusable.
+
+## Agent OAuth grants {#agent-oauth-grants}
+
+The upstream OAuth tokens that [agents](./agent-identities.md) use belong to the vMCP, not to an agent or a profile. An administrator authorizes each OAuth component once in the vMCP's [agent setup](../mcp-gateway/agent-setup.md#oauth), and every agent that a profile of the vMCP grants the component uses that grant.
+
+Each grant is a row of the gateway database's MCP OAuth tokens, encrypted like users' tokens (`mcpoauthtokens.obot.obot.ai` below). Its owner is `vmcp-agent-oauth:<vmcpID>`, which isn't a user or an agent, so nothing can authenticate as it, and its MCP ID is `<vmcpID>/<componentID>`. It's used only for the component's URL that it was authorized for. No API response, log or audit record contains its tokens.
+
+A grant is deleted when:
+
+- an administrator clicks **Revoke** under the vMCP's **Agent setup**, or calls `DELETE /api/vmcps/{vmcp_id}/agent-oauth/{component_id}`;
+- the component is removed from the vMCP;
+- the vMCP is deleted.
+
+Deleting an agent, or changing the vMCP's profiles, deletes no grant. Deleting a grant doesn't revoke it at the provider. Revoke it there too if the tokens may have leaked.
 
 ## Create an API key {#agent-auth-scopes-creating-an-agent-authorization-scope}
 

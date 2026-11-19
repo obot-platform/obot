@@ -225,8 +225,8 @@ type AuditLogScopeDetails struct {
 	// the call to one.
 	VMCPID          string `json:"vmcpID,omitempty"`
 	VMCPComponentID string `json:"vmcpComponentID,omitempty"`
-	// ProfileIDs are the vMCP profiles that granted the caller its permissions. For an agent, it is the one profile
-	// that names it, which also supplies its configuration and OAuth grants.
+	// ProfileIDs are the vMCP profiles that granted the caller its permissions, every one that names it, for an agent
+	// as for a user.
 	ProfileIDs []string `json:"profileIDs,omitempty"`
 }
 

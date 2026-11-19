@@ -163,12 +163,12 @@ func FromUserInfo(u kuser.Info) (Principal, bool) {
 // the storage encoding of its principal (Principal.String), "agent:<id>" for an agent, so that a user and an agent
 // with the same numeric ID never share one. A caller that records no principal kind, which no authenticator of users
 // or agents builds, keeps its UID as before. A caller that claims to be an agent but is not a well-formed one owns
-// nothing, and neither does a caller with the owner of a profile's OAuth grants as its UID.
+// nothing, and neither does a caller with the owner of a vMCP's agent OAuth grants as its UID.
 func CallerOwner(u kuser.Info) (string, error) {
-	if u != nil && IsProfileGrant(u.GetUID()) {
-		// The owner of a profile's OAuth grants owns no instance, server or connection, so a caller carrying it, which
-		// the admission check already refuses, never reaches the grants through one.
-		return "", types.NewErrForbidden("a vMCP profile grant owner is not a caller")
+	if u != nil && IsAgentOAuthGrantOwner(u.GetUID()) {
+		// The owner of a vMCP's agent OAuth grants owns no instance, server or connection, so a caller carrying it,
+		// which the admission check already refuses, never reaches the grants through one.
+		return "", types.NewErrForbidden("a vMCP agent OAuth grant owner is not a caller")
 	}
 	if p, ok := FromUserInfo(u); ok {
 		return p.String(), nil

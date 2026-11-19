@@ -62,23 +62,14 @@ type VMCPSpec struct {
 type VMCPStatus struct {
 	Ready      bool                  `json:"ready,omitempty"`
 	Components []VMCPComponentStatus `json:"components,omitempty"`
-	// ProfileIDs are the profile IDs the vMCP controller last observed in the manifest. A profile whose ID is here but
-	// no longer in the manifest was deleted, so the controller deletes the data stored outside the manifest for it
-	// (vmcp.ProfileDataStore) and then records the manifest's IDs. A handler that stores such data for a profile must
-	// first make sure its ID is recorded here, so that a deletion the controller has not yet observed still cleans it up.
-	ProfileIDs []string `json:"profileIDs,omitempty"`
-	// ProfileConfigurationRevisions record, by profile ID, the configuration that administrators set on agent-capable
-	// profiles for agents (pkg/vmcp profile configuration). The values are in credentials, never here. A profile
-	// without configuration has no entry, unless it has superseded revisions left to delete.
-	ProfileConfigurationRevisions map[string]VMCPProfileConfigurationRevision `json:"profileConfigurationRevisions,omitempty"`
-	// ProfileOAuthGrants record the OAuth grants that administrators authorize on agent-capable profiles for agents,
-	// by profile and component (pkg/vmcp profile OAuth grants). The grants are in the gateway database, never here.
-	// Each grant is recorded before it is stored, so the vMCP controller deletes every one it may have stored when its
-	// component leaves the manifest, and the store deletes exactly the recorded ones when an administrator resets it.
-	ProfileOAuthGrants []VMCPProfileOAuthGrant `json:"profileOAuthGrants,omitempty"`
+	// AgentOAuthGrants record the OAuth grants that administrators authorize on the vMCP for agents, one per component
+	// (pkg/vmcp agent OAuth grants). The grants are in the gateway database, never here. Each grant is recorded before
+	// it is stored, so the vMCP controller deletes every one it may have stored when its component leaves the
+	// manifest, and the store deletes exactly the recorded ones when an administrator revokes it.
+	AgentOAuthGrants []VMCPAgentOAuthGrant `json:"agentOAuthGrants,omitempty"`
 	// ComponentOAuth records, by component ID, whether the remote components that agents reach ask for OAuth, as the
-	// vMCP controller last found by probing them without any credential. Agent readiness and profile status read it,
-	// and never probe. It never holds a URL: each result is keyed by a digest of the URL it is for.
+	// vMCP controller last found by probing them without any credential. Agent readiness and the vMCP's agent setup
+	// read it, and never probe. It never holds a URL.
 	ComponentOAuth map[string]VMCPComponentOAuth `json:"componentOAuth,omitempty"`
 }
 
@@ -88,47 +79,22 @@ type VMCPStatus struct {
 // an agent from connecting.
 type VMCPComponentOAuthRequirement string
 
-// VMCPComponentOAuth records the probes of one component, for its current definition.
+// VMCPComponentOAuth records the probe of one component, for its current target.
 type VMCPComponentOAuth struct {
-	// DefinitionHash is the component's definition (vmcp.ProfileOAuthGrantDefinitionHash) that the probes were made
-	// for. A change to it discards them, and the component is probed again.
-	DefinitionHash string `json:"definitionHash"`
-	// Probes are the results for each URL that agents' connections to the component reach: the URL its definition
-	// fixes, or each distinct URL that the configuration of its profiles resolves to.
-	Probes []VMCPComponentOAuthProbe `json:"probes,omitempty"`
-}
-
-// VMCPComponentOAuthProbe is the result of probing one URL of a component.
-type VMCPComponentOAuthProbe struct {
-	// URLDigest is the digest of the URL probed (vmcp.ComponentOAuthURLDigest), never the URL, which may come from
-	// configuration.
-	URLDigest string `json:"urlDigest"`
+	// TargetHash identifies what the probe was made for (vmcp.ComponentOAuthTargetHash): the component's definition
+	// and the values fixed for everyone that its URL is built from. A change to it discards the probe, and the
+	// component is probed again.
+	TargetHash string `json:"targetHash"`
 	// Required is what the last probe found, or, when it failed, what the last one that succeeded found, if any.
 	Required VMCPComponentOAuthRequirement `json:"required"`
-	// CheckedAt is when the URL was last probed, whether the probe succeeded or not.
+	// CheckedAt is when the component was last probed, whether the probe succeeded or not.
 	CheckedAt metav1.Time `json:"checkedAt"`
 	// Failures counts the probes in a row that failed. The next probe waits longer after each.
 	Failures int `json:"failures,omitempty"`
 }
 
-// VMCPProfileConfigurationRevision records the configuration of one vMCP profile. Each change to it is stored as a new
-// credential, a revision, which is published here with the keys it sets, so the configuration an agent resolves to
-// and the revision its values are copied from always agree.
-type VMCPProfileConfigurationRevision struct {
-	// Name names the credential of the current revision, in the profile's credential context. It is empty when the
-	// profile has no configuration.
-	Name string `json:"name,omitempty"`
-	// Keys are the configuration keys the current revision sets, as vmcp.ConfigurationKey encodes them. They never
-	// carry a value.
-	Keys []string `json:"keys,omitempty"`
-	// Superseded are earlier revisions. The vMCP controller deletes each once no agent's instance records that its
-	// configuration was resolved from it.
-	Superseded []string `json:"superseded,omitempty"`
-}
-
-// VMCPProfileOAuthGrant records the OAuth grants that may be stored for one component of one vMCP profile.
-type VMCPProfileOAuthGrant struct {
-	ProfileID   string `json:"profileID"`
+// VMCPAgentOAuthGrant records the agent OAuth grants that may be stored for one component of a vMCP.
+type VMCPAgentOAuthGrant struct {
 	ComponentID string `json:"componentID"`
 	// GrantIDs identify the grants that may be stored for the component: the one last published, and any being
 	// written since. Only one is stored at a time, and it has one of these IDs.

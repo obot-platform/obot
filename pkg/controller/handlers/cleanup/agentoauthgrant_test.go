@@ -20,29 +20,29 @@ import (
 )
 
 const (
-	profileGrantURL = "https://provider.example.com/mcp"
+	agentGrantURL = "https://provider.example.com/mcp"
 )
 
-// storeProfileGrant stores a grant of a vMCP profile, authorized by the user authorizedBy.
-func storeProfileGrant(t *testing.T, gateway *gclient.Client, profileID, authorizedBy string) (string, string) {
+// storeAgentGrant stores a vMCP's agent OAuth grant for a component, authorized by the user authorizedBy.
+func storeAgentGrant(t *testing.T, gateway *gclient.Client, vmcpID, componentID, authorizedBy string) (string, string) {
 	t.Helper()
-	owner, mcpID := principal.ProfileGrant("vmcp1shared", profileID), vmcpconfig.ProfileOAuthGrantMCPID("vmcp1shared", "component")
-	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, profileGrantURL, "grant-"+profileID, authorizedBy,
+	owner, mcpID := principal.AgentOAuthGrantOwner(vmcpID), vmcpconfig.AgentOAuthGrantMCPID(vmcpID, componentID)
+	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, agentGrantURL, "grant-"+vmcpID+"-"+componentID, authorizedBy,
 		&oauth2.Config{ClientID: "client"}, &oauth2.Token{AccessToken: "token", RefreshToken: "refresh"}))
 	return owner, mcpID
 }
 
-func requireProfileGrant(t *testing.T, gateway *gclient.Client, owner, mcpID string) {
+func requireAgentGrant(t *testing.T, gateway *gclient.Client, owner, mcpID string) {
 	t.Helper()
-	grant, err := gateway.GetMCPOAuthToken(t.Context(), owner, mcpID, profileGrantURL)
-	require.NoError(t, err, "the grant of %s was deleted", owner)
+	grant, err := gateway.GetMCPOAuthToken(t.Context(), owner, mcpID, agentGrantURL)
+	require.NoError(t, err, "the grant of %s for %s was deleted", owner, mcpID)
 	require.Nil(t, grant.InvalidatedAt)
 }
 
-// TestUserCleanupKeepsProfileGrantsTheUserAuthorized checks that deleting the administrator who authorized a profile's
-// grant deletes nothing of it: the grant is the profile's, keyed by the profile, and records the administrator only as
-// who authorized it.
-func TestUserCleanupKeepsProfileGrantsTheUserAuthorized(t *testing.T) {
+// TestUserCleanupKeepsAgentGrantsTheUserAuthorized checks that deleting the administrator who authorized a vMCP's agent
+// OAuth grant deletes nothing of it: the grant is the vMCP's, keyed by the vMCP and component, and records the
+// administrator only as who authorized it.
+func TestUserCleanupKeepsAgentGrantsTheUserAuthorized(t *testing.T) {
 	userDelete := &v1.UserDelete{Name: "delete-user", Namespace: system.DefaultNamespace, Spec: v1.UserDeleteSpec{UserID: 1}}
 	builder := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(userDelete)
 	for _, obj := range []kclient.Object{
@@ -54,7 +54,7 @@ func TestUserCleanupKeepsProfileGrantsTheUserAuthorized(t *testing.T) {
 	}
 	client := builder.Build()
 	gateway := newCredentialsCleanupGatewayClient(t)
-	owner, mcpID := storeProfileGrant(t, gateway, "vp1agents", "1")
+	owner, mcpID := storeAgentGrant(t, gateway, "vmcp1shared", "component", "1")
 	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
 		"user-ids": func(any) ([]string, error) { return nil, nil },
 	})
@@ -65,21 +65,21 @@ func TestUserCleanupKeepsProfileGrantsTheUserAuthorized(t *testing.T) {
 		Object:    userDelete,
 		Namespace: system.DefaultNamespace,
 	}, nil))
-	requireProfileGrant(t, gateway, owner, mcpID)
-	grant, err := gateway.GetMCPOAuthToken(t.Context(), owner, mcpID, profileGrantURL)
+	requireAgentGrant(t, gateway, owner, mcpID)
+	grant, err := gateway.GetMCPOAuthToken(t.Context(), owner, mcpID, agentGrantURL)
 	require.NoError(t, err)
 	require.Equal(t, "1", grant.AuthorizedBy)
 }
 
-// TestAgentCleanupKeepsProfileGrants checks that deleting an agent deletes no grant of the profile that named it, even
-// one that named only that agent, nor any other profile's: grants belong to profiles.
-func TestAgentCleanupKeepsProfileGrants(t *testing.T) {
+// TestAgentCleanupKeepsAgentGrants checks that deleting an agent deletes no agent OAuth grant of any vMCP, even of a
+// vMCP whose profiles named only that agent: grants belong to the vMCP's components, which other agents may be granted.
+func TestAgentCleanupKeepsAgentGrants(t *testing.T) {
 	f := newAgentCleanupFixture(t, nil)
-	agentOwner, mcpID := storeProfileGrant(t, f.gateway, "vp1agent", "3")
-	otherOwner, _ := storeProfileGrant(t, f.gateway, "vp1other", "3")
+	owner, mcpID := storeAgentGrant(t, f.gateway, "vmcp1shared", "component", "3")
+	otherOwner, otherMCPID := storeAgentGrant(t, f.gateway, "vmcp1other", "component", "3")
 
 	require.NoError(t, DeletedAgent(f.request(t), nil))
 	f.requireCleanedUp(t)
-	requireProfileGrant(t, f.gateway, agentOwner, mcpID)
-	requireProfileGrant(t, f.gateway, otherOwner, mcpID)
+	requireAgentGrant(t, f.gateway, owner, mcpID)
+	requireAgentGrant(t, f.gateway, otherOwner, otherMCPID)
 }

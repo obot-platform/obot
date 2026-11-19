@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -45,9 +46,8 @@ import (
 const (
 	agentFlowVMCP      = "vmcp1agentflow"
 	agentFlowComponent = "remote"
-	agentFlowSeven     = "vp1seven"
-	// agentFlowShared is the profile of agents 8 and 9, whose one grant both use.
-	agentFlowShared = "vp1shared"
+	// agentFlowOther is a component that needs no OAuth, the only one agent 10's profile grants.
+	agentFlowOther = "other"
 )
 
 // agentFlowProvider is a remote MCP server protected by its own OAuth authorization server, as a real provider is: it
@@ -86,16 +86,17 @@ type agentFlowCode struct {
 	challenge, redirectURI string
 }
 
-// agentFlowFixture is a shared vMCP whose one component is the provider's MCP server, with a profile for agent 7 and
-// one for agents 8 and 9, and agents 7, 8 and 9 connected to it. It holds the handlers of the whole path: the
-// administrator's authorization of a profile's grant, the provider's callback, and the MCP gateway that proxies an
-// agent's requests to the component.
+// agentFlowFixture is a shared vMCP whose remote component is the provider's MCP server, with a profile for agent 7,
+// one for agents 8 and 9, which both grant every component, and one for agent 10, which grants only a component that
+// needs no OAuth. Agents 7, 8, 9 and 10 each have a connection to the remote component's shared server; agent 10's is
+// one no profile of its grants it. It holds the handlers of the whole path: the administrator's authorization of the
+// vMCP's grant, the provider's callback, and the MCP gateway that proxies an agent's requests to the component.
 type agentFlowFixture struct {
 	provider *agentFlowProvider
 	storage  storage.Client
 	db       *gorm.DB
 	gateway  *gatewayclient.Client
-	grants   *vmcpconfig.ProfileOAuthGrantStore
+	grants   *vmcpconfig.AgentOAuthGrantStore
 	manager  *mcp.SessionManager
 	factory  *MCPOAuthHandlerFactory
 	handler  *handler
@@ -353,22 +354,39 @@ func newAgentFlowFixture(t *testing.T) *agentFlowFixture {
 		return types.VMCPProfile{ID: id, Name: id, Subjects: []types.Subject{subject}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}
 	}
 	vmcp := &v1.VMCP{Name: agentFlowVMCP, Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-		Components: []types.VMCPComponent{{
-			ID:                      agentFlowComponent,
-			Name:                    "Remote",
-			MCPServerCatalogEntryID: "entry",
-			CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-				Runtime:      types.RuntimeRemote,
-				RemoteConfig: &types.RemoteCatalogConfig{FixedURL: provider.mcpURL()},
-			}},
-		}},
-		Profiles: []types.VMCPProfile{
-			profile(agentFlowSeven, types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
+		Components: []types.VMCPComponent{
 			{
-				ID:          agentFlowShared,
-				Name:        agentFlowShared,
+				ID:                      agentFlowComponent,
+				Name:                    "Remote",
+				MCPServerCatalogEntryID: "entry",
+				CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+					Runtime:      types.RuntimeRemote,
+					RemoteConfig: &types.RemoteCatalogConfig{FixedURL: provider.mcpURL()},
+				}},
+			},
+			{
+				ID:                      agentFlowOther,
+				Name:                    "Other",
+				MCPServerCatalogEntryID: "entry-other",
+				CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+					Runtime:   types.RuntimeNPX,
+					NPXConfig: &types.NPXRuntimeConfig{Package: "other"},
+				}},
+			},
+		},
+		Profiles: []types.VMCPProfile{
+			profile("vp1seven", types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
+			{
+				ID:          "vp1shared",
+				Name:        "shared",
 				Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "8"}, {Type: types.SubjectTypeAgent, ID: "9"}},
 				Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+			},
+			{
+				ID:          "vp1ten",
+				Name:        "ten",
+				Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "10"}},
+				Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{agentFlowOther: {}}},
 			},
 		},
 	}}}
@@ -380,14 +398,13 @@ func newAgentFlowFixture(t *testing.T) *agentFlowFixture {
 	}}
 	objects := []kclient.Object{vmcp, shared}
 	connections, instances := map[uint]string{}, map[uint]string{}
-	for _, id := range []uint{7, 8, 9} {
+	for _, id := range []uint{7, 8, 9, 10} {
 		caller := agentFlowKeyCaller(id)
 		instance := &v1.VMCPInstance{Name: fmt.Sprintf("vmcpi1agentflow%d", id), Namespace: system.DefaultNamespace, Spec: v1.VMCPInstanceSpec{
 			UserID:   caller.GetUID(),
 			Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
 		}}
-		// What the instance controller records once it has given the agent its profiles' configuration.
-		instance.Status.AgentConfigurationRevision = vmcpconfig.ResolveAgentConfiguration(*vmcp, *instance, caller).Revision
+		// What the instance controller records once it has synchronized the instance.
 		instance.Status.ConfigurationCheckHash = vmcpconfig.ConfigurationCheckHash(vmcpconfig.EnabledComponents(caller, *vmcp, vmcpconfig.ComponentsForInstance(*vmcp, *instance)), "")
 		connection := &v1.MCPServerInstance{Name: fmt.Sprintf("msi1agentflow%d", id), Namespace: system.DefaultNamespace, Spec: v1.MCPServerInstanceSpec{
 			UserID:          caller.GetUID(),
@@ -431,11 +448,11 @@ func newAgentFlowFixture(t *testing.T) *agentFlowFixture {
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 		&rest.Config{Host: "http://kubernetes.invalid"}, cluster, cluster, storageClient, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)
-	grants := vmcpconfig.NewProfileOAuthGrantStore(gateway)
+	grants := vmcpconfig.NewAgentOAuthGrantStore(gateway)
 	grants.SetComponentTargets(manager)
-	manager.SetProfileOAuthGrants(grants)
+	manager.SetAgentOAuthGrants(grants)
 	factory := NewMCPOAuthHandlerFactory("http://obot.example", manager, storageClient, gateway, tokens, "", true)
-	factory.SetProfileOAuthGrants(grants)
+	factory.SetAgentOAuthGrants(grants)
 	proxy, err := mcpgateway.NewHandler(t.Context(), manager, tokens, nil, nil, "http://obot.example", "", "", nil, nil, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = proxy.Close() })
@@ -471,21 +488,21 @@ func agentFlowLoopbackCaller(id uint, instance string) kuser.Info {
 	})
 }
 
-// authorize runs an administrator's authorization of the profile's grant for the component end to end: the start
+// authorize runs an administrator's authorization of the vMCP's grant for the remote component end to end: the start
 // handler returns the provider's authorization URL, the administrator's browser follows it to the provider, which
 // redirects back to Obot's MCP OAuth callback with a code, and the callback, as the same administrator, exchanges it.
-// It returns the access and refresh tokens the provider issued, as stored for the profile.
-func (f *agentFlowFixture) authorize(t *testing.T, profileID string) (string, string) {
+// It returns the access and refresh tokens the provider issued, as stored for the vMCP.
+func (f *agentFlowFixture) authorize(t *testing.T) (string, string) {
 	t.Helper()
 	admin := administrator("1")
 	start := api.Context{
 		ResponseWriter: httptest.NewRecorder(),
-		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps/"+f.key.Name+"/profiles/"+profileID+"/components/"+agentFlowComponent+"/oauth", nil),
+		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps/"+f.key.Name+"/agent-oauth/"+agentFlowComponent, nil),
 		Storage:        f.storage,
 		GatewayClient:  f.gateway,
 		User:           admin,
 	}
-	authorization, err := f.factory.StartProfileOAuthGrant(start, f.key.Name, profileID, agentFlowComponent)
+	authorization, err := f.factory.StartAgentOAuthGrant(start, f.key.Name, agentFlowComponent)
 	require.NoError(t, err)
 	require.False(t, authorization.LocalhostCallback)
 
@@ -512,11 +529,66 @@ func (f *agentFlowFixture) authorize(t *testing.T, profileID string) (string, st
 	require.Equal(t, http.StatusFound, recorder.Code)
 	require.Equal(t, "/auth/oauth/complete", recorder.Header().Get("Location"))
 
-	stored, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(f.key.Name, profileID), vmcpconfig.ProfileOAuthGrantMCPID(f.key.Name, agentFlowComponent), f.provider.mcpURL())
-	require.NoError(t, err)
+	stored := f.stored(t)
 	require.Equal(t, "1", stored.AuthorizedBy)
 	require.Nil(t, stored.InvalidatedAt)
 	return stored.AccessToken, stored.RefreshToken
+}
+
+// stored returns the vMCP's grant for the remote component, as stored.
+func (f *agentFlowFixture) stored(t *testing.T) *gatewaytypes.MCPOAuthToken {
+	t.Helper()
+	stored, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.AgentOAuthGrantOwner(f.key.Name), vmcpconfig.AgentOAuthGrantMCPID(f.key.Name, agentFlowComponent), f.provider.mcpURL())
+	require.NoError(t, err)
+	return stored
+}
+
+// recordProbe records in the vMCP's status that the controller's probe of the remote component found it asks for
+// OAuth, as the controller does in the background.
+func (f *agentFlowFixture) recordProbe(t *testing.T) {
+	t.Helper()
+	var vmcp v1.VMCP
+	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
+	component := vmcpconfig.ComponentsForInstance(vmcp, v1.VMCPInstance{})[0]
+	vmcp.Status.ComponentOAuth = map[string]v1.VMCPComponentOAuth{agentFlowComponent: {
+		TargetHash: vmcpconfig.ComponentOAuthTargetHash(vmcp, component),
+		Required:   v1.VMCPComponentOAuthRequired,
+	}}
+	require.NoError(t, f.storage.Status().Update(t.Context(), &vmcp))
+}
+
+// setup returns the remote component's entry in the vMCP's agent setup, as an administrator sees it.
+func (f *agentFlowFixture) setup(t *testing.T) types.VMCPAgentSetupComponent {
+	t.Helper()
+	var vmcp v1.VMCP
+	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
+	setup, err := vmcpconfig.AgentSetup(t.Context(), f.grants, vmcp)
+	require.NoError(t, err)
+	for _, component := range setup.Components {
+		if component.ComponentID == agentFlowComponent {
+			return component
+		}
+	}
+	t.Fatalf("the agent setup does not list component %q: %+v", agentFlowComponent, setup)
+	return types.VMCPAgentSetupComponent{}
+}
+
+// requireConnectRefused requires that agent id's connect is refused with a 409 with reason code for the remote
+// component, never a challenge, as its readiness says.
+func (f *agentFlowFixture) requireConnectRefused(t *testing.T, id uint, code string) {
+	t.Helper()
+	want := vmcpconfig.AgentReadinessFailure{
+		Error:   vmcpconfig.AgentOAuthRequiredError,
+		Reasons: []vmcpconfig.ReadinessReason{{ComponentID: agentFlowComponent, Code: code}},
+	}
+	require.Equal(t, want.Reasons, f.ready(t, id).Reasons, "agent %d", id)
+	recorder := f.connectVMCP(t, id)
+	require.Equal(t, http.StatusConflict, recorder.Code, recorder.Body.String())
+	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
+	var failure vmcpconfig.AgentReadinessFailure
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &failure))
+	require.Equal(t, want, failure)
+	require.NotContains(t, recorder.Body.String(), "profileID")
 }
 
 // callComponent proxies one MCP request of agent id to its connection to the component, as the composite does for the
@@ -572,11 +644,11 @@ func (f *agentFlowFixture) ready(t *testing.T, id uint) vmcpconfig.Readiness {
 	return report.Readiness
 }
 
-// expireStored ages the profile's stored access token past its expiry, as time does.
-func (f *agentFlowFixture) expireStored(t *testing.T, profileID string) {
+// expireStored ages the vMCP's stored access token past its expiry, as time does.
+func (f *agentFlowFixture) expireStored(t *testing.T) {
 	t.Helper()
 	require.NoError(t, f.db.Model(&gatewaytypes.MCPOAuthToken{}).
-		Where("user_id = ? AND mcp_id = ?", principal.ProfileGrant(f.key.Name, profileID), vmcpconfig.ProfileOAuthGrantMCPID(f.key.Name, agentFlowComponent)).
+		Where("user_id = ? AND mcp_id = ?", principal.AgentOAuthGrantOwner(f.key.Name), vmcpconfig.AgentOAuthGrantMCPID(f.key.Name, agentFlowComponent)).
 		Update("expiry", time.Now().Add(-time.Hour)).Error)
 }
 
@@ -599,115 +671,114 @@ func requireUpstream(t *testing.T, p *agentFlowProvider, prefix, bearer string, 
 	require.Equal(t, want, p.bearers(prefix))
 }
 
-// TestAgentUsesTheProfileGrantAnAdministratorAuthorized runs the whole life of the OAuth grants of a vMCP profile
-// against a real OAuth provider: an administrator authorizes the grants of agent 7's profile and of the profile of
-// agents 8 and 9 through the provider's authorization endpoint and Obot's callback, and the MCP gateway then proxies
-// the agents' requests to the component with them. It checks, on the wire to the upstream:
+// TestAgentsUseTheVMCPGrantAnAdministratorAuthorized runs the whole life of a vMCP's agent OAuth grant against a real
+// OAuth provider: an administrator authorizes the remote component once, through the provider's authorization endpoint
+// and Obot's callback, and the MCP gateway then proxies the requests of every agent granted the component to it with
+// the one grant. It checks, on the wire to the upstream:
 //
-//   - each agent sends its own profile's token, never another profile's;
-//   - once agent 7's grant is reset, it sends no token, and is not ready, though the other profile's grant works;
-//   - once agent 7's grant is authorized again and its refresh is refused with invalid_grant, the agent is refused the
-//     component, without a challenge and without another profile's token reaching the upstream, and its connect is
-//     refused with oauth_invalid naming its profile, while the other agents keep working;
+//   - before the component is authorized, the agents granted it are not ready, their connect is refused with
+//     oauth_required, and they send no token;
+//   - once it is, agents 7, 8 and 9, whose profiles differ, all send the same token, and agent 10, whose profile does
+//     not grant the component, never sends it, though it reaches the component's server;
+//   - once the grant is revoked, every agent granted the component is oauth_required again and sends no token;
+//   - once it is authorized again and its refresh is refused with invalid_grant, every agent is refused the component,
+//     without a challenge and without a token reaching the upstream, and its connect is refused with oauth_invalid,
+//     which the vMCP's agent setup shows;
 //   - an expired grant is refreshed once at the provider, however many agents use it at once, and every agent's
 //     request carries the new token.
-func TestAgentUsesTheProfileGrantAnAdministratorAuthorized(t *testing.T) {
+func TestAgentsUseTheVMCPGrantAnAdministratorAuthorized(t *testing.T) {
 	f := newAgentFlowFixture(t)
+	f.recordProbe(t)
+	granted := []uint{7, 8, 9}
 
-	// Before any authorization, an agent sends no token of any kind, and the upstream's challenge reaches the composite
-	// loopback as a bare 401, which the composite reports to the agent as the component needing OAuth.
+	// Before any authorization, every agent granted the component is not ready, and sends no token of any kind: the
+	// upstream's challenge reaches the composite loopback as a bare 401, which the composite reports to the agent as
+	// the component needing OAuth.
+	for _, id := range granted {
+		f.requireConnectRefused(t, id, types.AgentReadinessOAuthRequired)
+	}
+	require.True(t, f.ready(t, 10).Ready(), "agent 10 is not granted the component, so it does not need it authorized")
 	recorder := f.callComponent(t, 7, "none-7-0")
 	require.Equal(t, http.StatusUnauthorized, recorder.Code, recorder.Body.String())
 	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
 	requireUpstream(t, f.provider, "none-", "")
 	f.requireNoChallenges(t)
 
-	sharedAccess, _ := f.authorize(t, agentFlowShared)
-	sevenAccess, _ := f.authorize(t, agentFlowSeven)
-	require.NotEqual(t, sharedAccess, sevenAccess)
-	require.EqualValues(t, 2, f.provider.exchanges.Load())
+	// (a) One authorization, for the vMCP's component, which every agent granted it uses.
+	access, _ := f.authorize(t)
+	require.EqualValues(t, 1, f.provider.exchanges.Load())
 	f.requireNoChallenges(t)
-
-	// (a) Each agent's own profile's grant.
-	for _, id := range []uint{7, 8} {
+	for _, id := range granted {
 		require.True(t, f.ready(t, id).Ready(), "agent %d", id)
 	}
 	for i := range 2 {
-		for _, id := range []uint{7, 8} {
+		for _, id := range granted {
 			recorder = f.callComponent(t, id, fmt.Sprintf("a-%d-%d", id, i))
 			require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 		}
 	}
-	requireUpstream(t, f.provider, "a-7-", sevenAccess, "a-7-0", "a-7-1")
-	requireUpstream(t, f.provider, "a-8-", sharedAccess, "a-8-0", "a-8-1")
-
-	// (b) An administrator resets agent 7's grant: its profile holds none, and it never uses another profile's. It is
-	// not ready, and its request reaches the upstream with no token, which refuses it.
-	_, reset, err := f.grants.Reset(t.Context(), f.storage, f.key, agentFlowSeven, agentFlowComponent)
-	require.NoError(t, err)
-	require.True(t, reset)
-	require.Equal(t, []vmcpconfig.ReadinessReason{{ComponentID: agentFlowComponent, Code: types.AgentReadinessOAuthRequired, ProfileID: agentFlowSeven}}, f.ready(t, 7).Reasons)
-	recorder = f.callComponent(t, 7, "b-7-0")
+	requireUpstream(t, f.provider, "a-", access, "a-7-0", "a-7-1", "a-8-0", "a-8-1", "a-9-0", "a-9-1")
+	// An agent whose profiles do not grant the component is never given its grant.
+	recorder = f.callComponent(t, 10, "a-10-0")
 	require.Equal(t, http.StatusUnauthorized, recorder.Code, recorder.Body.String())
-	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
-	requireUpstream(t, f.provider, "b-7-", "")
-	f.requireNoChallenges(t)
+	requireUpstream(t, f.provider, "a-10-", "")
+	require.Equal(t, types.VMCPAgentOAuthAuthorized, f.setup(t).OAuth.State)
 
-	// (c) Agent 7's grant is authorized again, and works.
-	sevenAccess, sevenRefresh := f.authorize(t, agentFlowSeven)
-	recorder = f.callComponent(t, 7, "c-7-0")
-	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
-	requireUpstream(t, f.provider, "c-7-", sevenAccess, "c-7-0")
-
-	// Its access token expires, and the provider no longer honors its refresh token. The agent's next request tries to
-	// refresh it once, is answered invalid_grant, and is refused: a bare 401 to the composite loopback, which the
-	// composite reports to the agent as the grant being invalid. Nothing reaches the upstream, so in particular not
-	// another profile's token.
-	f.provider.expire(sevenAccess)
-	f.provider.revoke(sevenRefresh)
-	f.expireStored(t, agentFlowSeven)
-	for i := range 2 {
-		recorder = f.callComponent(t, 7, fmt.Sprintf("c-7-broken-%d", i))
+	// (b) An administrator revokes the grant: every agent granted the component needs it authorized again, and its
+	// requests reach the upstream with no token, which refuses them.
+	_, revoked, err := f.grants.Revoke(t.Context(), f.storage, f.key, agentFlowComponent)
+	require.NoError(t, err)
+	require.True(t, revoked)
+	for _, id := range granted {
+		f.requireConnectRefused(t, id, types.AgentReadinessOAuthRequired)
+	}
+	for _, id := range []uint{7, 8} {
+		recorder = f.callComponent(t, id, fmt.Sprintf("b-%d-0", id))
 		require.Equal(t, http.StatusUnauthorized, recorder.Code, recorder.Body.String())
 		require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
 	}
-	requireUpstream(t, f.provider, "c-7-", "")
+	requireUpstream(t, f.provider, "b-", "")
+	f.requireNoChallenges(t)
+
+	// (c) The component is authorized again, and works.
+	access, refresh := f.authorize(t)
+	recorder = f.callComponent(t, 8, "c-8-0")
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	requireUpstream(t, f.provider, "c-8-", access, "c-8-0")
+
+	// Its access token expires, and the provider no longer honors its refresh token. The next request tries to refresh
+	// it once, is answered invalid_grant, and is refused: a bare 401 to the composite loopback, which the composite
+	// reports to the agent as the grant being invalid. Nothing reaches the upstream.
+	f.provider.expire(access)
+	f.provider.revoke(refresh)
+	f.expireStored(t)
+	for i, id := range []uint{7, 9} {
+		recorder = f.callComponent(t, id, fmt.Sprintf("c-broken-%d", i))
+		require.Equal(t, http.StatusUnauthorized, recorder.Code, recorder.Body.String())
+		require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
+	}
+	requireUpstream(t, f.provider, "c-broken-", "")
 	// The refresh was tried once: the grant is marked invalid for every agent, and is not refreshed again.
 	require.EqualValues(t, 1, f.provider.failedRefreshes.Load())
-	stored, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(f.key.Name, agentFlowSeven), vmcpconfig.ProfileOAuthGrantMCPID(f.key.Name, agentFlowComponent), f.provider.mcpURL())
-	require.NoError(t, err)
+	stored := f.stored(t)
 	require.NotNil(t, stored.InvalidatedAt)
 	require.Contains(t, stored.InvalidReason, "invalid_grant")
 
-	// The agent's connect is refused with a 409 that names its profile's grant as invalid, never a challenge.
-	recorder = f.connectVMCP(t, 7)
-	require.Equal(t, http.StatusConflict, recorder.Code, recorder.Body.String())
-	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
-	var failure vmcpconfig.AgentReadinessFailure
-	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &failure))
-	require.Equal(t, vmcpconfig.AgentReadinessFailure{
-		Error:   vmcpconfig.AgentOAuthRequiredError,
-		Reasons: []vmcpconfig.ReadinessReason{{ComponentID: agentFlowComponent, Code: types.AgentReadinessOAuthInvalid, ProfileID: agentFlowSeven}},
-	}, failure)
+	// Every agent's connect is refused with a 409 that names the grant as invalid, never a challenge, and the vMCP's
+	// agent setup shows it to the administrator.
+	for _, id := range granted {
+		f.requireConnectRefused(t, id, types.AgentReadinessOAuthInvalid)
+	}
 	f.requireNoChallenges(t)
+	setup := f.setup(t)
+	require.Equal(t, types.VMCPAgentOAuthInvalid, setup.OAuth.State)
+	require.Contains(t, setup.OAuth.InvalidReason, "invalid_grant")
 
-	// The profile's status shows it to the administrator.
-	var vmcp v1.VMCP
-	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
-	status, err := f.grants.ProfileOAuthStatus(t.Context(), vmcp, agentFlowSeven)
-	require.NoError(t, err)
-	require.Equal(t, types.VMCPProfileOAuthInvalid, status[agentFlowComponent].State)
-
-	// The other profile's agents are unaffected.
-	require.True(t, f.ready(t, 8).Ready())
-	recorder = f.callComponent(t, 8, "c-8-0")
-	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
-	requireUpstream(t, f.provider, "c-8-", sharedAccess, "c-8-0")
-
-	// (d) The shared grant's access token expires. Agents 8 and 9 use it at once: the grant is refreshed once at the
-	// provider, and every request reaches the upstream with the new token.
-	f.provider.expire(sharedAccess)
-	f.expireStored(t, agentFlowShared)
+	// (d) The component is authorized again, and its access token expires. Agents 7, 8 and 9 use it at once: the grant
+	// is refreshed once at the provider, and every request reaches the upstream with the new token.
+	access, _ = f.authorize(t)
+	f.provider.expire(access)
+	f.expireStored(t)
 	var (
 		wait  sync.WaitGroup
 		start = make(chan struct{})
@@ -715,8 +786,8 @@ func TestAgentUsesTheProfileGrantAnAdministratorAuthorized(t *testing.T) {
 		codes []int
 		ids   []string
 	)
-	for _, id := range []uint{8, 9} {
-		for i := range 8 {
+	for _, id := range granted {
+		for i := range 6 {
 			requestID := fmt.Sprintf("d-%d-%d", id, i)
 			ids = append(ids, requestID)
 			wait.Go(func() {
@@ -734,86 +805,83 @@ func TestAgentUsesTheProfileGrantAnAdministratorAuthorized(t *testing.T) {
 		require.Equal(t, http.StatusOK, code)
 	}
 	require.EqualValues(t, 1, f.provider.refreshes.Load(), "the shared grant was refreshed more than once")
-	stored, err = f.gateway.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(f.key.Name, agentFlowShared), vmcpconfig.ProfileOAuthGrantMCPID(f.key.Name, agentFlowComponent), f.provider.mcpURL())
-	require.NoError(t, err)
-	require.NotEqual(t, sharedAccess, stored.AccessToken)
+	stored = f.stored(t)
+	require.NotEqual(t, access, stored.AccessToken)
 	require.Nil(t, stored.InvalidatedAt)
 	require.Equal(t, "1", stored.AuthorizedBy, "a refresh changed who authorized the grant")
 	requireUpstream(t, f.provider, "d-", stored.AccessToken, ids...)
 
-	// The refreshed token keeps working without another refresh.
+	// The refreshed token keeps working without another refresh, and agent 10 still never gets it.
 	recorder = f.callComponent(t, 9, "e-9-0")
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 	requireUpstream(t, f.provider, "e-9-", stored.AccessToken, "e-9-0")
 	require.EqualValues(t, 1, f.provider.refreshes.Load())
-
-	// Agent 7 is still refused, with the other profile's grant working.
-	recorder = f.callComponent(t, 7, "e-7-0")
+	recorder = f.callComponent(t, 10, "e-10-0")
 	require.Equal(t, http.StatusUnauthorized, recorder.Code, recorder.Body.String())
-	requireUpstream(t, f.provider, "e-7-", "")
+	requireUpstream(t, f.provider, "e-10-", "")
 	f.requireNoChallenges(t)
 }
 
-// TestAgentUsesAProfileGrantForALateChallenge runs the life of the grants for a component whose server lets anyone
+// TestAgentsUseTheVMCPGrantForALateChallenge runs the life of the grant for a component whose server lets anyone
 // initialize, and only challenges once tools are listed, against a real OAuth provider:
 //
-//   - while no profile holds a grant, nothing shows that the component needs OAuth, so agents read as ready, and an
-//     agent learns otherwise only from the component, as a bare 401 that the composite reports as needing OAuth;
-//   - an administrator authorizes agent 7's profile: the start learns the challenge from tools/list, with
-//     unauthenticated probes that end their session, and asks for its scope; the callback stores the grant, and agent 7
-//     sends its token to the upstream through the component hop;
-//   - the grant shows that the component needs OAuth, so agent 8, whose profile holds none, is not ready, and its
-//     connect is refused with oauth_required naming its profile, as readiness says, until its profile is authorized
-//     too.
-func TestAgentUsesAProfileGrantForALateChallenge(t *testing.T) {
+//   - while the vMCP holds no grant, and no probe has found otherwise, nothing shows that the component needs OAuth, so
+//     agents read as ready, and an agent learns otherwise only from the component, as a bare 401 that the composite
+//     reports as needing OAuth;
+//   - an administrator authorizes the component: the start learns the challenge from tools/list, with
+//     unauthenticated probes that end their session, and asks for its scope; the callback stores the grant, and every
+//     agent granted the component sends its token to the upstream through the component hop;
+//   - the grant shows that the component needs OAuth: the vMCP's agent setup says so, and once the grant is marked
+//     invalid, every agent granted the component is not ready, and its connect is refused with oauth_invalid, as its
+//     readiness says.
+func TestAgentsUseTheVMCPGrantForALateChallenge(t *testing.T) {
 	f := newAgentFlowFixture(t)
 	f.provider.late.Store(true)
-	requireRequired := func(want bool) {
-		t.Helper()
-		var vmcp v1.VMCP
-		require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
-		for _, profileID := range []string{agentFlowSeven, agentFlowShared} {
-			status, err := f.grants.ProfileOAuthStatus(t.Context(), vmcp, profileID)
-			require.NoError(t, err)
-			require.Equal(t, want, status[agentFlowComponent].Required, profileID)
-		}
-	}
 
 	for _, id := range []uint{7, 8} {
 		require.True(t, f.ready(t, id).Ready(), "agent %d", id)
 	}
-	requireRequired(false)
+	require.False(t, f.setup(t).OAuth.Required)
 	recorder := f.callComponent(t, 8, "late-none-8")
 	require.Equal(t, http.StatusUnauthorized, recorder.Code, recorder.Body.String())
 	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
 	requireUpstream(t, f.provider, "late-none-", "")
 	f.requireNoChallenges(t)
 
-	sevenAccess, _ := f.authorize(t, agentFlowSeven)
+	access, _ := f.authorize(t)
 	require.Equal(t, "tools:read", f.provider.lastScope())
 	requireUnauthenticatedProbes(t, f.provider.takeProbes())
-	recorder = f.callComponent(t, 7, "late-7-0")
-	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
-	requireUpstream(t, f.provider, "late-7-", sevenAccess, "late-7-0")
-	require.True(t, f.ready(t, 7).Ready())
+	for _, id := range []uint{7, 8} {
+		require.True(t, f.ready(t, id).Ready(), "agent %d", id)
+		recorder = f.callComponent(t, id, fmt.Sprintf("late-%d-0", id))
+		require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	requireUpstream(t, f.provider, "late-", access, "late-7-0", "late-8-0")
+	setup := f.setup(t)
+	require.True(t, setup.OAuth.Required)
+	require.Equal(t, types.VMCPAgentOAuthAuthorized, setup.OAuth.State)
 
-	requireRequired(true)
-	want := []vmcpconfig.ReadinessReason{{ComponentID: agentFlowComponent, Code: types.AgentReadinessOAuthRequired, ProfileID: agentFlowShared}}
-	require.Equal(t, want, f.ready(t, 8).Reasons)
-	recorder = f.connectVMCP(t, 8)
-	require.Equal(t, http.StatusConflict, recorder.Code, recorder.Body.String())
-	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
-	var failure vmcpconfig.AgentReadinessFailure
-	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &failure))
-	require.Equal(t, vmcpconfig.AgentReadinessFailure{Error: vmcpconfig.AgentOAuthRequiredError, Reasons: want}, failure)
+	// A grant that stopped working still shows that the component needs OAuth.
+	grantID := f.stored(t).GrantID
+	var marked bool
+	require.NoError(t, f.gateway.WithMCPOAuthRefreshLock(t.Context(), principal.AgentOAuthGrantOwner(f.key.Name), vmcpconfig.AgentOAuthGrantMCPID(f.key.Name, agentFlowComponent), func(_ context.Context, refresh *gatewayclient.MCPOAuthRefresh) error {
+		var err error
+		marked, err = refresh.Invalidate(grantID, "the provider refused the refresh token")
+		return err
+	}))
+	require.True(t, marked)
+	require.True(t, f.setup(t).OAuth.Required)
+	for _, id := range []uint{7, 8} {
+		f.requireConnectRefused(t, id, types.AgentReadinessOAuthInvalid)
+	}
 
-	// Authorizing agent 8's profile probes without a token too, though a grant is now stored.
-	sharedAccess, _ := f.authorize(t, agentFlowShared)
+	// Authorizing it again probes without a token too, though a grant is stored.
+	access, _ = f.authorize(t)
 	require.Equal(t, "tools:read", f.provider.lastScope())
 	requireUnauthenticatedProbes(t, f.provider.takeProbes())
 	require.True(t, f.ready(t, 8).Ready())
-	recorder = f.callComponent(t, 8, "late-8-0")
+	recorder = f.callComponent(t, 8, "late-8-1")
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
-	requireUpstream(t, f.provider, "late-8-", sharedAccess, "late-8-0")
+	requireUpstream(t, f.provider, "late-8-", access, "late-8-1")
 	f.requireNoChallenges(t)
 }

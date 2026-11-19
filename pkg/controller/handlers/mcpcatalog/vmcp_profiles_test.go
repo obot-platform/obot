@@ -154,10 +154,24 @@ func catalogAgent(id uint) kuser.Info {
 	return &kuser.DefaultInfo{Name: uid, UID: uid, Extra: extra}
 }
 
+// matchingProfileIDs returns the IDs of the profiles of vmcp that name agent.
+func matchingProfileIDs(agent kuser.Info, vmcp v1.VMCP) []string {
+	return vmcpconfig.ProfileIDs(vmcpconfig.MatchingProfiles(agent, vmcp.Spec.Manifest.Profiles))
+}
+
+// enabledComponentIDs returns the IDs of the components of vmcp that the profiles naming agent grant it.
+func enabledComponentIDs(agent kuser.Info, vmcp v1.VMCP) []string {
+	ids := []string{}
+	for _, component := range vmcpconfig.EnabledComponents(agent, vmcp, vmcpconfig.ComponentsForInstance(vmcp, v1.VMCPInstance{})) {
+		ids = append(ids, component.ID)
+	}
+	return ids
+}
+
 // TestCatalogSyncVMCPAgentSubjects checks the agent subjects of catalog vMCPs: a profile may name an agent by ID, and
-// grants it; an ID that names no agent of this deployment syncs, and grants nobody; and an agent named by two
-// profiles, the agent wildcard, or an ID that is not an agent's canonical ID, is a sync error that keeps the vMCP as
-// last synced.
+// grants it; several profiles may name the same agent, which is granted the union of what they grant, as a user is; an
+// ID that names no agent of this deployment syncs, and grants nobody; and the agent wildcard, or an ID that is not an
+// agent's canonical ID, is a sync error that keeps the vMCP as last synced.
 func TestCatalogSyncVMCPAgentSubjects(t *testing.T) {
 	f := newVMCPSyncFixture(t)
 	f.write(t, `  - name: everyone
@@ -173,11 +187,28 @@ func TestCatalogSyncVMCPAgentSubjects(t *testing.T) {
 	status, synced := f.sync(t)
 	require.Empty(t, status.Status.SyncErrors)
 	require.Contains(t, synced.Spec.Manifest.Profiles[1].Subjects, types.Subject{Type: types.SubjectTypeAgent, ID: "7"})
-	profile := vmcpconfig.AgentProfile(catalogAgent(7), synced.Spec.Manifest)
-	require.NotNil(t, profile, "the catalog vMCP does not grant the agent it names")
-	require.Equal(t, "builder", profile.ID)
+	require.Equal(t, []string{"builder"}, matchingProfileIDs(catalogAgent(7), synced), "the catalog vMCP does not grant the agent it names")
 	// The profile for every user grants no agent, and no other agent is named.
-	require.Nil(t, vmcpconfig.AgentProfile(catalogAgent(8), synced.Spec.Manifest))
+	require.Empty(t, matchingProfileIDs(catalogAgent(8), synced))
+
+	// Two profiles name the agent: it syncs, and the agent is granted what either grants.
+	f.write(t, `  - name: builder
+    id: builder
+    subjects:
+      - type: agent
+        id: "7"
+  - name: reviewer
+    id: reviewer
+    subjects:
+      - type: agent
+        id: "7"
+    vmcpPermissions:
+      allowAllComponents: true
+`)
+	status, synced = f.sync(t)
+	require.Empty(t, status.Status.SyncErrors)
+	require.Equal(t, []string{"builder", "reviewer"}, matchingProfileIDs(catalogAgent(7), synced))
+	require.Equal(t, []string{"search"}, enabledComponentIDs(catalogAgent(7), synced))
 
 	// No agent of this deployment has the ID: the vMCP still syncs, and grants no agent.
 	f.write(t, `  - name: everyone
@@ -192,26 +223,13 @@ func TestCatalogSyncVMCPAgentSubjects(t *testing.T) {
 `)
 	status, synced = f.sync(t)
 	require.Empty(t, status.Status.SyncErrors)
-	require.Nil(t, vmcpconfig.AgentProfile(catalogAgent(7), synced.Spec.Manifest))
+	require.Empty(t, matchingProfileIDs(catalogAgent(7), synced))
 
 	for _, tt := range []struct {
 		name     string
 		profiles string
 		wantErr  string
 	}{
-		{
-			name: "an agent named by two profiles",
-			profiles: `  - name: builder
-    subjects:
-      - type: agent
-        id: "7"
-  - name: reviewer
-    subjects:
-      - type: agent
-        id: "7"
-`,
-			wantErr: `agent "7" is named by profiles "builder" and "reviewer"`,
-		},
 		{
 			name: "the agent wildcard",
 			profiles: `  - name: agents

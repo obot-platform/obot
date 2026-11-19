@@ -24,20 +24,20 @@ import (
 
 const (
 	targetHostname = "tenant.example.com"
+	targetFixedURL = "https://tenant.example.com/fixed"
 	targetSeven    = "vp1seven"
 	targetEight    = "vp1eight"
 	targetUsers    = "vp1users"
 )
 
-// targetFixture is a shared vMCP whose components' URLs come from configuration: a remote constrained by hostname, and
-// one whose URL template uses a value a user would enter and one the vMCP fixes. Profiles for agent 7, agent 8 and
-// every user configure them through the profile configuration store.
+// targetFixture is a shared vMCP whose components' URLs come from configuration: a remote constrained by hostname whose
+// URL the vMCP fixes, one whose URL it does not fix, and one whose URL template uses a value the vMCP fixes and one a
+// user would enter. Profiles name agent 7, agent 8 and every user.
 type targetFixture struct {
-	storage       kclient.WithWatch
-	gateway       *gatewayclient.Client
-	configuration *vmcpaccess.ProfileConfigurationStore
-	sm            *SessionManager
-	key           kclient.ObjectKey
+	storage kclient.WithWatch
+	gateway *gatewayclient.Client
+	sm      *SessionManager
+	key     kclient.ObjectKey
 }
 
 func newTargetFixture(t *testing.T) *targetFixture {
@@ -45,16 +45,25 @@ func newTargetFixture(t *testing.T) *targetFixture {
 	profile := func(id string, subject types.Subject) types.VMCPProfile {
 		return types.VMCPProfile{ID: id, Name: id, Subjects: []types.Subject{subject}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}
 	}
+	hostnameRemote := func(id string) types.VMCPComponent {
+		return types.VMCPComponent{
+			ID:   id,
+			Name: id,
+			CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{Hostname: targetHostname},
+				// An optional value a user would enter, which agents are never given, keeps the server dedicated.
+				Config: []types.MCPConfig{{Key: "VERBOSE", Usage: types.Interpolated}},
+			}},
+			Configuration: []types.VMCPConfigurationPolicy{{Key: "VERBOSE", Policy: types.VMCPConfigurationPolicyUserAllowed}},
+		}
+	}
+	hosted := hostnameRemote("hosted")
+	hosted.Configuration = append(hosted.Configuration, types.VMCPConfigurationPolicy{Key: "__url", Policy: types.VMCPConfigurationPolicyFixed})
 	vmcp := &v1.VMCP{Name: "vmcp1targets", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{
-			{
-				ID:   "hosted",
-				Name: "hosted",
-				CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-					Runtime:      types.RuntimeRemote,
-					RemoteConfig: &types.RemoteCatalogConfig{Hostname: targetHostname},
-				}},
-			},
+			hosted,
+			hostnameRemote("unfixed"),
 			{
 				ID:   "templated",
 				Name: "templated",
@@ -76,22 +85,25 @@ func newTargetFixture(t *testing.T) *targetFixture {
 		},
 	}}}
 	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithStatusSubresource(&v1.VMCP{}).WithObjects(vmcp).Build()
-	gateway := newGrantTestGateway(t)
-	// The value the vMCP fixes for every connection.
-	require.NoError(t, gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
-		Context: vmcpaccess.StaticConfigurationCredentialContext(vmcp.Name),
-		Name:    vmcpaccess.StaticConfigurationCredentialName(vmcp),
-		Secrets: map[string]string{vmcpaccess.ConfigurationKey("templated", "REGION"): "eu"},
-	}))
-	sm := &SessionManager{storageClient: storage, gatewayClient: gateway}
-	return &targetFixture{storage: storage, gateway: gateway, configuration: vmcpaccess.NewProfileConfigurationStore(gateway), sm: sm, key: kclient.ObjectKeyFromObject(vmcp)}
+	f := &targetFixture{storage: storage, gateway: newGrantTestGateway(t), key: kclient.ObjectKeyFromObject(vmcp)}
+	f.sm = &SessionManager{storageClient: storage, gatewayClient: f.gateway}
+	f.fixURL(t, targetFixedURL)
+	return f
 }
 
-// configure sets values of a profile's configuration by component and then key; nil clears a key.
-func (f *targetFixture) configure(t *testing.T, profileID string, values map[string]map[string]*string) {
+// fixURL sets the values the vMCP fixes for every connection: url for the hostname-constrained component, and the
+// region of the templated one.
+func (f *targetFixture) fixURL(t *testing.T, url string) {
 	t.Helper()
-	_, err := f.configuration.Update(t.Context(), f.storage, f.key, profileID, values)
-	require.NoError(t, err)
+	vmcp := f.vmcp(t)
+	require.NoError(t, f.gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpaccess.StaticConfigurationCredentialContext(vmcp.Name),
+		Name:    vmcpaccess.StaticConfigurationCredentialName(&vmcp),
+		Secrets: map[string]string{
+			vmcpaccess.ConfigurationKey("hosted", "__url"):     url,
+			vmcpaccess.ConfigurationKey("templated", "REGION"): "eu",
+		},
+	}))
 }
 
 func (f *targetFixture) vmcp(t *testing.T) v1.VMCP {
@@ -112,172 +124,176 @@ func (f *targetFixture) component(t *testing.T, id string) types.VMCPComponent {
 	return types.VMCPComponent{}
 }
 
-func (f *targetFixture) profile(t *testing.T, id string) types.VMCPProfile {
-	t.Helper()
-	for _, profile := range f.vmcp(t).Spec.Manifest.Profiles {
-		if profile.ID == id {
-			return profile
-		}
-	}
-	t.Fatalf("no profile %s", id)
-	return types.VMCPProfile{}
-}
-
-// TestComponentTargetResolvesProfileURLs checks the URL a component's connection reaches for an agent, from its
-// profile's configuration and the vMCP's fixed values: an agent's URL never comes from another agent's profile, or
-// from the profile that names every user, and what is missing is reported.
-func TestComponentTargetResolvesProfileURLs(t *testing.T) {
+// TestComponentTargetResolvesFixedURLs checks the URL an agent's connection to a component reaches: the one built
+// from the values the vMCP fixes. A value a user would enter is never one of them, so a URL that needs one, or a
+// hostname-constrained URL the vMCP does not fix, is missing, with the keys it needs.
+func TestComponentTargetResolvesFixedURLs(t *testing.T) {
 	f := newTargetFixture(t)
-	target := func(agent kuser.Info, componentID string) vmcpaccess.ComponentTarget {
+	target := func(componentID string) vmcpaccess.ComponentTarget {
 		t.Helper()
-		vmcp := f.vmcp(t)
-		result, err := f.sm.ComponentTarget(t.Context(), vmcp, vmcpaccess.AgentProfile(agent, vmcp.Spec.Manifest), f.component(t, componentID))
+		result, err := f.sm.ComponentTarget(t.Context(), f.vmcp(t), f.component(t, componentID))
 		require.NoError(t, err)
 		return result
 	}
-	seven, eight := asAgent(7, 11), asAgent(8, 12)
 
-	require.Equal(t, vmcpaccess.ComponentTarget{Missing: []string{"__url"}}, target(seven, "hosted"))
-	require.Equal(t, vmcpaccess.ComponentTarget{Missing: []string{"TENANT"}}, target(seven, "templated"))
+	require.Equal(t, vmcpaccess.ComponentTarget{URL: targetFixedURL}, target("hosted"))
+	require.Equal(t, vmcpaccess.ComponentTarget{Missing: []string{"__url"}}, target("unfixed"))
+	require.Equal(t, vmcpaccess.ComponentTarget{Missing: []string{"TENANT"}}, target("templated"))
 
-	// The profile that names every user cannot be configured for agents, and configuration it kept from before agents
-	// were named only by ID reaches no agent.
-	_, err := f.configuration.Update(t.Context(), f.storage, f.key, targetUsers, map[string]map[string]*string{"hosted": {"__url": new("https://tenant.example.com/shared")}})
-	require.ErrorContains(t, err, "names no agent")
-	kept := f.vmcp(t)
-	kept.Status.ProfileConfigurationRevisions = map[string]v1.VMCPProfileConfigurationRevision{targetUsers: {
-		Name: "configuration-users",
-		Keys: []string{vmcpaccess.ConfigurationKey("hosted", "__url"), vmcpaccess.ConfigurationKey("templated", "TENANT")},
-	}}
-	require.NoError(t, f.storage.Status().Update(t.Context(), &kept))
-	require.Equal(t, vmcpaccess.ComponentTarget{Missing: []string{"__url"}}, target(seven, "hosted"))
-	require.Equal(t, vmcpaccess.ComponentTarget{Missing: []string{"TENANT"}}, target(eight, "templated"))
+	// Once the vMCP fixes the value, the URL is built from it.
+	vmcp := f.vmcp(t)
+	vmcp.Spec.Manifest.Components[2].Configuration[0].Policy = types.VMCPConfigurationPolicyFixed
+	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
+	require.NoError(t, f.gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpaccess.StaticConfigurationCredentialContext(vmcp.Name),
+		Name:    vmcpaccess.StaticConfigurationCredentialName(&vmcp),
+		Secrets: map[string]string{
+			vmcpaccess.ConfigurationKey("hosted", "__url"):     targetFixedURL,
+			vmcpaccess.ConfigurationKey("templated", "REGION"): "eu",
+			vmcpaccess.ConfigurationKey("templated", "TENANT"): "acme",
+		},
+	}))
+	require.Equal(t, vmcpaccess.ComponentTarget{URL: "https://eu.example.com/acme/mcp"}, target("templated"))
 
-	// Each agent reaches the URL its own profile configures, merged with the value the vMCP fixes.
-	f.configure(t, targetSeven, map[string]map[string]*string{
-		"hosted":    {"__url": new("https://tenant.example.com/seven")},
-		"templated": {"TENANT": new("seven")},
-	})
-	require.Equal(t, vmcpaccess.ComponentTarget{URL: "https://tenant.example.com/seven", Configured: true}, target(seven, "hosted"))
-	require.Equal(t, vmcpaccess.ComponentTarget{URL: "https://eu.example.com/seven/mcp", Configured: true}, target(seven, "templated"))
-	require.Equal(t, vmcpaccess.ComponentTarget{Missing: []string{"__url"}}, target(eight, "hosted"))
-
-	// A profile's grant is bound to the URL its own agents reach.
-	resolved, refused, err := vmcpaccess.ProfileGrantTarget(t.Context(), f.sm, f.vmcp(t), f.profile(t, targetSeven), f.component(t, "hosted"))
+	// A grant is bound to the same URL.
+	resolved, refused, err := vmcpaccess.ResolveComponentTarget(t.Context(), f.sm, f.vmcp(t), f.component(t, "hosted"))
 	require.NoError(t, err)
 	require.NoError(t, refused)
-	require.Equal(t, "https://tenant.example.com/seven", resolved.URL)
+	require.Equal(t, targetFixedURL, resolved.URL)
 }
 
-// TestComponentTargetRefusesInvalidURLs checks that a configured URL that no longer satisfies the component's hostname
-// is refused.
+// TestComponentTargetRefusesInvalidURLs checks that a fixed URL that no longer satisfies the component's hostname is
+// refused, without the URL.
 func TestComponentTargetRefusesInvalidURLs(t *testing.T) {
 	f := newTargetFixture(t)
-	f.configure(t, targetSeven, map[string]map[string]*string{"hosted": {"__url": new("https://tenant.example.com/seven")}})
 
-	// The catalog entry's hostname changes after the profile was configured.
+	// The catalog entry's hostname changes after the vMCP fixed the URL.
 	vmcp := f.vmcp(t)
 	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig.Hostname = "elsewhere.example.com"
 	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
-	vmcp = f.vmcp(t)
-	_, err := f.sm.ComponentTarget(t.Context(), vmcp, vmcpaccess.AgentProfile(asAgent(7, 11), vmcp.Spec.Manifest), f.component(t, "hosted"))
+	_, err := f.sm.ComponentTarget(t.Context(), f.vmcp(t), f.component(t, "hosted"))
 	var httpErr *types.ErrHTTP
 	require.True(t, errors.As(err, &httpErr), "error %v", err)
 	require.Equal(t, http.StatusBadRequest, httpErr.Code)
+	require.NotContains(t, httpErr.Message, targetFixedURL)
 }
 
-// TestComponentTargetRefusesValuesThatMoveTheTemplateHost checks that a URL template is expanded with the same host
-// check as the MCPServer controller and the runtime apply: a profile's value fills a host label the template leaves to
-// it, but one that ends the host early and moves the connection to another host is refused.
-func TestComponentTargetRefusesValuesThatMoveTheTemplateHost(t *testing.T) {
+// TestComponentTargetChecksTheTemplateHost checks that a URL template is expanded with the same host check as the
+// MCPServer controller applies (resolvedComponentURL): on a shared vMCP, which only admins create, a fixed value that
+// forms the domain is text the admin wrote, but on a personal vMCP, whose owner may be any user, the same value is
+// refused, without the value.
+func TestComponentTargetChecksTheTemplateHost(t *testing.T) {
 	f := newTargetFixture(t)
-	vmcp := f.vmcp(t)
-	vmcp.Spec.Manifest.Components[1].CatalogEntry.Manifest.RemoteConfig.URLTemplate = "https://${TENANT}.${REGION}.example.com/mcp"
-	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
-	target := func() (vmcpaccess.ComponentTarget, error) {
-		vmcp := f.vmcp(t)
-		return f.sm.ComponentTarget(t.Context(), vmcp, vmcpaccess.AgentProfile(asAgent(7, 11), vmcp.Spec.Manifest), f.component(t, "templated"))
+	fix := func(vmcp v1.VMCP) {
+		t.Helper()
+		require.NoError(t, f.gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
+			Context: vmcpaccess.StaticConfigurationCredentialContext(vmcp.Name),
+			Name:    vmcpaccess.StaticConfigurationCredentialName(&vmcp),
+			Secrets: map[string]string{
+				vmcpaccess.ConfigurationKey("templated", "TENANT"): "acme",
+				vmcpaccess.ConfigurationKey("templated", "REGION"): "datadoghq.eu",
+			},
+		}))
 	}
-
-	f.configure(t, targetSeven, map[string]map[string]*string{"templated": {"TENANT": new("acme")}})
-	result, err := target()
+	vmcp := f.vmcp(t)
+	vmcp.Spec.Manifest.Components[2].CatalogEntry.Manifest.RemoteConfig.URLTemplate = "https://${TENANT}.mcp.${REGION}/mcp"
+	vmcp.Spec.Manifest.Components[2].Configuration[0].Policy = types.VMCPConfigurationPolicyFixed
+	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
+	fix(f.vmcp(t))
+	result, err := f.sm.ComponentTarget(t.Context(), f.vmcp(t), f.component(t, "templated"))
 	require.NoError(t, err)
-	require.Equal(t, vmcpaccess.ComponentTarget{URL: "https://acme.eu.example.com/mcp", Configured: true}, result)
+	require.Equal(t, vmcpaccess.ComponentTarget{URL: "https://acme.mcp.datadoghq.eu/mcp"}, result)
 
-	f.configure(t, targetSeven, map[string]map[string]*string{"templated": {"TENANT": new("evil.example/x?")}})
-	_, err = target()
+	vmcp = f.vmcp(t)
+	vmcp.Spec.UserID = "1"
+	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
+	fix(f.vmcp(t))
+	_, err = f.sm.ComponentTarget(t.Context(), f.vmcp(t), f.component(t, "templated"))
 	var httpErr *types.ErrHTTP
 	require.True(t, errors.As(err, &httpErr), "error %v", err)
 	require.Equal(t, http.StatusBadRequest, httpErr.Code)
-	require.NotContains(t, httpErr.Message, "evil.example")
+	require.NotContains(t, httpErr.Message, "datadoghq.eu")
 }
 
-// TestAgentReadinessComparesGrantURLsWithTheAgentsURL checks that readiness refuses a grant that was authorized for
-// another URL than the one the agent's connection reaches, as the MCP gateway does: changing a profile's URL
-// configuration after its grant was authorized makes the grant unusable until it is authorized again, and an agent
-// never uses another profile's grant.
+// TestAgentReadinessComparesGrantURLsWithTheAgentsURL checks that readiness refuses the vMCP's grant when it was
+// authorized for another URL than the one agents' connections reach, as the MCP gateway does: changing the URL the vMCP
+// fixes after the grant was authorized makes it unusable, for every agent granted the component, until it is
+// authorized again. The vMCP's agent setup reports the same.
 func TestAgentReadinessComparesGrantURLsWithTheAgentsURL(t *testing.T) {
 	f := newTargetFixture(t)
-	grants := vmcpaccess.NewProfileOAuthGrantStore(f.gateway)
+	grants := vmcpaccess.NewAgentOAuthGrantStore(f.gateway)
 	grants.SetComponentTargets(f.sm)
 	readiness := func(agent kuser.Info) []vmcpaccess.ReadinessReason {
 		t.Helper()
 		vmcp := f.vmcp(t)
-		// Only the hostname-constrained component, so configuration readiness reports nothing else.
+		// Only the component whose URL the vMCP fixes, so configuration readiness reports nothing else.
 		vmcp.Spec.Manifest.Components = vmcp.Spec.Manifest.Components[:1]
 		result, err := vmcpaccess.AgentReadiness(t.Context(), grants, vmcp, nil, agent)
 		require.NoError(t, err)
 		return result.Readiness.Reasons
 	}
-	authorize := func(profileID, url string) {
+	hostedSetup := func() types.VMCPAgentSetupComponent {
 		t.Helper()
-		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), principal.ProfileGrant(f.key.Name, profileID), vmcpaccess.ProfileOAuthGrantMCPID(f.key.Name, "hosted"), url, "grant-"+profileID, "1",
+		setup, err := vmcpaccess.AgentSetup(t.Context(), grants, f.vmcp(t))
+		require.NoError(t, err)
+		for _, component := range setup.Components {
+			if component.ComponentID == "hosted" {
+				return component
+			}
+		}
+		t.Fatalf("agent setup does not list the hosted component: %+v", setup)
+		return types.VMCPAgentSetupComponent{}
+	}
+	authorize := func(url string) {
+		t.Helper()
+		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), principal.AgentOAuthGrantOwner(f.key.Name), vmcpaccess.AgentOAuthGrantMCPID(f.key.Name, "hosted"), url, "grant-"+url, "1",
 			&oauth2.Config{ClientID: "client"}, &oauth2.Token{AccessToken: "token", Expiry: time.Now().Add(time.Hour)}))
 	}
 
-	f.configure(t, targetSeven, map[string]map[string]*string{"hosted": {"__url": new("https://tenant.example.com/seven")}})
-	f.configure(t, targetEight, map[string]map[string]*string{"hosted": {"__url": new("https://tenant.example.com/eight")}})
-	authorize(targetSeven, "https://tenant.example.com/seven")
+	// One grant, authorized once on the vMCP, makes every agent granted the component ready.
+	authorize(targetFixedURL)
 	require.Empty(t, readiness(asAgent(7, 11)))
-	// Agent 8 holds no grant of its own, and agent 7's makes the component one that needs OAuth.
-	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "hosted", Code: types.AgentReadinessOAuthRequired, ProfileID: targetEight}}, readiness(asAgent(8, 12)))
-	authorize(targetEight, "https://tenant.example.com/eight")
 	require.Empty(t, readiness(asAgent(8, 12)))
 
-	// Changing a profile's URL after its grant was authorized makes the grant unusable for its agents, and its status
-	// says so.
-	f.configure(t, targetSeven, map[string]map[string]*string{"hosted": {"__url": new("https://tenant.example.com/moved")}})
-	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "hosted", Code: types.AgentReadinessOAuthInvalid, ProfileID: targetSeven}}, readiness(asAgent(7, 11)))
-	require.Empty(t, readiness(asAgent(8, 12)))
-	status, err := grants.ProfileOAuthStatus(t.Context(), f.vmcp(t), targetSeven)
-	require.NoError(t, err)
-	require.Equal(t, types.VMCPProfileOAuthInvalid, status["hosted"].State)
-	require.Contains(t, status["hosted"].InvalidReason, "changed since its grant was authorized")
-	status, err = grants.ProfileOAuthStatus(t.Context(), f.vmcp(t), targetEight)
-	require.NoError(t, err)
-	require.Equal(t, types.VMCPProfileOAuthAuthorized, status["hosted"].State)
+	// Changing the URL the vMCP fixes after the grant was authorized makes the grant unusable for both, and the agent
+	// setup says so, without the URL.
+	const moved = "https://tenant.example.com/moved"
+	f.fixURL(t, moved)
+	invalid := []vmcpaccess.ReadinessReason{{ComponentID: "hosted", Code: types.AgentReadinessOAuthInvalid}}
+	require.Equal(t, invalid, readiness(asAgent(7, 11)))
+	require.Equal(t, invalid, readiness(asAgent(8, 12)))
+	hosted := hostedSetup()
+	require.False(t, hosted.Ready)
+	require.Contains(t, hosted.Reasons, invalid[0])
+	require.NotNil(t, hosted.OAuth)
+	require.Equal(t, types.VMCPAgentOAuthInvalid, hosted.OAuth.State)
+	require.Equal(t, vmcpaccess.GrantTargetMismatch, hosted.OAuth.InvalidReason)
+	require.NotContains(t, hosted.OAuth.InvalidReason, "tenant.example.com")
+	require.Empty(t, hosted.OAuth.Target, "a configured URL is returned")
+	require.Equal(t, targetHostname, hosted.OAuth.TargetHostname)
 
-	// Authorizing it again for the URL the profile now configures fixes it.
-	authorize(targetSeven, "https://tenant.example.com/moved")
+	// Authorizing it again for the URL the vMCP now fixes fixes it for both.
+	authorize(moved)
 	require.Empty(t, readiness(asAgent(7, 11)))
+	require.Empty(t, readiness(asAgent(8, 12)))
+	require.Equal(t, types.VMCPAgentOAuthAuthorized, hostedSetup().OAuth.State)
 }
 
 // TestComponentHopRefusesAGrantForAnotherURL connects agent 7 to its dedicated server of a hostname-constrained
-// component, whose URL comes from its profile's configuration: the profile's grant, authorized for another URL, is
-// refused, naming the profile and not the URL, and never used; the grant for the agent's own URL is used.
+// component, whose URL the vMCP fixes: the vMCP's grant, authorized for another URL, is refused, naming the vMCP and the
+// component and not the URL, and never used; the grant for the URL the vMCP fixes is used.
 func TestComponentHopRefusesAGrantForAnotherURL(t *testing.T) {
 	f := newTargetFixture(t)
-	grants := vmcpaccess.NewProfileOAuthGrantStore(f.gateway)
+	grants := vmcpaccess.NewAgentOAuthGrantStore(f.gateway)
 	grants.SetComponentTargets(f.sm)
-	f.sm.SetProfileOAuthGrants(grants)
+	f.sm.SetAgentOAuthGrants(grants)
 	f.sm.backend = &kubernetesBackend{}
 	f.sm.baseURL = "https://obot.example.com"
 	f.sm.remoteURLValidationConfig = RemoteMCPURLValidationConfig{AllowLocalhostMCP: true}
 	t.Cleanup(f.sm.Close)
-	f.configure(t, targetSeven, map[string]map[string]*string{"hosted": {"__url": new("https://tenant.example.com/seven")}})
 
-	// The agent's instance and its dedicated server, configured with the URL its profile resolves to, as the
-	// controllers configure them.
+	// The agent's instance and its dedicated server, configured with the URL the vMCP fixes, as the controllers
+	// configure them.
 	instance := &v1.VMCPInstance{Name: "vmcpi1seven", Namespace: system.DefaultNamespace, Spec: v1.VMCPInstanceSpec{UserID: "agent:7", Manifest: types.VMCPInstanceManifest{VMCPID: f.key.Name}}}
 	require.NoError(t, f.storage.Create(t.Context(), instance))
 	component := f.component(t, "hosted")
@@ -293,30 +309,30 @@ func TestComponentHopRefusesAGrantForAnotherURL(t *testing.T) {
 	require.NoError(t, f.gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
 		Context: server.CredentialContext(server.Spec.UserID),
 		Name:    server.Name,
-		Secrets: map[string]string{"__url": "https://tenant.example.com/seven"},
+		Secrets: map[string]string{"__url": targetFixedURL},
 	}))
-	authorize := func(profileID, url string) {
+	owner, mcpID := principal.AgentOAuthGrantOwner(f.key.Name), vmcpaccess.AgentOAuthGrantMCPID(f.key.Name, "hosted")
+	authorize := func(url string) {
 		t.Helper()
-		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), principal.ProfileGrant(f.key.Name, profileID), vmcpaccess.ProfileOAuthGrantMCPID(f.key.Name, "hosted"), url, "grant-"+profileID, "1",
+		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, url, "grant-"+url, "1",
 			&oauth2.Config{ClientID: "client"}, &oauth2.Token{AccessToken: "token", Expiry: time.Now().Add(time.Hour)}))
 	}
 
-	// The grant was authorized before the profile's URL was changed.
-	authorize(targetSeven, "https://tenant.example.com/old")
+	// The grant was authorized before the vMCP's URL was changed.
+	authorize("https://tenant.example.com/old")
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 	_, _, err = f.sm.ServerForAction(ctx, server.Name, asAgent(7, 11))
 	grantErr, ok := errors.AsType[*AgentOAuthGrantError](err)
 	require.True(t, ok, "connect error = %v, want an AgentOAuthGrantError", err)
-	require.Equal(t, targetSeven, grantErr.ProfileID)
-	require.Contains(t, grantErr.Reason, targetSeven)
-	require.Contains(t, grantErr.Reason, "changed since its grant was authorized")
-	require.NotContains(t, grantErr.Reason, "tenant.example.com", "a configured URL is reported")
+	require.Equal(t, f.key.Name, grantErr.VMCPID)
+	require.Equal(t, "hosted", grantErr.ComponentID)
+	require.Equal(t, vmcpaccess.GrantTargetMismatch, grantErr.Reason)
+	require.NotContains(t, grantErr.Error(), "tenant.example.com", "a configured URL is reported")
 
-	authorize(targetSeven, "https://tenant.example.com/seven")
+	authorize(targetFixedURL)
 	_, cfg, err := f.sm.ServerForAction(ctx, server.Name, asAgent(7, 11))
 	require.NoError(t, err)
-	require.Equal(t, "https://tenant.example.com/seven", cfg.URL)
-	require.NotNil(t, cfg.OAuthGrant)
-	require.Equal(t, targetSeven, cfg.OAuthGrant.ProfileID)
+	require.Equal(t, targetFixedURL, cfg.URL)
+	require.Equal(t, &OAuthGrantRef{ComponentID: "hosted", Owner: owner, MCPID: mcpID}, cfg.OAuthGrant)
 }

@@ -2,17 +2,17 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -26,32 +26,6 @@ var (
 	vmcpEveryone    = types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}
 	vmcpEngineering = types.Subject{Type: types.SubjectTypeUser, ID: "2"}
 )
-
-// vmcpProfileDataForTest reports data for every profile once has is set, and otherwise for the profiles in ids. It
-// counts the calls it gets.
-type vmcpProfileDataForTest struct {
-	has   bool
-	ids   []string
-	calls int
-}
-
-func (d *vmcpProfileDataForTest) ProfilesWithData(_ context.Context, _ string, profileIDs []string) ([]string, error) {
-	d.calls++
-	if d.has {
-		return profileIDs, nil
-	}
-	var result []string
-	for _, id := range profileIDs {
-		if slices.Contains(d.ids, id) {
-			result = append(result, id)
-		}
-	}
-	return result, nil
-}
-
-func (*vmcpProfileDataForTest) DeleteProfileData(context.Context, string, []string) error {
-	return nil
-}
 
 func vmcpAdminForTest() user.Info {
 	return principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}})
@@ -93,7 +67,7 @@ func requireBadRequest(t *testing.T, err error, contains string) {
 func TestVMCPProfileIDsSurviveEdits(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPHandler(nil, "", "", nil)
+	handler := NewVMCPHandler(nil, "", "")
 
 	manifest := testVMCPManifest()
 	manifest.Profiles = []types.VMCPProfile{
@@ -140,7 +114,7 @@ func TestVMCPCreateRejectsClientProfileIDs(t *testing.T) {
 	manifest.Profiles[0].ID = "chosen"
 	body, err := json.Marshal(manifest)
 	require.NoError(t, err)
-	err = NewVMCPHandler(nil, "", "", nil).Create(api.Context{
+	err = NewVMCPHandler(nil, "", "").Create(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
 		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
 		Storage:        storage,
@@ -151,6 +125,8 @@ func TestVMCPCreateRejectsClientProfileIDs(t *testing.T) {
 }
 
 func TestVMCPCreateEnforcesProfileSubjectRules(t *testing.T) {
+	// agent is the subject of an agent that exists, which every test case's gateway database has.
+	agent := types.Subject{Type: types.SubjectTypeAgent, ID: "1"}
 	for _, tc := range []struct {
 		name     string
 		profiles []types.VMCPProfile
@@ -173,24 +149,28 @@ func TestVMCPCreateEnforcesProfileSubjectRules(t *testing.T) {
 			wantErr: "agents must be named by ID",
 		},
 		{
+			// An agent named by several profiles gets the union of their grants, as a user does.
 			name: "one agent in two profiles",
 			profiles: []types.VMCPProfile{
-				vmcpProfileForTest("a", types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
-				vmcpProfileForTest("b", types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
+				vmcpProfileForTest("a", agent),
+				vmcpProfileForTest("b", agent),
 			},
-			wantErr: "at most one profile",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			gatewayClient := newHandlerTestGateway(t)
+			created, err := gatewayClient.CreateAgent(t.Context(), gatewaytypes.Agent{DisplayName: "builder"})
+			require.NoError(t, err)
+			require.Equal(t, agent.ID, strconv.FormatUint(uint64(created.ID), 10))
 			manifest := testVMCPManifest()
 			manifest.Profiles = tc.profiles
 			body, err := json.Marshal(manifest)
 			require.NoError(t, err)
-			err = NewVMCPHandler(nil, "", "", nil).Create(api.Context{
+			err = NewVMCPHandler(nil, "", "").Create(api.Context{
 				ResponseWriter: httptest.NewRecorder(),
 				Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
 				Storage:        newVMCPTestStorage(vmcpCatalogEntryForTest("entry")),
-				GatewayClient:  newHandlerTestGateway(t),
+				GatewayClient:  gatewayClient,
 				User:           vmcpAdminForTest(),
 			})
 			if tc.wantErr == "" {
@@ -202,8 +182,8 @@ func TestVMCPCreateEnforcesProfileSubjectRules(t *testing.T) {
 	}
 }
 
-// TestVMCPProfilesForEveryUser checks that a vMCP with several profiles for every user validates on every edit, whether
-// or not a profile has data, and that adopting snapshots keeps every profile's ID.
+// TestVMCPProfilesForEveryUser checks that a vMCP with several profiles for every user validates on every edit, and that
+// adopting snapshots keeps every profile's ID.
 func TestVMCPProfilesForEveryUser(t *testing.T) {
 	entry := vmcpCatalogEntryForTest("entry")
 	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"}
@@ -219,9 +199,8 @@ func TestVMCPProfilesForEveryUser(t *testing.T) {
 		return &v1.VMCP{Name: "vmcp1everyone", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: manifest}}
 	}
 	for _, tc := range []struct {
-		name    string
-		edit    func(*types.VMCPManifest)
-		hasData bool
+		name string
+		edit func(*types.VMCPManifest)
 	}{
 		{
 			name: "renaming a profile",
@@ -240,15 +219,14 @@ func TestVMCPProfilesForEveryUser(t *testing.T) {
 			},
 		},
 		{
-			name:    "an edit once a profile has data",
-			edit:    func(manifest *types.VMCPManifest) { manifest.DisplayName = "Renamed" },
-			hasData: true,
+			name: "an unrelated edit",
+			edit: func(manifest *types.VMCPManifest) { manifest.DisplayName = "Renamed" },
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			vmcp := stored()
 			storage := newVMCPTestStorage(entry, vmcp)
-			handler := NewVMCPHandler(nil, "", "", &vmcpProfileDataForTest{has: tc.hasData})
+			handler := NewVMCPHandler(nil, "", "")
 			manifest := vmcp.Spec.Manifest
 			tc.edit(&manifest)
 			_, err := callVMCPUpdate(t, storage, newHandlerTestGateway(t), handler, vmcp.Name, manifest)
@@ -260,7 +238,7 @@ func TestVMCPProfilesForEveryUser(t *testing.T) {
 	storage := newVMCPTestStorage(entry, vmcp)
 	request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/trigger-update", nil)
 	request.SetPathValue("vmcp_id", vmcp.Name)
-	require.NoError(t, NewVMCPHandler(nil, "", "", &vmcpProfileDataForTest{has: true}).TriggerUpdate(api.Context{
+	require.NoError(t, NewVMCPHandler(nil, "", "").TriggerUpdate(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
 		Request:        request,
 		Storage:        storage,
@@ -276,7 +254,7 @@ func TestVMCPProfilesForEveryUser(t *testing.T) {
 func TestVMCPConcurrentUpdatesConflict(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPHandler(nil, "", "", nil)
+	handler := NewVMCPHandler(nil, "", "")
 	manifest := testVMCPManifest()
 	manifest.Profiles = []types.VMCPProfile{vmcpProfileForTest("a", vmcpEngineering)}
 	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, vmcpAdminForTest())
@@ -306,53 +284,4 @@ func TestVMCPConcurrentUpdatesConflict(t *testing.T) {
 	require.NoError(t, storage.Get(t.Context(), key, &stored))
 	require.Equal(t, "winner", stored.Spec.Manifest.Profiles[0].Name)
 	require.Equal(t, created.Profiles[0].ID, stored.Spec.Manifest.Profiles[0].ID)
-}
-
-// A client that does not send profile IDs back must not silently drop a profile's configuration and OAuth grants, or
-// pass them to a new profile of the same name.
-func TestVMCPUpdateRefusesReplacingProfilesWithData(t *testing.T) {
-	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
-	gatewayClient := newHandlerTestGateway(t)
-	manifest := testVMCPManifest()
-	manifest.Profiles = []types.VMCPProfile{
-		vmcpProfileForTest("ops", vmcpEngineering),
-		vmcpProfileForTest("dev", vmcpEngineering),
-	}
-	created := callVMCPCreate(t, storage, gatewayClient, NewVMCPHandler(nil, "", "", nil), manifest, vmcpAdminForTest())
-	ops, dev := created.Profiles[0], created.Profiles[1]
-	data := &vmcpProfileDataForTest{ids: []string{ops.ID}}
-	handler := NewVMCPHandler(nil, "", "", data)
-
-	// Sending the profiles back without their IDs is refused, after one check of the stored profiles they replace.
-	withoutIDs := created.VMCPManifest
-	withoutIDs.Profiles = []types.VMCPProfile{vmcpProfileForTest("ops", vmcpEngineering), vmcpProfileForTest("dev", vmcpEngineering)}
-	_, err := callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, withoutIDs)
-	requireBadRequest(t, err, `profile "ops" has stored configuration or OAuth grants; send its id`)
-	require.Equal(t, 1, data.calls)
-
-	// A profile without data may still be replaced by a new profile of its name.
-	replaceDev := created.VMCPManifest
-	replaceDev.Profiles = []types.VMCPProfile{ops, vmcpProfileForTest("dev", vmcpEngineering)}
-	updated, err := callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, replaceDev)
-	require.NoError(t, err)
-	require.Equal(t, ops.ID, updated.Profiles[0].ID)
-	require.NotEqual(t, dev.ID, updated.Profiles[1].ID)
-
-	// Sending IDs behaves as before.
-	renamed := updated.VMCPManifest
-	renamed.Profiles[0].Name = "operations"
-	updated, err = callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, renamed)
-	require.NoError(t, err)
-	require.Equal(t, ops.ID, updated.Profiles[0].ID)
-
-	// A profile with data can be removed by leaving it out, and a later update may add a new profile of its name.
-	removed := updated.VMCPManifest
-	removed.Profiles = removed.Profiles[1:]
-	updated, err = callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, removed)
-	require.NoError(t, err)
-	readded := updated.VMCPManifest
-	readded.Profiles = append(readded.Profiles, vmcpProfileForTest("operations", vmcpEngineering))
-	updated, err = callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, readded)
-	require.NoError(t, err)
-	require.NotEqual(t, ops.ID, updated.Profiles[1].ID)
 }

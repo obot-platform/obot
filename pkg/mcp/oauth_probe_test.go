@@ -189,21 +189,20 @@ func TestProbeOAuthRequirementIsBounded(t *testing.T) {
 
 // TestAgentReadinessReportAgreesWithConnectForProbedOAuth is TestAgentReadinessReportAgreesWithConnect for a component
 // without static OAuth that uses dynamic client registration and challenges initialize, from the vMCP controller's
-// probe of it to the agent's connection. Before the probe, nothing shows that it needs OAuth, so both agents are ready.
-// Once the controller has probed it, readiness and connect both refuse an agent whose profiles hold no grant, with
-// oauth_required in the profile that fixes it, and the profiles' status says the component requires OAuth. The status
-// of the vMCP holds a digest of the URL, never the URL. Users connect as before throughout.
+// probe of it to the agent's connection. Before the probe, nothing shows that it needs OAuth, so every agent is ready.
+// Once the controller has probed it, readiness and connect both refuse every agent granted the component while the
+// vMCP holds no grant for it, with oauth_required, and the vMCP's agent setup says the component requires OAuth; one
+// grant, authorized on the vMCP, makes them all ready. An agent whose profiles do not grant the component is ready
+// throughout. The status of the vMCP holds no URL. Users connect as before throughout.
 func TestAgentReadinessReportAgreesWithConnectForProbedOAuth(t *testing.T) {
 	upstream := newLateChallengeUpstream(t, "initialize", false, nil)
-	vmcp, shared := grantVMCP("vmcp1agreeprobe", false)
+	vmcp, one, two := grantVMCP("vmcp1agreeprobe", false)
 	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig.FixedURL = upstream.mcpURL()
-	shared.Spec.Manifest.RemoteConfig.URL = upstream.mcpURL()
-	storageClient := newVMCPTestStorage(vmcp, shared)
+	one.Spec.Manifest.RemoteConfig.URL = upstream.mcpURL()
+	storageClient := newVMCPTestStorage(vmcp, one, two)
 	runVMCPInstanceController(t, storageClient, vmcp.DeepCopy())
 	gateway := newGrantTestGateway(t)
-	grants := vmcpaccess.NewProfileOAuthGrantStore(gateway)
-	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort, remoteURLValidationConfig: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true}}
-	manager.SetProfileOAuthGrants(grants)
+	manager, grants := newGrantTestManager(storageClient, gateway)
 	stored := func() *v1.VMCP {
 		t.Helper()
 		current := &v1.VMCP{}
@@ -216,18 +215,16 @@ func TestAgentReadinessReportAgreesWithConnectForProbedOAuth(t *testing.T) {
 		require.Nil(t, cfg.Components[0].OAuthGrant)
 	}
 
-	requireReadinessAgreesWithConnect(t, manager, stored(), "not probed yet", true, true)
+	requireReadinessAgreesWithConnect(t, manager, stored(), "not probed yet", map[uint]bool{7: true, 8: true, 9: true})
 	requireUser()
 
-	handler := vmcphandler.New(gateway, nil, nil, nil, nil)
+	handler := vmcphandler.New(gateway, nil, nil)
 	handler.SetComponentOAuthProber(manager)
 	response := &retryResponse{}
 	require.NoError(t, handler.ProbeComponentOAuth(router.Request{Ctx: t.Context(), Client: wholeStatusClient{storageClient}, Object: stored()}, response))
 	probed := stored()
 	record := probed.Status.ComponentOAuth["one"]
-	require.Len(t, record.Probes, 1)
-	require.Equal(t, v1.VMCPComponentOAuthRequired, record.Probes[0].Required)
-	require.Equal(t, vmcpaccess.ComponentOAuthURLDigest(vmcp.Name, "one", upstream.mcpURL()), record.Probes[0].URLDigest)
+	require.Equal(t, v1.VMCPComponentOAuthRequired, record.Required)
 	encoded, err := json.Marshal(probed.Status)
 	require.NoError(t, err)
 	require.False(t, strings.Contains(string(encoded), upstream.server.URL), "the status holds the URL probed")
@@ -235,19 +232,18 @@ func TestAgentReadinessReportAgreesWithConnectForProbedOAuth(t *testing.T) {
 	require.InDelta(t, (24 * time.Hour).Seconds(), response.delay.Seconds(), 5)
 	requireProbesUnauthenticated(t, upstream.recorded())
 
-	reasons := requireReadinessAgreesWithConnect(t, manager, probed, "probed: asks for OAuth", false, false)
-	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthRequired, ProfileID: grantSeven}}, reasons["agent:7"])
-	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthRequired, ProfileID: grantEight}}, reasons["agent:8"])
-	for _, profileID := range []string{grantSeven, grantEight} {
-		status, err := grants.ProfileOAuthStatus(t.Context(), *probed, profileID)
-		require.NoError(t, err)
-		require.True(t, status["one"].Required, profileID)
-	}
+	reasons := requireReadinessAgreesWithConnect(t, manager, probed, "probed: asks for OAuth", map[uint]bool{7: false, 8: false, 9: true})
+	required := []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthRequired}}
+	require.Equal(t, required, reasons["agent:7"])
+	require.Equal(t, required, reasons["agent:8"])
+	setup, err := vmcpaccess.AgentSetup(t.Context(), grants, *probed)
+	require.NoError(t, err)
+	require.Equal(t, "one", setup.Components[0].ComponentID)
+	require.True(t, setup.Components[0].OAuth.Required)
+	require.Equal(t, required, setup.Components[0].Reasons)
 	requireUser()
 
-	storeGrant(t, gateway, vmcp.Name, grantSeven, upstream.mcpURL(), "grant-seven")
-	requireReadinessAgreesWithConnect(t, manager, probed, "agent 7's profile authorized", true, false)
-	storeGrant(t, gateway, vmcp.Name, grantEight, upstream.mcpURL(), "grant-eight")
-	requireReadinessAgreesWithConnect(t, manager, probed, "agent 8's profile authorized", true, true)
+	storeGrant(t, gateway, vmcp.Name, upstream.mcpURL(), "grant-one")
+	requireReadinessAgreesWithConnect(t, manager, probed, "the vMCP authorized", map[uint]bool{7: true, 8: true, 9: true})
 	requireUser()
 }

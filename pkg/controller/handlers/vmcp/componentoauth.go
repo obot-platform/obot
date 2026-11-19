@@ -1,7 +1,6 @@
 package vmcp
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -21,17 +19,17 @@ import (
 )
 
 const (
-	// componentOAuthRecheckInterval is how long a probe that succeeded stands before the URL is probed again, to notice
-	// a server that starts or stops asking for OAuth.
+	// componentOAuthRecheckInterval is how long a probe that succeeded stands before the component is probed again, to
+	// notice a server that starts or stops asking for OAuth.
 	componentOAuthRecheckInterval = 24 * time.Hour
-	// componentOAuthRetryBase and componentOAuthRetryMax bound the wait before a URL whose probe failed is probed again.
-	// The wait doubles with each failure in a row.
+	// componentOAuthRetryBase and componentOAuthRetryMax bound the wait before a component whose probe failed is probed
+	// again. The wait doubles with each failure in a row.
 	componentOAuthRetryBase = time.Minute
 	componentOAuthRetryMax  = time.Hour
 	// componentOAuthProbeTimeout bounds one probe, all its requests included. Each request is also bounded by the
 	// OAuth client's own timeout.
 	componentOAuthProbeTimeout = 30 * time.Second
-	// componentOAuthProbeConcurrency is how many URLs of one vMCP are probed at once.
+	// componentOAuthProbeConcurrency is how many components of one vMCP are probed at once.
 	componentOAuthProbeConcurrency = 4
 )
 
@@ -42,22 +40,16 @@ type ComponentOAuthProber interface {
 	ProbeOAuthRequirement(ctx context.Context, url, tunnelName string) (bool, error)
 }
 
-// componentOAuthTarget is one URL of a component to probe.
+// componentOAuthTarget is the URL of a component to probe, for its current target.
 type componentOAuthTarget struct {
-	url, digest string
+	targetHash string
+	url        string
+	tunnelName string
 }
 
-// componentOAuthTargets are the URLs of one component to probe, for its definition.
-type componentOAuthTargets struct {
-	definitionHash string
-	tunnelName     string
-	targets        []componentOAuthTarget
-}
-
-// componentOAuthProbeJob is one URL due for a probe, and where its result goes.
+// componentOAuthProbeJob is one component due for a probe, and what the probe found.
 type componentOAuthProbeJob struct {
 	componentID string
-	index       int
 	url, tunnel string
 	required    bool
 	err         error
@@ -71,26 +63,25 @@ func (h *Handler) SetComponentOAuthProber(prober ComponentOAuthProber) {
 
 // ProbeComponentOAuth learns whether the remote components that agents reach ask for OAuth, by probing them without any
 // credential, and records what it finds in the vMCP's status (v1.VMCPStatus.ComponentOAuth), where agent readiness and
-// profile status read it (vmcpconfig.ProbedOAuthRequirement). That is how a server that asks for OAuth, with dynamic
-// client registration rather than static OAuth, is known to need a grant before an agent connects to it. Probes never
-// run on a request.
+// the vMCP's agent setup read it (vmcpconfig.ProbedOAuthRequirement). That is how a server that asks for OAuth, with
+// dynamic client registration rather than static OAuth, is known to need a grant before an agent connects to it.
+// Probes never run on a request.
 //
-// It probes each remote component that an agent-capable profile, one that names an agent, grants and that is probed
-// at all (vmcpconfig.ComponentOAuthProbed), at each URL agents reach: the URL its definition fixes, or each distinct
-// URL that its URL configuration resolves to for the agent-capable profiles that grant it
-// (vmcpconfig.ProfileGrantTarget). A URL is probed:
+// It probes each remote component that any profile naming an agent grants (vmcpconfig.AgentGrantedComponents) and that
+// is probed at all (vmcpconfig.ComponentOAuthProbed), at the URL agents reach: the URL its definition fixes, or the one
+// built from the values the vMCP and the catalog entry fix (vmcpconfig.ResolveComponentTarget). A component is probed:
 //
-//   - when it is first seen: a component was added or granted, its definition changed, or a profile's configuration
-//     now resolves to a URL that has not been probed;
+//   - when it is first seen, or its target changes (vmcpconfig.ComponentOAuthTargetHash): a component was added or
+//     granted, its definition changed, or the values its URL is built from changed;
 //   - componentOAuthRecheckInterval after it was last probed successfully, to notice a server that starts or stops
 //     asking for OAuth;
 //   - after a probe that failed, once a wait that doubles with each failure in a row, from componentOAuthRetryBase up
 //     to componentOAuthRetryMax, has passed.
 //
 // A failed probe records VMCPComponentOAuthUnknown, which counts as not required, or keeps what the last successful
-// probe of the same URL found. Results for URLs, components or definitions no longer probed are dropped. Only digests
-// of URLs are recorded, never a URL. Probes of one vMCP run a few at a time, each bounded by
-// componentOAuthProbeTimeout, and the vMCP is requeued for the next one that is due.
+// probe of the same target found. Results for components or targets no longer probed are dropped. No URL is recorded.
+// Probes of one vMCP run a few at a time, each bounded by componentOAuthProbeTimeout, and the vMCP is requeued for the
+// next one that is due.
 func (h *Handler) ProbeComponentOAuth(req router.Request, resp router.Response) error {
 	vmcp := req.Object.(*v1.VMCP)
 	if !vmcp.DeletionTimestamp.IsZero() || h.componentOAuth == nil {
@@ -108,53 +99,46 @@ func (h *Handler) ProbeComponentOAuth(req router.Request, resp router.Response) 
 	)
 	for _, componentID := range slices.Sorted(maps.Keys(desired)) {
 		want := desired[componentID]
-		previous := vmcp.Status.ComponentOAuth[componentID]
-		record := v1.VMCPComponentOAuth{DefinitionHash: want.definitionHash}
-		for _, target := range want.targets {
-			probe := v1.VMCPComponentOAuthProbe{URLDigest: target.digest, Required: v1.VMCPComponentOAuthUnknown}
-			if previous.DefinitionHash == want.definitionHash {
-				if index := slices.IndexFunc(previous.Probes, func(p v1.VMCPComponentOAuthProbe) bool { return p.URLDigest == target.digest }); index >= 0 {
-					probe = previous.Probes[index]
-				}
-			}
-			if probe.CheckedAt.IsZero() || !now.Before(nextComponentOAuthProbe(probe)) {
-				due = append(due, componentOAuthProbeJob{componentID: componentID, index: len(record.Probes), url: target.url, tunnel: want.tunnelName})
-			}
-			record.Probes = append(record.Probes, probe)
+		record := v1.VMCPComponentOAuth{TargetHash: want.targetHash, Required: v1.VMCPComponentOAuthUnknown}
+		if previous, ok := vmcp.Status.ComponentOAuth[componentID]; ok && previous.TargetHash == want.targetHash {
+			record = previous
+		}
+		if record.CheckedAt.IsZero() || !now.Before(nextComponentOAuthProbe(record)) {
+			due = append(due, componentOAuthProbeJob{componentID: componentID, url: want.url, tunnel: want.tunnelName})
 		}
 		next[componentID] = record
 	}
 
 	h.runComponentOAuthProbes(req.Ctx, due)
 	for _, job := range due {
-		probe := &next[job.componentID].Probes[job.index]
-		probe.CheckedAt = metav1.NewTime(now)
+		record := next[job.componentID]
+		record.CheckedAt = metav1.NewTime(now)
 		if job.err != nil {
-			probe.Failures++
-			if probe.Required != v1.VMCPComponentOAuthRequired && probe.Required != v1.VMCPComponentOAuthNotRequired {
-				probe.Required = v1.VMCPComponentOAuthUnknown
+			record.Failures++
+			if record.Required != v1.VMCPComponentOAuthRequired && record.Required != v1.VMCPComponentOAuthNotRequired {
+				record.Required = v1.VMCPComponentOAuthUnknown
 			}
-			// The error may hold the URL, which may come from configuration.
+			next[job.componentID] = record
+			// The error may hold the URL, which may come from the vMCP's fixed configuration.
 			slog.Warn("Failed to learn whether a vMCP component asks for OAuth; agents are not kept from it for that", "vmcp", vmcp.Name, "component", job.componentID,
-				"failures", probe.Failures, "nextProbe", nextComponentOAuthProbe(*probe), "error", vmcpconfig.RedactURL(job.err.Error(), job.url))
+				"failures", record.Failures, "nextProbe", nextComponentOAuthProbe(record), "error", vmcpconfig.RedactURL(job.err.Error(), job.url))
 			continue
 		}
 		required := v1.VMCPComponentOAuthNotRequired
 		if job.required {
 			required = v1.VMCPComponentOAuthRequired
 		}
-		if probe.Required != required {
+		if record.Required != required {
 			slog.Info("Probed whether a vMCP component asks for OAuth", "vmcp", vmcp.Name, "component", job.componentID, "required", required)
 		}
-		probe.Required, probe.Failures = required, 0
+		record.Required, record.Failures = required, 0
+		next[job.componentID] = record
 	}
 
 	var wait time.Duration
 	for _, record := range next {
-		for _, probe := range record.Probes {
-			if until := nextComponentOAuthProbe(probe).Sub(now); wait == 0 || until < wait {
-				wait = until
-			}
+		if until := nextComponentOAuthProbe(record).Sub(now); wait == 0 || until < wait {
+			wait = until
 		}
 	}
 	if wait > 0 {
@@ -171,8 +155,8 @@ func (h *Handler) ProbeComponentOAuth(req router.Request, resp router.Response) 
 }
 
 // saveComponentOAuth records next as vmcp's probes. A conflict, from a change made while the probes ran, is retried on
-// the vMCP as it is now, with the probes of components that are gone or whose definition changed left out; probes of
-// URLs that are no longer reached are dropped by the next run, which the save starts.
+// the vMCP as it is now, with the probes of components that are gone or whose target changed left out; the save starts
+// the next run, which probes them.
 func (h *Handler) saveComponentOAuth(req router.Request, vmcp *v1.VMCP, next map[string]v1.VMCPComponentOAuth) error {
 	first := true
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -184,11 +168,11 @@ func (h *Handler) saveComponentOAuth(req router.Request, vmcp *v1.VMCP, next map
 		first = false
 		current := map[string]string{}
 		for _, component := range vmcpconfig.ComponentsForInstance(*vmcp, v1.VMCPInstance{}) {
-			current[component.ID] = vmcpconfig.ProfileOAuthGrantDefinitionHash(component)
+			current[component.ID] = vmcpconfig.ComponentOAuthTargetHash(*vmcp, component)
 		}
 		kept := maps.Clone(next)
 		maps.DeleteFunc(kept, func(componentID string, record v1.VMCPComponentOAuth) bool {
-			return current[componentID] != record.DefinitionHash
+			return current[componentID] != record.TargetHash
 		})
 		if len(kept) == 0 {
 			kept = nil
@@ -221,66 +205,41 @@ func (h *Handler) runComponentOAuthProbes(ctx context.Context, jobs []componentO
 	wg.Wait()
 }
 
-// componentOAuthTargets returns, by component ID, the URLs of vmcp's components to probe (ProbeComponentOAuth). Only a
-// shared vMCP's components are, since agents connect to no other, and only those that an agent-capable profile
-// (types.VMCPProfile.IsAgentCapable) grants. A URL that comes from configuration is resolved for each such profile as
-// for an agent whose profile it is (vmcpconfig.ProfileGrantTarget), and skipped when it lacks a value or is refused:
-// configuration readiness reports that.
-func (h *Handler) componentOAuthTargets(ctx context.Context, vmcp v1.VMCP) (map[string]componentOAuthTargets, error) {
-	if vmcp.Spec.UserID != "" {
-		return nil, nil
-	}
-	var profiles []types.VMCPProfile
-	for _, profile := range vmcp.Spec.Manifest.Profiles {
-		if profile.IsAgentCapable() {
-			profiles = append(profiles, profile)
-		}
-	}
-	if len(profiles) == 0 {
+// componentOAuthTargets returns, by component ID, the URLs of vmcp's components to probe (ProbeComponentOAuth): those
+// that any profile naming an agent grants (vmcpconfig.AgentGrantedComponents), which only a shared vMCP has, since
+// agents connect to no other. A component whose URL lacks a value that the vMCP and the catalog entry do not fix, or
+// whose fixed URL is refused, is skipped: configuration readiness reports it.
+func (h *Handler) componentOAuthTargets(ctx context.Context, vmcp v1.VMCP) (map[string]componentOAuthTarget, error) {
+	components := vmcpconfig.AgentGrantedComponents(vmcp)
+	if len(components) == 0 {
 		return nil, nil
 	}
 
-	result := map[string]componentOAuthTargets{}
-	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, v1.VMCPInstance{}) {
+	result := map[string]componentOAuthTarget{}
+	for _, component := range components {
 		remote := component.CatalogEntry.Manifest.RemoteConfig
 		if component.ID == "" || remote == nil || !vmcpconfig.ComponentOAuthProbed(component) {
 			continue
 		}
-		granting := slices.DeleteFunc(slices.Clone(profiles), func(profile types.VMCPProfile) bool {
-			return !vmcpconfig.ProfileGrantsComponent(profile, component.ID)
-		})
-		if len(granting) == 0 {
+		target, refused, err := vmcpconfig.ResolveComponentTarget(ctx, h.componentOAuth, vmcp, component)
+		if err != nil {
+			return nil, fmt.Errorf("resolve the upstream URL of component %q of vMCP %q: %w", component.ID, vmcp.Name, err)
+		}
+		if refused != nil || target.URL == "" {
 			continue
 		}
-
-		var urls []string
-		for _, profile := range granting {
-			target, refused, err := vmcpconfig.ProfileGrantTarget(ctx, h.componentOAuth, vmcp, profile, component)
-			if err != nil {
-				return nil, fmt.Errorf("resolve the upstream URL of component %q of vMCP %q for profile %q: %w", component.ID, vmcp.Name, profile.ID, err)
-			}
-			if refused == nil && target.URL != "" && !slices.Contains(urls, target.URL) {
-				urls = append(urls, target.URL)
-			}
+		result[component.ID] = componentOAuthTarget{
+			targetHash: vmcpconfig.ComponentOAuthTargetHash(vmcp, component),
+			url:        target.URL,
+			tunnelName: remote.TunnelName,
 		}
-		if len(urls) == 0 {
-			continue
-		}
-
-		want := componentOAuthTargets{definitionHash: vmcpconfig.ProfileOAuthGrantDefinitionHash(component), tunnelName: remote.TunnelName}
-		for _, url := range urls {
-			want.targets = append(want.targets, componentOAuthTarget{url: url, digest: vmcpconfig.ComponentOAuthURLDigest(vmcp.Name, component.ID, url)})
-		}
-		// The order of the profiles is not the order of the probes, so that reordering profiles changes nothing.
-		slices.SortFunc(want.targets, func(a, b componentOAuthTarget) int { return cmp.Compare(a.digest, b.digest) })
-		result[component.ID] = want
 	}
 	return result, nil
 }
 
-// nextComponentOAuthProbe is when the URL that probe is for is probed next: componentOAuthRecheckInterval after a probe
-// that succeeded, and sooner after one that failed, the more failures in a row the later.
-func nextComponentOAuthProbe(probe v1.VMCPComponentOAuthProbe) time.Time {
+// nextComponentOAuthProbe is when the component that probe is for is probed next: componentOAuthRecheckInterval after a
+// probe that succeeded, and sooner after one that failed, the more failures in a row the later.
+func nextComponentOAuthProbe(probe v1.VMCPComponentOAuth) time.Time {
 	if probe.Failures == 0 {
 		return probe.CheckedAt.Add(componentOAuthRecheckInterval)
 	}

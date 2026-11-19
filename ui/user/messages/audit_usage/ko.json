@@ -243,6 +243,7 @@
 	"audit_usage_exports_admin_resource_kind_api_key": "API 키",
 	"audit_usage_exports_admin_resource_kind_model_access_policy": "모델 액세스 정책",
 	"audit_usage_exports_admin_resource_kind_skill_access_rule": "스킬 액세스 규칙",
+	"audit_usage_exports_admin_resource_kind_vmcp": "vMCP",
 	"audit_usage_exports_admin_resource_kind_vmcp_profile": "vMCP 프로필",
 	"audit_usage_exports_advanced_options": "고급 옵션",
 	"audit_usage_exports_already_configured": "스토리지 제공자가 이미 구성되어 있습니다",

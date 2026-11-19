@@ -290,7 +290,6 @@ func (*VMCPInstanceHandler) Reveal(req api.Context) error {
 	if err := req.Get(&instance, req.PathValue("vmcp_instance_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP instance: %w", err)
 	}
-	// An agent's instance holds a copy of its profiles' configuration, whose values are never returned.
 	if err := refuseAgentInstanceConfiguration(instance); err != nil {
 		return err
 	}
@@ -335,22 +334,17 @@ func (*VMCPInstanceHandler) Deconfigure(req api.Context) error {
 }
 
 // refuseAgentInstanceConfiguration refuses to configure, deconfigure or reveal the configuration of an agent's
-// instance. The vMCP instance controller writes it from the agent's profiles, which are its only source
-// (PUT /api/vmcps/{vmcp_id}/profiles/{profile_id}/configuration), and would overwrite anything entered here.
+// instance. Agents are given only the values fixed for everyone, by the vMCP or the catalog entry, so that no one can
+// give an agent a value a user would enter, and an agent's instance configuration is never read
+// (vmcpconfig.InstanceTakesUserConfiguration).
 func refuseAgentInstanceConfiguration(instance v1.VMCPInstance) error {
-	if _, ok := principal.ParseAgent(instance.Spec.UserID); ok {
-		return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("VMCP instance %q belongs to an agent, whose configuration comes only from the vMCP's profile configuration", instance.Name))
+	if !vmcpconfig.InstanceTakesUserConfiguration(instance) {
+		return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("VMCP instance %q belongs to an agent, which uses only the configuration that the vMCP or the catalog entry fixes", instance.Name))
 	}
 	return nil
 }
 
 func convertVMCPInstance(instance v1.VMCPInstance) types.VMCPInstance {
-	userConfigurationHash := instance.Status.UserConfigurationHash
-	if _, ok := principal.ParseAgent(instance.Spec.UserID); ok {
-		// It digests the values an agent's profiles give it, which are never returned, and a digest of a value with
-		// little entropy gives it away. Only the controllers need it.
-		userConfigurationHash = ""
-	}
 	return types.VMCPInstance{
 		LegacySlug:           instance.Spec.LegacySlug,
 		Metadata:             MetadataFrom(&instance),
@@ -359,7 +353,7 @@ func convertVMCPInstance(instance v1.VMCPInstance) types.VMCPInstance {
 		Status: types.VMCPInstanceStatus{
 			Configured:                   instance.Status.Configured,
 			MissingRequiredConfiguration: instance.Status.MissingRequiredConfiguration,
-			UserConfigurationHash:        userConfigurationHash,
+			UserConfigurationHash:        instance.Status.UserConfigurationHash,
 			ConfigurationCheckHash:       instance.Status.ConfigurationCheckHash,
 		},
 	}

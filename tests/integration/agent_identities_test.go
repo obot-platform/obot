@@ -195,18 +195,27 @@ func newAgentVMCP(t *testing.T, h *harness.Harness, name string) agentVMCP {
 	}
 }
 
-// configure sets the profile's value for the component's required key.
-func (a agentVMCP) configure(t *testing.T, h *harness.Harness, value string) {
+// fix makes the component's required key fixed on the vMCP, with value, for everyone, agents included: the only way
+// an agent is given a value.
+func (a agentVMCP) fix(t *testing.T, h *harness.Harness, value string) {
 	t.Helper()
-	h.Put(t, "/api/vmcps/"+a.vmcp.ID+"/profiles/"+a.profileID+"/configuration", types.VMCPProfileConfigurationUpdate{
-		Components: map[string]map[string]*string{a.componentID: {integrationEnvKey: &value}},
-	}, nil)
+	var stored types.VMCP
+	h.Get(t, "/api/vmcps/"+a.vmcp.ID, &stored)
+	manifest := stored.VMCPManifest
+	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{
+		Key:    integrationEnvKey,
+		Policy: types.VMCPConfigurationPolicyFixed,
+		Value:  value,
+	}}
+	h.Put(t, "/api/vmcps/"+a.vmcp.ID, manifest, nil)
 }
 
-// TestAgentVMCPSetup checks, against a running server, that an agent reaches a shared vMCP only through its profile
-// and an MCP-scoped key, gets a 409 that names the missing configuration instead of a challenge, that readiness agrees
-// with the connect path, that profile configuration is write-only, and that deleting the agent leaves the profile's
-// configuration and subjects in place. It never starts the component, so it needs no MCP runtime.
+// TestAgentVMCPSetup checks, against a running server, that an agent reaches a shared vMCP only through its profiles
+// and an MCP-scoped key, gets a 409 that names the component whose required value a user would enter, instead of a
+// challenge, that readiness and the vMCP's agent setup agree with the connect path, that profiles hold nothing for
+// agents, that an agent may be named by a second profile, that fixing the value on the vMCP makes the agent ready, and
+// that deleting the agent leaves the profiles' subjects in place. It never starts the component, so it needs no MCP
+// runtime.
 func TestAgentVMCPSetup(t *testing.T) {
 	h := harness.New(t)
 	a := newAgentVMCP(t, h, "agent-setup")
@@ -219,9 +228,9 @@ func TestAgentVMCPSetup(t *testing.T) {
 		}
 	})
 
-	want := types.AgentReadinessReason{ComponentID: a.componentID, Code: types.AgentReadinessConfigurationRequired, Field: integrationEnvKey, ProfileID: a.profileID}
+	want := types.AgentReadinessReason{ComponentID: a.componentID, Code: types.AgentReadinessConfigurationRequired, Field: integrationEnvKey}
 
-	t.Run("missing configuration is a 409 without a challenge", func(t *testing.T) {
+	t.Run("a value a user would enter is a 409 without a challenge", func(t *testing.T) {
 		resp := initialize(t, h, a.vmcp.ID, a.mcpKey)
 		if resp.StatusCode != http.StatusConflict {
 			t.Fatalf("connect before configuration: got %d, want 409\nbody: %s", resp.StatusCode, resp.Body)
@@ -245,38 +254,72 @@ func TestAgentVMCPSetup(t *testing.T) {
 		var readiness types.AgentVMCPReadiness
 		h.Get(t, "/api/agents/"+a.agent.ID+"/vmcps/"+a.vmcp.ID+"/readiness", &readiness)
 		if readiness.Ready || !slices.Contains(readiness.Reasons, want) {
-			t.Fatalf("readiness before configuration: %+v", readiness)
+			t.Fatalf("readiness before the value is fixed: %+v", readiness)
+		}
+		var setup types.VMCPAgentSetup
+		h.Get(t, "/api/vmcps/"+a.vmcp.ID+"/agent-setup", &setup)
+		idx := slices.IndexFunc(setup.Components, func(c types.VMCPAgentSetupComponent) bool { return c.ComponentID == a.componentID })
+		if idx < 0 || setup.Components[idx].Ready || !slices.Equal(setup.Components[idx].Reasons, []types.AgentReadinessReason{want}) {
+			t.Fatalf("the vMCP's agent setup does not name the missing configuration: %+v", setup)
+		}
+	})
+
+	t.Run("profiles hold nothing for agents", func(t *testing.T) {
+		profilePath := "/api/vmcps/" + a.vmcp.ID + "/profiles/" + a.profileID
+		for _, route := range []struct{ method, path string }{
+			{method: http.MethodPut, path: profilePath + "/configuration"},
+			{method: http.MethodPost, path: profilePath + "/configuration/reset"},
+			{method: http.MethodGet, path: profilePath + "/status"},
+			{method: http.MethodPost, path: profilePath + "/components/" + a.componentID + "/oauth"},
+			{method: http.MethodDelete, path: profilePath + "/components/" + a.componentID + "/oauth"},
+		} {
+			resp := h.RequestAs(t, route.method, route.path, "", map[string]any{"components": map[string]any{a.componentID: map[string]any{integrationEnvKey: "x"}}})
+			if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusMethodNotAllowed {
+				t.Fatalf("%s %s: got %d, want 404 or 405 as for an unknown route\nbody: %s", route.method, route.path, resp.StatusCode, resp.Body)
+			}
+		}
+	})
+
+	t.Run("an agent may be named by a second profile", func(t *testing.T) {
+		var stored types.VMCP
+		h.Get(t, "/api/vmcps/"+a.vmcp.ID, &stored)
+		manifest := stored.VMCPManifest
+		manifest.Profiles = append(manifest.Profiles, types.VMCPProfile{
+			Name:        "agent-again",
+			Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: a.agent.ID}},
+			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+		})
+		h.Put(t, "/api/vmcps/"+a.vmcp.ID, manifest, nil)
+		var readiness types.AgentVMCPReadiness
+		h.Get(t, "/api/agents/"+a.agent.ID+"/vmcps/"+a.vmcp.ID+"/readiness", &readiness)
+		if readiness.Ready || !slices.Equal(readiness.Reasons, []types.AgentReadinessReason{want}) {
+			t.Fatalf("readiness of an agent named by two profiles: %+v", readiness)
 		}
 	})
 
 	value := "agent-" + h.RunID
 
-	t.Run("profile configuration is write-only and makes the agent ready", func(t *testing.T) {
-		a.configure(t, h, value)
+	t.Run("fixing the value on the vMCP makes the agent ready", func(t *testing.T) {
+		a.fix(t, h, value)
 
-		resp := h.RequestAs(t, http.MethodGet, "/api/vmcps/"+a.vmcp.ID+"/profiles/"+a.profileID+"/status", "", nil)
+		resp := h.RequestAs(t, http.MethodGet, "/api/vmcps/"+a.vmcp.ID+"/agent-setup", "", nil)
 		if resp.StatusCode != http.StatusOK || strings.Contains(string(resp.Body), value) {
-			t.Fatalf("profile status: got %d, and it must never contain the value\nbody: %s", resp.StatusCode, resp.Body)
+			t.Fatalf("agent setup: got %d, and it must never contain the value\nbody: %s", resp.StatusCode, resp.Body)
 		}
 		var readiness types.AgentVMCPReadiness
 		h.Get(t, "/api/agents/"+a.agent.ID+"/vmcps/"+a.vmcp.ID+"/readiness", &readiness)
 		if !readiness.Ready {
-			t.Fatalf("agent is not ready after configuration: %+v", readiness)
+			t.Fatalf("agent is not ready after the value was fixed: %+v", readiness)
 		}
-		// Agents can't reach their own setup.
-		requireStatus(t, h, http.MethodGet, "/api/vmcps/"+a.vmcp.ID+"/profiles/"+a.profileID+"/status", a.mcpKey, http.StatusForbidden)
+		// Agents can't reach their vMCP's setup, or authorize its OAuth.
+		requireStatus(t, h, http.MethodGet, "/api/vmcps/"+a.vmcp.ID+"/agent-setup", a.mcpKey, http.StatusForbidden)
+		requireStatus(t, h, http.MethodPost, "/api/vmcps/"+a.vmcp.ID+"/agent-oauth/"+a.componentID, a.mcpKey, http.StatusForbidden)
 	})
 
-	t.Run("delete keeps the profile's configuration and subject", func(t *testing.T) {
+	t.Run("delete keeps the profile's subject", func(t *testing.T) {
 		h.Delete(t, "/api/agents/"+a.agent.ID)
 		requireStatus(t, h, http.MethodPost, "/mcp-connect/"+a.vmcp.ID, a.mcpKey, http.StatusUnauthorized)
 
-		var status types.VMCPProfileStatus
-		h.Get(t, "/api/vmcps/"+a.vmcp.ID+"/profiles/"+a.profileID+"/status", &status)
-		idx := slices.IndexFunc(status.Components, func(c types.VMCPProfileComponentStatus) bool { return c.ComponentID == a.componentID })
-		if idx < 0 || !slices.Contains(status.Components[idx].Configuration.Set, integrationEnvKey) {
-			t.Fatalf("profile configuration did not survive the agent's deletion: %+v", status)
-		}
 		// The deleted agent's subject stays in the profile and matches nobody, as a deleted user's does.
 		var stored types.VMCP
 		h.Get(t, "/api/vmcps/"+a.vmcp.ID, &stored)
@@ -287,17 +330,19 @@ func TestAgentVMCPSetup(t *testing.T) {
 }
 
 // TestAgentVMCPConnection_NPXEverything checks, end to end with a real Docker runtime, that an agent's runtime receives
-// its profile's configuration, and that deleting the agent removes its vMCP instance and its runtime.
+// the value the vMCP fixes, and that deleting the agent removes its vMCP instance but not the runtime. With its only
+// value fixed on the vMCP, the component has nothing a user enters, so it runs one server that everyone on the vMCP
+// shares, and the agent only had a connection to it.
 //
 // Docker and access to the npm and GHCR registries are required, from the test and from the MCP containers.
 func TestAgentVMCPConnection_NPXEverything(t *testing.T) {
 	h := harness.New(t)
 	a := newAgentVMCP(t, h, "agent-runtime")
 	value := "agent-" + h.RunID
-	a.configure(t, h, value)
+	a.fix(t, h, value)
 
 	var containers []string
-	if !t.Run("the agent's runtime gets the profile's configuration", func(t *testing.T) {
+	if !t.Run("the agent's runtime gets the value the vMCP fixes", func(t *testing.T) {
 		before := mcpDeploymentContainers(t)
 		result := callToolAsAgent(t, h.BaseURL, a.vmcp.ID, a.mcpKey, &gomcp.CallToolParams{Name: "get-env"}, 3*time.Minute)
 		text := assertTextToolResult(t, result, "")
@@ -306,7 +351,7 @@ func TestAgentVMCPConnection_NPXEverything(t *testing.T) {
 			t.Fatalf("decode get-env result: %v", err)
 		}
 		if env[integrationEnvKey] != value {
-			t.Fatalf("%s in the agent's runtime = %q, want the profile's value", integrationEnvKey, env[integrationEnvKey])
+			t.Fatalf("%s in the agent's runtime = %q, want the value the vMCP fixes", integrationEnvKey, env[integrationEnvKey])
 		}
 		// Tests in this package run one at a time, so the containers started by this connect are the agent's.
 		for _, id := range mcpDeploymentContainers(t) {
@@ -321,11 +366,16 @@ func TestAgentVMCPConnection_NPXEverything(t *testing.T) {
 		return
 	}
 
-	t.Run("delete removes the agent's connection and runtime", func(t *testing.T) {
+	t.Run("delete removes the agent's connection and keeps the shared runtime", func(t *testing.T) {
 		instance := requireAgentInstance(t, h, a.agent.ID, a.vmcp.ID)
 		h.Delete(t, "/api/agents/"+a.agent.ID)
 		h.WaitForDeleted(t, "/api/vmcp-instances/"+instance.ID, time.Minute)
-		waitForDockerContainersRemoved(t, containers, time.Minute)
+		running := mcpDeploymentContainers(t)
+		for _, id := range containers {
+			if !slices.Contains(running, id) {
+				t.Fatalf("Docker container %s of the vMCP's shared server was removed with the agent", id)
+			}
+		}
 	})
 }
 
@@ -408,31 +458,6 @@ func mcpDeploymentContainers(t *testing.T) []string {
 		t.Fatalf("list Docker containers: %v\n%s", err, output)
 	}
 	return strings.Fields(string(output))
-}
-
-func waitForDockerContainersRemoved(t *testing.T, ids []string, timeout time.Duration) {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	var remaining []string
-	for time.Now().Before(deadline) {
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		output, err := exec.CommandContext(ctx, "docker", "ps", "--all", "--quiet", "--no-trunc").CombinedOutput()
-		cancel()
-		if err != nil {
-			t.Fatalf("list Docker containers: %v\n%s", err, output)
-		}
-		remaining = remaining[:0]
-		for _, id := range ids {
-			if strings.Contains(string(output), id) {
-				remaining = append(remaining, id)
-			}
-		}
-		if len(remaining) == 0 {
-			return
-		}
-		time.Sleep(250 * time.Millisecond)
-	}
-	t.Fatalf("Docker containers %v were not removed within %s", remaining, timeout)
 }
 
 func maskKey(key string) string {

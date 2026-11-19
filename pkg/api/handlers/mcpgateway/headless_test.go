@@ -409,12 +409,12 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 				Reasons: []vmcpaccess.ReadinessReason{{
 					ComponentID: "salesforce",
 					Code:        types.AgentReadinessOAuthRequired,
-					ProfileID:   "vp1agent",
 				}},
 			},
 		},
 		{
-			// The profile for every user grants the agent nothing, so its own profile is the one to fix.
+			// The profile for every user grants the agent nothing; the reason names only the component, whose grant the
+			// vMCP holds.
 			name: "component that needs OAuth, beside a profile for every user",
 			profiles: []types.VMCPProfile{
 				{
@@ -433,7 +433,30 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 				Reasons: []vmcpaccess.ReadinessReason{{
 					ComponentID: "salesforce",
 					Code:        types.AgentReadinessOAuthRequired,
-					ProfileID:   "vp1agent",
+				}},
+			},
+		},
+		{
+			// An agent named by two profiles is granted what either grants, so the component that only the second
+			// grants it keeps it out, once.
+			name: "component that needs OAuth, granted by the second of two profiles",
+			profiles: []types.VMCPProfile{
+				{
+					ID:          "vp1agent",
+					Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
+					Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{}},
+				},
+				{
+					ID:          "vp1second",
+					Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+				},
+			},
+			wantFailure: vmcpaccess.AgentReadinessFailure{
+				Error: vmcpaccess.AgentOAuthRequiredError,
+				Reasons: []vmcpaccess.ReadinessReason{{
+					ComponentID: "salesforce",
+					Code:        types.AgentReadinessOAuthRequired,
 				}},
 			},
 		},
@@ -457,9 +480,7 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 					Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
 				},
 			}
-			// The instance controller has given the agent its profiles' configuration, and recorded its configuration
-			// status.
-			instance.Status.AgentConfigurationRevision = vmcpaccess.ResolveAgentConfiguration(*vmcp, *instance, caller).Revision
+			// The instance controller has recorded its configuration status.
 			instance.Status.ConfigurationCheckHash = vmcpaccess.ConfigurationCheckHash(vmcpaccess.EnabledComponents(caller, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance)), "")
 			storageClient := newAgentReadinessTestStorage(vmcp, instance)
 			gateway, db := newHeadlessTestGatewayClient(t)
@@ -467,7 +488,7 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 				mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 				&rest.Config{Host: "http://kubernetes.invalid"}, storageClient, storageClient, storageClient, gateway, system.DefaultNamespace, nil)
 			require.NoError(t, err)
-			manager.SetProfileOAuthGrants(vmcpaccess.NewProfileOAuthGrantStore(gateway))
+			manager.SetAgentOAuthGrants(vmcpaccess.NewAgentOAuthGrantStore(gateway))
 
 			request := httptest.NewRequest(http.MethodPost, "https://obot.example/mcp-connect/"+vmcp.Name, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`))
 			request.SetPathValue("mcp_id", vmcp.Name)

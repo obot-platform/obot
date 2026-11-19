@@ -213,17 +213,10 @@ type Services struct {
 	// EgressAuditLogRetentionDays is how long egress audit logs are kept. 0 keeps them forever.
 	EgressAuditLogRetentionDays int
 
-	// VMCPProfileData are the stores of data kept per vMCP profile outside the manifest: profile configuration and
-	// profile OAuth grants. The vMCP controller deletes a profile's data when the profile or its vMCP is deleted, and
-	// an API update may not replace a profile that has data. Each store is appended here as it is added; with none, no
-	// profile has data.
-	VMCPProfileData vmcp.ProfileDataStores
-	// VMCPProfileConfiguration stores the configuration that administrators set on vMCP profiles for agents. It is
-	// one of VMCPProfileData.
-	VMCPProfileConfiguration *vmcp.ProfileConfigurationStore
-	// VMCPProfileOAuthGrants stores the OAuth grants that administrators authorize on vMCP profiles for agents. It is
-	// one of VMCPProfileData.
-	VMCPProfileOAuthGrants *vmcp.ProfileOAuthGrantStore
+	// VMCPAgentOAuthGrants stores the OAuth grants that administrators authorize on shared vMCPs for agents, one per
+	// component, outside the manifest. The vMCP controller deletes a component's grant when the component is removed,
+	// and every grant of a vMCP being deleted.
+	VMCPAgentOAuthGrants *vmcp.AgentOAuthGrantStore
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -803,24 +796,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
-	vmcpProfileConfiguration := vmcp.NewProfileConfigurationStore(gatewayClient)
-	vmcpProfileOAuthGrants := vmcp.NewProfileOAuthGrantStore(gatewayClient)
-	mcpSessionManager.SetProfileOAuthGrants(vmcpProfileOAuthGrants)
-	// Grants of components whose URL comes from profile configuration are bound to the URL it resolves to.
-	vmcpProfileOAuthGrants.SetComponentTargets(mcpSessionManager)
-	// Grants the vMCP controller deletes with a removed profile, vMCP or component are audited as the system's.
-	vmcpProfileOAuthGrants.SetGrantRemovalRecorder(func(ctx context.Context, vmcpID, profileID, componentID, reason string) {
-		details := map[string]any{"reason": reason}
-		if componentID != "" {
-			details["componentID"] = componentID
-		}
+	vmcpAgentOAuthGrants := vmcp.NewAgentOAuthGrantStore(gatewayClient)
+	mcpSessionManager.SetAgentOAuthGrants(vmcpAgentOAuthGrants)
+	// Grants of components whose URL comes from the vMCP's fixed configuration are bound to the URL it resolves to.
+	vmcpAgentOAuthGrants.SetComponentTargets(mcpSessionManager)
+	// Grants the vMCP controller deletes with a removed component or vMCP are audited as the system's.
+	vmcpAgentOAuthGrants.SetGrantRemovalRecorder(func(ctx context.Context, vmcpID, componentID, reason string) {
 		gatewayClient.RecordAdminAuditEvent(ctx, client.AdminAuditEventInput{
 			Actor:        types.AdminAuditActorSystem,
-			Action:       types.AdminAuditActionVMCPProfileOAuthDelete,
-			ResourceKind: types.AdminAuditResourceVMCPProfile,
-			ResourceID:   profileID,
-			ParentID:     vmcpID,
-			Details:      details,
+			Action:       types.AdminAuditActionVMCPAgentOAuthDelete,
+			ResourceKind: types.AdminAuditResourceVMCP,
+			ResourceID:   vmcpID,
+			Details:      map[string]any{"componentID": componentID, "reason": reason},
 		})
 	})
 
@@ -1203,9 +1190,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProviderRegistryPaths:        config.ProviderRegistries,
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
-		VMCPProfileData:              vmcp.ProfileDataStores{vmcpProfileConfiguration, vmcpProfileOAuthGrants},
-		VMCPProfileConfiguration:     vmcpProfileConfiguration,
-		VMCPProfileOAuthGrants:       vmcpProfileOAuthGrants,
+		VMCPAgentOAuthGrants:         vmcpAgentOAuthGrants,
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,

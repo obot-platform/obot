@@ -4,7 +4,7 @@ const (
 	AuditLogTypeMCP AuditLogType = "mcp"
 	AuditLogTypeLLM AuditLogType = "llm"
 	// AuditLogTypeAdmin exports the admin change audit: changes to agents, their API keys, the policies and profiles
-	// that name agents, and profile configuration and OAuth grants.
+	// that name agents, and vMCPs' agent OAuth grants.
 	AuditLogTypeAdmin AuditLogType = "admin"
 
 	AuditLogExportStateRunning   AuditLogExportState = "running"
@@ -193,7 +193,7 @@ type LLMAuditLogExportFilters struct {
 // AdminAuditEventExportFilters are the filters of an export of the admin change audit (AuditLogTypeAdmin). Each is a
 // list of values that match any, and the filters combine with and.
 type AdminAuditEventExportFilters struct {
-	// ResourceKinds are agent, apiKey, vmcpProfile, modelAccessPolicy or skillAccessRule.
+	// ResourceKinds are agent, apiKey, vmcp, vmcpProfile, modelAccessPolicy or skillAccessRule.
 	ResourceKinds []string `json:"resourceKinds,omitempty"`
 	ResourceIDs   []string `json:"resourceIDs,omitempty"`
 	// Actors are user IDs, or "system".

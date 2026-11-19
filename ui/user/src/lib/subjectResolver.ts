@@ -88,12 +88,6 @@ export function isAgentPickerId(pickerId: string): boolean {
 	return pickerId.startsWith(agentPickerId(''));
 }
 
-// agentSubjectName names an agent subject. A deleted agent keeps its subjects in policies but matches
-// nobody, so it is marked; an agent that is not known (the lookup is admin-only) shows its ID.
-export function agentSubjectName(agentId: string, lookup?: Map<string, AgentLookup>): string {
-	return agentDisplayName(lookup, agentId);
-}
-
 // One row of a subject picker. key is the picker ID (see resolveSubjectPickerById), unique across
 // kinds: a user and an agent can share a decimal ID.
 export interface SubjectPickerOption {
@@ -259,10 +253,12 @@ export function convertSubjectsToTableData(
 	return (
 		subjects
 			.map((subject): SubjectTableRow | undefined => {
+				// A deleted agent keeps its subjects in policies but matches nobody, so it is marked; an
+				// agent that is not known (the lookup is admin-only) shows its ID.
 				if (subject.type === 'agent') {
 					return {
 						id: resolveSubjectPickerById(subject),
-						displayName: agentSubjectName(subject.id, options.agents),
+						displayName: agentDisplayName(options.agents, subject.id),
 						type: m.core_col_agent(),
 						agent: true
 					};

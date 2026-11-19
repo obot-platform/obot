@@ -3,7 +3,7 @@ title: "Agent identities reference"
 description: API routes, key scopes, error bodies, audit fields, CEL variables and budget behavior for agent identities.
 ---
 
-Reference for [agent identities](../security/agent-identities.md) and [agent setup on vMCP profiles](../mcp-gateway/agent-setup.md). All examples use made-up IDs and keys.
+Reference for [agent identities](../security/agent-identities.md) and [setting up vMCPs for agents](../mcp-gateway/agent-setup.md). All examples use made-up IDs and keys.
 
 ## API {#api}
 
@@ -20,15 +20,15 @@ Every route below is for administrators. Read-Only Admins and auditors can call 
 | `GET`, `DELETE /api/agents/{agent_id}/api-keys/{key_id}` | Read or revoke a key |
 | `GET /api/agents/{agent_id}/access` | The vMCP profiles, model access policies and skill access rules that name the agent, and `problems` |
 | `GET /api/agents/{agent_id}/vmcps` | Readiness of every vMCP the agent is granted |
-| `GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness` | Readiness of one vMCP, with reasons and sources |
-| `PUT /api/vmcps/{vmcp_id}/profiles/{profile_id}/configuration` | Set or clear profile configuration |
-| `POST /api/vmcps/{vmcp_id}/profiles/{profile_id}/configuration/reset` | Clear all of a profile's configuration |
-| `GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status` | A profile's setup status |
-| `POST`, `DELETE /api/vmcps/{vmcp_id}/profiles/{profile_id}/components/{component_id}/oauth` | Start an OAuth authorization, or reset the grant |
+| `GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness` | Readiness of one vMCP, with reasons |
+| `GET /api/vmcps/{vmcp_id}/agent-setup` | The vMCP's [agent setup](#agent-setup): each component agents are granted, with its readiness and OAuth grant |
+| `POST`, `DELETE /api/vmcps/{vmcp_id}/agent-oauth/{component_id}` | Start the authorization of the vMCP's agent OAuth grant for a component, or revoke the grant |
 | `GET /api/admin-audit-events` | The admin change history |
 | `GET /api/admin-api-keys?kind=user` or `?kind=agent` | Every key of one owner kind. The `kind` parameter is required. |
 
-Request bodies reject unknown fields. `PUT /api/agents/{agent_id}` replaces both fields, so send the whole manifest. Deleting an agent and revoking a key return `204`.
+Request bodies reject unknown fields. `PUT /api/agents/{agent_id}` replaces both fields, so send the whole manifest. Deleting an agent and revoking a key return `204`. Revoking an agent OAuth grant returns the vMCP's agent setup.
+
+Profiles have no agent routes. The profile status route (`GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status`) and the profile OAuth routes (`POST` and `DELETE /api/vmcps/{vmcp_id}/profiles/{profile_id}/components/{component_id}/oauth`) were removed, and return `404` or `405` as unknown routes do.
 
 These routes work with authentication on or off.
 
@@ -56,25 +56,6 @@ The response includes `key`, the only time the full key is returned:
   "key": "oak1-7-12-EXAMPLEnotARealSecret"
 }
 ```
-
-### Configure a profile {#configure-api}
-
-```bash
-curl -X PUT https://obot.example.com/api/vmcps/vmcp1example/profiles/vp1example/configuration \
-  -H "Authorization: Bearer $OBOT_ADMIN_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"components": {"github": {"GITHUB_ORG": "example-org", "LOG_LEVEL": null}}}'
-```
-
-A value sets a key, and `null` or a blank value clears it. Keys you leave out keep their values. Only keys with the `userAllowed` policy can be set. Saving incomplete configuration is allowed.
-
-| Status | Meaning |
-|---|---|
-| `400` | The profile isn't agent-capable (it names no agent) or doesn't grant a component in the request, or a key is fixed, set by the catalog entry, bound to a Secret, prohibited, or unknown, or a URL fails the catalog's hostname constraint |
-| `404` | Unknown vMCP or profile |
-| `409` | The vMCP is being deleted |
-
-A reset returns `200`. If removing the old values takes longer than 15 seconds, its body has `"pendingCollection": true`, and the profile counts as having configuration until removal finishes.
 
 ## Key scopes {#key-scopes}
 
@@ -117,7 +98,7 @@ An agent never gets an OAuth challenge, a redirect, or a sign-in link, including
 {
   "error": "agent_configuration_required",
   "reasons": [
-    {"componentID": "github", "code": "configuration_required", "field": "GITHUB_ORG", "profileID": "vp1example"}
+    {"componentID": "github", "code": "configuration_required", "field": "GITHUB_ORG"}
   ]
 }
 ```
@@ -126,8 +107,8 @@ An agent never gets an OAuth challenge, a redirect, or a sign-in link, including
 {
   "error": "agent_oauth_required",
   "reasons": [
-    {"componentID": "github", "code": "oauth_required", "profileID": "vp1example"},
-    {"componentID": "jira", "code": "oauth_invalid", "profileID": "vp1example"}
+    {"componentID": "github", "code": "oauth_required"},
+    {"componentID": "jira", "code": "oauth_invalid"}
   ]
 }
 ```
@@ -139,26 +120,27 @@ An agent never gets an OAuth challenge, a redirect, or a sign-in link, including
 | `componentID` | The vMCP component |
 | `code` | `configuration_required`, `oauth_required` or `oauth_invalid` |
 | `field` | The missing configuration key. Values are never included. |
-| `profileID` | The profile to fix it in: the profile that names the agent, which holds its configuration and grants |
+
+Every reason is fixed on the vMCP. Fix `configuration_required` by setting the value as fixed on the vMCP or in the catalog entry, or by no longer granting the component to the agent: agents get only values fixed for everyone. Fix `oauth_required` and `oauth_invalid` by authorizing the component in the vMCP's agent setup. Reasons cover only the components that the profiles naming the agent grant.
 
 When an upstream fails after an MCP response has started, the agent gets a JSON-RPC error without these codes.
 
 ### 400 when authorizing OAuth without a URL {#400-missing-keys}
 
-When a component's URL comes from profile configuration that isn't set, `POST …/components/{component_id}/oauth` returns `400` with the missing keys:
+When a component's URL needs a value that the vMCP and the catalog entry don't fix, `POST /api/vmcps/{vmcp_id}/agent-oauth/{component_id}` returns `400` with the missing keys:
 
 ```json
 {
-  "error": "the upstream URL of component \"github\" needs __url, which profile \"vp1example\" does not configure; configure the profile first",
+  "error": "the upstream URL of component \"github\" needs __url, which agents cannot be given: set it as fixed on the vMCP or on the catalog entry first",
   "reasons": [
-    {"componentID": "github", "code": "configuration_required", "field": "__url", "profileID": "vp1example"}
+    {"componentID": "github", "code": "configuration_required", "field": "__url"}
   ]
 }
 ```
 
-Other start errors are plain: `400` if the profile isn't agent-capable, the profile doesn't grant the component, the component isn't a remote server, or the URL fails the hostname constraint; `404` for an unknown vMCP, profile or component; and `409` if the vMCP is being deleted.
+Other start errors are plain: `400` if the component isn't a remote server, no profile that names an agent grants the component, or the URL fails the hostname constraint; `404` for an unknown vMCP or component; and `409` if the vMCP is being deleted.
 
-The start sends the server unauthenticated requests: `initialize`, then, if that succeeds, `notifications/initialized` and `tools/list` in the same session, which it then ends with `DELETE`. It starts from the first `401` challenge, and otherwise from the protected resource metadata at the server's well-known location (RFC 9728). It returns `400` with `does not require OAuth` when there is neither, and an error when `tools/list` fails or a request times out. See [How Obot finds the provider](../mcp-gateway/agent-setup.md#oauth-discovery). The callback returns `403` to a different administrator, `409` if the component or its URL changed, `400` if the profile no longer grants the component, and `400` if the attempt expired or was already used. Errors never contain a URL that comes from configuration. They show `<configured URL>` or `<redacted>` instead.
+The start sends the server unauthenticated requests: `initialize`, then, if that succeeds, `notifications/initialized` and `tools/list` in the same session, which it then ends with `DELETE`. It starts from the first `401` challenge, and otherwise from the protected resource metadata at the server's well-known location (RFC 9728). It returns `400` with `does not require OAuth` when there is neither, and an error when `tools/list` fails or a request times out. See [How Obot finds the provider](../mcp-gateway/agent-setup.md#oauth-discovery). The callback returns `403` to a different administrator, `409` if the component or its URL changed, `400` if no profile that names an agent grants the component any more, and `400` if the attempt expired or was already used. Errors never contain a URL that comes from configuration. They show `<configured URL>` or `<redacted>` instead.
 
 The start response is `{"authURL": "..."}`. For a component with a localhost callback, it also has `"localhostCallback": true`, and `authURL` is the URL to pass to `obot mcp login`.
 
@@ -171,30 +153,68 @@ The start response is `{"authURL": "..."}`. For a component with a localhost cal
   "vmcpID": "vmcp1example",
   "ready": false,
   "disabled": false,
-  "profileID": "vp1example",
   "reasons": [
-    {"componentID": "github", "code": "configuration_required", "field": "GITHUB_ORG", "profileID": "vp1example"}
-  ],
-  "sources": [
-    {"kind": "configuration", "componentID": "github", "field": "GITHUB_TOKEN", "profileID": "vp1example"}
+    {"componentID": "github", "code": "configuration_required", "field": "GITHUB_ORG"}
   ]
 }
 ```
 
-Readiness runs the same checks as a connection, when you call it. `profileID` is the profile that names the agent. A vMCP without one isn't in `GET /api/agents/{agent_id}/vmcps`, and returns `404` here. `sources` names each value and grant that profile supplies, never the value. `pendingSync: true` means the agent's next connection waits for Obot to apply the latest configuration. `disabled: true` means the agent is disabled and can't connect, whatever its readiness.
+Readiness runs the same checks as a connection, when you call it, over the components that the profiles naming the agent grant. An agent named by several profiles is checked for the union of their components. A component that none of them grants doesn't count. A vMCP with no profile that names the agent isn't in `GET /api/agents/{agent_id}/vmcps`, and returns `404` here. `disabled: true` means the agent is disabled and can't connect, whatever its readiness. The reasons are those of the [409 bodies](#409), and each is fixed on the vMCP.
 
 `GET /api/agents/{agent_id}/access` lists `problems`:
 
 - `no_model_access_policy`: a key has the LLM scope, but no model access policy names the agent.
 - `no_skill_access_rule`: a key has the Skills scope, but no skill access rule names the agent.
 
-Every entry in `vmcpProfiles`, `modelAccessPolicies` and `skillAccessRules` names the agent by ID. A policy for **All Obot Users** never matches an agent, so it isn't listed and doesn't count against these problems.
+Every entry in `vmcpProfiles`, `modelAccessPolicies` and `skillAccessRules` names the agent by ID. A policy for **All Obot Users** never matches an agent, so it isn't listed and doesn't count against these problems. `vmcpProfiles` lists every profile that names the agent, including several of one vMCP.
 
-`GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status` reports, for each component the profile grants, the configuration keys that are `set`, `missingRequired` and `optionalUnset`, and for OAuth components the `state` (`authorized`, `missing` or `invalid`), `authorizedBy` (a user ID), `authorizedAt`, `scopes`, and either `target` (the full URL, only when the catalog fixes it) or `targetHostname` (when the URL comes from configuration).
+## Agent setup {#agent-setup}
 
-An OAuth component's `required` is `true` when its catalog entry requires static OAuth, when any profile of the vMCP holds a grant for it, valid or not, or when Obot's background check found that the server asks for OAuth at the URL that the profile's agents reach. Only then do readiness and connections report `oauth_required` for an agent whose profile holds no grant. The background check sends the same unauthenticated requests as an authorization start. A check that fails, and a URL not checked yet, count as not required. Components that take configured headers aren't checked. See [How Obot knows a component needs OAuth](../mcp-gateway/agent-setup.md#oauth-detection).
+`GET /api/vmcps/{vmcp_id}/agent-setup` reports what agents need from a shared vMCP, for every component that a profile naming an agent grants, in the vMCP's order. `components` is empty when no profile names an agent.
 
-Values and grants a profile holds for a component it doesn't grant aren't reported and aren't used. Readiness and connections take each component's setup only from the agent's profile, for the components it grants.
+```json
+{
+  "vmcpID": "vmcp1example",
+  "components": [
+    {
+      "componentID": "github",
+      "ready": false,
+      "reasons": [{"componentID": "github", "code": "oauth_required"}],
+      "oauth": {"required": true, "state": "missing"}
+    },
+    {
+      "componentID": "jira",
+      "ready": true,
+      "reasons": [],
+      "oauth": {
+        "required": true,
+        "state": "authorized",
+        "authorizedBy": "42",
+        "authorizedAt": "2026-11-18T09:30:00Z",
+        "target": "https://mcp.jira.example.com/mcp",
+        "scopes": ["read"]
+      }
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `ready` | Nothing about the component keeps an agent granted it from the vMCP |
+| `reasons` | Why it does, as in the [409 bodies](#409): `configuration_required` for each key agents can't be given, and `oauth_required` or `oauth_invalid` |
+| `oauth` | The vMCP's agent OAuth grant for the component. Present only for remote components, the only kind that can hold one. |
+| `oauth.required` | Whether the component is known to need OAuth (see below) |
+| `oauth.state` | `authorized`, `missing` or `invalid` |
+| `oauth.authorizedBy`, `oauth.authorizedAt` | The administrator (a user ID) who authorized the grant, and when |
+| `oauth.target`, `oauth.targetHostname` | The URL the grant was authorized for: `target`, the full URL, only when the catalog fixes it, and otherwise `targetHostname`, when the URL comes from configuration |
+| `oauth.scopes`, `oauth.invalidReason` | The grant's scopes, and why an invalid grant stopped working |
+
+The response never contains a configuration value, a token, or a URL that comes from configuration.
+
+An OAuth component's `required` is `true` when its catalog entry requires static OAuth, when the vMCP holds a grant for it, valid or not, or when Obot's background check found that the server asks for OAuth at the URL agents reach. Only then do readiness and connections report `oauth_required` for an agent granted the component while the vMCP holds no grant for it. The background check runs for each remote component that a profile naming an agent grants, and sends the same unauthenticated requests as an authorization start. Its result is recorded on the vMCP's status. A check that fails, and a component not checked yet, count as not required. Components that take configured headers aren't checked. See [How Obot knows a component needs OAuth](../mcp-gateway/agent-setup.md#oauth-detection).
+
+The vMCP holds one grant per component. Every agent that a profile of the vMCP grants the component uses it, and no other agent does. A grant for a component that no profile grants to an agent any more is kept, not reported, and not used, until a profile grants the component to an agent again.
 
 ## Audit {#audit}
 
@@ -209,7 +229,7 @@ LLM gateway audit logs, MCP audit logs, token usage and budget usage attribute r
 | `agentDisplayName` | — | The agent's current name, kept after deletion |
 | `apiKeyID`, `apiKeyName` | The key used | The key used. An unnamed key shows as `oak1-7-12-*****`. |
 
-MCP audit records also carry the vMCP (`vmcpID`), the component (`vmcpComponentID`) and the profiles that matched (`profileIDs`). For an agent, that's the one profile that names it, which also supplied its configuration and grants.
+MCP audit records also carry the vMCP (`vmcpID`), the component (`vmcpComponentID`) and the profiles that matched (`profileIDs`). For an agent, that's every profile that names it.
 
 Both audit log APIs accept `actor_kind=user|agent`. To select one agent, use `user_id=agent:<id>` wherever `user_id` works. Records written before agent identities existed have no principal and are read as the user in `userID`. Skill downloads aren't audited.
 
@@ -223,14 +243,17 @@ Both audit log APIs accept `actor_kind=user|agent`. To select one agent, use `us
 | `apiKey` | `agent.key.create`, `agent.key.revoke` | The agent |
 | `modelAccessPolicy` | `model_access_policy.subjects.update` | — |
 | `skillAccessRule` | `skill_access_rule.subjects.update` | — |
-| `vmcpProfile` | `vmcp.profile.subjects.update`, `vmcp.profile.configuration.update`, `vmcp.profile.configuration.reset`, `vmcp.profile.oauth.authorize`, `vmcp.profile.oauth.reset` | The vMCP |
-| `vmcpProfile` | `vmcp.profile.oauth.invalidate`, `vmcp.profile.oauth.delete`, with actor `system` | The vMCP |
+| `vmcpProfile` | `vmcp.profile.subjects.update` | The vMCP |
+| `vmcp` | `vmcp.agent_oauth.authorize`, `vmcp.agent_oauth.revoke` | — |
+| `vmcp` | `vmcp.agent_oauth.invalidate`, when the provider refuses to refresh a grant, and `vmcp.agent_oauth.delete`, when a component or vMCP is removed, with actor `system` | — |
 
-An event's `details` name what changed: fields, configuration keys, subjects, scopes and hostnames. They never contain configuration values, tokens, API key secrets, configured URLs, or the text of a disable reason. Subject events are recorded only when a change adds or removes an agent. Changes to users, groups and **All Obot Users** aren't recorded.
+Agent OAuth grant events are recorded against the vMCP: `resourceID` is the vMCP's ID, and `details.componentID` names the component.
+
+An event's `details` name what changed: fields, subjects, scopes and hostnames. They never contain configuration values, tokens, API key secrets, configured URLs, or the text of a disable reason. Subject events are recorded only when a change adds or removes an agent. Changes to users, groups and **All Obot Users** aren't recorded.
 
 Only changes made through the admin API are recorded, plus the `system` events. Changes that arrive through catalog sync and changes made by controllers are not.
 
-Events are kept for the longer of the MCP and LLM audit log retention periods, or forever if either is `0`. They're kept after the agent, key or profile is deleted. To export them, go to Operations → Audit Logs and click **Admin Change Exports**, then create a one-time export or an export schedule. See [Admin Change Exports](../security/audit-data.md#audit-log-export-admin-change-exports). Through the API, create an [audit log export](../security/audit-data.md#audit-log-export-creating-exports) (`POST /api/audit-log-exports` or `/api/scheduled-audit-log-exports`) with `"type": "admin"` and optional `adminFilters`: `resourceKinds`, `resourceIDs`, `actors` and `actions`.
+Events are kept for the longer of the MCP and LLM audit log retention periods, or forever if either is `0`. They're kept after the agent, key, profile or vMCP is deleted. To export them, go to Operations → Audit Logs and click **Admin Change Exports**, then create a one-time export or an export schedule. See [Admin Change Exports](../security/audit-data.md#audit-log-export-admin-change-exports). Through the API, create an [audit log export](../security/audit-data.md#audit-log-export-creating-exports) (`POST /api/audit-log-exports` or `/api/scheduled-audit-log-exports`) with `"type": "admin"` and optional `adminFilters`: `resourceKinds`, `resourceIDs`, `actors` and `actions`.
 
 ## CEL variables {#cel}
 

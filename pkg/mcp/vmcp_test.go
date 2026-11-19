@@ -11,7 +11,6 @@ import (
 
 	"github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -1103,12 +1102,6 @@ func syncedVMCPInstance(instance *v1.VMCPInstance, vmcp *v1.VMCP) *v1.VMCPInstan
 // syncedVMCPInstanceForUser is syncedVMCPInstance for profiles that match on more
 // than the user ID, such as groups.
 func syncedVMCPInstanceForUser(instance *v1.VMCPInstance, vmcp *v1.VMCP, user kuser.Info) *v1.VMCPInstance {
-	if principal.IsAgent(user) {
-		// An agent's instance is first given its profiles' configuration.
-		configuration := vmcpaccess.ResolveAgentConfiguration(*vmcp, *instance, user)
-		instance.Status.AgentConfigurationRevision = configuration.Revision
-		instance.Status.AgentConfigurationRevisions = configuration.Revisions
-	}
 	enabled := vmcpaccess.EnabledComponents(user, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance))
 	instance.Status.ConfigurationCheckHash = vmcpaccess.ConfigurationCheckHash(enabled, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation])
 	return instance

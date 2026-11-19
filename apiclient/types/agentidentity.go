@@ -88,7 +88,8 @@ type AgentAPIKeyCreateResponse struct {
 type AgentIdentityAccess struct {
 	// AgentID is the decimal ID of the agent.
 	AgentID string `json:"agentID"`
-	// VMCPProfiles are the profiles of shared vMCPs that name the agent, at most one per vMCP.
+	// VMCPProfiles are the profiles of shared vMCPs that name the agent. An agent named by several profiles of a vMCP
+	// is granted the union of their components and tools, as a user is.
 	VMCPProfiles []AgentIdentityVMCPProfileAccess `json:"vmcpProfiles"`
 	// ModelAccessPolicies are the model access policies (LLM gateway profiles) that name the agent.
 	ModelAccessPolicies []AgentIdentityPolicyAccess `json:"modelAccessPolicies"`
@@ -115,22 +116,21 @@ type AgentIdentityPolicyAccess struct {
 
 const (
 	// AgentReadinessConfigurationRequired is a reason an agent cannot use a vMCP: a component enabled for it requires a
-	// configuration value that the agent's profiles do not supply. Field names the key.
+	// configuration value that agents cannot be given, because neither the vMCP nor the catalog entry fixes it. Field
+	// names the key.
 	AgentReadinessConfigurationRequired = "configuration_required"
 	// AgentReadinessOAuthRequired is a reason an agent cannot use a vMCP: a component enabled for it requires OAuth, and
-	// the agent's profiles hold no grant for it.
+	// the vMCP holds no agent OAuth grant for it.
 	AgentReadinessOAuthRequired = "oauth_required"
-	// AgentReadinessOAuthInvalid is a reason an agent cannot use a vMCP: the grant its profile holds for a component no
-	// longer works, and must be authorized again.
+	// AgentReadinessOAuthInvalid is a reason an agent cannot use a vMCP: the agent OAuth grant the vMCP holds for a
+	// component enabled for it no longer works, and must be authorized again.
 	AgentReadinessOAuthInvalid = "oauth_invalid"
-
-	// AgentSourceConfiguration is the kind of an AgentReadinessSource for a configuration value.
-	AgentSourceConfiguration = "configuration"
-	// AgentSourceOAuth is the kind of an AgentReadinessSource for an OAuth grant.
-	AgentSourceOAuth = "oauth"
 )
 
-// AgentReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value.
+// AgentReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value. Every reason
+// is fixed on the vMCP: a configuration reason by setting the value as fixed on the vMCP or on the component's catalog
+// entry, or by no longer granting the component to the agent; an OAuth reason by authorizing the component in the
+// vMCP's agent setup.
 type AgentReadinessReason struct {
 	// ComponentID is the component the reason is about.
 	ComponentID string `json:"componentID,omitempty"`
@@ -138,20 +138,6 @@ type AgentReadinessReason struct {
 	Code string `json:"code"`
 	// Field is the configuration key that is missing, never its value.
 	Field string `json:"field,omitempty"`
-	// ProfileID is the profile where an administrator fixes the reason: the agent's profile, which also holds its
-	// grants.
-	ProfileID string `json:"profileID,omitempty"`
-}
-
-// AgentReadinessSource is the profile that supplies something an agent uses on a vMCP. It names the key, never the
-// value, and never a token.
-type AgentReadinessSource struct {
-	// Kind is AgentSourceConfiguration or AgentSourceOAuth.
-	Kind        string `json:"kind"`
-	ComponentID string `json:"componentID"`
-	// Field is the configuration key. It is empty for an OAuth grant.
-	Field     string `json:"field,omitempty"`
-	ProfileID string `json:"profileID"`
 }
 
 // AgentVMCPReadiness is whether an agent can use a vMCP, computed when it is asked for, with the same checks that
@@ -164,17 +150,9 @@ type AgentVMCPReadiness struct {
 	Ready bool `json:"ready"`
 	// Disabled reports that the agent is disabled, so it cannot connect whatever its readiness is.
 	Disabled bool `json:"disabled"`
-	// ProfileID is the profile that names the agent. An agent is named by at most one profile of a vMCP, and is granted
-	// the vMCP only through it.
-	ProfileID string `json:"profileID,omitempty"`
-	// Reasons are why the agent cannot use the vMCP. It is empty when it can.
+	// Reasons are why the agent cannot use the vMCP, for the components that the profiles naming it grant. It is empty
+	// when it can.
 	Reasons []AgentReadinessReason `json:"reasons"`
-	// Sources are the profiles that supply the agent's configuration values and OAuth grants. The list of an agent's
-	// vMCPs leaves it out.
-	Sources []AgentReadinessSource `json:"sources,omitempty"`
-	// PendingSync reports that the agent has connected before, and its connection has not yet received the
-	// configuration its profiles now resolve to. The next connect waits for it.
-	PendingSync bool `json:"pendingSync,omitempty"`
 }
 
 type AgentVMCPReadinessList List[AgentVMCPReadiness]

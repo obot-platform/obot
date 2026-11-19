@@ -65,14 +65,6 @@ func TestVMCPManifestValidateProfileIDsAndAgents(t *testing.T) {
 			},
 			wantErr: `duplicate profile ID "same"`,
 		},
-		{
-			name: "one agent named by two profiles",
-			profiles: []VMCPProfile{
-				profileWith("a", agentSeven),
-				profileWith("b", someGroup, agentSeven),
-			},
-			wantErr: `agent "7" is named by profiles "a" and "b"`,
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := VMCPManifest{DisplayName: "vMCP", Profiles: tc.profiles}.Validate()

@@ -70,9 +70,8 @@ import {
 	type VMCPManifest,
 	type VMCPConfiguration,
 	type VMCPConfigurationPresence,
-	type VMCPProfileConfigurationUpdate,
-	type VMCPProfileOAuthAuthorization,
-	type VMCPProfileStatus,
+	type VMCPAgentOAuthAuthorization,
+	type VMCPAgentSetup,
 	type Skill
 } from './types';
 
@@ -176,65 +175,41 @@ export async function deleteVMCP(id: string, opts?: { fetch?: Fetcher }): Promis
 	await doDelete(`/vmcps/${id}`, opts);
 }
 
-// Agent setup of a vMCP profile. These routes are keyed by the profile's server-assigned ID, and are
-// admin-only. Errors are returned to the caller, which shows them beside the control that failed.
-function profilePath(vmcpID: string, profileID: string): string {
-	return `/vmcps/${encodeURIComponent(vmcpID)}/profiles/${encodeURIComponent(profileID)}`;
+// Agent setup of a vMCP: what agents need, and the OAuth grants an administrator authorizes once per
+// component for every agent of the vMCP. These routes are admin-only. Errors are returned to the caller,
+// which shows them beside the control that failed.
+function agentOAuthPath(vmcpID: string, componentID: string): string {
+	return `/vmcps/${encodeURIComponent(vmcpID)}/agent-oauth/${encodeURIComponent(componentID)}`;
 }
 
-export async function getVMCPProfileStatus(
+export async function getVMCPAgentSetup(
 	vmcpID: string,
-	profileID: string,
 	opts?: { signal?: AbortSignal }
-): Promise<VMCPProfileStatus> {
-	return (await doGet(`${profilePath(vmcpID, profileID)}/status`, {
+): Promise<VMCPAgentSetup> {
+	return (await doGet(`/vmcps/${encodeURIComponent(vmcpID)}/agent-setup`, {
 		...opts,
 		dontLogErrors: true
-	})) as VMCPProfileStatus;
+	})) as VMCPAgentSetup;
 }
 
-export async function updateVMCPProfileConfiguration(
+export async function authorizeVMCPAgentOAuth(
 	vmcpID: string,
-	profileID: string,
-	update: VMCPProfileConfigurationUpdate
-): Promise<VMCPProfileStatus> {
-	return (await doPut(`${profilePath(vmcpID, profileID)}/configuration`, update, {
+	componentID: string
+): Promise<VMCPAgentOAuthAuthorization> {
+	return (await doPost(
+		agentOAuthPath(vmcpID, componentID),
+		{},
+		{ dontLogErrors: true }
+	)) as VMCPAgentOAuthAuthorization;
+}
+
+export async function revokeVMCPAgentOAuth(
+	vmcpID: string,
+	componentID: string
+): Promise<VMCPAgentSetup> {
+	return (await doDelete(agentOAuthPath(vmcpID, componentID), {
 		dontLogErrors: true
-	})) as VMCPProfileStatus;
-}
-
-export async function resetVMCPProfileConfiguration(
-	vmcpID: string,
-	profileID: string
-): Promise<VMCPProfileStatus> {
-	return (await doPost(
-		`${profilePath(vmcpID, profileID)}/configuration/reset`,
-		{},
-		{ dontLogErrors: true }
-	)) as VMCPProfileStatus;
-}
-
-export async function authorizeVMCPProfileOAuth(
-	vmcpID: string,
-	profileID: string,
-	componentID: string
-): Promise<VMCPProfileOAuthAuthorization> {
-	return (await doPost(
-		`${profilePath(vmcpID, profileID)}/components/${encodeURIComponent(componentID)}/oauth`,
-		{},
-		{ dontLogErrors: true }
-	)) as VMCPProfileOAuthAuthorization;
-}
-
-export async function resetVMCPProfileOAuth(
-	vmcpID: string,
-	profileID: string,
-	componentID: string
-): Promise<VMCPProfileStatus> {
-	return (await doDelete(
-		`${profilePath(vmcpID, profileID)}/components/${encodeURIComponent(componentID)}/oauth`,
-		{ dontLogErrors: true }
-	)) as VMCPProfileStatus;
+	})) as VMCPAgentSetup;
 }
 
 export async function triggerVMCPUpdate(

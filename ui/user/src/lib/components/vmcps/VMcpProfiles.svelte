@@ -28,7 +28,7 @@
 	};
 	// id is the profile's name, which identifies it in the URL while editing. profileID is the
 	// server-assigned ID, which must be sent back on save: a profile saved without one is a new
-	// profile, without the stored data of the one it replaces.
+	// profile, with a new ID in the audit records that name it.
 	type Profile = ProfileManifest & { id: string; profileID?: string };
 </script>
 
@@ -37,7 +37,6 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import VMcpProfileAgentSetup from '$lib/components/vmcps/VMcpProfileAgentSetup.svelte';
 	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
 	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
@@ -48,17 +47,14 @@
 	import { notifications } from '$lib/stores';
 	import {
 		agentLookupWith,
-		agentSubjectName,
 		convertSubjectsToTableData,
 		hasNamedAgent,
 		resolveSubjects,
 		resolveSubjectPickerById,
 		subjectPickerOptions
 	} from '$lib/subjectResolver';
-	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
-	import { PROFILE_ID_PARAM } from '$lib/vmcpProfileLinks';
-	import { profileIsAgentCapable, profileSubjectConflict } from '$lib/vmcpProfileSubjects';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import {
@@ -82,28 +78,18 @@
 		onUpdated?: (vmcp: VMCP) => void;
 		// The profiles' manifest (name, identities, permissions) cannot be changed, as for a catalog-synced vMCP.
 		readonly?: boolean;
-		// Whether to offer agent setup, which only administrators can change. It is kept outside the manifest, so
-		// it stays editable when the manifest is read-only.
-		agentSetup?: boolean;
 	}
 
-	let { vmcp, toolFlow, onUpdated, readonly = false, agentSetup = false }: Props = $props();
+	let { vmcp, toolFlow, onUpdated, readonly = false }: Props = $props();
 	let profiles = $state<Profile[]>([]);
 	let draft = $state<ProfileManifest>();
 	let editingId = $derived.by(() => {
 		const profileParam = page.url.searchParams.get('profile');
-		if (profileParam) {
-			return profiles.find((profile) => profile.id === profileParam)?.id;
+		if (!profileParam) {
+			return undefined;
 		}
-		// A link from the agent page names the profile by its ID, which is what the readiness API reports.
-		const profileIDParam = page.url.searchParams.get(PROFILE_ID_PARAM);
-		if (profileIDParam) {
-			return profiles.find((profile) => profile.profileID === profileIDParam)?.id;
-		}
-		return undefined;
+		return profiles.find((profile) => profile.id === profileParam)?.id;
 	});
-	// The saved profile being edited. A profile that has not been saved has no ID to set up agents by.
-	const editingProfile = $derived(profiles.find((profile) => profile.id === editingId));
 	let loadedProfileId = $state<string>();
 	let saving = $state(false);
 	let error = $state('');
@@ -116,8 +102,6 @@
 		hasNamedAgent([...profiles.flatMap((profile) => profile.users), ...(draft?.users ?? [])])
 	);
 	const agentLookup = $derived(agentLookupWith(loadedAgents.current, directoryAgents));
-	// Why the last identity could not be added next to the other profiles, shown under the picker.
-	let subjectRuleError = $state('');
 	let resolvedGroups = $state<OrgGroup[]>([]);
 	let subjectQuery = $state('');
 	let subjectSelection = $state<string | number>();
@@ -136,24 +120,6 @@
 	const nameError = $derived(error === NAME_REQUIRED_ERROR || error === NAME_EXISTS_ERROR);
 	const subjectsError = $derived(error === SUBJECTS_REQUIRED_ERROR);
 	const componentServers = $derived(vmcp?.components ?? []);
-	// Agent setup is for a saved profile that names an agent, as its saved identities say. A profile
-	// whose identities in the editor name an agent, and that is not saved as one yet, is asked to be
-	// saved first. A profile that names no agent has none.
-	const savedAgentCapable = $derived(
-		Boolean(editingProfile?.profileID) && profileIsAgentCapable(editingProfile?.users ?? [])
-	);
-	const showAgentSetup = $derived(
-		savedAgentCapable || (draft !== undefined && profileIsAgentCapable(draft.users))
-	);
-	// Identities changed in the editor but not saved: agent setup describes the saved profile.
-	const identitiesChanged = $derived.by(() => {
-		if (!draft || !editingProfile) return false;
-		const key = (subject: AccessControlRuleSubject) => `${subject.type}:${subject.id}`;
-		const saved = new Set(editingProfile.users.map(key));
-		return (
-			draft.users.length !== saved.size || draft.users.some((subject) => !saved.has(key(subject)))
-		);
-	});
 	const assignedSubjectIds = $derived(new Set(draft?.users.map(resolveSubjectPickerById) ?? []));
 	const groupsById = $derived(
 		new Map([...resolvedGroups, ...directoryGroups].map((group) => [group.id, group]))
@@ -536,10 +502,7 @@
 	});
 
 	function cancelEditing() {
-		const url = new URL(page.url.href);
-		url.searchParams.delete('profile');
-		url.searchParams.delete(PROFILE_ID_PARAM);
-		goto(url, { reset: false, replace: true });
+		setUrlParamAndUpdateUrl(page.url, 'profile', null);
 		closeEditor();
 	}
 
@@ -641,10 +604,6 @@
 		}
 	}
 
-	function directoryName(user: OrgUser) {
-		return user.displayName ?? user.email ?? user.username ?? user.id;
-	}
-
 	function rememberResolvedGroups(groups: OrgGroup[]) {
 		if (groups.length === 0) return;
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -677,12 +636,6 @@
 		};
 	}
 
-	// The administrator who authorized a profile's OAuth grant, by the name the directory has for them.
-	function agentSetupUserName(id: string) {
-		const user = directoryUsers.find((candidate) => candidate.id === id);
-		return user ? directoryName(user) : undefined;
-	}
-
 	function userInitials(source: string) {
 		if (!source) return '?';
 		const local = source.includes('@') ? source.split('@')[0] : source;
@@ -693,13 +646,6 @@
 			initials += parts[parts.length - 1].charAt(0).toUpperCase();
 		}
 		return initials;
-	}
-
-	// The other profiles of the vMCP, which the identities of the one being edited must fit with.
-	function otherProfiles() {
-		return profiles
-			.filter((profile) => profile.id !== editingId)
-			.map((profile) => ({ name: profile.name, subjects: profile.users }));
 	}
 
 	function addSubject(subject: AccessControlRuleSubject) {
@@ -713,14 +659,6 @@
 		) {
 			return;
 		}
-		const conflict = profileSubjectConflict(subject, otherProfiles(), (id) =>
-			agentSubjectName(id, agentLookup)
-		);
-		if (conflict) {
-			subjectRuleError = conflict;
-			return;
-		}
-		subjectRuleError = '';
 		draft.users = [...draft.users, subject];
 		if (subjectsError) error = '';
 	}
@@ -730,7 +668,6 @@
 		draft.users = draft.users.filter(
 			(candidate) => !(candidate.type === subject.type && candidate.id === subject.id)
 		);
-		subjectRuleError = '';
 	}
 
 	async function loadUsers() {
@@ -978,14 +915,6 @@
 	{#if draft}
 		<div class="mx-auto w-full max-w-4xl">
 			{@render editCreate()}
-			{#if agentSetup && vmcp && showAgentSetup}
-				<VMcpProfileAgentSetup
-					{vmcp}
-					profileID={savedAgentCapable ? editingProfile?.profileID : undefined}
-					unsaved={identitiesChanged}
-					userName={agentSetupUserName}
-				/>
-			{/if}
 		</div>
 	{:else}
 		<p class="text-muted-content text-sm font-light mt-2 mb-4">
@@ -1311,9 +1240,6 @@
 					onSelect={(option) => addSubject(option.subject)}
 					disabled={readonly}
 				/>
-				{#if subjectRuleError}
-					<p class="text-error mt-2 text-xs" role="alert">{subjectRuleError}</p>
-				{/if}
 				{#if draft.users.length === 0}
 					<div class="text-muted-content text-center pb-4 pt-3 text-xs italic font-light">
 						{m.vmcps_no_identities_assigned()}

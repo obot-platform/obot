@@ -1,6 +1,5 @@
 import { m } from '$lib/i18n';
 import type { Profile } from '$lib/services';
-import type { AgentReadinessReason } from '$lib/services/agent-identities/types';
 import { error, redirect } from '@sveltejs/kit';
 
 export class HttpError extends Error {
@@ -31,24 +30,20 @@ function toAppError(e: Error): App.Error {
 	};
 }
 
-// httpErrorBody returns the response body that an HttpError's message carries after its status and
-// path, as in "400 /path/to/resource: message".
-function httpErrorBody(message: string): string | undefined {
-	return message.match(/^\d+\s+\/[^:]+:\s+(.*)/s)?.[1];
-}
-
 // httpErrorReason returns why a request failed, as the server said it, or nothing when it wasn't an HTTP error or the
 // server didn't say.
 export function httpErrorReason(e: unknown): string | undefined {
 	if (!(e instanceof HttpError)) {
 		return undefined;
 	}
-	const body = httpErrorBody(e.message)?.trim();
+	const body = e.message.match(/^\d+\s+\/[^:]+:\s+(.*)/s)?.[1]?.trim();
 	return body ? parseResponseError(body) : undefined;
 }
 
 function parseHttpErrorMessage(message: string): string {
-	return parseResponseError(httpErrorBody(message) || message || m.core_unknown_error_occurred());
+	// Match format i.e. "400 /path/to/resource: message"
+	const errorMatch = message.match(/^\d+\s+\/[^:]+:\s+(.*)/s);
+	return parseResponseError(errorMatch?.[1] || message || m.core_unknown_error_occurred());
 }
 
 function parseResponseError(message: string): string {
@@ -128,28 +123,6 @@ export function parseErrorContent(e: unknown) {
 		status: Number.isInteger(status) ? status : 500,
 		message: parseResponseError(messageContent || m.core_unknown_error_occurred())
 	};
-}
-
-// A reason an error response gives for the failure (the body's "reasons", as the vMCP readiness API reports
-// them), such as the configuration key that is still missing. It never carries a value.
-export type ErrorReason = Pick<AgentReadinessReason, 'componentID' | 'field' | 'profileID'> & {
-	code: string;
-};
-
-// The structured reasons of an HTTP error, or none when its body is plain text or has no reasons.
-export function parseErrorReasons(e: unknown): ErrorReason[] {
-	if (!(e instanceof HttpError)) return [];
-	const body = httpErrorBody(e.message) ?? e.message;
-	try {
-		const parsed = JSON.parse(body) as { reasons?: unknown };
-		if (!Array.isArray(parsed?.reasons)) return [];
-		return parsed.reasons.filter(
-			(reason): reason is ErrorReason =>
-				typeof reason === 'object' && reason !== null && typeof reason.code === 'string'
-		);
-	} catch {
-		return [];
-	}
 }
 
 export function isAbortError(err: unknown) {
