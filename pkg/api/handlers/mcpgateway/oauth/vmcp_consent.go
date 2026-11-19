@@ -69,3 +69,12 @@ func vmcpConsentMissingConfiguration(req api.Context, vmcp v1.VMCP, instance v1.
 func vmcpConsentComponents(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPComponent {
 	return vmcpconfig.EnabledComponents(u, vmcp, vmcpconfig.ComponentsForInstance(vmcp, instance))
 }
+
+// vmcpConsentChoosableComponents lists the components the user may choose from on the consent
+// page, including those they left out, when the vMCP lets users choose.
+func vmcpConsentChoosableComponents(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPComponent {
+	if !vmcp.Spec.Manifest.UserSelectableComponents {
+		return nil
+	}
+	return vmcpconfig.EnabledComponents(u, vmcp, vmcpconfig.AvailableComponentsForInstance(vmcp, instance))
+}

@@ -90,6 +90,63 @@ func TestValidateComponentWildcardSelection(t *testing.T) {
 	}
 }
 
+func TestValidateUserSelectableComponentSelection(t *testing.T) {
+	u := &user.DefaultInfo{UID: "1"}
+	vmcp := &v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		UserSelectableComponents: true,
+		Components: []types.VMCPComponent{
+			{ID: "outlook"},
+			{ID: "teams"},
+			{ID: "mail"},
+		},
+		Profiles: []types.VMCPProfile{{
+			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
+			Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
+				"outlook": {},
+				"teams":   {AllowedTools: []string{"send_message"}},
+			}},
+		}},
+	}}}
+	for _, tt := range []struct {
+		name      string
+		selection map[string]types.VMCPComponentSet
+		valid     bool
+	}{
+		{
+			name:  "no choice yet",
+			valid: true,
+		},
+		{
+			name:      "chooses some enabled components",
+			selection: map[string]types.VMCPComponentSet{"outlook": {}},
+			valid:     true,
+		},
+		{
+			name:      "chooses a whole component the profile partly grants",
+			selection: map[string]types.VMCPComponentSet{"outlook": {}, "teams": {}},
+			valid:     true,
+		},
+		{
+			name:      "cannot choose a component no profile enables",
+			selection: map[string]types.VMCPComponentSet{"mail": {}},
+		},
+		{
+			name:      "cannot widen a partly granted component by tool name",
+			selection: map[string]types.VMCPComponentSet{"teams": {AllowedTools: []string{"delete_message"}}},
+		},
+		{
+			name:      "must choose at least one component",
+			selection: map[string]types.VMCPComponentSet{},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidateVMCPToolSelection(u, vmcp, tt.selection); (err == nil) != tt.valid {
+				t.Fatalf("validation error = %v, valid = %v", err, tt.valid)
+			}
+		})
+	}
+}
+
 func TestValidateVMCPToolSelectionAllowsOwner(t *testing.T) {
 	u := &user.DefaultInfo{UID: "1"}
 	vmcp := &v1.VMCP{Spec: v1.VMCPSpec{

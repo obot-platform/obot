@@ -70,12 +70,14 @@ export type VMcpFormData = {
 	displayName: string;
 	description: string;
 	toolSearch: boolean;
+	userSelectableComponents?: boolean;
 };
 
 export const initVMcp = (): VMcpFormData => ({
 	displayName: '',
 	description: '',
-	toolSearch: false
+	toolSearch: false,
+	userSelectableComponents: true
 });
 
 // Catalog-synced vMCPs are managed by their source catalog and cannot be
@@ -313,6 +315,7 @@ export function vmcpManifest(vmcp: VMCP): VMCPManifest {
 		description: vmcp.description,
 		icon: vmcp.icon,
 		toolSearch: vmcp.toolSearch,
+		userSelectableComponents: vmcp.userSelectableComponents,
 		components: vmcp.components ?? [],
 		profiles: vmcp.profiles
 	};

@@ -65,6 +65,29 @@ it('sends required configuration as fixed when creating a vMCP', async () => {
 	]);
 });
 
+it('sends the choice to let users choose servers when creating a vMCP', async () => {
+	await preparePageData();
+	const create = vi.fn();
+	worker.use(
+		http.post('/api/vmcps', async ({ request }) => {
+			const manifest = (await request.json()) as VMCPManifest;
+			create(manifest);
+			return HttpResponse.json(createVMCP(manifest));
+		})
+	);
+	const result = await render(CreateEditVMcp);
+	result.component.openCreate();
+	await page.getByRole('textbox', { name: 'Name' }).fill('Communication');
+	await page.getByRole('textbox', { name: 'Description' }).fill('Mail and chat');
+	const choose = page.getByRole('checkbox', { name: 'Let users choose servers' });
+	// On by default for a new vMCP; the admin can turn it off.
+	await expect.element(choose).toBeChecked();
+	await choose.click();
+	await page.getByRole('button', { name: 'Create', exact: true }).click();
+	await vi.waitFor(() => expect(create).toHaveBeenCalledOnce());
+	expect(create.mock.calls[0][0].userSelectableComponents).toBeFalsy();
+});
+
 const overPlan =
 	"There isn't room on the plan's hosted MCP server memory for this. Free some up, or ask an owner to change the plan.";
 

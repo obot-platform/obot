@@ -287,3 +287,53 @@ func TestLegacySnapshotOmitsConnectionConfiguration(t *testing.T) {
 	require.Equal(t, "https://example.com/private", legacy.CatalogEntry.Manifest.RemoteConfig.FixedURL, "the retained snapshot is unchanged")
 	require.Equal(t, "secret", legacy.CatalogEntry.Manifest.Config[0].Value, "the retained snapshot is unchanged")
 }
+
+func TestComponentsForInstanceUserSelection(t *testing.T) {
+	parent := v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "outlook"}, {ID: "teams"}, {ID: "mail"}},
+	}}}
+	chosen := v1.VMCPInstance{Spec: v1.VMCPInstanceSpec{Manifest: types.VMCPInstanceManifest{
+		ComponentSet: map[string]types.VMCPComponentSet{"outlook": {}, "teams": {}},
+	}}}
+	ids := func(components []types.VMCPComponent) []string {
+		result := make([]string, 0, len(components))
+		for _, component := range components {
+			result = append(result, component.ID)
+		}
+		return result
+	}
+
+	t.Run("selection only narrows tools when users cannot choose", func(t *testing.T) {
+		require.Equal(t, []string{"outlook", "teams", "mail"}, ids(ComponentsForInstance(parent, chosen)))
+		require.Nil(t, SelectedComponentIDs(parent, chosen))
+	})
+
+	selectable := *parent.DeepCopy()
+	selectable.Spec.Manifest.UserSelectableComponents = true
+
+	t.Run("omits components the user left out", func(t *testing.T) {
+		require.Equal(t, []string{"outlook", "teams"}, ids(ComponentsForInstance(selectable, chosen)))
+	})
+
+	t.Run("no choice uses every component", func(t *testing.T) {
+		require.Equal(t, []string{"outlook", "teams", "mail"}, ids(ComponentsForInstance(selectable, v1.VMCPInstance{})))
+		require.Nil(t, SelectedComponentIDs(selectable, v1.VMCPInstance{}))
+	})
+
+	t.Run("adding a component later includes it", func(t *testing.T) {
+		later := *chosen.DeepCopy()
+		later.Spec.Manifest.ComponentSet["mail"] = types.VMCPComponentSet{}
+		require.Equal(t, []string{"outlook", "teams", "mail"}, ids(ComponentsForInstance(selectable, later)))
+	})
+
+	t.Run("legacy disabled components stay omitted", func(t *testing.T) {
+		disabled := *chosen.DeepCopy()
+		disabled.Spec.LegacyDisabledComponents = []string{"teams"}
+		require.Equal(t, []string{"outlook"}, ids(ComponentsForInstance(selectable, disabled)))
+		require.Equal(t, []string{"outlook", "mail"}, ids(AvailableComponentsForInstance(selectable, disabled)))
+	})
+
+	t.Run("left-out components stay available", func(t *testing.T) {
+		require.Equal(t, []string{"outlook", "teams", "mail"}, ids(AvailableComponentsForInstance(selectable, chosen)))
+	})
+}

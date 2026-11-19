@@ -373,12 +373,14 @@ describe('ConnectVMcp.svelte', () => {
 		worker.use(
 			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [] })),
 			http.post('/api/vmcp-instances', async ({ request }) => {
-				createInstance(await request.json());
+				const manifest = (await request.json()) as VMCPInstance;
+				createInstance(manifest);
 				return HttpResponse.json({
 					id: 'vmcpi-created',
 					vmcpID: vmcp.id,
 					userID: getProfileResponse.id,
-					created: '2026-01-01T00:00:00Z'
+					created: '2026-01-01T00:00:00Z',
+					componentSet: manifest.componentSet
 				});
 			}),
 			http.post('/api/vmcp-instances/vmcpi-created/configure', async ({ request }) => {
@@ -446,6 +448,117 @@ describe('ConnectVMcp.svelte', () => {
 		expect(createInstance).toHaveBeenCalledWith({ vmcpID: vmcp.id });
 		expect(configureInstance).not.toHaveBeenCalled();
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+	});
+
+	function selectableVMcp(): VMCP {
+		const vmcp = createVMCP({ id: 'vmcp1selectable', displayName: 'Communication' }, [
+			createMCPCatalogEntry({ id: 'outlook', name: 'Outlook' }),
+			createMCPCatalogEntry({ id: 'mail', name: 'Mail' })
+		]);
+		vmcp.userSelectableComponents = true;
+		vmcp.components![1].configuration = [{ key: 'IMAP_HOST', policy: 'userAllowed' }];
+		vmcp.components![1].catalogEntry.manifest.config = [
+			{
+				key: 'IMAP_HOST',
+				name: 'IMAP host',
+				description: 'Mail server',
+				required: true,
+				sensitive: false,
+				value: '',
+				usage: 'env'
+			}
+		];
+		return vmcp;
+	}
+
+	function mockSelectionUpdate(vmcp: VMCP) {
+		const updateInstance = vi.fn();
+		worker.use(
+			http.put('/api/vmcp-instances/vmcpi-created', async ({ request }) => {
+				const manifest = (await request.json()) as VMCPInstance;
+				updateInstance(manifest);
+				return HttpResponse.json({
+					id: 'vmcpi-created',
+					vmcpID: vmcp.id,
+					userID: getProfileResponse.id,
+					created: '2026-01-01T00:00:00Z',
+					componentSet: manifest.componentSet
+				});
+			})
+		);
+		return updateInstance;
+	}
+
+	it('connects only the servers the user chooses, without their configuration', async () => {
+		const vmcp = selectableVMcp();
+		const { createInstance, configureInstance, launch } = mockConfigureAndLaunch(vmcp);
+		const updateInstance = mockSelectionUpdate(vmcp);
+
+		await renderDialog(vmcp);
+		await page.getByRole('button', { name: 'Preconfigure server' }).click();
+		await expect.element(page.getByText('Servers to connect')).toBeVisible();
+		const mail = page.getByRole('checkbox', { name: 'Mail' });
+		await expect.element(mail).toBeChecked();
+		await expect.element(page.getByRole('checkbox', { name: 'Outlook' })).toBeChecked();
+		await mail.click();
+		await page.getByRole('button', { name: 'Continue' }).click();
+
+		await vi.waitFor(() => expect(launch).toHaveBeenCalledOnce());
+		// A new connection is created with the choice, so nothing needs updating after.
+		expect(createInstance).toHaveBeenCalledWith({
+			vmcpID: vmcp.id,
+			componentSet: { 'component-outlook': {} }
+		});
+		expect(updateInstance).not.toHaveBeenCalled();
+		expect(configureInstance).not.toHaveBeenCalled();
+	});
+
+	it('requires at least one chosen server', async () => {
+		const vmcp = selectableVMcp();
+		mockConfigureAndLaunch(vmcp);
+
+		await renderDialog(vmcp);
+		await page.getByRole('button', { name: 'Preconfigure server' }).click();
+		await page.getByRole('checkbox', { name: 'Mail' }).click();
+		await page.getByRole('checkbox', { name: 'Outlook' }).click();
+
+		await expect.element(page.getByText('Choose at least one server.')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
+	});
+
+	it('asks only for the configuration of a server added later', async () => {
+		const vmcp = selectableVMcp();
+		const existing: VMCPInstance = {
+			id: 'vmcpi-created',
+			vmcpID: vmcp.id,
+			userID: getProfileResponse.id,
+			created: '2026-01-01T00:00:00Z',
+			componentSet: { 'component-outlook': {} },
+			status: { configured: true, configurationCheckHash: 'checked' }
+		};
+		const { configureInstance, launch } = mockConfigureAndLaunch(vmcp);
+		const updateInstance = mockSelectionUpdate(vmcp);
+
+		await renderDialog(vmcp, existing);
+		await page.getByRole('button', { name: 'Change servers' }).click();
+		const mail = page.getByRole('checkbox', { name: 'Mail' });
+		await expect.element(mail).not.toBeChecked();
+		await mail.click();
+		await page.getByRole('button', { name: 'Continue' }).click();
+
+		const hostField = page.getByRole('textbox', { name: 'IMAP host' });
+		await expect.element(hostField).toBeVisible();
+		await hostField.fill('mail.example.com');
+		await page.getByRole('button', { name: 'Update', exact: true }).click();
+
+		await vi.waitFor(() => expect(launch).toHaveBeenCalledOnce());
+		expect(updateInstance).toHaveBeenCalledWith({
+			vmcpID: vmcp.id,
+			componentSet: { 'component-outlook': {}, 'component-mail': {} }
+		});
+		expect(configureInstance).toHaveBeenCalledWith({
+			components: { 'component-mail': { IMAP_HOST: 'mail.example.com' } }
+		} satisfies VMCPConfiguration);
 	});
 
 	it('creates and configures an instance from Preconfigure', async () => {

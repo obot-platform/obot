@@ -12,7 +12,13 @@
 	import { httpErrorReason, isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
+	import {
+		UserService,
+		type VMCP,
+		type VMCPComponent,
+		type VMCPConfiguration,
+		type VMCPInstance
+	} from '$lib/services';
 	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
@@ -94,9 +100,27 @@
 		)
 	);
 	let missingOAuthComponent = $derived(vmcp ? vmcpMissingStaticOAuthComponent(vmcp) : undefined);
+	// A vMCP that lets users choose components connects only the ones the user picks.
+	let selectable = $derived(Boolean(vmcp?.userSelectableComponents));
+	let chosenComponents = $state<string[]>([]);
+	let componentChoices = $derived(
+		(vmcp?.components ?? [])
+			.map((component) => ({
+				id: vmcpComponentId(component),
+				name:
+					component.name || component.catalogEntry?.manifest?.name || vmcpComponentId(component),
+				icon: component.catalogEntry?.manifest?.icon
+			}))
+			.filter((component) => component.id)
+	);
+	function componentChosen(component: VMCPComponent) {
+		return !selectable || chosenComponents.includes(vmcpComponentId(component));
+	}
 	let hasUserConfiguration = $derived(
-		vmcp?.components?.some((component) =>
-			component.configuration?.find((field) => field.policy === 'userAllowed')
+		vmcp?.components?.some(
+			(component) =>
+				componentChosen(component) &&
+				component.configuration?.find((field) => field.policy === 'userAllowed')
 		)
 	);
 	let hasConfiguredInstance = $derived.by(() => {
@@ -143,6 +167,51 @@
 		howToConnect?.resetCopied?.();
 		statusRequest += 1;
 		authenticatedComponents = [];
+		chosenComponents = initialChoice(target, targetInstance);
+	}
+
+	// The user's saved choice, or every component before they choose.
+	function initialChoice(target: VMCP, targetInstance?: VMCPInstance) {
+		const current =
+			targetInstance ??
+			vmcpInstances.current.items.find(
+				(candidate) =>
+					candidate.vmcpID === target.id &&
+					candidate.userID === profile.current.id &&
+					!candidate.deleted
+			);
+		const ids = (target.components ?? []).map(vmcpComponentId).filter(Boolean);
+		const saved = current?.componentSet;
+		return saved ? ids.filter((id) => id in saved) : ids;
+	}
+
+	function toggleComponent(id: string, checked: boolean) {
+		chosenComponents = checked
+			? [...chosenComponents, id]
+			: chosenComponents.filter((chosen) => chosen !== id);
+	}
+
+	function chosenComponentSet(saved?: VMCPInstance['componentSet']) {
+		return Object.fromEntries(chosenComponents.map((id) => [id, saved?.[id] ?? {}]));
+	}
+
+	// Saves the user's choice before configuration, so only the chosen components need it. Tool
+	// selections already made on a component are kept.
+	async function saveComponentChoice(target: VMCP, targetInstance: VMCPInstance) {
+		const saved = targetInstance.componentSet;
+		const unchanged =
+			saved &&
+			Object.keys(saved).length === chosenComponents.length &&
+			chosenComponents.every((id) => id in saved);
+		if (unchanged) return targetInstance;
+		const componentSet = chosenComponentSet(saved);
+		const updated = await UserService.updateVMCPInstance(
+			targetInstance.id,
+			{ vmcpID: target.id, componentSet },
+			{ dontLogErrors: true }
+		);
+		vmcpInstances.upsert(updated);
+		return updated;
 	}
 
 	async function refreshOAuthStatus(vmcpID: string) {
@@ -278,7 +347,7 @@
 		const componentConfigs: CompositeLaunchFormData['componentConfigs'] = {};
 		for (const component of vmcp.components ?? []) {
 			const id = vmcpComponentId(component);
-			if (!id) continue;
+			if (!id || !componentChosen(component)) continue;
 			const allowed = (component.configuration ?? []).filter(
 				(field) => field.policy === 'userAllowed'
 			);
@@ -625,8 +694,13 @@
 		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 		try {
 			// The dialog says why a launch failed, so a refusal, like a plan without room, isn't also a toast.
-			const targetInstance =
-				instance ?? (await UserService.createVMCPInstance(target.id, { dontLogErrors: true }));
+			let targetInstance =
+				instance ??
+				(await UserService.createVMCPInstance(target.id, {
+					dontLogErrors: true,
+					componentSet: selectable ? chosenComponentSet() : undefined
+				}));
+			if (selectable) targetInstance = await saveComponentChoice(target, targetInstance);
 			const submitted = configureForm
 				? await UserService.configureVMCPInstance(
 						targetInstance.id,
@@ -759,6 +833,13 @@
 			onEdit={instance && hasUserConfiguration ? initConfigureForm : undefined}
 			onReauthenticate={reauthenticatableComponents.length > 0 ? handleReauthenticate : undefined}
 		/>
+		{#if instance && selectable}
+			<div class="flex md:p-0 px-4 pb-4">
+				<button type="button" class="btn btn-secondary btn-sm" onclick={initLaunch}>
+					{m.vmcps_change_components()}
+				</button>
+			</div>
+		{/if}
 	{:else if missingOAuthComponent}
 		<div class="flex flex-col items-start gap-3 md:p-0 p-4 text-sm">
 			{@render oauthSetupGuidance()}
@@ -920,7 +1001,7 @@
 	show={showIntroDialog}
 	onsuccess={missingOAuthComponent ? undefined : handleConfigure}
 	submitText={m.core_continue()}
-	disabled={Boolean(missingOAuthComponent)}
+	disabled={Boolean(missingOAuthComponent) || (selectable && chosenComponents.length === 0)}
 	type="info"
 	title={m.vmcps_connect_to_server()}
 	oncancel={() => {
@@ -944,7 +1025,29 @@
 				{:else}
 					<br />{m.vmcps_click_below_to_begin()}
 				{/if}
-			</p>{/if}
+			</p>
+			{#if selectable}
+				<fieldset class="mt-4 flex flex-col gap-2 text-left" id="vmcp-component-choice">
+					<legend class="mb-1 text-sm font-medium">{m.vmcps_choose_components()}</legend>
+					<p class="text-xs opacity-70">{m.vmcps_choose_components_description()}</p>
+					{#each componentChoices as component (component.id)}
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-sm"
+								checked={chosenComponents.includes(component.id)}
+								onchange={(event) => toggleComponent(component.id, event.currentTarget.checked)}
+							/>
+							{#if component.icon}<img src={component.icon} alt="" class="size-4" />{/if}
+							<span class="truncate">{component.name}</span>
+						</label>
+					{/each}
+					{#if chosenComponents.length === 0}
+						<p class="text-error text-xs" role="alert">{m.vmcps_choose_at_least_one_component()}</p>
+					{/if}
+				</fieldset>
+			{/if}
+		{/if}
 	{/snippet}
 </Confirm>
 

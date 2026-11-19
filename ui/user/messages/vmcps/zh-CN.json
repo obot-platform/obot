@@ -407,5 +407,11 @@
 	"vmcps_what_would_you_like_to_do": "您想做什么？",
 	"vmcps_zoom_in": "放大",
 	"vmcps_zoom_out": "缩小",
-	"vmcps_configuration_required_to_authenticate": "请先完成此 vMCP 的配置，然后再对其服务器进行身份验证。"
+	"vmcps_configuration_required_to_authenticate": "请先完成此 vMCP 的配置，然后再对其服务器进行身份验证。",
+	"vmcps_user_selectable_components": "允许用户选择服务器",
+	"vmcps_user_selectable_components_description": "每个用户选择要连接的服务器。未选择的服务器无需设置或登录。",
+	"vmcps_choose_components": "要连接的服务器",
+	"vmcps_choose_components_description": "只有您选择的服务器需要设置。之后可以更改。",
+	"vmcps_choose_at_least_one_component": "请至少选择一个服务器。",
+	"vmcps_change_components": "更改服务器"
 }

@@ -45,8 +45,10 @@ type oauthError struct {
 }
 
 type oauthConsentData struct {
-	VMCPInstanceID            string                `json:"vmcpInstanceID,omitempty"`
-	VMCPComponents            []types.VMCPComponent `json:"vmcpComponents,omitempty"`
+	VMCPInstanceID string                `json:"vmcpInstanceID,omitempty"`
+	VMCPComponents []types.VMCPComponent `json:"vmcpComponents,omitempty"`
+	// VMCPChoosableComponents lists the components the user may choose from, when the vMCP lets users choose.
+	VMCPChoosableComponents   []types.VMCPComponent `json:"vmcpChoosableComponents,omitempty"`
 	AuthRequestID             string                `json:"authRequestID"`
 	ContinueURL               string                `json:"continueURL"`
 	CancelURL                 string                `json:"cancelURL"`
@@ -440,6 +442,7 @@ func (h *handler) consent(req api.Context) error {
 	data := oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL)
 	data.VMCPInstanceID = instance.Name
 	data.VMCPComponents = vmcpConsentComponents(req.User, *vmcp, *instance)
+	data.VMCPChoosableComponents = vmcpConsentChoosableComponents(req.User, *vmcp, *instance)
 
 	return req.Write(data)
 }

@@ -160,7 +160,8 @@ func (c Compute) servers() []computeServer {
 		// Only a migrated connection's components differ from its vMCP's.
 		components := vmcp.Spec.Manifest.Components
 		if len(instance.Spec.LegacyComponents) > 0 || len(instance.Spec.LegacyDisabledComponents) > 0 {
-			components = vmcpconfig.ComponentsForInstance(*vmcp, instance)
+			// Count the servers kept for components the user left out, too.
+			components = vmcpconfig.AvailableComponentsForInstance(*vmcp, instance)
 		}
 		for _, component := range components {
 			if !vmcpconfig.IsMultiUser(component) {

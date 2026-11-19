@@ -107,6 +107,7 @@
 				displayName: string;
 				description: string;
 				toolSearch: boolean;
+				userSelectableComponents?: boolean;
 				entry: MCPCatalogEntry;
 				component: VMCPComponent;
 		  }
@@ -345,6 +346,7 @@
 			displayName: draft.displayName,
 			description: draft.description,
 			toolSearch: draft.toolSearch,
+			userSelectableComponents: draft.userSelectableComponents,
 			entry: pending.entry,
 			component: pending.component
 		};
@@ -559,6 +561,7 @@
 				displayName: held.displayName,
 				description: held.description,
 				toolSearch: held.toolSearch,
+				userSelectableComponents: held.userSelectableComponents,
 				components: [
 					{
 						...held.component,

@@ -21,13 +21,15 @@ import (
 // catalogVMCPItem is the catalog source form of a vMCP. Field order is the
 // order in the generated YAML.
 type catalogVMCPItem struct {
-	Type        string                 `json:"type"`
-	EntryKey    string                 `json:"entryKey"`
-	DisplayName string                 `json:"displayName"`
-	Description string                 `json:"description,omitempty"`
-	Icon        string                 `json:"icon,omitempty"`
-	ToolSearch  bool                   `json:"toolSearch,omitempty"`
-	Components  []catalogVMCPComponent `json:"components"`
+	Type        string `json:"type"`
+	EntryKey    string `json:"entryKey"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	ToolSearch  bool   `json:"toolSearch,omitempty"`
+	// UserSelectableComponents is set only when on, so existing catalog YAML is unchanged.
+	UserSelectableComponents bool                   `json:"userSelectableComponents,omitempty"`
+	Components               []catalogVMCPComponent `json:"components"`
 	// Profiles is never omitted: sync replaces a missing list with an admin-only default.
 	Profiles []types.VMCPProfile `json:"profiles"`
 }
@@ -118,14 +120,15 @@ func (e orphanedVMCPError) Error() string {
 func orphanedVMCPCatalogYAML(req api.Context, catalog *v1.MCPCatalog, vmcp *v1.VMCP) ([]byte, error) {
 	sourceID := mcp.SourceIDForURL(vmcp.Spec.AdoptionSourceURL)
 	item := catalogVMCPItem{
-		Type:        "vmcp",
-		EntryKey:    vmcp.Spec.AdoptionEntryKey,
-		DisplayName: vmcp.Spec.Manifest.DisplayName,
-		Description: vmcp.Spec.Manifest.Description,
-		Icon:        vmcp.Spec.Manifest.Icon,
-		ToolSearch:  vmcp.Spec.Manifest.ToolSearch,
-		Components:  make([]catalogVMCPComponent, 0, len(vmcp.Spec.Manifest.Components)),
-		Profiles:    vmcp.Spec.Manifest.Profiles,
+		Type:                     "vmcp",
+		EntryKey:                 vmcp.Spec.AdoptionEntryKey,
+		DisplayName:              vmcp.Spec.Manifest.DisplayName,
+		Description:              vmcp.Spec.Manifest.Description,
+		Icon:                     vmcp.Spec.Manifest.Icon,
+		ToolSearch:               vmcp.Spec.Manifest.ToolSearch,
+		UserSelectableComponents: vmcp.Spec.Manifest.UserSelectableComponents,
+		Components:               make([]catalogVMCPComponent, 0, len(vmcp.Spec.Manifest.Components)),
+		Profiles:                 vmcp.Spec.Manifest.Profiles,
 	}
 	if item.Profiles == nil {
 		item.Profiles = []types.VMCPProfile{}

@@ -121,3 +121,84 @@ func TestSharedComponentConnectionLifecycle(t *testing.T) {
 		require.False(t, connection.DeletionTimestamp.IsZero())
 	}
 }
+
+// A component the user leaves out keeps the server or connection it already has, so its
+// configuration and OAuth survive, but one it never had isn't created.
+func TestLeftOutComponentKeepsItsServers(t *testing.T) {
+	remote := func(id string, single bool) types.VMCPComponent {
+		return types.VMCPComponent{
+			ID:              id,
+			ForceSingleUser: single,
+			CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+				Name:         id,
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/" + id},
+			}},
+		}
+	}
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1choose",
+		Namespace: "default",
+		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+			UserSelectableComponents: true,
+			Components:               []types.VMCPComponent{remote("shared", false), remote("dedicated", true)},
+			Profiles:                 allowAllProfiles(),
+		}},
+	}
+	instance := &v1.VMCPInstance{
+		Name:      "vmcpi1choose",
+		Namespace: "default",
+		Spec:      v1.VMCPInstanceSpec{UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
+	}
+	fresh := instance.DeepCopy()
+	fresh.Name = "vmcpi1fresh"
+	fresh.Spec.Manifest.ComponentSet = map[string]types.VMCPComponentSet{"shared": {}}
+	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp, instance, fresh).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPID} }).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID} }).
+		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }), instance.Spec.UserID).Build()
+	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) { return &kuser.DefaultInfo{UID: "7"}, nil }}
+	reconcile := func(choice map[string]types.VMCPComponentSet) {
+		t.Helper()
+		require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), instance))
+		instance.Spec.Manifest.ComponentSet = choice
+		require.NoError(t, client.Update(t.Context(), instance))
+		require.NoError(t, vmcphandler.EnsureMCPServers(router.Request{Ctx: t.Context(), Client: client, Object: vmcp}, nil))
+		for _, i := range []*v1.VMCPInstance{instance, fresh} {
+			req := router.Request{Ctx: t.Context(), Client: client, Object: i}
+			require.NoError(t, handler.EnsureMCPServers(req, nil))
+			require.NoError(t, handler.EnsureMCPServerInstances(req, nil))
+		}
+	}
+	owned := func(name string) (dedicated, connections int) {
+		t.Helper()
+		var servers v1.MCPServerList
+		var conns v1.MCPServerInstanceList
+		require.NoError(t, client.List(t.Context(), &servers, kclient.MatchingFields{"spec.vmcpInstanceID": name}))
+		require.NoError(t, client.List(t.Context(), &conns, kclient.MatchingFields{"spec.vmcpInstanceID": name}))
+		return len(servers.Items), len(conns.Items)
+	}
+
+	reconcile(nil)
+	dedicated, connections := owned(instance.Name)
+	require.Equal(t, [2]int{1, 1}, [2]int{dedicated, connections})
+
+	// Leaving out either component keeps what it has.
+	for _, choice := range []string{"shared", "dedicated"} {
+		reconcile(map[string]types.VMCPComponentSet{choice: {}})
+		dedicated, connections = owned(instance.Name)
+		require.Equal(t, [2]int{1, 1}, [2]int{dedicated, connections}, "chose only %s", choice)
+	}
+
+	// A connection that never chose the dedicated component has no server for it.
+	dedicated, connections = owned(fresh.Name)
+	require.Equal(t, [2]int{0, 1}, [2]int{dedicated, connections})
+
+	// Removing a component from the vMCP still removes what it had.
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), vmcp))
+	vmcp.Spec.Manifest.Components = vmcp.Spec.Manifest.Components[:1]
+	require.NoError(t, client.Update(t.Context(), vmcp))
+	reconcile(map[string]types.VMCPComponentSet{"shared": {}})
+	dedicated, _ = owned(instance.Name)
+	require.Zero(t, dedicated)
+}

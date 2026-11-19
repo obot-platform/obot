@@ -223,3 +223,53 @@ describe('vMCP OAuth consent configuration', () => {
 		});
 	});
 });
+
+describe('vMCP OAuth consent component choice', () => {
+	it('lets the user leave out a component that needs configuration', async () => {
+		let updated: unknown;
+		worker.use(
+			http.post('/api/vmcp-instances/instance-1/reveal', () =>
+				HttpResponse.json({ components: {} })
+			),
+			http.get('/api/vmcp-instances/instance-1', () =>
+				HttpResponse.json({
+					id: 'instance-1',
+					vmcpID: 'vmcp1tools',
+					componentSet: {
+						'component-github': {},
+						'component-slack': { allowedTools: ['send'] }
+					}
+				})
+			),
+			http.put('/api/vmcp-instances/instance-1', async ({ request }) => {
+				updated = await request.json();
+				return HttpResponse.json({ id: 'instance-1' });
+			}),
+			http.get('/oauth/consent/auth-1', () =>
+				HttpResponse.json({
+					...consent(false, [components[1]]),
+					vmcpChoosableComponents: components
+				})
+			)
+		);
+		const data = await preparePageData<PageData>({
+			consent: { ...consent(true), vmcpChoosableComponents: components }
+		});
+		render(ConsentPage, { data });
+
+		const githubBox = page.getByRole('checkbox', { name: 'GitHub' });
+		await expect.element(githubBox).toBeChecked();
+		await expect.element(page.getByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+
+		await githubBox.click();
+		await expect.element(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+		await expect.element(githubBox).not.toBeChecked();
+		expect(updated).toEqual({
+			vmcpID: 'vmcp1tools',
+			componentSet: { 'component-slack': { allowedTools: ['send'] } }
+		});
+
+		await page.getByRole('checkbox', { name: 'Slack' }).click();
+		await expect.element(page.getByRole('alert')).toHaveTextContent('Choose at least one server.');
+	});
+});

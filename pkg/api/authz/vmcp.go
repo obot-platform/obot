@@ -53,16 +53,31 @@ func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection map[string
 	if err := vmcp.Spec.Manifest.ValidateComponents(selection); err != nil {
 		return types.NewErrBadRequest("invalid tool selection: %v", err)
 	}
+	selectable := vmcp.Spec.Manifest.UserSelectableComponents
+	if selectable && selection != nil && len(selection) == 0 {
+		return types.NewErrBadRequest("choose at least one component")
+	}
 	if vmcp.Spec.UserID != "" && vmcp.Spec.UserID == u.GetUID() {
 		return nil
 	}
 	grant := vmcpaccess.AllowedTools(u, vmcp.Spec.Manifest.Profiles, nil)
 	for _, tool := range types.ComponentToolReferences(selection) {
+		// Choosing a whole component the profiles enable is allowed even when they
+		// grant only some of its tools: the grant narrows a wildcard selection.
+		if selectable && vmcp.Spec.UserID == "" && tool.Name == "*" && componentGranted(grant, tool.ComponentID) {
+			continue
+		}
 		if vmcp.Spec.UserID != "" || !vmcpaccess.ToolGranted(grant, tool) {
 			return types.NewErrBadRequest("tool %q on component %q is not granted by the VMCP profiles", tool.Name, tool.ComponentID)
 		}
 	}
 	return nil
+}
+
+// componentGranted reports whether a grant includes any tool of a component. A nil
+// grant is unrestricted.
+func componentGranted(grant []types.VMCPToolReference, componentID string) bool {
+	return grant == nil || slices.ContainsFunc(grant, func(ref types.VMCPToolReference) bool { return ref.ComponentID == componentID })
 }
 
 // UserCanReadVMCP applies the VMCP visibility model. A personal VMCP is only
