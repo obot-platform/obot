@@ -78,7 +78,7 @@ The [Obot CLI](./reference/cli-api.md) brings approved MCP servers and skills to
 
 ### Obot Sentry
 
-[Obot Sentry](https://github.com/obot-platform/obot-sentry) extends Obot governance to AI activity occurring directly on user devices. [Device Management](./device-management/how-sentry-works.md) is currently beta.
+[Obot Sentry](https://github.com/obot-platform/obot-sentry) extends Obot governance to AI activity occurring directly on user devices. See [Device Management](./device-management/how-sentry-works.md) for details.
 
 - Enroll devices with the Obot Platform.
 - Inventory installed AI clients, MCP servers, skills, and plugins.
