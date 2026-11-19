@@ -78,7 +78,7 @@ async function renderSetupPage(
 ) {
 	const profile = createMockProfile([Group.ADMIN]);
 	if (profileOverrides.bootstrap !== false) {
-		profile.username = 'bootstrap';
+		profile.currentAuthProvider = 'bootstrap';
 		profile.isBootstrapUser = () => true;
 	}
 

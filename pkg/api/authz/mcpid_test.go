@@ -118,7 +118,7 @@ func TestCheckMCPIDAllowsAnonymousMCPConnect(t *testing.T) {
 	authorizer := &Authorizer{}
 	req := httptest.NewRequest(http.MethodGet, "/mcp-connect/ms1test", nil)
 
-	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(&user.DefaultInfo{Name: "anonymous"}))
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(&user.DefaultInfo{Name: "anonymous", Groups: []string{UnauthenticatedGroup}}))
 	if err != nil {
 		t.Fatalf("checkMCPID() error = %v", err)
 	}
@@ -132,12 +132,79 @@ func TestCheckMCPIDDoesNotBypassNonMCPConnectForAnonymous(t *testing.T) {
 	authorizer := &Authorizer{cache: storage, uncached: storage}
 	req := httptest.NewRequest(http.MethodGet, "/oauth/authorize/ms1test", nil)
 
-	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(&user.DefaultInfo{Name: "anonymous"}))
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(&user.DefaultInfo{Name: "anonymous", Groups: []string{UnauthenticatedGroup}}))
 	if err == nil {
 		t.Fatal("checkMCPID() error = nil, want error")
 	}
 	if ok {
 		t.Fatal("checkMCPID() = true, want false")
+	}
+}
+
+// The /mcp-connect bypass exists so the handler can answer unauthenticated callers with
+// WWW-Authenticate. It must key on the unauthenticated group, never the user name: an
+// authenticated user can be named "anonymous", and treating them as unauthenticated would
+// let them skip the MCP ID check entirely. The composite connect path gets the same bypass
+// on purpose, since it also starts the login flow for unauthenticated callers.
+func TestCheckMCPIDMCPConnectBypassUsesUnauthenticatedGroup(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		info    *user.DefaultInfo
+		allowed bool
+	}{
+		{
+			name: "authenticated user named anonymous",
+			path: "/mcp-connect/ms1test",
+			info: &user.DefaultInfo{
+				Name:   "anonymous",
+				UID:    "anonymous-uid",
+				Groups: []string{types.GroupAuthenticated},
+			},
+			allowed: false,
+		},
+		{
+			name: "unauthenticated user with another name",
+			path: "/mcp-connect/ms1test",
+			info: &user.DefaultInfo{
+				Name:   "system:anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			allowed: true,
+		},
+		{
+			name: "authenticated user named anonymous on composite path",
+			path: "/mcp-connect-composite/ms1test",
+			info: &user.DefaultInfo{
+				Name:   "anonymous",
+				UID:    "anonymous-uid",
+				Groups: []string{types.GroupAuthenticated},
+			},
+			allowed: false,
+		},
+		{
+			name: "unauthenticated user on composite path",
+			path: "/mcp-connect-composite/ms1test",
+			info: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			allowed: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Empty storage: any caller that is not bypassed has nothing to be authorized for.
+			storage := newMCPIDIsAuthorizedTestStorage()
+			authorizer := &Authorizer{cache: storage, uncached: storage}
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+
+			ok, _ := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(tt.info))
+			if ok != tt.allowed {
+				t.Fatalf("checkMCPID() = %v, want %v", ok, tt.allowed)
+			}
+		})
 	}
 }
 

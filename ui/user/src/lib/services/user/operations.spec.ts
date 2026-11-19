@@ -5,6 +5,7 @@ import {
 	deleteVMCP,
 	deleteVMCPInstance,
 	getMCPTesterServer,
+	getProfile,
 	getVMCP,
 	getVMCPInstance,
 	listMCPs,
@@ -41,6 +42,34 @@ describe('listMCPs', () => {
 		await listMCPs({ fetch: fetcher });
 
 		expect(fetcher.mock.calls[0][0]).toMatch(/\/api\/all-mcps\/entries$/);
+	});
+});
+
+// The bootstrap sign-in is recognized by the auth provider the server reports, never by username, because any user
+// can rename themself to "bootstrap".
+describe('getProfile isBootstrapUser', () => {
+	const profileFetcher = (body: Record<string, unknown>) =>
+		vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ groups: [], ...body }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+		);
+
+	it('is true for the bootstrap sign-in', async () => {
+		const profile = await getProfile({
+			fetch: profileFetcher({ username: 'bootstrap', currentAuthProvider: 'bootstrap' })
+		});
+
+		expect(profile.isBootstrapUser?.()).toBe(true);
+	});
+
+	it('is false for a user who renamed themself to bootstrap', async () => {
+		const profile = await getProfile({
+			fetch: profileFetcher({ username: 'bootstrap', currentAuthProvider: 'google-auth-provider' })
+		});
+
+		expect(profile.isBootstrapUser?.()).toBe(false);
 	});
 });
 

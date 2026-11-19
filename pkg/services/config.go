@@ -1099,10 +1099,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 		// Clean up "nobody" user from previous "Authentication Disabled" runs.
 		// This reduces the chance that someone could authenticate as "nobody" and get admin access once authentication
-		// is enabled.
+		// is enabled. The user is found through its identity, which authn.NoAuth created with the provider user ID
+		// "nobody" and no auth provider (the empty name and namespace here), never by username, so a real user who
+		// renamed themself to "nobody" is not deleted.
 		if id, err := gatewayClient.RemoveIdentityAndUser(ctx, &types.Identity{
-			ProviderUsername:     "nobody",
-			ProviderUserID:       "nobody",
 			HashedProviderUserID: hash.String("nobody"),
 		}); err != nil {
 			return nil, fmt.Errorf(`failed to remove "nobody" user and identity from database: %w`, err)

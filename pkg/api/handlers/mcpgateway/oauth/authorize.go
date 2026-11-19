@@ -690,7 +690,8 @@ func (h *handler) oauthCallback(req api.Context) error {
 
 	authProviderName, authProviderNamespace := req.AuthProviderNameAndNamespace()
 
-	if !req.UserIsAuthenticated() || req.User.GetName() == system.BootstrapName || authProviderName == system.BootstrapName || authProviderNamespace == system.BootstrapName {
+	// The bootstrap sign-in is recognized by its auth provider, not the username, which any user can change.
+	if !req.UserIsAuthenticated() || authProviderName == system.BootstrapName || authProviderNamespace == system.BootstrapName {
 		// The user is either not authenticated or is authenticated as the bootstrap user.
 		slog.Info("Denied MCP OAuth callback because user is not authenticated with a non-bootstrap identity", "authRequest", oauthAppAuthRequest.Name)
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "user is not authenticated", oauthAppAuthRequest.Spec.State))
@@ -736,8 +737,8 @@ func (h *handler) oauthCallback(req api.Context) error {
 
 func authenticatedOAuthUser(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest, phase string) (authProviderName, authProviderNamespace string, ok bool) {
 	authProviderName, authProviderNamespace = req.AuthProviderNameAndNamespace()
+	// The bootstrap sign-in is recognized by its auth provider, not the username, which any user can change.
 	if req.UserIsAuthenticated() &&
-		req.User.GetName() != system.BootstrapName &&
 		authProviderName != system.BootstrapName &&
 		authProviderNamespace != system.BootstrapName {
 		return authProviderName, authProviderNamespace, true

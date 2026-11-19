@@ -99,6 +99,17 @@ func newLocalSetupFixture(t *testing.T) *localSetupFixture {
 func (f *localSetupFixture) create(t *testing.T, caller, email string, passwordChange bool) error {
 	t.Helper()
 
+	user := &kuser.DefaultInfo{Name: caller}
+	if caller == system.BootstrapName {
+		// Mirror the bootstrap authenticator: the bootstrap sign-in is recognized by its auth provider, not its name.
+		user.Extra = map[string][]string{"auth_provider_name": {system.BootstrapName}}
+	}
+	return f.createAs(t, user, email, passwordChange)
+}
+
+func (f *localSetupFixture) createAs(t *testing.T, user kuser.Info, email string, passwordChange bool) error {
+	t.Helper()
+
 	body, err := json.Marshal(localAuthUserRequest{
 		Email:                 email,
 		Password:              localSetupPassword,
@@ -110,7 +121,7 @@ func (f *localSetupFixture) create(t *testing.T, caller, email string, passwordC
 		Request:        httptest.NewRequest(http.MethodPost, "/api/local-auth/users", strings.NewReader(string(body))),
 		ResponseWriter: httptest.NewRecorder(),
 		GatewayClient:  f.gateway,
-		User:           &kuser.DefaultInfo{Name: caller},
+		User:           user,
 	})
 }
 
@@ -158,6 +169,22 @@ func TestLocalAuthBootstrapCreation(t *testing.T) {
 	users, err := f.gateway.LocalAuthUsers(t.Context())
 	require.NoError(t, err)
 	require.Len(t, users, 2)
+}
+
+// A user who renamed themself to "bootstrap" signed in through a real auth provider, so they are not the bootstrap
+// user and the bootstrap user's one-user limit does not apply to them.
+func TestLocalAuthUserNamedBootstrapIsNotBootstrap(t *testing.T) {
+	f := newLocalSetupFixture(t)
+	renamed := &kuser.DefaultInfo{
+		Name: system.BootstrapName,
+		Extra: map[string][]string{
+			"auth_provider_name":      {"local-auth-provider"},
+			"auth_provider_namespace": {"default"},
+		},
+	}
+
+	require.NoError(t, f.createAs(t, renamed, "first@example.com", false))
+	require.NoError(t, f.createAs(t, renamed, "second@example.com", false))
 }
 
 func TestLocalAuthValidationUsesRequestLocale(t *testing.T) {

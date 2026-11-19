@@ -232,6 +232,23 @@ func TestEnsureIdentityWithRoleDoesNotCountBootstrapUser(t *testing.T) {
 	requireIdentityUserLimitForbiddenError(t, err)
 }
 
+// The bootstrap user is left out of the user count by its identity, not its username, so a real user who renamed
+// themself to "bootstrap" still counts toward the limit.
+func TestUserRenamedToBootstrapCountsTowardLimit(t *testing.T) {
+	c := newIdentityUserLimitTestClient(t)
+	user, err := ensureUserLimitTestIdentity(t.Context(), c, "alice", "alice@example.com", UserLimit{Unlimited: true})
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+	if _, err := c.UpdateUser(t.Context(), false, &gatewaytypes.User{Username: system.BootstrapName}, strconv.FormatUint(uint64(user.ID), 10)); err != nil {
+		t.Fatalf("renaming user: %v", err)
+	}
+
+	if got := countIdentityUserLimitTestUsers(t, c, true); got != 1 {
+		t.Fatalf("users counted toward limit = %d, want 1", got)
+	}
+}
+
 func TestCreateLocalAuthUserDoesNotConsumeUserLimit(t *testing.T) {
 	const maximum = 1
 	c := newIdentityUserLimitTestClient(t)

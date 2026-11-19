@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/bootstrap"
-	"github.com/obot-platform/obot/pkg/system"
 )
 
 type configuredAuthProviderGetter interface {
@@ -33,8 +32,8 @@ func NewHandler(serverURL string, bootstrapEnabler *bootstrap.Bootstrap, authPro
 // requireBootstrap checks if the request is from the bootstrap user.
 // Returns an error if not authenticated as bootstrap.
 func (h *Handler) requireBootstrap(req api.Context) error {
-	// Check if user is bootstrap user
-	if req.User.GetName() != system.BootstrapName {
+	// Check the sign-in, not the username: any user can rename themself to "bootstrap".
+	if !req.UserIsBootstrap() {
 		slog.Info("Denied setup endpoint for non-bootstrap user")
 		return types.NewErrHTTP(http.StatusForbidden,
 			localized(req, "setup_bootstrap_required"))

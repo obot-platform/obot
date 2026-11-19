@@ -39,8 +39,8 @@ func IsCompositeMCPRequest(caller kuser.Info, mcpID string) bool {
 }
 
 func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user User) (bool, error) {
-	if resources.MCPID == "" || user.GetName() == "anonymous" && strings.HasPrefix(req.URL.Path, "/mcp-connect") {
-		// If this is an MCP connect URL and the user is anonymous, then allow access.
+	if resources.MCPID == "" || slices.Contains(user.GetGroups(), UnauthenticatedGroup) && strings.HasPrefix(req.URL.Path, "/mcp-connect") {
+		// If this is an MCP connect URL and the user is unauthenticated, then allow access.
 		// The handler will catch this and support the WWW-Authenticate header to trigger the login flow.
 		return true, nil
 	}

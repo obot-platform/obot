@@ -370,12 +370,16 @@ func testToken(ctx context.Context, baseURL, token string, scopes ...string) boo
 	}
 	defer resp.Body.Close()
 
+	// The decoded user is not inspected; decoding only confirms the response is a user object and not, for
+	// example, an HTML page from a proxy in front of Obot.
 	var user types2.User
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return false
 	}
 
-	if resp.StatusCode != http.StatusOK || user.Username == "anonymous" {
+	// GET /me is authorized only for the authenticated group, so anonymous callers never get a 200 here.
+	// Do not also check the username: users can rename themselves, including to "anonymous".
+	if resp.StatusCode != http.StatusOK {
 		return false
 	}
 

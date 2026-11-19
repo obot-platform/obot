@@ -16,7 +16,7 @@ function ownerProfile() {
 
 function bootstrapProfile() {
 	const profile = ownerProfile();
-	profile.username = 'bootstrap';
+	profile.currentAuthProvider = 'bootstrap';
 	profile.isBootstrapUser = () => true;
 	return profile;
 }

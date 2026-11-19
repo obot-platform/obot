@@ -67,11 +67,12 @@ func (s *Server) getUsers(apiContext api.Context) error {
 		return fmt.Errorf("failed to get users: %v", err)
 	}
 
-	// Filter out bootstrap user and collect valid users with their IDs
+	// Collect valid users with their IDs. Requiring an email (or the internal flag) also filters out the bootstrap
+	// user, which has neither. Don't filter by username: any user can rename themself to "bootstrap".
 	validUsers := make([]types.User, 0, len(users))
 	userIDs := make([]uint, 0, len(users))
 	for _, user := range users {
-		if user.Username != system.BootstrapName && (user.Email != "" || user.Internal) {
+		if user.Email != "" || user.Internal {
 			validUsers = append(validUsers, user)
 			userIDs = append(userIDs, user.ID)
 		}

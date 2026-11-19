@@ -241,6 +241,15 @@ func (r *Context) AuthProviderNameAndNamespace() (string, string) {
 		cmp.Or(r.User.GetExtra()["auth_provider_namespace"]...)
 }
 
+// UserIsBootstrap reports whether the caller signed in with the bootstrap token. The bootstrap authenticator is the
+// only one that sets the auth provider name "bootstrap" without a namespace; every real auth provider sets both. The
+// username is deliberately not used: any user can rename themself to "bootstrap", and an identity provider can
+// supply that name at first sign-in.
+func (r *Context) UserIsBootstrap() bool {
+	name, namespace := r.AuthProviderNameAndNamespace()
+	return name == system.BootstrapName && namespace == ""
+}
+
 func (r *Context) UserTimezone() string {
 	return r.Request.Header.Get("X-Obot-User-Timezone")
 }

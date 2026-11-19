@@ -108,8 +108,11 @@ func (c *Client) FindIdentitiesForUserAndProvider(ctx context.Context, userID ui
 // server logs.
 func (c *Client) HasSignedInOwner(ctx context.Context, authProviderName string) (bool, error) {
 	var owners []types.User
+	// The bootstrap user is excluded by the identity condition below, not by username: its only identity has no auth
+	// provider, so it never matches authProviderName. A username check would also exclude a real Owner who renamed
+	// themself to "bootstrap", turning bootstrap sign-in back on.
 	if err := c.db.WithContext(ctx).
-		Where("deleted_at IS NULL AND (role & ?) != 0 AND hashed_username != ?", types2.RoleOwner, hash.String(system.BootstrapName)).
+		Where("deleted_at IS NULL AND (role & ?) != 0", types2.RoleOwner).
 		Where("EXISTS (SELECT 1 FROM identities WHERE identities.user_id = users.id AND identities.auth_provider_name = ? AND identities.first_sign_in_at IS NOT NULL)", authProviderName).
 		Find(&owners).Error; err != nil {
 		return false, err
@@ -734,7 +737,10 @@ func countUsersTowardLimit(tx *gorm.DB) (int64, error) {
 	var userCount int64
 	err := tx.Model(new(types.User)).
 		Where("deleted_at IS NULL").
-		Where("hashed_username != ?", hash.String(system.BootstrapName)).
+		// The bootstrap user doesn't count. It is identified by its identity, which has the bootstrap provider user ID
+		// and no auth provider (identities from real sign-ins always have one), because any user can rename themself
+		// to "bootstrap".
+		Where("NOT EXISTS (SELECT 1 FROM identities WHERE identities.user_id = users.id AND identities.auth_provider_name = '' AND identities.auth_provider_namespace = '' AND identities.hashed_provider_user_id = ?)", hash.String(system.BootstrapName)).
 		Where("CAST(users.id AS TEXT) NOT IN (?)", tx.Model(&types.ClaudeEnvironment{}).
 			Select("claude_tag_user_id").Where("claude_tag_user_id <> ''")).
 		Count(&userCount).Error
@@ -1088,25 +1094,32 @@ func (c *Client) RemoveIdentity(ctx context.Context, id *types.Identity) error {
 	})
 }
 
-// RemoveIdentityAndUser deletes an identity and the associated user from the database.
-// The identity and user are deleted using UserID if set, otherwise ProviderUsername.
+// RemoveIdentityAndUser deletes a user and all of their identities from the database. The user is id.UserID if set;
+// otherwise it is the owner of the identity with id's auth provider name, namespace and hashed provider user ID.
 // The method is idempotent and ignores not-found errors, returning only unexpected errors.
 // When it deletes a user, usage is counted again once the deletion commits.
 func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) (uint, error) {
 	var user types.User
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var identityQuery, userQuery *gorm.DB
-
-		// Build queries based on UserID or ProviderUsername
-		if id.UserID != 0 {
-			// Use UserID if set
-			identityQuery = tx.Where("user_id = ?", id.UserID)
-			userQuery = tx.Where("id = ?", id.UserID)
-		} else {
-			// Fall back to ProviderUsername
-			identityQuery = tx.Where("hashed_provider_user_id = ?", id.HashedProviderUserID)
-			userQuery = tx.Where("hashed_username = ?", hash.String(id.ProviderUsername))
+		userID := id.UserID
+		if userID == 0 {
+			// Find the user through the identity, matching its provider as well as its provider user ID, so that an
+			// identity from another provider with the same provider user ID is left alone. The username is never used:
+			// users can rename themselves, so a username match could delete an unrelated user.
+			var identity types.Identity
+			if err := tx.Where("hashed_provider_user_id = ? AND auth_provider_name = ? AND auth_provider_namespace = ?",
+				id.HashedProviderUserID, id.AuthProviderName, id.AuthProviderNamespace).
+				Limit(1).Find(&identity).Error; err != nil {
+				return err
+			}
+			if identity.UserID == 0 {
+				return nil
+			}
+			userID = identity.UserID
 		}
+
+		identityQuery := tx.Where("user_id = ?", userID)
+		userQuery := tx.Where("id = ?", userID)
 
 		// Attempt to delete the identity
 		if err := identityQuery.Delete(&types.Identity{}).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {

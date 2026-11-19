@@ -6,7 +6,6 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (s *Server) activeUsers(apiContext api.Context) error {
@@ -26,7 +25,9 @@ func (s *Server) activeUsers(apiContext api.Context) error {
 	visibleUsers := make([]types.User, 0, len(activeUsers))
 	userIDs := make([]uint, 0, len(activeUsers))
 	for _, user := range activeUsers {
-		if user.Username != system.BootstrapName && user.Email != "" {
+		// Requiring an email also filters out the bootstrap user, which has none. Don't filter by username: any user
+		// can rename themself to "bootstrap".
+		if user.Email != "" {
 			visibleUsers = append(visibleUsers, user)
 			userIDs = append(userIDs, user.ID)
 		}

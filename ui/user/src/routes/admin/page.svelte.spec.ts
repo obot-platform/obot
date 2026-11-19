@@ -55,7 +55,7 @@ async function renderSetupHandoff(authProvider: AuthProvider) {
 	);
 
 	const profile = createMockProfile([Group.OWNER, Group.ADMIN]);
-	profile.username = 'bootstrap';
+	profile.currentAuthProvider = 'bootstrap';
 	profile.isBootstrapUser = () => true;
 	const data = await preparePageData<PageData>({
 		profile,

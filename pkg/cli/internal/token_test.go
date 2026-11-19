@@ -104,7 +104,7 @@ func TestTokenUsesKeyringTokenScopedByAppURL(t *testing.T) {
 		}
 		switch r.Header.Get("Authorization") {
 		case "":
-			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		case "Bearer keyring-token":
 			_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
 		default:
@@ -135,7 +135,7 @@ func TestTokenKeyringErrorFailsClosed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/me":
-			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		case "/api/auth-providers":
 			authProvidersCalled = true
 			w.WriteHeader(http.StatusInternalServerError)
@@ -162,7 +162,7 @@ func TestTokenNotFoundTriggersLoginPath(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/me":
-			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		case "/api/auth-providers":
 			authProvidersCalled = true
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{})
@@ -191,7 +191,7 @@ func TestTokenStoresNewTokenByAppURL(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/me":
-			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		case "/api/auth-providers":
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
 				ID:         "github",
@@ -294,7 +294,7 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/api/me":
-					_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+					http.Error(w, "unauthorized", http.StatusUnauthorized)
 				case "/api/auth-providers":
 					_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
 						ID:         "github",
@@ -368,7 +368,7 @@ func TestTokenRefreshesValidKeyringTokenMissingRequestedScopes(t *testing.T) {
 		case "/api/me":
 			switch r.Header.Get("Authorization") {
 			case "":
-				_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
 			case "Bearer scoped-token":
 				_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
 			default:
@@ -436,7 +436,7 @@ func TestTokenReusesAPIKeyringTokenForNonMCPScopes(t *testing.T) {
 		case "/api/me":
 			switch r.Header.Get("Authorization") {
 			case "":
-				_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
 			case "Bearer api-token":
 				_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
 			default:
@@ -491,7 +491,7 @@ func TestTokenRefreshesAPIKeyringTokenForMCPScope(t *testing.T) {
 		case "/api/me":
 			switch r.Header.Get("Authorization") {
 			case "":
-				_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
 			case "Bearer api-token":
 				_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
 			default:
@@ -560,7 +560,7 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/me":
-			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		case "/api/auth-providers":
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
 				ID:         "github",
@@ -613,7 +613,7 @@ func TestStoredTokenValid(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}))
 	defer srv.Close()
 
@@ -701,7 +701,7 @@ func TestLegacyTokenFileIsIgnored(t *testing.T) {
 			if r.Header.Get("Authorization") == "Bearer old-token" {
 				usedLegacyToken = true
 			}
-			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 		case "/api/auth-providers":
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{})
 		default:

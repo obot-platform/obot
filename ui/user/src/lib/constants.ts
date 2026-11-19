@@ -71,7 +71,11 @@ export const CommonAuthProviderIds = {
 /** Matches localauth.MinPasswordLength on the server. */
 export const LOCAL_AUTH_MIN_PASSWORD_LENGTH = 12;
 
-export const BOOTSTRAP_USER_ID = 'bootstrap';
+/**
+ * The auth provider name the server reports (`currentAuthProvider`) for the bootstrap sign-in. The bootstrap user is
+ * recognized by this, not by username, because any user can rename themself to "bootstrap".
+ */
+export const BOOTSTRAP_AUTH_PROVIDER = 'bootstrap';
 
 export const ADMIN_SESSION_STORAGE = {
 	LAST_VISITED_MCP_SERVER: 'last-visited-mcp-server'

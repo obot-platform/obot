@@ -228,7 +228,7 @@ func scimActor(req api.Context) scimsetup.Actor {
 		AuthProviderNamespace: namespace,
 		AuthProviderName:      name,
 		Owner:                 req.UserIsOwner(),
-		Bootstrap:             req.User.GetName() == system.BootstrapName,
+		Bootstrap:             req.UserIsBootstrap(),
 	}
 }
 

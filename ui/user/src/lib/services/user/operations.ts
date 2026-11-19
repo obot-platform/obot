@@ -1,4 +1,4 @@
-import { BOOTSTRAP_USER_ID } from '$lib/constants';
+import { BOOTSTRAP_AUTH_PROVIDER } from '$lib/constants';
 import { HttpError } from '$lib/errors';
 import { m } from '$lib/i18n';
 import { Group } from '$lib/services/admin/types';
@@ -869,7 +869,7 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 		return obj.groups.includes(Group.OWNER);
 	};
 	obj.isBootstrapUser = () => {
-		return obj.username === BOOTSTRAP_USER_ID;
+		return obj.currentAuthProvider === BOOTSTRAP_AUTH_PROVIDER;
 	};
 	obj.loaded = true;
 	return obj;

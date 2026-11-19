@@ -93,7 +93,7 @@ func (h *LocalAuthHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("%s", apiMessage(req, "local_invalid_body", "detail", err.Error()))
 	}
 
-	bootstrap := req.User.GetName() == system.BootstrapName
+	bootstrap := req.UserIsBootstrap()
 	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password, defaultTrue(body.RequirePasswordChange), bootstrap)
 	if errors.Is(err, gateway.ErrBootstrapLocalAuthUserLimit) {
 		return types.NewErrHTTP(http.StatusConflict, apiMessage(req, "local_bootstrap_limit"))

@@ -19,6 +19,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -1007,12 +1008,23 @@ func TestHasSignedInOwner(t *testing.T) {
 			want:     false,
 		},
 		{
+			// The bootstrap user's identity has no auth provider, so it never counts as an owner of one.
 			name:     "bootstrap user",
+			role:     apitypes.RoleOwner,
+			username: system.BootstrapName,
+			provider: AuthProviderRef{},
+			signedIn: true,
+			want:     false,
+		},
+		{
+			// The username is not what excludes the bootstrap user: an owner who renamed themself to "bootstrap"
+			// still counts, so renaming can't turn bootstrap sign-in back on.
+			name:     "owner renamed to bootstrap",
 			role:     apitypes.RoleOwner,
 			username: system.BootstrapName,
 			provider: provider,
 			signedIn: true,
-			want:     false,
+			want:     true,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1043,6 +1055,45 @@ func TestHasSignedInOwner(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Startup removes the "nobody" user left by authentication-disabled mode through its identity, which has the provider
+// user ID "nobody" and no auth provider. The username is never matched, so a real user can't get themself (or anyone
+// else) deleted by taking that name, and an identity from a real provider with that provider user ID is left alone.
+func TestRemoveNobodyUserMatchesIdentityNotUsername(t *testing.T) {
+	nobodyIdentity := &types.Identity{HashedProviderUserID: hash.String("nobody")}
+
+	t.Run("real user named nobody survives", func(t *testing.T) {
+		c := newLifecycleTestClient(t)
+		ctx := t.Context()
+		user := createLifecycleTestUser(t, c, "alice", lifecycleTestProvider)
+		// Give the real user both the name and the provider user ID that the old cleanup matched on.
+		require.NoError(t, c.db.WithContext(ctx).Model(user).
+			UpdateColumns(map[string]any{"username": "nobody", "hashed_username": hash.String("nobody")}).Error)
+		require.NoError(t, c.db.WithContext(ctx).Model(new(types.Identity)).Where("user_id = ?", user.ID).
+			UpdateColumn("hashed_provider_user_id", hash.String("nobody")).Error)
+
+		userID, err := c.RemoveIdentityAndUser(ctx, nobodyIdentity)
+		require.NoError(t, err)
+		require.Zero(t, userID)
+		_, err = c.UserByID(ctx, fmt.Sprint(user.ID))
+		require.NoError(t, err)
+	})
+
+	t.Run("authentication-disabled nobody user is removed", func(t *testing.T) {
+		c := newLifecycleTestClient(t)
+		ctx := t.Context()
+		// Created the way authn.NoAuth creates it: an identity with no auth provider.
+		nobody := createLifecycleTestUser(t, c, "nobody", AuthProviderRef{})
+		require.NoError(t, c.db.WithContext(ctx).Model(new(types.Identity)).Where("user_id = ?", nobody.ID).
+			UpdateColumn("hashed_provider_user_id", hash.String("nobody")).Error)
+
+		userID, err := c.RemoveIdentityAndUser(ctx, nobodyIdentity)
+		require.NoError(t, err)
+		require.Equal(t, nobody.ID, userID)
+		_, err = c.UserByID(ctx, fmt.Sprint(nobody.ID))
+		require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	})
 }
 
 func storedIdentity(t *testing.T, c *Client, provider AuthProviderRef, providerUserID string) *types.Identity {

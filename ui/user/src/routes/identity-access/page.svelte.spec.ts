@@ -196,7 +196,7 @@ async function renderIdentityAccessPage({
 	const profile = createMockProfile(groups);
 	profile.currentAuthProvider = currentAuthProvider;
 	if (bootstrap) {
-		profile.username = 'bootstrap';
+		profile.currentAuthProvider = 'bootstrap';
 		profile.isBootstrapUser = () => true;
 	}
 
