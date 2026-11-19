@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -634,7 +635,7 @@ func TestCapturedLocalLoginValidationFailureReachesCLI(t *testing.T) {
 		ClientID:    "client",
 		RedirectURL: "http://localhost:12345/provider/callback",
 	}
-	require.NoError(t, gateway.CreateMCPOAuthPendingState(t.Context(), "other-user", "ms1test", "https://provider.test/mcp", "", "oar1test", state, "verifier", "", conf, "captured"))
+	require.NoError(t, gateway.CreateMCPOAuthPendingState(t.Context(), "other-user", "other-user", "ms1test", "https://provider.test/mcp", "", "oar1test", state, "verifier", "", conf, "captured"))
 
 	req := vmcpComponentRequest(vmcpConsentStorage(), "vmcpi1test", "ms1test")
 	req.Request = httptest.NewRequest(http.MethodGet, "http://obot.example/oauth/mcp/callback?state="+state, nil)
@@ -652,4 +653,85 @@ func TestCapturedLocalLoginValidationFailureReachesCLI(t *testing.T) {
 	// A failed validation must not consume another user's pending attempt.
 	_, err = gateway.GetMCPOAuthPendingState(t.Context(), state)
 	require.NoError(t, err)
+}
+
+// The plain (non-captured) flow stores the token under the pending state's owner,
+// so a callback completed by any other user must be refused before the code exchange.
+func TestPlainOAuthCallbackRejectsOtherUser(t *testing.T) {
+	gateway := vmcpConsentGateway(t)
+	state := "plain-other-user"
+	conf := &oauth2.Config{
+		ClientID:    "client",
+		RedirectURL: "http://obot.example/oauth/mcp/callback",
+	}
+	require.NoError(t, gateway.CreateMCPOAuthPendingState(t.Context(), "other-user", "other-user", "ms1test", "https://provider.test/mcp", "", "oar1test", state, "verifier", "", conf))
+
+	req := vmcpComponentRequest(vmcpConsentStorage(), "vmcpi1test", "ms1test")
+	req.Request = httptest.NewRequest(http.MethodGet, "http://obot.example/oauth/mcp/callback?code=victim-code&state="+state, nil)
+	req.ResponseWriter = httptest.NewRecorder()
+	h := &handler{oauthChecker: &MCPOAuthHandlerFactory{stateMgr: newStateManager(gateway, nil)}}
+
+	var forbidden *types.ErrHTTP
+	require.ErrorAs(t, h.oauthCallback(req), &forbidden)
+	require.Equal(t, http.StatusForbidden, forbidden.Code)
+
+	// The owner must still be able to finish their own attempt.
+	_, err := gateway.GetMCPOAuthPendingState(t.Context(), state)
+	require.NoError(t, err)
+}
+
+// Callbacks are bound to the user who started the attempt. For "system"-owned tool
+// previews that is the recorded initiator, since the token owner is not a real user.
+func TestCallbackOwnerBinding(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		owner     string
+		initiator string
+		caller    string
+		allowed   bool
+	}{
+		{
+			name:      "owner completes own attempt",
+			owner:     "1",
+			initiator: "1",
+			caller:    "1",
+			allowed:   true,
+		},
+		{
+			name:      "other user completes attempt",
+			owner:     "1",
+			initiator: "1",
+			caller:    "2",
+		},
+		{
+			name:      "initiator completes system preview",
+			owner:     "system",
+			initiator: "1",
+			caller:    "1",
+			allowed:   true,
+		},
+		{
+			name:      "other user completes system preview",
+			owner:     "system",
+			initiator: "1",
+			caller:    "2",
+		},
+		{
+			name:   "system preview without initiator",
+			owner:  "system",
+			caller: "1",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := api.Context{User: &kuser.DefaultInfo{UID: tc.caller, Groups: []string{types.GroupAuthenticated}}}
+			err := (&MCPOAuthHandlerFactory{}).validateCapturedCallback(req, &gatewaytypes.MCPOAuthPendingState{UserID: tc.owner, InitiatorUserID: tc.initiator})
+			if tc.allowed {
+				require.NoError(t, err)
+				return
+			}
+			var forbidden *types.ErrHTTP
+			require.ErrorAs(t, err, &forbidden)
+			require.Equal(t, http.StatusForbidden, forbidden.Code)
+		})
+	}
 }

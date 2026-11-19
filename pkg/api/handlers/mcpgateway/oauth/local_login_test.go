@@ -147,6 +147,7 @@ func TestLocalLoginPreservesAttempt(t *testing.T) {
 			oauthHandler := &mcpOAuthHandler{
 				stateMgr:           sm,
 				userID:             tc.userID,
+				initiatorUserID:    "1",
 				mcpID:              "temporary-preview-id",
 				mcpURL:             "https://provider.example/mcp",
 				localLogin:         !tc.hosted,
@@ -160,8 +161,10 @@ func TestLocalLoginPreservesAttempt(t *testing.T) {
 			h := handler{oauthChecker: &MCPOAuthHandlerFactory{stateMgr: sm}}
 			fixture := newVMCPOAuthFixture(t)
 			req := fixture.request(t.Context())
+			// User "1" starts every attempt (see initiatorUserID above), including
+			// "system"-owned tool previews, so the callback must come from user "1".
+			req.User = &user.DefaultInfo{UID: "1", Name: "user", Groups: []string{types.GroupAuthenticated}}
 			if tc.authRequestID != "" {
-				req.User = &user.DefaultInfo{UID: "1", Name: "user", Groups: []string{types.GroupAuthenticated}}
 				require.NoError(t, fixture.storage.Create(t.Context(), &v1.OAuthAuthRequest{
 					Name: tc.authRequestID, Namespace: system.DefaultNamespace,
 					Spec: v1.OAuthAuthRequestSpec{UserID: 1, ConsentApproved: !tc.unapproved, RedirectURI: "https://client.example/callback"},

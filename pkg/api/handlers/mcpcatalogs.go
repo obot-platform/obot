@@ -940,6 +940,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		req.GatewayClient,
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
+		req.User.GetUID(),
 		entry.Name,
 		catalogName,
 		entry.Spec.Manifest,
@@ -1057,7 +1058,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	if err != nil {
 		return err
 	}
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.Storage, req.LocalK8sClient, req.GatewayClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, validationOptions)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.Storage, req.LocalK8sClient, req.GatewayClient, req.ObotNamespace, h.secretBindingAllowedLabel, req.User.GetUID(), entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, validationOptions)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1178,6 +1179,7 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 		req.GatewayClient,
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
+		req.User.GetUID(),
 		component.MCPServerCatalogEntryID,
 		catalogName,
 		*manifest,
@@ -1263,7 +1265,7 @@ func (h *MCPCatalogHandler) writeVMCPComponentToolPreview(req api.Context, vmcp 
 	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
-func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sClient kclient.Client, revealer mcp.StaticConfigurationRevealer, obotNamespace, secretBindingAllowedLabel, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string, validationOptions mcp.ValidationOptions) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sClient kclient.Client, revealer mcp.StaticConfigurationRevealer, obotNamespace, secretBindingAllowedLabel, userID, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string, validationOptions mcp.ValidationOptions) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
@@ -1287,11 +1289,20 @@ func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sCli
 	}
 
 	// Create temporary MCPServer object to use existing conversion logic. Its name is derived
-	// from the stored manifest so it never depends on static values.
+	// from the stored manifest so it never depends on static values. The requester is part
+	// of the name because tool previews store their OAuth token as "system" under this name:
+	// without it, a token one user left behind would let another user preview the entry as
+	// the first user's upstream account.
 	nameManifest := serverManifest
 	nameManifest.Config = storedConfig
 	tempMCPServer := v1.MCPServer{
-		Name: "tool-preview-" + utils.Digest(nameManifest)[:16],
+		Name: "tool-preview-" + utils.Digest(struct {
+			Manifest types.MCPServerManifest
+			UserID   string
+		}{
+			Manifest: nameManifest,
+			UserID:   userID,
+		})[:16],
 		Spec: v1.MCPServerSpec{
 			Manifest:                  serverManifest,
 			MCPServerCatalogEntryName: entryName,

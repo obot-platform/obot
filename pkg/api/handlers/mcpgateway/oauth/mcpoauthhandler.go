@@ -45,12 +45,15 @@ type MCPOAuthHandlerFactory struct {
 }
 
 type mcpOAuthHandler struct {
-	gatewayClient      *client.Client
-	stateMgr           *stateManager
-	mcpID              string
-	mcpURL             string
-	tunnelName         string
-	userID             string
+	gatewayClient *client.Client
+	stateMgr      *stateManager
+	mcpID         string
+	mcpURL        string
+	tunnelName    string
+	userID        string
+	// initiatorUserID is the requesting Obot user; it differs from userID when the
+	// token is owned by "system" (tool previews). See validateCapturedCallback.
+	initiatorUserID    string
 	oauthAuthRequestID string
 	urlChan            chan string
 	upstreamChallenge  string
@@ -483,7 +486,7 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, res
 	// the pending state from the DB directly.
 	ch := make(chan mcp.CallbackPayload)
 
-	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.oauthAuthRequestID, state, verifier, resourceURL, conf, m.upstreamChallenge)
+	return state, ch, m.stateMgr.store(ctx, m.userID, m.initiatorUserID, m.mcpID, m.mcpURL, m.tunnelName, m.oauthAuthRequestID, state, verifier, resourceURL, conf, m.upstreamChallenge)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
@@ -514,6 +517,9 @@ func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
 func (f *MCPOAuthHandlerFactory) prepareUpstreamOAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (*mcpOAuthHandler, mcp.ClientOption, error) {
 	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, mcpServerConfig.TunnelName, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
 	oauthHandler.localLogin = mcpServerConfig.LocalhostCallbackEnabled
+	if req.User != nil {
+		oauthHandler.initiatorUserID = req.User.GetUID()
+	}
 
 	if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
 		credentialContext, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), f.client, mcpServer)

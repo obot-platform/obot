@@ -373,18 +373,28 @@ func updateCapturedRequirement(req api.Context, requestID, key string, update fu
 }
 
 func (f *MCPOAuthHandlerFactory) validateCapturedCallback(req api.Context, pending *gatewaytypes.MCPOAuthPendingState) error {
+	// Route authorization admits logged-in users but does not bind the opaque
+	// callback state to its owner. Check that binding before storing credentials.
+	// This applies to every flow, not only captured challenges: createToken stores
+	// the token under pending.UserID, so without it another user could open the
+	// owner's authorize URL and have their upstream account bound to the owner.
+	// Tool previews own their token as "system" (see mcpcatalogs.go), so for them
+	// the binding is to the user who requested the preview instead. An empty owner
+	// (a "system" attempt with no recorded initiator) is never completable.
+	owner := pending.UserID
+	if owner == "system" {
+		owner = pending.InitiatorUserID
+	}
+	if owner == "" || req.User == nil || !req.UserIsAuthenticated() || owner != req.User.GetUID() {
+		return types.NewErrForbidden("upstream OAuth attempt belongs to another user")
+	}
+
 	if pending.UpstreamChallenge == "" {
 		return nil
 	}
 
 	if time.Since(pending.CreatedAt) > client.MCPOAuthPendingStateTTL {
 		return types.NewErrBadRequest("upstream OAuth attempt expired")
-	}
-
-	// Route authorization admits logged-in users but does not bind the opaque
-	// callback state to its owner. Check that binding before storing credentials.
-	if req.User == nil || !req.UserIsAuthenticated() || pending.UserID != req.User.GetUID() {
-		return types.NewErrForbidden("upstream OAuth attempt belongs to another user")
 	}
 
 	var request v1.OAuthAuthRequest

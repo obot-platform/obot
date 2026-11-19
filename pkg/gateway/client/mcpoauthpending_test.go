@@ -14,7 +14,7 @@ import (
 func TestConsumeMCPOAuthPendingStateOnceAcrossClients(t *testing.T) {
 	client := newTestClient(t)
 	replica := &Client{db: client.db}
-	require.NoError(t, client.CreateMCPOAuthPendingState(t.Context(), "user", "component", "https://provider/mcp", "", "request", "state", "verifier", "resource", &oauth2.Config{ClientID: "registered"}, "challenge"))
+	require.NoError(t, client.CreateMCPOAuthPendingState(t.Context(), "user", "user", "component", "https://provider/mcp", "", "request", "state", "verifier", "resource", &oauth2.Config{ClientID: "registered"}, "challenge"))
 
 	var workers sync.WaitGroup
 	consumed := make(chan *types.MCPOAuthPendingState, 12)
@@ -57,7 +57,7 @@ func TestConsumeMCPOAuthPendingStateOnceAcrossClients(t *testing.T) {
 
 func TestFindMCPOAuthPendingStateMatchesLiveAttemptBindings(t *testing.T) {
 	client := newTestClient(t)
-	require.NoError(t, client.CreateMCPOAuthPendingState(t.Context(), "user", "component", "https://provider/mcp", "", "request", "state", "verifier", "resource", &oauth2.Config{ClientID: "registered"}, "challenge"))
+	require.NoError(t, client.CreateMCPOAuthPendingState(t.Context(), "user", "user", "component", "https://provider/mcp", "", "request", "state", "verifier", "resource", &oauth2.Config{ClientID: "registered"}, "challenge"))
 
 	for _, test := range []struct {
 		name      string

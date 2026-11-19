@@ -289,6 +289,7 @@ func TestTempServerAndConfigIgnoresAuditLogsWithoutChangingNormalTraffic(t *test
 		nil,
 		"",
 		"",
+		"user",
 		"entry",
 		"catalog",
 		entryManifest,
@@ -311,6 +312,27 @@ func TestTempServerAndConfigIgnoresAuditLogsWithoutChangingNormalTraffic(t *test
 	require.NoError(t, err)
 	assert.Empty(t, missingFields)
 	assert.NotContains(t, normalConfig.AuditLogMetadata, mcp.AuditLogIgnore)
+}
+
+// Catalog tool previews store their OAuth token as "system" under the temporary server
+// name, so two users previewing the same entry must never share that name (and token).
+func TestTempServerNameIsPerUser(t *testing.T) {
+	entryManifest := types.MCPServerCatalogEntryManifest{
+		Name:    "preview-entry",
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL: "https://preview.example/mcp",
+		},
+	}
+	name := func(userID string) string {
+		server, _, err := tempServerAndConfig(t.Context(), nil, nil, nil, "", "", userID, "entry", "catalog", entryManifest, nil, "", "https://obot.example.com", mcp.ValidationOptions{})
+		require.NoError(t, err)
+		return server.Name
+	}
+
+	assert.Equal(t, name("1"), name("1"))
+	assert.NotEqual(t, name("1"), name("2"))
+	assert.Regexp(t, `^tool-preview-[0-9a-f]{16}$`, name("1"))
 }
 
 func TestVMCPComponentToolPreviewConfigMissingResourcesAreSafe(t *testing.T) {

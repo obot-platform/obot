@@ -111,6 +111,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 	if err := req.GatewayClient.CreateMCPOAuthPendingState(
 		req.Context(),
 		req.User.GetUID(),
+		req.User.GetUID(),
 		server.Name,
 		serverConfig.URL,
 		serverConfig.TunnelName,

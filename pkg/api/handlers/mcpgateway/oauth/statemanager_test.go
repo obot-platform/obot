@@ -94,7 +94,7 @@ func TestOAuthCallbackComponentCompletion(t *testing.T) {
 				require.NoError(t, storage.Create(t.Context(), connection))
 				mcpID = connection.Name
 			}
-			require.NoError(t, state.store(t.Context(), "1", mcpID, "https://upstream.example/mcp", "", authRequest.Name, "state", "verifier", "", &oauth2.Config{
+			require.NoError(t, state.store(t.Context(), "1", "1", mcpID, "https://upstream.example/mcp", "", authRequest.Name, "state", "verifier", "", &oauth2.Config{
 				ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: tokenServer.URL, AuthStyle: oauth2.AuthStyleInParams},
 			}))
 			response := httptest.NewRecorder()
@@ -150,7 +150,7 @@ func TestStateManagerExchangesAuthorizationCodeWithStoredResource(t *testing.T) 
 		},
 	}
 
-	require.NoError(t, stateManager.store(t.Context(), "user", "mcp", mcpURL, "", "request", "state", verifier, resourceURL, conf))
+	require.NoError(t, stateManager.store(t.Context(), "user", "user", "mcp", mcpURL, "", "request", "state", verifier, resourceURL, conf))
 	_, _, err = stateManager.createToken(t.Context(), "state", "authorization-code", "", "")
 	require.NoError(t, err)
 
@@ -161,7 +161,7 @@ func TestStateManagerExchangesAuthorizationCodeWithStoredResource(t *testing.T) 
 	require.Equal(t, verifier, form.Get("code_verifier"))
 
 	conf.Endpoint.AuthURL = "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize"
-	require.NoError(t, stateManager.store(t.Context(), "user", "mcp", mcpURL, "", "request", "entra-state", verifier, resourceURL, conf))
+	require.NoError(t, stateManager.store(t.Context(), "user", "user", "mcp", mcpURL, "", "request", "entra-state", verifier, resourceURL, conf))
 	_, _, err = stateManager.createToken(t.Context(), "entra-state", "authorization-code", "", "")
 	require.NoError(t, err)
 	require.Empty(t, (<-tokenRequest).Get("resource"))
@@ -198,11 +198,11 @@ func TestOAuthCallbackExchangeUsesStoredTunnel(t *testing.T) {
 		Endpoint: oauth2.Endpoint{TokenURL: tokenServer.URL, AuthStyle: oauth2.AuthStyleInParams},
 	}
 
-	require.NoError(t, stateManager.store(t.Context(), "user", "tunneled", "https://private.example/mcp", "private-tunnel", "request", "tunneled-state", "verifier", "", conf))
+	require.NoError(t, stateManager.store(t.Context(), "user", "user", "tunneled", "https://private.example/mcp", "private-tunnel", "request", "tunneled-state", "verifier", "", conf))
 	_, _, err = stateManager.createToken(t.Context(), "tunneled-state", "authorization-code", "", "")
 	require.NoError(t, err)
 
-	require.NoError(t, stateManager.store(t.Context(), "user", "direct", "https://public.example/mcp", "", "request", "direct-state", "verifier", "", conf))
+	require.NoError(t, stateManager.store(t.Context(), "user", "user", "direct", "https://public.example/mcp", "", "request", "direct-state", "verifier", "", conf))
 	_, _, err = stateManager.createToken(t.Context(), "direct-state", "authorization-code", "", "")
 	require.NoError(t, err)
 
@@ -235,9 +235,9 @@ func TestStateManagerRejectsOverlappingScopeReplacement(t *testing.T) {
 	}
 
 	// Both browser flows start before either callback stores its new grant.
-	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://provider.test/mcp", "", "first-request", "first-state", "verifier", "", conf))
+	require.NoError(t, state.store(t.Context(), "user", "user", "mcp", "https://provider.test/mcp", "", "first-request", "first-state", "verifier", "", conf))
 	conf.Scopes = []string{"write"}
-	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://provider.test/mcp", "", "second-request", "second-state", "verifier", "", conf))
+	require.NoError(t, state.store(t.Context(), "user", "user", "mcp", "https://provider.test/mcp", "", "second-request", "second-state", "verifier", "", conf))
 
 	_, _, err := state.createToken(t.Context(), "first-state", "first-token", "", "")
 	require.NoError(t, err)
@@ -252,7 +252,7 @@ func TestStateManagerRejectsOverlappingScopeReplacement(t *testing.T) {
 	require.Equal(t, "read", stored.Scopes)
 
 	conf.Scopes = []string{"write", "read"}
-	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://provider.test/mcp", "", "retry-request", "retry-state", "verifier", "", conf))
+	require.NoError(t, state.store(t.Context(), "user", "user", "mcp", "https://provider.test/mcp", "", "retry-request", "retry-state", "verifier", "", conf))
 	_, _, err = state.createToken(t.Context(), "retry-state", "retry-token", "", "")
 	require.NoError(t, err)
 

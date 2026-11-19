@@ -150,7 +150,7 @@ func TestLocalhostPendingStateExchangeAndDenial(t *testing.T) {
 	defer server.Close()
 	state := newStateManager(gw, fixedTokenClient(server.Client()))
 	conf := &oauth2.Config{ClientID: "provider-client", RedirectURL: "http://localhost:1234/custom/callback", Endpoint: oauth2.Endpoint{TokenURL: server.URL, AuthStyle: oauth2.AuthStyleInParams}}
-	require.NoError(t, state.store(t.Context(), "1", "connection", "https://provider.example/mcp", "", "auth-request", "upstream-state", "verifier", "https://provider.example/mcp", conf))
+	require.NoError(t, state.store(t.Context(), "1", "1", "connection", "https://provider.example/mcp", "", "auth-request", "upstream-state", "verifier", "https://provider.example/mcp", conf))
 	requestID, connectionID, err := state.createToken(t.Context(), "upstream-state", "provider-code", "", "")
 	require.NoError(t, err)
 	require.Equal(t, "auth-request", requestID)
@@ -166,7 +166,7 @@ func TestLocalhostPendingStateExchangeAndDenial(t *testing.T) {
 	req.User = &user.DefaultInfo{UID: "1", Name: "user", Groups: []string{types.GroupAuthenticated}}
 	authRequest := &v1.OAuthAuthRequest{Name: "auth-request", Namespace: system.DefaultNamespace, Spec: v1.OAuthAuthRequestSpec{UserID: 1, RedirectURI: "http://localhost:1234/oauth/obot/callback", State: "client-state"}}
 	require.NoError(t, fixture.storage.Create(t.Context(), authRequest))
-	require.NoError(t, state.store(t.Context(), "1", "connection", "https://provider.example/mcp", "", authRequest.Name, "denied-state", "verifier", "", conf))
+	require.NoError(t, state.store(t.Context(), "1", "1", "connection", "https://provider.example/mcp", "", authRequest.Name, "denied-state", "verifier", "", conf))
 	req.Request = httptest.NewRequest(http.MethodGet, "/oauth/mcp/callback?state=denied-state&error=access_denied", nil)
 	response := httptest.NewRecorder()
 	req.ResponseWriter = response

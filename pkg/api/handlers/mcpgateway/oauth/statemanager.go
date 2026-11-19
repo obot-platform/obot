@@ -30,8 +30,8 @@ func newStateManager(gatewayClient *client.Client, tokenClient tokenClientFunc) 
 	}
 }
 
-func (sm *stateManager) store(ctx context.Context, userID, mcpID, mcpURL, tunnelName, oauthAuthRequestID, state, verifier, resourceURL string, conf *oauth2.Config, upstreamChallenge ...string) error {
-	return sm.gatewayClient.CreateMCPOAuthPendingState(ctx, userID, mcpID, mcpURL, tunnelName, oauthAuthRequestID, state, verifier, resourceURL, conf, upstreamChallenge...)
+func (sm *stateManager) store(ctx context.Context, userID, initiatorUserID, mcpID, mcpURL, tunnelName, oauthAuthRequestID, state, verifier, resourceURL string, conf *oauth2.Config, upstreamChallenge ...string) error {
+	return sm.gatewayClient.CreateMCPOAuthPendingState(ctx, userID, initiatorUserID, mcpID, mcpURL, tunnelName, oauthAuthRequestID, state, verifier, resourceURL, conf, upstreamChallenge...)
 }
 
 func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, errorDescription string) (string, string, error) {

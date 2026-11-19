@@ -88,7 +88,7 @@ func TestOAuthCallbackDebuggerState(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h, stateMgr, tokenRequests := newOAuthCallbackTestHandler(t)
-			require.NoError(t, stateMgr.store(t.Context(), "1", "ms1debugger", "https://upstream.example/mcp", "", handlers.OAuthDebuggerPendingStateMarker, "debugger-state", "verifier", "", tokenRequests.config()))
+			require.NoError(t, stateMgr.store(t.Context(), "1", "1", "ms1debugger", "https://upstream.example/mcp", "", handlers.OAuthDebuggerPendingStateMarker, "debugger-state", "verifier", "", tokenRequests.config()))
 
 			response := httptest.NewRecorder()
 			require.NoError(t, h.oauthCallback(newOAuthCallbackTestContext(t, response, tt.query, nil)))
@@ -111,7 +111,7 @@ func TestOAuthCallbackDebuggerState(t *testing.T) {
 func TestOAuthCallbackNonDebuggerStateUsesExistingFlow(t *testing.T) {
 	t.Run("state without an auth request", func(t *testing.T) {
 		h, stateMgr, tokenRequests := newOAuthCallbackTestHandler(t)
-		require.NoError(t, stateMgr.store(t.Context(), "1", "ms1server", "https://upstream.example/mcp", "", "", "ordinary-state", "verifier", "", tokenRequests.config()))
+		require.NoError(t, stateMgr.store(t.Context(), "1", "1", "ms1server", "https://upstream.example/mcp", "", "", "ordinary-state", "verifier", "", tokenRequests.config()))
 
 		response := httptest.NewRecorder()
 		require.NoError(t, h.oauthCallback(newOAuthCallbackTestContext(t, response, url.Values{
@@ -130,7 +130,7 @@ func TestOAuthCallbackNonDebuggerStateUsesExistingFlow(t *testing.T) {
 		h, stateMgr, tokenRequests := newOAuthCallbackTestHandler(t)
 		server := &v1.MCPServer{Name: "ms1server", Namespace: system.DefaultNamespace}
 		authRequest := &v1.OAuthAuthRequest{Name: "oar1request", Namespace: system.DefaultNamespace, Spec: v1.OAuthAuthRequestSpec{RedirectURI: "https://client.example/callback"}}
-		require.NoError(t, stateMgr.store(t.Context(), "1", server.Name, "https://upstream.example/mcp", "", authRequest.Name, "ordinary-state", "verifier", "", tokenRequests.config()))
+		require.NoError(t, stateMgr.store(t.Context(), "1", "1", server.Name, "https://upstream.example/mcp", "", authRequest.Name, "ordinary-state", "verifier", "", tokenRequests.config()))
 
 		response := httptest.NewRecorder()
 		require.NoError(t, h.oauthCallback(newOAuthCallbackTestContext(t, response, url.Values{
