@@ -229,8 +229,6 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			status = http.StatusBadRequest
 		} else if loe := (*client.LastOwnerError)(nil); errors.As(err, &loe) {
 			status = http.StatusBadRequest
-		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
-			status = http.StatusConflict
 		} else if _, ok := errors.AsType[*client.SCIMManagedUserError](err); ok {
 			// As for a deletion: the identity provider manages the user.
 			status = http.StatusConflict

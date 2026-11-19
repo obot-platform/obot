@@ -563,14 +563,12 @@ func TestSCIMProvisionedUsersAreManagedByTheIdentityProvider(t *testing.T) {
 		t.Fatalf("RemoveIdentity() failed with %v, want a SCIMManagedUserError", err)
 	}
 
-	// A username change is refused, while settings that SCIM does not manage can still change.
-	if _, err := c.UpdateUser(ctx, true, &types.User{Username: "renamed"}, fmtUserID(provisioned.UserID)); err == nil {
-		t.Fatal("the username of a provisioned user was changed")
-	} else if _, ok := errors.AsType[*SCIMManagedUserError](err); !ok {
-		t.Fatalf("UpdateUser() failed with %v, want a SCIMManagedUserError", err)
-	}
-	if _, err := c.UpdateUser(ctx, true, &types.User{Timezone: "Europe/Paris"}, fmtUserID(provisioned.UserID)); err != nil {
+	// UpdateUser never changes a username, for this or any user, while settings that SCIM does not manage can still
+	// change in the same update.
+	if updated, err := c.UpdateUser(ctx, true, &types.User{Username: "renamed", Timezone: "Europe/Paris"}, fmtUserID(provisioned.UserID)); err != nil {
 		t.Fatalf("failed to change the timezone: %v", err)
+	} else if updated.Username == "renamed" || updated.Timezone != "Europe/Paris" {
+		t.Fatalf("UpdateUser() = {username: %q, timezone: %q}, want the username unchanged and timezone %q", updated.Username, updated.Timezone, "Europe/Paris")
 	}
 
 	// The login profile refresh neither asks the provider nor overwrites the SCIM profile.

@@ -80,34 +80,10 @@ func TestUserChangesThatSCIMManagesAreConflicts(t *testing.T) {
 		}
 	}
 
-	// The identity provider manages the user, so changing what it manages conflicts with it, as deleting the user
-	// while it still provisions them does.
-	for _, tt := range []struct {
-		name   string
-		handle func(api.Context) error
-		method string
-		body   any
-	}{
-		{
-			name:   "renaming the user",
-			handle: (&Server{}).updateUser,
-			method: http.MethodPatch,
-			body: types.User{
-				Username: "renamed",
-			},
-		},
-		{
-			name:   "deleting the user",
-			handle: (&Server{}).deleteUser,
-			method: http.MethodDelete,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			var httpErr *types2.ErrHTTP
-			if err := tt.handle(request(tt.method, tt.body)); !errors.As(err, &httpErr) || httpErr.Code != http.StatusConflict {
-				t.Fatalf("%s = %v, want a conflict", tt.name, err)
-			}
-		})
+	// The identity provider manages the user, so deleting the user while it still provisions them conflicts with it.
+	var httpErr *types2.ErrHTTP
+	if err := (&Server{}).deleteUser(request(http.MethodDelete, nil)); !errors.As(err, &httpErr) || httpErr.Code != http.StatusConflict {
+		t.Fatalf("deleting the user = %v, want a conflict", err)
 	}
 }
 
