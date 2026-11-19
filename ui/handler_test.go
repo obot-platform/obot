@@ -179,3 +179,63 @@ func TestUIProxyForwardsToLocalhostWithXForwardedFor(t *testing.T) {
 		t.Errorf("expected X-Forwarded-Proto http for a non-TLS hop, got %q", gotProto)
 	}
 }
+
+// The trailing-slash redirect must stay on this host: a decoded %2F, %5C or %09
+// (or a literal "//") at the start of the Location would send the browser elsewhere,
+// and an encoded final slash must not skip the redirect and list a directory.
+func TestTrailingSlashRedirectStaysOnHost(t *testing.T) {
+	for _, tc := range []struct {
+		path     string
+		location string
+	}{
+		{
+			path:     "/foo/",
+			location: "/foo",
+		},
+		{
+			path:     "/%2Fevil.example/",
+			location: "/evil.example",
+		},
+		{
+			path:     "/%5Cevil.example/",
+			location: "/%5Cevil.example",
+		},
+		{
+			// Browsers read a literal backslash as "/", so it must come back re-encoded.
+			path:     "/\\evil.example/",
+			location: "/%5Cevil.example",
+		},
+		{
+			path:     "/%09/evil.example/",
+			location: "/%09/evil.example",
+		},
+		{
+			path:     "//evil.example/",
+			location: "/evil.example",
+		},
+		// An encoded final slash must still redirect, or a directory falls through to a listing.
+		{
+			path:     "/_app%2F",
+			location: "/_app",
+		},
+		{
+			path:     "/_app%2f",
+			location: "/_app",
+		},
+	} {
+		rec := serve(t, tc.path, chromeUA)
+		if rec.Code != http.StatusFound {
+			t.Errorf("%s: expected 302, got %d", tc.path, rec.Code)
+			continue
+		}
+		loc := rec.Header().Get("Location")
+		if loc != tc.location {
+			t.Errorf("%s: expected Location %q, got %q", tc.path, tc.location, loc)
+		}
+		if u, err := url.Parse("http://obot.example.com" + tc.path); err == nil {
+			if got, err := u.Parse(loc); err != nil || got.Host != "obot.example.com" {
+				t.Errorf("%s: Location %q leaves the host", tc.path, loc)
+			}
+		}
+	}
+}

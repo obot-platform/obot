@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"path"
 	"strings"
 
@@ -93,8 +94,12 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path == "/mcp-servers" {
 		s.serveHTML(w, r, "user/build/mcp-servers.html")
 	} else if pathWithoutTrailingSlash, ok := strings.CutSuffix(r.URL.Path, "/"); ok {
-		// Paths with trailing slashes should redirect to without slash to avoid directory listings
-		http.Redirect(w, r, pathWithoutTrailingSlash, http.StatusFound)
+		// Paths with trailing slashes should redirect to without slash to avoid directory listings.
+		// The check uses the decoded path so an encoded final slash (%2F) is caught too. The target
+		// collapses leading slashes and is re-escaped, so a decoded "//", "\" or tab can't reach the
+		// Location header where the browser would read it as a different host.
+		target := url.URL{Path: "/" + strings.TrimLeft(pathWithoutTrailingSlash, "/")}
+		http.Redirect(w, r, target.EscapedPath(), http.StatusFound)
 	} else if _, err := fs.Stat(s.fsys, userPath+".html"); err == nil {
 		// Try .html version first (for SvelteKit prerendered pages)
 		s.serveHTML(w, r, userPath+".html")
