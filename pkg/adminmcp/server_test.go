@@ -149,9 +149,14 @@ func newTestServer(t *testing.T, caller user.Info) testServer {
 // serves logins from the named auth provider.
 func newTestServerWithAuthProvider(t *testing.T, caller user.Info, authProvider string) testServer {
 	t.Helper()
+	return newTestServerWithDirectory(t, caller, fakeAuthProviders{configured: authProvider})
+}
+
+func newTestServerWithDirectory(t *testing.T, caller user.Info, provider fakeAuthProviders) testServer {
+	t.Helper()
 	store := newTestStorage()
 	gatewayClient := newTestGatewayClient(t)
-	h := NewHandler(testBaseURL, "kubernetes", "", nil, fakeAuthProviders{configured: authProvider})
+	h := NewHandler(testBaseURL, "kubernetes", "", nil, provider)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.Builtin(api.Context{
 			ResponseWriter: w,
@@ -426,4 +431,92 @@ func TestDirectoryGroupsWithoutCallerProviderContext(t *testing.T) {
 	resolved, err := tools.groups(t.Context(), []string{"keycloak/new-management"})
 	require.NoError(t, err)
 	assert.Equal(t, "/management", resolved["keycloak/new-management"].Name)
+}
+
+func TestAuthoringGroupResolution(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		want   gatewayclient.GroupResolutionStatus
+	}{
+		{
+			name:   "confirmed",
+			status: http.StatusOK,
+			want:   gatewayclient.GroupResolved,
+		},
+		{
+			name:   "missing",
+			status: http.StatusOK,
+			want:   gatewayclient.GroupMissing,
+		},
+		{
+			name:   "outage",
+			status: http.StatusServiceUnavailable,
+			want:   gatewayclient.GroupUnverified,
+		},
+		{
+			name:   "unsupported",
+			status: http.StatusNotFound,
+			want:   gatewayclient.GroupUnverified,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			const id = "keycloak/management"
+			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tc.status)
+				if tc.want == gatewayclient.GroupResolved {
+					// A real group's display name may equal its ID.
+					_, _ = w.Write([]byte(`{"items":[{"id":"keycloak/management","name":"keycloak/management"}]}`))
+				} else {
+					_, _ = w.Write([]byte(`{"items":[]}`))
+				}
+			}))
+			t.Cleanup(provider.Close)
+			srv := newTestServerWithDirectory(t, vmcpUser(types.GroupAdmin), fakeAuthProviders{configured: "keycloak", providerURL: provider.URL})
+			session := connect(t, srv.url, nil)
+			out, res := callTool[resolveSubjectsOutput](t, session, toolResolveSubjects, map[string]any{"subjects": []types.Subject{{Type: types.SubjectTypeGroup, ID: id}}})
+			require.False(t, res.IsError, resultText(res))
+			require.Len(t, out.Subjects, 1)
+			assert.Equal(t, tc.want, out.Subjects[0].GroupStatus)
+			assert.Equal(t, tc.want == gatewayclient.GroupResolved, out.Subjects[0].Found)
+
+			content := `type: vmcp
+entryKey: support
+displayName: Support
+components:
+  - id: github
+    mcpServerCatalogEntryKey: github
+    configuration:
+      - key: TOKEN
+        policy: userAllowed
+profiles:
+  - name: managers
+    subjects:
+      - type: group
+        id: keycloak/management
+    vmcpPermissions:
+      allowedComponents:
+        github:
+          allowedTools: [search_issues]
+`
+			validated, res := callTool[validateCatalogFilesOutput](t, session, toolValidateCatalogFiles, map[string]any{"sourceURL": testSourceURL, "files": []CatalogFile{{Path: "support.yaml", Content: content}}})
+			switch tc.want {
+			case gatewayclient.GroupResolved:
+				require.True(t, validated.Valid, resultText(res))
+			case gatewayclient.GroupMissing:
+				require.False(t, validated.Valid)
+				require.Contains(t, resultText(res), "doesn't exist")
+			case gatewayclient.GroupUnverified:
+				require.True(t, res.IsError)
+				require.Contains(t, resultText(res), "could not verify group")
+			}
+			if tc.status == http.StatusServiceUnavailable {
+				search, res := callTool[searchGroupsOutput](t, session, toolSearchGroups, map[string]any{"query": "management"})
+				require.False(t, res.IsError, resultText(res))
+				require.Empty(t, search.Groups)
+				require.True(t, search.Degraded)
+				require.Equal(t, gatewaytypes.GroupSourceCache, search.Source)
+			}
+		})
+	}
 }
