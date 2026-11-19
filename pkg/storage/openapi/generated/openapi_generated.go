@@ -141,6 +141,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters":                  schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref),
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogList":                           schema_obot_platform_obot_apiclient_types_LLMAuditLogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogResponse":                       schema_obot_platform_obot_apiclient_types_LLMAuditLogResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.LLMProviderTestEvent":                      schema_obot_platform_obot_apiclient_types_LLMProviderTestEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.LLMProviderTestRequest":                    schema_obot_platform_obot_apiclient_types_LLMProviderTestRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogAction":          schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogAction(ref),
 		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogAgent":           schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogAgent(ref),
 		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogDevice":          schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogDevice(ref),
@@ -7359,6 +7361,107 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogResponse(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.LLMAuditLog"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_LLMProviderTestEvent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LLMProviderTestEvent is one server-sent event of a provider test. A test ends with exactly one reply or error event, which carries the duration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"delta": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Delta is a chunk of streamed reply text.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reply": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reply is the complete reply text.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is the HTTP status returned by the LLM proxy when the request failed.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Error is the failure message. Upstream error bodies are returned as-is.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"provider": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Provider and ServedModel identify what actually served the request.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"servedModel": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"durationMs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_LLMProviderTestRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"apiKeyId": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"model", "apiKeyId"},
+			},
+		},
 	}
 }
 

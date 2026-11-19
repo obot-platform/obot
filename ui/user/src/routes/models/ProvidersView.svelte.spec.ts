@@ -154,6 +154,34 @@ describe('Models providers tab', () => {
 		await expect.element(page.getByText('No providers configured')).toBeInTheDocument();
 	});
 
+	it('opens the provider test from its card', async () => {
+		mockGateway();
+		worker.use(
+			http.get('/api/models', () =>
+				HttpResponse.json({
+					items: [
+						{
+							id: 'm1gpt',
+							name: 'gpt',
+							targetModel: 'openai/gpt-5-mini',
+							usage: 'llm',
+							active: true
+						}
+					]
+				})
+			)
+		);
+		await renderProvidersPage();
+
+		await page.getByRole('button', { name: 'Row actions' }).click();
+		await page.getByRole('button', { name: 'Test Provider' }).click();
+
+		await expect.element(page.getByRole('heading', { name: 'Test OpenAI' })).toBeVisible();
+		await expect
+			.element(page.getByRole('combobox', { name: 'Model' }))
+			.toHaveTextContent('openai/gpt-5-mini');
+	});
+
 	it('warns when a provider has no keys', async () => {
 		mockGateway({ keys: [] });
 		await renderProvidersPage();
