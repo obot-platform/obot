@@ -61,11 +61,9 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 		registryDefinition("vmcp1closed", ""),
 		registryDefinition("vmcp1anonymoususer", "", types.Subject{Type: types.SubjectTypeUser, ID: "anonymous"}),
 		registryDefinition("vmcp1anonymousgroup", "", types.Subject{Type: types.SubjectTypeGroup, ID: "everyone"}),
-		// The user wildcard (users:*) names every user, so anonymous discovery lists it: anyone who signs in as a user
-		// can connect.
 		registryDefinition("vmcp1userstar", "", types.Subject{Type: types.SubjectTypeUser, ID: "*"}),
-		// The agent wildcard (agents:*) grants no user, so neither anonymous discovery nor a signed-in user lists it.
-		registryDefinition("vmcp1agentstar", "", types.Subject{Type: types.SubjectTypeAgent, ID: "*"}),
+		// An agent subject grants no user, even the one that has the agent's numeric ID.
+		registryDefinition("vmcp1agent", "", types.Subject{Type: types.SubjectTypeAgent, ID: "1"}),
 	}
 	objects := make([]kclient.Object, 0, len(definitions))
 	for _, definition := range definitions {
@@ -79,7 +77,7 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 	}{
 		{
 			name: "nil anonymous user",
-			want: []string{"vmcp1public", "vmcp1userstar"},
+			want: []string{"vmcp1public"},
 		},
 		{
 			name: "anonymous identity and groups cannot grant private access",
@@ -88,14 +86,14 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 				Groups: []string{authz.UnauthenticatedGroup},
 				Extra:  map[string][]string{"auth_provider_groups": {"everyone"}},
 			}),
-			want: []string{"vmcp1public", "vmcp1userstar"},
+			want: []string{"vmcp1public"},
 		},
 		{
 			name: "identity without authenticated group cannot grant private access",
 			user: principaltest.AsUser(&user.DefaultInfo{
 				UID: "1",
 			}),
-			want: []string{"vmcp1public", "vmcp1userstar"},
+			want: []string{"vmcp1public"},
 		},
 		{
 			name: "authenticated personal and user profiles",
@@ -103,7 +101,7 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 				UID:    "1",
 				Groups: []string{types.GroupAuthenticated},
 			}),
-			want: []string{"vmcp1personal", "vmcp1public", "vmcp1user", "vmcp1userstar"},
+			want: []string{"vmcp1personal", "vmcp1public", "vmcp1user"},
 		},
 		{
 			name: "Obot and identity provider groups",
@@ -115,7 +113,7 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 					"auth_provider_groups": {"developers"},
 				},
 			}),
-			want: []string{"vmcp1idpgroup", "vmcp1obotgroup", "vmcp1public", "vmcp1userstar"},
+			want: []string{"vmcp1idpgroup", "vmcp1obotgroup", "vmcp1public"},
 		},
 		{
 			name: "revoked group membership",
@@ -123,7 +121,7 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 				UID:    "3",
 				Groups: []string{types.GroupAuthenticated},
 			}),
-			want: []string{"vmcp1public", "vmcp1userstar"},
+			want: []string{"vmcp1public"},
 		},
 		{
 			name: "admin must match consumption profiles",
@@ -132,7 +130,7 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
 				Extra:  map[string][]string{"obot_groups": {types.GroupAdmin}},
 			}),
-			want: []string{"vmcp1admin", "vmcp1public", "vmcp1userstar"},
+			want: []string{"vmcp1admin", "vmcp1public"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

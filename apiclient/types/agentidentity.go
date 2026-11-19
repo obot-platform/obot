@@ -80,51 +80,37 @@ type AgentAPIKeyCreateResponse struct {
 	Key string `json:"key"`
 }
 
-// SubjectMatch is how a policy's subjects name an identity.
-type SubjectMatch string
-
-const (
-	// SubjectMatchExplicit is a subject that names the identity itself, such as {agent, "7"}.
-	SubjectMatchExplicit SubjectMatch = "explicit"
-	// SubjectMatchKindWildcard is the wildcard of the identity's kind: agents:* ({agent, "*"}) for an agent.
-	SubjectMatchKindWildcard SubjectMatch = "kindWildcard"
-	// SubjectMatchWildcard is the wildcard for everyone, subjects:* ({selector, "*"}).
-	SubjectMatchWildcard SubjectMatch = "wildcard"
-)
-
 // AgentIdentityAccess is what the policies that can name agents grant an agent: the vMCP profiles, model access
-// policies and skill access rules whose subjects match it, and how each matches. A policy that several of its
-// subjects match is listed once, with its most specific match. It lists grants of a disabled agent too, which apply
-// again once it is enabled. Whether the agent can use a vMCP is the readiness API's (AgentVMCPReadiness). The summary only
-// reports, as Problems, scopes of the agent's keys that none of these grants anything for.
+// policies and skill access rules whose subjects name it by ID, the only way a policy names an agent. It lists grants
+// of a disabled agent too, which apply again once it is enabled. Whether the agent can use a vMCP is the readiness
+// API's (AgentVMCPReadiness). The summary only reports, as Problems, scopes of the agent's keys that none of these
+// grants anything for.
 type AgentIdentityAccess struct {
 	// AgentID is the decimal ID of the agent.
 	AgentID string `json:"agentID"`
-	// VMCPProfiles are the matching profiles of shared vMCPs.
+	// VMCPProfiles are the profiles of shared vMCPs that name the agent, at most one per vMCP.
 	VMCPProfiles []AgentIdentityVMCPProfileAccess `json:"vmcpProfiles"`
-	// ModelAccessPolicies are the matching model access policies (LLM gateway profiles).
+	// ModelAccessPolicies are the model access policies (LLM gateway profiles) that name the agent.
 	ModelAccessPolicies []AgentIdentityPolicyAccess `json:"modelAccessPolicies"`
-	// SkillAccessRules are the matching skill access rules.
+	// SkillAccessRules are the skill access rules that name the agent.
 	SkillAccessRules []AgentIdentityPolicyAccess `json:"skillAccessRules"`
 	// Problems are scopes of the agent's active API keys that nothing grants access to: the LLM gateway without a model
 	// access policy, and skills without a skill access rule.
 	Problems []AgentIdentityAccessProblem `json:"problems"`
 }
 
-// AgentIdentityVMCPProfileAccess is a vMCP profile whose subjects match an agent.
+// AgentIdentityVMCPProfileAccess is a vMCP profile that names an agent.
 type AgentIdentityVMCPProfileAccess struct {
-	VMCPID          string       `json:"vmcpID"`
-	VMCPDisplayName string       `json:"vmcpDisplayName,omitempty"`
-	ProfileID       string       `json:"profileID,omitempty"`
-	ProfileName     string       `json:"profileName"`
-	Match           SubjectMatch `json:"match"`
+	VMCPID          string `json:"vmcpID"`
+	VMCPDisplayName string `json:"vmcpDisplayName,omitempty"`
+	ProfileID       string `json:"profileID,omitempty"`
+	ProfileName     string `json:"profileName"`
 }
 
-// AgentIdentityPolicyAccess is a model access policy or skill access rule whose subjects match an agent.
+// AgentIdentityPolicyAccess is a model access policy or skill access rule that names an agent.
 type AgentIdentityPolicyAccess struct {
-	ID          string       `json:"id"`
-	DisplayName string       `json:"displayName,omitempty"`
-	Match       SubjectMatch `json:"match"`
+	ID          string `json:"id"`
+	DisplayName string `json:"displayName,omitempty"`
 }
 
 const (
@@ -137,9 +123,6 @@ const (
 	// AgentReadinessOAuthInvalid is a reason an agent cannot use a vMCP: the grant its profile holds for a component no
 	// longer works, and must be authorized again.
 	AgentReadinessOAuthInvalid = "oauth_invalid"
-	// AgentReadinessSelectionAmbiguous is a reason an agent cannot use a vMCP: more than one profile names every agent,
-	// so the profile an agent falls back to is unknown. Without a component, it is about the whole vMCP.
-	AgentReadinessSelectionAmbiguous = "selection_ambiguous"
 
 	// AgentSourceConfiguration is the kind of an AgentReadinessSource for a configuration value.
 	AgentSourceConfiguration = "configuration"
@@ -149,19 +132,15 @@ const (
 
 // AgentReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value.
 type AgentReadinessReason struct {
-	// ComponentID is the component the reason is about. It is empty for a reason about the whole vMCP.
+	// ComponentID is the component the reason is about.
 	ComponentID string `json:"componentID,omitempty"`
 	// Code is one of the AgentReadiness constants.
 	Code string `json:"code"`
 	// Field is the configuration key that is missing, never its value.
 	Field string `json:"field,omitempty"`
-	// ProfileID is the profile where an administrator fixes the reason: the agent's explicit profile if it has one,
-	// otherwise the wildcard profile it falls back to. It is empty for AgentReadinessSelectionAmbiguous. For
-	// AgentReadinessOAuthInvalid, it is the profile that holds the grant.
+	// ProfileID is the profile where an administrator fixes the reason: the agent's profile, which also holds its
+	// grants.
 	ProfileID string `json:"profileID,omitempty"`
-	// URLProfileID is, for an invalid grant that was authorized for another upstream URL than the one the agent's
-	// connection reaches, the profile whose configuration sets the URL the agent reaches.
-	URLProfileID string `json:"urlProfileID,omitempty"`
 }
 
 // AgentReadinessSource is the profile that supplies something an agent uses on a vMCP. It names the key, never the
@@ -173,9 +152,6 @@ type AgentReadinessSource struct {
 	// Field is the configuration key. It is empty for an OAuth grant.
 	Field     string `json:"field,omitempty"`
 	ProfileID string `json:"profileID"`
-	// Fallback reports that it comes from the profile that names every agent, which the agent falls back to, rather
-	// than from the profile that names the agent itself.
-	Fallback bool `json:"fallback,omitempty"`
 }
 
 // AgentVMCPReadiness is whether an agent can use a vMCP, computed when it is asked for, with the same checks that
@@ -188,10 +164,9 @@ type AgentVMCPReadiness struct {
 	Ready bool `json:"ready"`
 	// Disabled reports that the agent is disabled, so it cannot connect whatever its readiness is.
 	Disabled bool `json:"disabled"`
-	// ExplicitProfileID is the profile that names the agent by ID, if any.
-	ExplicitProfileID string `json:"explicitProfileID,omitempty"`
-	// WildcardProfileID is the profile that names every agent, if exactly one does.
-	WildcardProfileID string `json:"wildcardProfileID,omitempty"`
+	// ProfileID is the profile that names the agent. An agent is named by at most one profile of a vMCP, and is granted
+	// the vMCP only through it.
+	ProfileID string `json:"profileID,omitempty"`
 	// Reasons are why the agent cannot use the vMCP. It is empty when it can.
 	Reasons []AgentReadinessReason `json:"reasons"`
 	// Sources are the profiles that supply the agent's configuration values and OAuth grants. The list of an agent's

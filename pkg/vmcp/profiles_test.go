@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/subjects"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -230,83 +229,67 @@ func TestInstanceGrant(t *testing.T) {
 	}
 }
 
-func TestMatchingProfileStrengths(t *testing.T) {
+// TestMatchingProfiles checks which profiles name a caller: a user through their ID, the selector wildcard and their
+// groups, and an agent only through a subject that names it by ID. AgentProfile is the one profile that names an agent.
+func TestMatchingProfiles(t *testing.T) {
 	profile := func(name string, s ...types.Subject) types.VMCPProfile {
-		return types.VMCPProfile{Name: name, Subjects: s}
+		return types.VMCPProfile{ID: "vp1" + name, Name: name, Subjects: s}
 	}
 	profiles := []types.VMCPProfile{
-		profile("everyone", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
+		profile("every-user", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
 		profile("users", types.Subject{Type: types.SubjectTypeUser, ID: "*"}),
 		profile("agents", types.Subject{Type: types.SubjectTypeAgent, ID: "*"}),
 		profile("user-5", types.Subject{Type: types.SubjectTypeUser, ID: "5"}),
-		profile("agent-5", types.Subject{Type: types.SubjectTypeAgent, ID: "5"}),
+		profile("agent-5", types.Subject{Type: types.SubjectTypeAgent, ID: "5"}, types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
 		profile("team", types.Subject{Type: types.SubjectTypeGroup, ID: "team"}),
 		profile("admins", types.Subject{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}),
-		profile("mixed", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}, types.Subject{Type: types.SubjectTypeAgent, ID: "5"}),
 	}
 	groups := map[string][]string{"auth_provider_groups": {"team"}, "obot_groups": {types.GroupAdmin}}
 
 	for _, tt := range []struct {
-		name string
-		u    kuser.Info
-		want map[string]subjects.Match
+		name         string
+		u            kuser.Info
+		want         []string
+		agentProfile string
 	}{
 		{
-			name: "user 5 in groups",
+			name: "user 5 in groups matches every user, their ID and their groups",
 			u:    userInfo("5", groups),
-			want: map[string]subjects.Match{
-				"everyone": subjects.MatchWildcardAll,
-				"users":    subjects.MatchWildcardKind,
-				"user-5":   subjects.MatchExplicit,
-				"team":     subjects.MatchGroup,
-				"admins":   subjects.MatchGroup,
-				"mixed":    subjects.MatchWildcardAll,
-			},
+			want: []string{"every-user", "user-5", "agent-5", "team", "admins"},
 		},
 		{
-			name: "agent 5 never matches user subjects or groups",
-			u:    agentInfo(5, groups),
-			want: map[string]subjects.Match{
-				"everyone": subjects.MatchWildcardAll,
-				"agents":   subjects.MatchWildcardKind,
-				"agent-5":  subjects.MatchExplicit,
-				"mixed":    subjects.MatchExplicit,
-			},
+			name:         "agent 5 matches only the profile that names it",
+			u:            agentInfo(5, groups),
+			want:         []string{"agent-5"},
+			agentProfile: "agent-5",
 		},
 		{
-			name: "agent 6 matches only the wildcards",
+			name: "agent 6 matches no profile",
 			u:    agentInfo(6, nil),
-			want: map[string]subjects.Match{
-				"everyone": subjects.MatchWildcardAll,
-				"agents":   subjects.MatchWildcardKind,
-				"mixed":    subjects.MatchWildcardAll,
-			},
 		},
 		{
 			name: "principal without a kind matches nothing",
 			u:    &kuser.DefaultInfo{UID: "5", Extra: groups},
-			want: map[string]subjects.Match{},
 		},
 		{
 			name: "agent UID recorded as a user matches nothing",
 			u:    userInfo("agent:5", groups),
-			want: map[string]subjects.Match{},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got := map[string]subjects.Match{}
-			for _, match := range MatchingProfileStrengths(tt.u, profiles) {
-				got[match.Profile.Name] = match.Match
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Fatalf("MatchingProfileStrengths() = %v, want %v", got, tt.want)
-			}
 			var names []string
 			for _, p := range MatchingProfiles(tt.u, profiles) {
 				names = append(names, p.Name)
 			}
-			if len(names) != len(tt.want) {
-				t.Fatalf("MatchingProfiles() = %v, want the %d profiles of MatchingProfileStrengths", names, len(tt.want))
+			if !reflect.DeepEqual(names, tt.want) {
+				t.Fatalf("MatchingProfiles() = %v, want %v", names, tt.want)
+			}
+			got := AgentProfile(tt.u, types.VMCPManifest{Profiles: profiles})
+			switch {
+			case tt.agentProfile == "" && got != nil:
+				t.Fatalf("AgentProfile() = %q, want none", got.Name)
+			case tt.agentProfile != "" && (got == nil || got.Name != tt.agentProfile):
+				t.Fatalf("AgentProfile() = %v, want %q", got, tt.agentProfile)
 			}
 		})
 	}

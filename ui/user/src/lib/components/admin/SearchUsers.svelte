@@ -6,9 +6,9 @@
 	import AgentIdentitiesService, { type AgentIdentity } from '$lib/services/agent-identities';
 	import { profile } from '$lib/stores';
 	import {
-		pickerWildcardKind,
+		isAgentPickerId,
+		isEveryonePickerId,
 		subjectPickerOptions,
-		wildcardConflicts,
 		type SubjectPickerOption
 	} from '$lib/subjectResolver';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -18,18 +18,18 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		// The wildcards arrive as groups: "*" for everyone, "users:*" and "agents:*" when agents are offered.
+		// All Obot Users arrives as the group "*".
 		onAdd: (users: OrgUser[], groups: OrgGroup[], agents: AgentIdentity[]) => void;
 		// filterIds are the picker IDs of the subjects already added (see resolveSubjectPickerById). They are
-		// not offered again, and they decide which wildcards still can be.
+		// not offered again.
 		filterIds?: string[];
 		initialUsers?: OrgUser[];
 		// offerObotAdmin offers the Obot Admin group, which only subjects that accept Obot groups can hold.
 		offerObotAdmin?: boolean;
-		// offerAgents offers agents, and the wildcards "All Users" and "All Agents" next to "Everyone", which
-		// includes agents. Only subjects that accept agents can use it.
+		// offerAgents offers the active agents, one by one, since All Obot Users never includes an agent.
+		// Only subjects that accept agents can use it.
 		offerAgents?: boolean;
-		// wildcardMustBeAlone is for subjects where a wildcard has to be the only subject.
+		// wildcardMustBeAlone is for subjects where All Obot Users has to be the only subject, apart from agents.
 		wildcardMustBeAlone?: boolean;
 	}
 
@@ -80,16 +80,17 @@
 		})
 	);
 
-	// The wildcards that cannot be added next to what is already added or selected: everyone is not
-	// combined with the other wildcards, and with wildcardMustBeAlone a wildcard is the only subject.
+	// With wildcardMustBeAlone, All Obot Users cannot be added next to any user or group already added or
+	// selected, and no user or group can be added next to it. Agents are never blocked: All Obot Users
+	// doesn't include them, so a policy for every user names its agents next to it.
 	function isBlocked(item: SubjectPickerOption): boolean {
-		if (selectedUsersMap.has(item.key)) return false;
-		const others = [...(filterIds ?? []), ...selectedUsers.map((selected) => selected.key)];
-		if (pickerWildcardKind(item.key)) {
-			if (wildcardConflicts(item.key, others)) return true;
-			return wildcardMustBeAlone && others.length > 0;
-		}
-		return wildcardMustBeAlone && others.some((other) => pickerWildcardKind(other));
+		if (!wildcardMustBeAlone || selectedUsersMap.has(item.key) || isAgentPickerId(item.key))
+			return false;
+		const others = [...(filterIds ?? []), ...selectedUsers.map((selected) => selected.key)].filter(
+			(key) => !isAgentPickerId(key)
+		);
+		if (isEveryonePickerId(item.key)) return others.length > 0;
+		return others.some(isEveryonePickerId);
 	}
 
 	async function search() {

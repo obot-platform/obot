@@ -119,7 +119,6 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 			VMCPID:                    mcp.VMCPID,
 			VMCPComponentID:           mcp.VMCPComponentID,
 			ProfileIDs:                slices.Clone(mcp.ProfileIDs),
-			FallbackProfileIDs:        slices.Clone(mcp.FallbackProfileIDs),
 		},
 		Request: &api.AuditLogPayloadDetails{
 			Headers:     mcp.RequestHeaders,

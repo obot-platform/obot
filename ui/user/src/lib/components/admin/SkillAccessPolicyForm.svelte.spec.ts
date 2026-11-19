@@ -65,32 +65,25 @@ describe('SkillAccessPolicyForm: agent subjects', () => {
 		expect(created.mock.calls[0][0]).toMatchObject({ subjects: [{ type: 'agent', id: '5' }] });
 	});
 
-	it('saves all users as the user wildcard', async () => {
+	it('saves All Obot Users as the selector wildcard, with an agent next to it', async () => {
 		const created = mockApis();
 		render(SkillAccessPolicyForm, { skillAccessPolicy: { ...draft } });
 
 		await openPicker();
-		await page.getByRole('button', { name: /All Users/ }).click();
+		await page.getByRole('button', { name: /All Obot Users/ }).click();
+		// All Obot Users doesn't include agents, so a rule for every user names its agents next to it.
+		await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeEnabled();
+		await page.getByRole('button', { name: /Build bot/ }).click();
 		await page.getByRole('button', { name: 'Confirm' }).click();
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 
 		await vi.waitFor(() => expect(created).toHaveBeenCalled());
-		expect(created.mock.calls[0][0]).toMatchObject({ subjects: [{ type: 'user', id: '*' }] });
-	});
-
-	it('saves everyone as the selector wildcard and disables the other wildcards', async () => {
-		const created = mockApis();
-		render(SkillAccessPolicyForm, { skillAccessPolicy: { ...draft } });
-
-		await openPicker();
-		await page.getByRole('button', { name: /Everyone \(All Obot Users and Agents\)/ }).click();
-		await expect.element(page.getByRole('button', { name: /All Users/ })).toBeDisabled();
-		await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeDisabled();
-		await page.getByRole('button', { name: 'Confirm' }).click();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
-
-		await vi.waitFor(() => expect(created).toHaveBeenCalled());
-		expect(created.mock.calls[0][0]).toMatchObject({ subjects: [{ type: 'selector', id: '*' }] });
+		expect(created.mock.calls[0][0].subjects).toEqual(
+			expect.arrayContaining([
+				{ type: 'selector', id: '*' },
+				expect.objectContaining({ type: 'agent' })
+			])
+		);
 	});
 
 	it('shows a deleted agent as such', async () => {

@@ -42,7 +42,7 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 	cfg := mcp.ServerConfig{
 		Runtime: types.RuntimeVMCP,
 		Components: []mcp.ComponentServer{
-			{ComponentID: "granted", Name: "ms1granted", URL: "http://localhost/mcp-connect/msi1granted", OAuthGrant: &mcp.OAuthGrantRef{ComponentID: "granted", ProfileID: "vp1agents"}},
+			{ComponentID: "granted", Name: "ms1granted", URL: "http://localhost/mcp-connect/msi1granted", OAuthGrant: &mcp.OAuthGrantRef{ComponentID: "granted", ProfileID: "vp1seven"}},
 			{ComponentID: "ungranted", Name: "ms1ungranted", URL: "http://localhost/mcp-connect/msi1ungranted"},
 		},
 	}
@@ -56,23 +56,23 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{
 		Error: vmcpaccess.AgentOAuthRequiredError,
 		Reasons: []vmcpaccess.ReadinessReason{
-			{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1agents"},
+			{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1seven"},
 			{ComponentID: "ungranted", Code: types.AgentReadinessOAuthRequired},
 		},
 	}, readAgentFailure(t, bytes.NewReader(response.body)))
 
 	componentHop := api.Context{User: agentLoopbackCaller("vmcpi1agent")}
-	response = agentOAuthGrantInvalidResponse(componentHop, "granted", "vp1agents", "")
+	response = agentOAuthGrantInvalidResponse(componentHop, "granted", "vp1seven")
 	require.Equal(t, http.StatusUnauthorized, response.status)
 	require.Empty(t, response.headers.Values("WWW-Authenticate"))
 	require.NotEmpty(t, mmmcpcomponent.AuthorizationChallenges(&http.Response{StatusCode: response.status, Header: response.headers}), "the composite must read the refusal as the component's authorization failure")
 
-	response = agentOAuthGrantInvalidResponse(api.Context{User: agentKeyCaller()}, "granted", "vp1agents", "")
+	response = agentOAuthGrantInvalidResponse(api.Context{User: agentKeyCaller()}, "granted", "vp1seven")
 	require.Equal(t, http.StatusConflict, response.status)
 	require.Empty(t, response.headers.Values("WWW-Authenticate"))
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1agents"}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1seven"}},
 	}, readAgentFailure(t, bytes.NewReader(response.body)))
 
 	// Through the composite: the component's bare 401 becomes the agent's 409, naming the grant as invalid.
@@ -96,7 +96,7 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 			Name:        "ms1granted",
 			DisplayName: "granted",
 			URL:         upstream.URL,
-			OAuthGrant:  &mcp.OAuthGrantRef{ComponentID: "granted", ProfileID: "vp1agents"},
+			OAuthGrant:  &mcp.OAuthGrantRef{ComponentID: "granted", ProfileID: "vp1seven"},
 		}},
 	}
 	request := httptest.NewRequest(http.MethodPost, "https://obot.example/mcp-connect-composite/vmcpi1agent", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}`))
@@ -122,7 +122,7 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1agents"}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1seven"}},
 	}, readAgentFailure(t, bytes.NewReader(recorder.Body.Bytes())))
 	requireNoOAuthState(t, db)
 }
@@ -162,7 +162,7 @@ func TestComponentHopUsesTheProfileGrant(t *testing.T) {
 				RemoteConfig: &types.RemoteCatalogConfig{FixedURL: upstream.URL},
 			}},
 		}},
-		Profiles: []types.VMCPProfile{{ID: "vp1agents", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}},
+		Profiles: []types.VMCPProfile{{ID: "vp1seven", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}},
 	}}}
 	shared := &v1.MCPServer{Name: "ms1hop", Namespace: system.DefaultNamespace, Spec: v1.MCPServerSpec{
 		VMCPID:          vmcp.Name,
@@ -202,7 +202,7 @@ func TestComponentHopUsesTheProfileGrant(t *testing.T) {
 	manager.SetProfileOAuthGrants(grants)
 	handler := &Handler{ctx: t.Context(), mcpSessionManager: manager, globalTokenStore: tokens, auditLogCollector: new(recordingProxyAuditCollector)}
 
-	owner, mcpID := principal.ProfileGrant(vmcp.Name, "vp1agents"), vmcpaccess.ProfileOAuthGrantMCPID(vmcp.Name, "one")
+	owner, mcpID := principal.ProfileGrant(vmcp.Name, "vp1seven"), vmcpaccess.ProfileOAuthGrantMCPID(vmcp.Name, "one")
 	conf := &oauth2.Config{ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: tokenEndpoint.URL, AuthStyle: oauth2.AuthStyleInParams}}
 	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, upstream.URL, "grant-1", "1", conf, &oauth2.Token{AccessToken: "profile-grant-token", TokenType: "Bearer", Expiry: time.Now().Add(time.Hour)}))
 	// The agent's own token for its connection, which it must never use.

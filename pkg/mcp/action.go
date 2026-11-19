@@ -30,17 +30,14 @@ var (
 	actionEnvVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 )
 
-// AgentOAuthGrantError reports that the OAuth grant an agent's profiles hold for a vMCP component cannot be used: it
+// AgentOAuthGrantError reports that the OAuth grant an agent's profile holds for a vMCP component cannot be used: it
 // was marked invalid, or the component's upstream URL is not the one it was authorized for. The agent is refused the
-// component rather than connected without the grant, or with another profile's.
+// component rather than connected without the grant.
 type AgentOAuthGrantError struct {
 	ComponentID string
 	// ProfileID is the profile that holds the grant, where an administrator authorizes it again.
 	ProfileID string
-	// URLProfileID is, when the connection reaches another URL than the grant was authorized for, the profile whose
-	// configuration sets the URL the connection reaches.
-	URLProfileID string
-	Reason       string
+	Reason    string
 }
 
 func (sm *SessionManager) ServerForActionWithConnectID(ctx context.Context, id string, user kuser.Info) (string, v1.MCPServer, ServerConfig, error) {
@@ -92,15 +89,14 @@ func (e *AgentOAuthGrantError) Error() string {
 }
 
 // applyAgentOAuthGrant makes the connection of an agent, user, to a vMCP component's server use the OAuth grant that
-// the agent's profiles hold for the component (vmcpaccess.ProfileOAuthGrantStore.SelectAgentGrants): its explicit
-// profile's if that holds one, and otherwise the wildcard profile's. This is where the token of every agent request
+// the agent's profile holds for the component (vmcpaccess.ProfileOAuthGrantStore.SelectAgentGrants). This is where the token of every agent request
 // to a component is chosen, for shared and dedicated component servers alike, since both reach the component hop
 // through here; the caller's own encoded owner stays the connection's UserID, so sessions, caches and audit stay the
 // agent's own. Users' connections are unchanged.
 //
 // A grant is used only for the URL it was authorized for, which config.URL, the URL this connection reaches, must
 // equal. A grant that is invalid or bound to another URL fails the connection with AgentOAuthGrantError: the agent
-// never falls back from a broken grant, and never sends a grant to an upstream it was not authorized for. Without any
+// never sends a grant to an upstream it was not authorized for. Without any
 // grant the connection uses no token (ServerConfig.OAuthTokenKey), and an upstream that asks for one is reported to the
 // agent as needing OAuth.
 func (sm *SessionManager) applyAgentOAuthGrant(ctx context.Context, user kuser.Info, server v1.MCPServer, config *ServerConfig) error {
@@ -128,8 +124,8 @@ func (sm *SessionManager) applyAgentOAuthGrant(ctx context.Context, user kuser.I
 	component := components[index]
 	// The grant is selected again for every connection, so that it is checked when it is used. Its URL is checked below
 	// against the one the connection reaches.
-	selection := vmcpaccess.SelectAgentProfiles(user, vmcp.Spec.Manifest)
-	grants, err := sm.profileOAuthGrants.SelectAgentGrants(ctx, vmcp, selection, []types.VMCPComponent{component})
+	profile := vmcpaccess.AgentProfile(user, vmcp.Spec.Manifest)
+	grants, err := sm.profileOAuthGrants.SelectAgentGrants(ctx, vmcp, profile, []types.VMCPComponent{component})
 	if err != nil {
 		return err
 	}
@@ -140,11 +136,11 @@ func (sm *SessionManager) applyAgentOAuthGrant(ctx context.Context, user kuser.I
 	case !grant.Usable():
 		return &AgentOAuthGrantError{ComponentID: component.ID, ProfileID: grant.ProfileID, Reason: grant.InvalidReason}
 	case grant.URL != config.URL:
-		// config.URL is the authority. The agent's URL is resolved from its own profiles' configuration only to say
-		// which profile sets it.
+		// config.URL is the authority. The agent's URL is resolved from its profile's configuration only to say whether
+		// the profile sets it.
 		grantErr := &AgentOAuthGrantError{ComponentID: component.ID, ProfileID: grant.ProfileID, Reason: "the component's upstream URL is not the one the grant was authorized for"}
-		if target, err := sm.ComponentTarget(ctx, vmcp, selection, component); err == nil {
-			grantErr.URLProfileID, grantErr.Reason = vmcpaccess.GrantTargetMismatch(target, grant.ProfileID)
+		if target, err := sm.ComponentTarget(ctx, vmcp, profile, component); err == nil {
+			grantErr.Reason = vmcpaccess.GrantTargetMismatch(target, grant.ProfileID)
 		}
 		return grantErr
 	}

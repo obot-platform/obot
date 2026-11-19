@@ -157,20 +157,20 @@ func TestVMCPCreateEnforcesProfileSubjectRules(t *testing.T) {
 		wantErr  string
 	}{
 		{
-			name: "two selector wildcards",
+			// There is no rule about wildcards across profiles: several may name every user, as they always could.
+			name: "two profiles for every user",
 			profiles: []types.VMCPProfile{
 				vmcpProfileForTest("a", vmcpEveryone),
 				vmcpProfileForTest("b", vmcpEveryone),
 			},
-			wantErr: "both use the selector wildcard",
 		},
 		{
-			name: "selector and agent wildcards",
+			name: "agent wildcard",
 			profiles: []types.VMCPProfile{
 				vmcpProfileForTest("a", vmcpEveryone),
 				vmcpProfileForTest("b", types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}),
 			},
-			wantErr: "not both",
+			wantErr: "agents must be named by ID",
 		},
 		{
 			name: "one agent in two profiles",
@@ -193,17 +193,21 @@ func TestVMCPCreateEnforcesProfileSubjectRules(t *testing.T) {
 				GatewayClient:  newHandlerTestGateway(t),
 				User:           vmcpAdminForTest(),
 			})
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
 			requireBadRequest(t, err, tc.wantErr)
 		})
 	}
 }
 
-// A vMCP stored with several selector wildcard profiles predates the wildcard rule. It keeps working, and validates on
-// edits that leave every profile's subjects alone, until a profile has data stored for it.
-func TestVMCPLegacyWildcardProfiles(t *testing.T) {
+// TestVMCPProfilesForEveryUser checks that a vMCP with several profiles for every user validates on every edit, whether
+// or not a profile has data, and that adopting snapshots keeps every profile's ID.
+func TestVMCPProfilesForEveryUser(t *testing.T) {
 	entry := vmcpCatalogEntryForTest("entry")
 	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"}
-	legacy := func() *v1.VMCP {
+	stored := func() *v1.VMCP {
 		manifest := testVMCPManifest()
 		manifest.Components[0].ID = "component"
 		manifest.Components[0].CatalogEntry = types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest}
@@ -212,83 +216,59 @@ func TestVMCPLegacyWildcardProfiles(t *testing.T) {
 			vmcpProfileForTest("b", vmcpEveryone),
 		}
 		manifest.Profiles[0].ID, manifest.Profiles[1].ID = "vp1a", "vp1b"
-		return &v1.VMCP{Name: "vmcp1legacy", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: manifest}}
+		return &v1.VMCP{Name: "vmcp1everyone", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: manifest}}
 	}
 	for _, tc := range []struct {
 		name    string
 		edit    func(*types.VMCPManifest)
 		hasData bool
-		wantErr string
 	}{
 		{
 			name: "renaming a profile",
 			edit: func(manifest *types.VMCPManifest) { manifest.Profiles[0].Name = "renamed" },
 		},
 		{
-			name: "editing the display name",
-			edit: func(manifest *types.VMCPManifest) { manifest.DisplayName = "Renamed" },
-		},
-		{
-			name: "removing a wildcard profile",
-			edit: func(manifest *types.VMCPManifest) { manifest.Profiles = manifest.Profiles[:1] },
-		},
-		{
 			name: "changing a profile's subjects",
 			edit: func(manifest *types.VMCPManifest) {
 				manifest.Profiles[0].Subjects = append(manifest.Profiles[0].Subjects, vmcpEngineering)
 			},
-			wantErr: "both use the selector wildcard",
 		},
 		{
 			name: "adding a profile",
 			edit: func(manifest *types.VMCPManifest) {
-				manifest.Profiles = append(manifest.Profiles, vmcpProfileForTest("c", vmcpEngineering))
+				manifest.Profiles = append(manifest.Profiles, vmcpProfileForTest("c", vmcpEveryone))
 			},
-			wantErr: "both use the selector wildcard",
 		},
 		{
-			name:    "an unrelated edit once a profile has data",
+			name:    "an edit once a profile has data",
 			edit:    func(manifest *types.VMCPManifest) { manifest.DisplayName = "Renamed" },
 			hasData: true,
-			wantErr: "profile configuration or OAuth grants",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			stored := legacy()
-			storage := newVMCPTestStorage(entry, stored)
+			vmcp := stored()
+			storage := newVMCPTestStorage(entry, vmcp)
 			handler := NewVMCPHandler(nil, "", "", &vmcpProfileDataForTest{has: tc.hasData})
-			manifest := stored.Spec.Manifest
+			manifest := vmcp.Spec.Manifest
 			tc.edit(&manifest)
-			_, err := callVMCPUpdate(t, storage, newHandlerTestGateway(t), handler, stored.Name, manifest)
-			if tc.wantErr == "" {
-				require.NoError(t, err)
-				return
-			}
-			requireBadRequest(t, err, tc.wantErr)
+			_, err := callVMCPUpdate(t, storage, newHandlerTestGateway(t), handler, vmcp.Name, manifest)
+			require.NoError(t, err)
 		})
 	}
 
-	for _, hasData := range []bool{false, true} {
-		stored := legacy()
-		storage := newVMCPTestStorage(entry, stored)
-		request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+stored.Name+"/trigger-update", nil)
-		request.SetPathValue("vmcp_id", stored.Name)
-		err := NewVMCPHandler(nil, "", "", &vmcpProfileDataForTest{has: hasData}).TriggerUpdate(api.Context{
-			ResponseWriter: httptest.NewRecorder(),
-			Request:        request,
-			Storage:        storage,
-			User:           vmcpAdminForTest(),
-		})
-		if hasData {
-			requireBadRequest(t, err, "profile configuration or OAuth grants")
-			continue
-		}
-		require.NoError(t, err)
-		// Adopting snapshots keeps every profile's ID.
-		var updated v1.VMCP
-		require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(stored), &updated))
-		require.Equal(t, []string{"vp1a", "vp1b"}, []string{updated.Spec.Manifest.Profiles[0].ID, updated.Spec.Manifest.Profiles[1].ID})
-	}
+	vmcp := stored()
+	storage := newVMCPTestStorage(entry, vmcp)
+	request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/trigger-update", nil)
+	request.SetPathValue("vmcp_id", vmcp.Name)
+	require.NoError(t, NewVMCPHandler(nil, "", "", &vmcpProfileDataForTest{has: true}).TriggerUpdate(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        request,
+		Storage:        storage,
+		User:           vmcpAdminForTest(),
+	}))
+	var updated v1.VMCP
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &updated))
+	require.Equal(t, []string{"vp1a", "vp1b"}, []string{updated.Spec.Manifest.Profiles[0].ID, updated.Spec.Manifest.Profiles[1].ID})
 }
 
 // Updates are written with the resource version read at the start of the request, so of two concurrent updates one

@@ -22,13 +22,11 @@ type auditedSubject struct {
 	ID   string `json:"id"`
 }
 
-// isAgentRelevantSubject reports whether a policy that holds the subject can grant something to an agent: an agent
-// subject, explicit or the agent wildcard, or the selector wildcard, which names everyone, agents included. User
-// subjects, the user wildcard among them, and group and explicit-selector subjects never reach an agent, so changes
+// isAgentRelevantSubject reports whether a policy that holds the subject can grant something to an agent: only an
+// agent subject, which names the agent by ID, can. User, group and selector subjects never reach an agent, so changes
 // to them are not audited here.
 func isAgentRelevantSubject(subject types.Subject) bool {
-	return subject.Type == types.SubjectTypeAgent ||
-		(subject.Type == types.SubjectTypeSelector && subject.ID == types.SubjectWildcardID)
+	return subject.Type == types.SubjectTypeAgent
 }
 
 // agentRelevantSubjectChanges returns the agent-relevant subjects that current adds to, and removes from, previous.

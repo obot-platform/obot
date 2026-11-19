@@ -12,8 +12,8 @@ beforeEach(async () => {
 });
 
 describe('AccessControlRuleForm', () => {
-	// Access control rules reject agent subjects and the user wildcard, so their picker is the plain one.
-	it('never offers agents or the kind wildcards', async () => {
+	// Access control rules reject agent subjects, so their picker is the plain one.
+	it('never offers agents, and offers the wildcard as All Obot Users', async () => {
 		worker.use(
 			http.get('*/api/agents', () =>
 				HttpResponse.json({

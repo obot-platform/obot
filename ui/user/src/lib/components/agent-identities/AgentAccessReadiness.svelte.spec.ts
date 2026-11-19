@@ -12,17 +12,11 @@ const notReady: AgentVMCPReadiness = {
 	vmcpDisplayName: 'Mail vMCP',
 	ready: false,
 	disabled: false,
-	explicitProfileID: 'vp1own',
-	wildcardProfileID: 'vp1all',
+	profileID: 'vp1own',
 	reasons: [
 		{ code: 'configuration_required', componentID: 'gmail', field: 'TENANT', profileID: 'vp1own' },
-		{ code: 'oauth_required', componentID: 'gmail', profileID: 'vp1all' },
-		{
-			code: 'oauth_invalid',
-			componentID: 'calendar',
-			profileID: 'vp1own',
-			urlProfileID: 'vp1all'
-		}
+		{ code: 'oauth_required', componentID: 'gmail', profileID: 'vp1own' },
+		{ code: 'oauth_invalid', componentID: 'calendar', profileID: 'vp1own' }
 	],
 	pendingSync: false
 };
@@ -32,20 +26,9 @@ function mockAgent(readiness: AgentVMCPReadiness[]) {
 		http.get('/api/agents/7/access', () =>
 			HttpResponse.json({
 				...emptyAgentAccess,
-				vmcpProfiles: [
-					{
-						vmcpID: 'vmcp1mail',
-						profileID: 'vp1own',
-						profileName: 'Build bots',
-						match: 'explicit'
-					},
-					{
-						vmcpID: 'vmcp1mail',
-						profileID: 'vp1all',
-						profileName: 'All agents',
-						match: 'kindWildcard'
-					}
-				]
+				vmcpProfiles: [{ vmcpID: 'vmcp1mail', profileID: 'vp1own', profileName: 'Build bots' }],
+				modelAccessPolicies: [{ id: 'map1', displayName: 'Bot models' }],
+				skillAccessRules: [{ id: 'sar1', displayName: 'Bot skills' }]
 			})
 		),
 		http.get('/api/agents/7/vmcps', () => HttpResponse.json({ items: readiness }))
@@ -53,6 +36,19 @@ function mockAgent(readiness: AgentVMCPReadiness[]) {
 }
 
 describe('AgentAccessReadiness', () => {
+	// Every policy listed names the agent by ID, so none is marked with how it matches.
+	it('lists the profiles and policies that name the agent', async () => {
+		mockAgent([notReady]);
+		render(AgentAccessReadiness, { agentId: '7' });
+
+		await expect.element(page.getByText('vmcp1mail · Build bots')).toBeVisible();
+		await expect.element(page.getByText('Bot models')).toBeVisible();
+		await expect.element(page.getByText('Bot skills')).toBeVisible();
+		await expect.element(page.getByText('Named', { exact: true })).not.toBeInTheDocument();
+		await expect.element(page.getByText('All agents', { exact: true })).not.toBeInTheDocument();
+		await expect.element(page.getByText('Everyone', { exact: true })).not.toBeInTheDocument();
+	});
+
 	it('links each reason to the profile that fixes it, at the field or button', async () => {
 		mockAgent([notReady]);
 		render(AgentAccessReadiness, { agentId: '7' });
@@ -65,38 +61,22 @@ describe('AgentAccessReadiness', () => {
 				'href',
 				`/vmcps/vmcp1mail?view=profiles&profileID=vp1own#${encodeURIComponent('agent-config-gmail-TENANT')}`
 			);
-		// A reason that falls back to the wildcard profile names that profile.
 		await expect
-			.element(page.getByRole('link', { name: 'Fix in profile All agents' }))
+			.element(page.getByRole('link', { name: 'Fix in profile Build bots' }).nth(1))
 			.toHaveAttribute(
 				'href',
-				`/vmcps/vmcp1mail?view=profiles&profileID=vp1all#${encodeURIComponent('agent-oauth-gmail')}`
+				`/vmcps/vmcp1mail?view=profiles&profileID=vp1own#${encodeURIComponent('agent-oauth-gmail')}`
 			);
-		// An invalid grant authorized for another URL also points at the profile that sets the URL.
+		// An invalid grant is fixed by authorizing it again in the same profile.
 		await expect
-			.element(
-				page.getByRole('link', { name: /URL it was authorized for is set in profile All agents/ })
-			)
-			.toHaveAttribute('href', '/vmcps/vmcp1mail?view=profiles&profileID=vp1all#agent-setup');
+			.element(page.getByRole('link', { name: 'Fix in profile Build bots' }).nth(2))
+			.toHaveAttribute(
+				'href',
+				`/vmcps/vmcp1mail?view=profiles&profileID=vp1own#${encodeURIComponent('agent-oauth-calendar')}`
+			);
 	});
 
-	it('tells the admin what to do about an ambiguous selection, without a link', async () => {
-		mockAgent([
-			{
-				...notReady,
-				reasons: [{ code: 'selection_ambiguous' }]
-			}
-		]);
-		render(AgentAccessReadiness, { agentId: '7' });
-
-		await expect.element(page.getByText(/More than one profile names every agent/)).toBeVisible();
-		await expect
-			.element(page.getByText('An administrator must leave one profile that names all agents.'))
-			.toBeVisible();
-		await expect.element(page.getByRole('link', { name: /Fix in/ })).not.toBeInTheDocument();
-	});
-
-	it('shows where values come from, marking the fallback profile', async () => {
+	it('shows which profile each value comes from', async () => {
 		mockAgent([notReady]);
 		worker.use(
 			http.get('/api/agents/7/vmcps/vmcp1mail/readiness', () =>
@@ -104,7 +84,7 @@ describe('AgentAccessReadiness', () => {
 					...notReady,
 					sources: [
 						{ kind: 'configuration', componentID: 'gmail', field: 'REGION', profileID: 'vp1own' },
-						{ kind: 'oauth', componentID: 'gmail', profileID: 'vp1all', fallback: true }
+						{ kind: 'oauth', componentID: 'gmail', profileID: 'vp1own' }
 					]
 				})
 			)
@@ -122,7 +102,10 @@ describe('AgentAccessReadiness', () => {
 			.toBeVisible();
 		await expect
 			.element(
-				page.getByRole('link', { name: 'from profile All agents (the fallback for all agents)' })
+				page
+					.getByRole('listitem')
+					.filter({ hasText: 'gmail: OAuth authorization, from profile Build bots' })
+					.last()
 			)
 			.toBeVisible();
 		await page.getByRole('button', { name: 'Hide sources' }).click();

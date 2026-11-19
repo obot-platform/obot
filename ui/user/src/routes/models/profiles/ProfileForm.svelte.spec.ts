@@ -410,55 +410,16 @@ describe('Profile form: agent subjects', () => {
 		});
 	});
 
-	it('saves all agents as the agent wildcard', async () => {
-		const { calls } = mockGateway();
-		mockAgents();
-		render(ProfileForm, {});
-
-		await page.getByLabelText('Name', { exact: true }).fill('All bots');
-		await openPicker();
-		await page.getByRole('button', { name: /All Agents/ }).click();
-		await page.getByRole('button', { name: 'Confirm' }).click();
-		await expect.element(page.getByText('All Agents', { exact: true })).toBeVisible();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
-
-		await vi.waitFor(() =>
-			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
-		);
-		expect(calls.mock.calls[0][2]).toMatchObject({
-			subjects: [{ type: 'agent', id: '*' }]
-		});
-	});
-
-	it('saves all users as the user wildcard', async () => {
-		const { calls } = mockGateway();
-		mockAgents();
-		render(ProfileForm, {});
-
-		await page.getByLabelText('Name', { exact: true }).fill('Users');
-		await openPicker();
-		await page.getByRole('button', { name: /All Users/ }).click();
-		await page.getByRole('button', { name: 'Confirm' }).click();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
-
-		await vi.waitFor(() =>
-			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
-		);
-		expect(calls.mock.calls[0][2]).toMatchObject({ subjects: [{ type: 'user', id: '*' }] });
-	});
-
-	it('does not offer other subjects next to a wildcard', async () => {
+	it('offers agents, but no other subject, next to All Obot Users', async () => {
 		mockGateway();
 		mockAgents();
 		render(ProfileForm, {});
 
 		await openPicker();
-		await page.getByRole('button', { name: /Everyone \(All Obot Users and Agents\)/ }).click();
+		await page.getByRole('button', { name: /All Obot Users/ }).click();
 
-		await expect.element(page.getByRole('button', { name: /All Users/ })).toBeDisabled();
-		await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeDisabled();
-		// A model access policy needs its wildcard to be the only subject.
-		await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeDisabled();
+		// All Obot Users doesn't include agents, so a policy for every user names its agents next to it.
+		await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeEnabled();
 	});
 
 	it('shows a deleted agent as such', async () => {

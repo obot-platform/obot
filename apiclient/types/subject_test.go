@@ -41,10 +41,10 @@ func TestSubjectValidateFor(t *testing.T) {
 			valid:   true,
 		},
 		{
-			name:      "user wildcard",
-			subject:   Subject{Type: SubjectTypeUser, ID: "*"},
-			valid:     true,
-			agentOnly: true,
+			// It has always been valid, and names no one.
+			name:    "user wildcard",
+			subject: Subject{Type: SubjectTypeUser, ID: "*"},
+			valid:   true,
 		},
 		{
 			name:    "user without an ID",
@@ -67,10 +67,8 @@ func TestSubjectValidateFor(t *testing.T) {
 			agentOnly: true,
 		},
 		{
-			name:      "agent wildcard",
-			subject:   Subject{Type: SubjectTypeAgent, ID: "*"},
-			valid:     true,
-			agentOnly: true,
+			name:    "agent wildcard",
+			subject: Subject{Type: SubjectTypeAgent, ID: "*"},
 		},
 		{
 			name:    "agent storage encoding",
@@ -112,9 +110,9 @@ func TestSubjectValidateFor(t *testing.T) {
 	}
 }
 
-// TestPolicySubjectWildcards checks the rules among wildcards in each manifest that can hold the new ones. Model
-// access policies and skill access rules require a wildcard to be their only subject; vMCP profiles never have, and
-// only refuse combinations of wildcards.
+// TestPolicySubjectWildcards checks the wildcard rules of each manifest that can name agents. Model access policies
+// and skill access rules require a subject with the ID "*" to be their only subject, as they always have; vMCP
+// profiles never have. Agents are only named by ID, so the agent wildcard is refused everywhere.
 func TestPolicySubjectWildcards(t *testing.T) {
 	var (
 		everyone = Subject{Type: SubjectTypeSelector, ID: "*"}
@@ -146,49 +144,50 @@ func TestPolicySubjectWildcards(t *testing.T) {
 	}{
 		{
 			name:     "every user",
-			subjects: []Subject{users},
-		},
-		{
-			name:     "every agent",
-			subjects: []Subject{agents},
+			subjects: []Subject{everyone},
 		},
 		{
 			name:     "an agent and a user that share an ID",
 			subjects: []Subject{agent, user},
 		},
 		{
-			name:        "everyone and every user",
-			subjects:    []Subject{everyone, users},
-			wantPolicy:  "already includes every user and agent",
-			wantProfile: "already includes every user and agent",
+			name:        "the agent wildcard",
+			subjects:    []Subject{agents},
+			wantPolicy:  "agents must be named by ID",
+			wantProfile: "agents must be named by ID",
 		},
 		{
-			name:        "everyone and every agent",
-			subjects:    []Subject{agents, everyone},
-			wantPolicy:  "already includes every user and agent",
-			wantProfile: "already includes every user and agent",
+			name:        "every user and the agent wildcard",
+			subjects:    []Subject{everyone, agents},
+			wantPolicy:  "must be the only subject",
+			wantProfile: "agents must be named by ID",
 		},
 		{
-			name:        "every user and every agent",
-			subjects:    []Subject{users, agents},
-			wantPolicy:  "use the selector wildcard",
-			wantProfile: "use the selector wildcard",
+			// {user, "*"} names no one, but has always been valid.
+			name:     "user wildcard",
+			subjects: []Subject{users},
 		},
 		{
-			name:       "every agent and a user",
-			subjects:   []Subject{agents, user},
-			wantPolicy: "must be the only subject",
-		},
-		{
-			name:       "every user and a group",
+			name:       "user wildcard and a group",
 			subjects:   []Subject{users, group},
 			wantPolicy: "must be the only subject",
 		},
 		{
-			// Existing profiles may combine the selector wildcard with other subjects.
-			name:       "everyone and an agent",
-			subjects:   []Subject{everyone, agent},
-			wantPolicy: "must be the only subject",
+			// The wildcard is every user and no agent, so a policy for every user names its agents next to it.
+			// Profiles may combine the selector wildcard with other subjects too.
+			name:     "every user and an agent",
+			subjects: []Subject{everyone, agent},
+		},
+		{
+			// A user or group next to the wildcard is already included in it.
+			name:       "every user and a user",
+			subjects:   []Subject{everyone, user},
+			wantPolicy: "must be the only subject, apart from agents",
+		},
+		{
+			name:       "every user, an agent and a group",
+			subjects:   []Subject{everyone, agent, group},
+			wantPolicy: "must be the only subject, apart from agents",
 		},
 		{
 			name:        "the same agent twice",
@@ -210,7 +209,7 @@ func TestPolicySubjectWildcards(t *testing.T) {
 }
 
 // TestUserOnlyPolicySystemsRefuseAgentSubjects checks that access control rules, which agents never match, refuse
-// agent subjects and the user wildcard, and still accept what they accepted.
+// agent subjects, and still accept what they accepted.
 func TestUserOnlyPolicySystemsRefuseAgentSubjects(t *testing.T) {
 	validateRule := func(subjects []Subject) error {
 		return AccessControlRuleManifest{Subjects: subjects}.Validate()
@@ -235,7 +234,6 @@ func TestUserOnlyPolicySystemsRefuseAgentSubjects(t *testing.T) {
 		{
 			name:    "user wildcard",
 			subject: Subject{Type: SubjectTypeUser, ID: "*"},
-			want:    "user wildcard",
 		},
 		{
 			name:    "agent",
@@ -245,7 +243,7 @@ func TestUserOnlyPolicySystemsRefuseAgentSubjects(t *testing.T) {
 		{
 			name:    "agent wildcard",
 			subject: Subject{Type: SubjectTypeAgent, ID: "*"},
-			want:    "agent subjects are not supported",
+			want:    "agents must be named by ID",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -287,40 +285,27 @@ func TestValidateMCPGuardrailFilterSubjects(t *testing.T) {
 			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectUser, "5"), subject(MCPGuardrailSubjectGroup, "okta/eng")},
 		},
 		{
-			name:     "every user",
+			// {user, "*"} names no one, but has always been valid.
+			name:     "user wildcard",
 			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectUser, "*")},
-		},
-		{
-			name:     "every agent",
-			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectAgent, "*")},
 		},
 		{
 			name:     "an agent and the user with its ID",
 			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectAgent, "5"), subject(MCPGuardrailSubjectUser, "5")},
 		},
 		{
-			// As in vMCP profiles, a wildcard may be combined with explicit subjects.
-			name:     "every agent and a user",
-			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectAgent, "*"), subject(MCPGuardrailSubjectUser, "5")},
-		},
-		{
 			name:     "everyone and an agent",
 			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectEveryone, ""), subject(MCPGuardrailSubjectAgent, "5")},
 		},
 		{
-			name:     "everyone and every user",
-			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectEveryone, ""), subject(MCPGuardrailSubjectUser, "*")},
-			want:     "already includes every user and agent",
+			name:     "agent wildcard",
+			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectAgent, "*")},
+			want:     "agents must be named by ID",
 		},
 		{
-			name:     "every agent and everyone",
-			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectAgent, "*"), subject(MCPGuardrailSubjectEveryone, "")},
-			want:     "already includes every user and agent",
-		},
-		{
-			name:     "every user and every agent",
-			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectUser, "*"), subject(MCPGuardrailSubjectAgent, "*")},
-			want:     "use the everyone subject",
+			name:     "everyone and the agent wildcard",
+			subjects: []MCPGuardrailFilterSubject{subject(MCPGuardrailSubjectEveryone, ""), subject(MCPGuardrailSubjectAgent, "*")},
+			want:     "agents must be named by ID",
 		},
 		{
 			name:     "agent storage encoding",

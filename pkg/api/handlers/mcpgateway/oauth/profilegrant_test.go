@@ -38,8 +38,8 @@ import (
 
 const (
 	profileGrantVMCP      = "vmcp1profilegrants"
-	profileGrantAgents    = "vp1agents"
 	profileGrantSeven     = "vp1seven"
+	profileGrantEight     = "vp1eight"
 	profileGrantUsers     = "vp1users"
 	profileGrantRemote    = "remote"
 	profileGrantLocal     = "local"
@@ -85,7 +85,7 @@ type lateProbe struct {
 }
 
 // profileGrantFixture is a shared vMCP with a remote component that requires OAuth and a local one, with a profile for
-// agent 7, one for every agent and one for every user, and the handlers that authorize their grants.
+// agent 7, one for agent 8 and one for every user, and the handlers that authorize their grants.
 type profileGrantFixture struct {
 	provider *profileGrantProvider
 	storage  kclient.WithWatch
@@ -272,8 +272,8 @@ func newProfileGrantFixture(t *testing.T) *profileGrantFixture {
 		},
 		Profiles: []types.VMCPProfile{
 			profile(profileGrantSeven, types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
-			profile(profileGrantAgents, types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}),
-			profile(profileGrantUsers, types.Subject{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}),
+			profile(profileGrantEight, types.Subject{Type: types.SubjectTypeAgent, ID: "8"}),
+			profile(profileGrantUsers, types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}),
 		},
 	}}}
 	storage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(&v1.VMCP{}).WithObjects(vmcp).Build()
@@ -372,13 +372,13 @@ func requireErrHTTP(t *testing.T, err error, code int) {
 // again.
 func TestProfileOAuthGrantAuthorization(t *testing.T) {
 	f := newProfileGrantFixture(t)
-	state, err := f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
+	state, err := f.start(t, administrator("1"), profileGrantEight, profileGrantRemote)
 	require.NoError(t, err)
 	require.Zero(t, f.provider.operations.Load(), "an authorization ran an MCP operation")
 
 	pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
 	require.NoError(t, err)
-	require.Equal(t, principal.ProfileGrant(f.key.Name, profileGrantAgents), pending.UserID)
+	require.Equal(t, principal.ProfileGrant(f.key.Name, profileGrantEight), pending.UserID)
 	require.Equal(t, vmcpconfig.ProfileOAuthGrantMCPID(f.key.Name, profileGrantRemote), pending.MCPID)
 	require.Equal(t, f.provider.mcpURL(), pending.URL)
 	require.Equal(t, "1", pending.GrantInitiatorUserID)
@@ -404,7 +404,7 @@ func TestProfileOAuthGrantAuthorization(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusFound, recorder.Code)
 	require.Equal(t, "/auth/oauth/complete", recorder.Header().Get("Location"))
-	access, authorizedBy, target, ok := f.storedGrant(t, profileGrantAgents)
+	access, authorizedBy, target, ok := f.storedGrant(t, profileGrantEight)
 	require.True(t, ok)
 	require.Equal(t, profileGrantAccess, access)
 	require.Equal(t, "1", authorizedBy)
@@ -417,7 +417,7 @@ func TestProfileOAuthGrantAuthorization(t *testing.T) {
 	var stored v1.VMCP
 	require.NoError(t, f.storage.Get(t.Context(), f.key, &stored))
 	require.Len(t, stored.Status.ProfileOAuthGrants, 1)
-	status, err := f.grants.ProfileOAuthStatus(t.Context(), stored, profileGrantAgents)
+	status, err := f.grants.ProfileOAuthStatus(t.Context(), stored, profileGrantEight)
 	require.NoError(t, err)
 	require.Equal(t, types.VMCPProfileOAuthAuthorized, status[profileGrantRemote].State)
 	require.Equal(t, "1", status[profileGrantRemote].AuthorizedBy)
@@ -435,7 +435,7 @@ func TestProfileOAuthGrantAuthorization(t *testing.T) {
 	require.Equal(t, "1", events[0].ActorUserID)
 	require.Equal(t, "vmcp.profile.oauth.authorize", events[0].Action)
 	require.Equal(t, "vmcpProfile", events[0].ResourceKind)
-	require.Equal(t, profileGrantAgents, events[0].ResourceID)
+	require.Equal(t, profileGrantEight, events[0].ResourceID)
 	require.Equal(t, f.key.Name, events[0].ParentID)
 	var details map[string]any
 	require.NoError(t, json.Unmarshal(events[0].Details, &details))
@@ -477,7 +477,7 @@ func TestProfileOAuthGrantAuthorizationByTheNoAuthOwner(t *testing.T) {
 	require.True(t, ok)
 	nobody := response.User
 
-	state, err := f.start(t, nobody, profileGrantAgents, profileGrantRemote)
+	state, err := f.start(t, nobody, profileGrantEight, profileGrantRemote)
 	require.NoError(t, err)
 	pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
 	require.NoError(t, err)
@@ -486,7 +486,7 @@ func TestProfileOAuthGrantAuthorizationByTheNoAuthOwner(t *testing.T) {
 	recorder, err := f.callback(nobody, state)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusFound, recorder.Code)
-	access, authorizedBy, _, stored := f.storedGrant(t, profileGrantAgents)
+	access, authorizedBy, _, stored := f.storedGrant(t, profileGrantEight)
 	require.True(t, stored)
 	require.Equal(t, profileGrantAccess, access)
 	require.Equal(t, nobody.GetUID(), authorizedBy)
@@ -541,7 +541,7 @@ func TestProfileOAuthGrantCallbackRevalidates(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newProfileGrantFixture(t)
-			state, err := f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
+			state, err := f.start(t, administrator("1"), profileGrantEight, profileGrantRemote)
 			require.NoError(t, err)
 			var vmcp v1.VMCP
 			require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
@@ -550,7 +550,7 @@ func TestProfileOAuthGrantCallbackRevalidates(t *testing.T) {
 
 			_, err = f.callback(administrator("1"), state)
 			requireErrHTTP(t, err, tt.code)
-			_, _, _, ok := f.storedGrant(t, profileGrantAgents)
+			_, _, _, ok := f.storedGrant(t, profileGrantEight)
 			require.False(t, ok)
 			require.Zero(t, f.provider.exchanges.Load(), "a stale callback exchanged its code")
 			// The attempt can never succeed, so it is gone.
@@ -572,12 +572,12 @@ func TestProfileOAuthGrantStartRefusals(t *testing.T) {
 		component string
 		code      int
 	}{
-		{name: "profile for users", caller: administrator("1"), profile: profileGrantUsers, component: profileGrantRemote, code: http.StatusBadRequest},
+		{name: "profile for every user", caller: administrator("1"), profile: profileGrantUsers, component: profileGrantRemote, code: http.StatusBadRequest},
 		{name: "unknown profile", caller: administrator("1"), profile: "vp1missing", component: profileGrantRemote, code: http.StatusNotFound},
-		{name: "component without OAuth", caller: administrator("1"), profile: profileGrantAgents, component: profileGrantLocal, code: http.StatusBadRequest},
-		{name: "unknown component", caller: administrator("1"), profile: profileGrantAgents, component: "missing", code: http.StatusNotFound},
-		{name: "not an administrator", caller: administrator("1", types.GroupBasic, types.GroupAuthenticated), profile: profileGrantAgents, component: profileGrantRemote, code: http.StatusForbidden},
-		{name: "agent", caller: agent, profile: profileGrantAgents, component: profileGrantRemote, code: http.StatusForbidden},
+		{name: "component without OAuth", caller: administrator("1"), profile: profileGrantEight, component: profileGrantLocal, code: http.StatusBadRequest},
+		{name: "unknown component", caller: administrator("1"), profile: profileGrantEight, component: "missing", code: http.StatusNotFound},
+		{name: "not an administrator", caller: administrator("1", types.GroupBasic, types.GroupAuthenticated), profile: profileGrantEight, component: profileGrantRemote, code: http.StatusForbidden},
+		{name: "agent", caller: agent, profile: profileGrantEight, component: profileGrantRemote, code: http.StatusForbidden},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newProfileGrantFixture(t)
@@ -599,7 +599,7 @@ func TestProfileOAuthGrantStartRefusals(t *testing.T) {
 	// A component whose URL comes from configuration that no profile of an agent using the grant sets.
 	f = newProfileGrantFixture(t)
 	f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1"})
-	_, err = f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
+	_, err = f.start(t, administrator("1"), profileGrantEight, profileGrantRemote)
 	requireErrHTTP(t, err, http.StatusBadRequest)
 	require.True(t, strings.Contains(err.Error(), "configure the profile first"), err.Error())
 	require.True(t, strings.Contains(err.Error(), "__url"), err.Error())
@@ -610,7 +610,7 @@ func TestProfileOAuthGrantStartRefusals(t *testing.T) {
 		ComponentID: profileGrantRemote,
 		Code:        types.AgentReadinessConfigurationRequired,
 		Field:       "__url",
-		ProfileID:   profileGrantAgents,
+		ProfileID:   profileGrantEight,
 	}}, withReasons.Reasons)
 }
 
@@ -663,14 +663,14 @@ func TestProfileOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
 				f := newProfileGrantFixture(t)
 				if configured {
 					f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1"})
-					f.configure(t, profileGrantAgents, map[string]*string{"__url": new(f.provider.mcpURL())})
+					f.configure(t, profileGrantEight, map[string]*string{"__url": new(f.provider.mcpURL())})
 				}
 				f.provider.late.Store(tt.mode)
 				requireRequired := func(want bool) {
 					t.Helper()
 					var vmcp v1.VMCP
 					require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
-					for _, profileID := range []string{profileGrantSeven, profileGrantAgents} {
+					for _, profileID := range []string{profileGrantSeven, profileGrantEight} {
 						status, err := f.grants.ProfileOAuthStatus(t.Context(), vmcp, profileID)
 						require.NoError(t, err)
 						require.Equal(t, want, status[profileGrantRemote].Required, profileID)
@@ -680,10 +680,10 @@ func TestProfileOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
 
 				ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 				defer cancel()
-				req, _ := f.request(administrator("1"), http.MethodPost, "/api/vmcps/"+f.key.Name+"/profiles/"+profileGrantAgents+"/components/"+profileGrantRemote+"/oauth")
+				req, _ := f.request(administrator("1"), http.MethodPost, "/api/vmcps/"+f.key.Name+"/profiles/"+profileGrantEight+"/components/"+profileGrantRemote+"/oauth")
 				req.Request = req.WithContext(ctx)
 				started := time.Now()
-				authorization, err := f.factory.StartProfileOAuthGrant(req, f.key.Name, profileGrantAgents, profileGrantRemote)
+				authorization, err := f.factory.StartProfileOAuthGrant(req, f.key.Name, profileGrantEight, profileGrantRemote)
 				require.Less(t, time.Since(started), 10*time.Second)
 				requireUnauthenticatedProbes(t, f.provider.lateProbes())
 
@@ -710,7 +710,7 @@ func TestProfileOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
 				state := parsed.Query().Get("state")
 				pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
 				require.NoError(t, err)
-				require.Equal(t, principal.ProfileGrant(f.key.Name, profileGrantAgents), pending.UserID)
+				require.Equal(t, principal.ProfileGrant(f.key.Name, profileGrantEight), pending.UserID)
 				require.Equal(t, f.provider.mcpURL(), pending.URL)
 				require.Equal(t, "1", pending.GrantInitiatorUserID)
 
@@ -719,7 +719,7 @@ func TestProfileOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
 				requireErrHTTP(t, err, http.StatusForbidden)
 				_, err = f.callback(administrator("1"), state)
 				require.NoError(t, err)
-				_, _, target, ok := f.storedGrant(t, profileGrantAgents)
+				_, _, target, ok := f.storedGrant(t, profileGrantEight)
 				require.True(t, ok)
 				require.Equal(t, f.provider.mcpURL(), target)
 				_, err = f.callback(administrator("1"), state)
@@ -749,9 +749,9 @@ func (f *profileGrantFixture) configure(t *testing.T, profileID string, values m
 }
 
 // TestProfileOAuthGrantsForConfiguredURLs authorizes grants for remote components whose upstream URL comes from
-// configuration, a hostname-constrained one and a URL template: each grant is bound to the URL that an agent using the
-// profile's grants reaches, its own profile's or, for a value it does not set, the wildcard profile's, and an agent
-// that reaches it is ready. A grant for a URL that changed since, before or after the callback, is refused.
+// configuration, a hostname-constrained one and a URL template: each grant is bound to the URL that its own profile's
+// agents reach, and an agent that reaches it is ready. A grant for a URL that changed since, before or after the
+// callback, is refused.
 func TestProfileOAuthGrantsForConfiguredURLs(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
@@ -794,22 +794,22 @@ func TestProfileOAuthGrantsForConfiguredURLs(t *testing.T) {
 			_, err := f.start(t, administrator("1"), profileGrantSeven, profileGrantRemote)
 			requireErrHTTP(t, err, http.StatusBadRequest)
 
-			// The wildcard profile configures it: agent 7's explicit profile falls back to it.
-			f.configure(t, profileGrantAgents, tt.value(base, "/mcp"))
-			for _, profileID := range []string{profileGrantSeven, profileGrantAgents} {
-				state, err := f.start(t, administrator("1"), profileID, profileGrantRemote)
+			// Each profile configures its own agents' URL, and its grant is bound to it.
+			for _, profile := range []struct{ id, path string }{{id: profileGrantSeven, path: "/seven"}, {id: profileGrantEight, path: "/eight"}} {
+				f.configure(t, profile.id, tt.value(base, profile.path))
+				state, err := f.start(t, administrator("1"), profile.id, profileGrantRemote)
 				require.NoError(t, err)
 				pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
 				require.NoError(t, err)
-				require.Equal(t, base+"/mcp", pending.URL)
+				require.Equal(t, base+profile.path, pending.URL)
 				_, err = f.callback(administrator("1"), state)
 				require.NoError(t, err)
-				_, _, target, ok := f.storedGrant(t, profileID)
+				_, _, target, ok := f.storedGrant(t, profile.id)
 				require.True(t, ok)
-				require.Equal(t, base+"/mcp", target)
+				require.Equal(t, base+profile.path, target)
 			}
 
-			// An agent of either profile reaches the URL the grant is for, and is ready.
+			// Each agent reaches the URL its profile's grant is for, and is ready.
 			var stored v1.VMCP
 			require.NoError(t, f.storage.Get(t.Context(), f.key, &stored))
 			stored.Spec.Manifest.Components = stored.Spec.Manifest.Components[:1]
@@ -819,40 +819,25 @@ func TestProfileOAuthGrantsForConfiguredURLs(t *testing.T) {
 				require.Empty(t, report.Readiness.Reasons, "agent %d", agentID)
 			}
 
-			// The wildcard's URL changes while an authorization of its grant waits for its callback: the callback is
+			// Agent 8's URL changes while an authorization of its profile's grant waits for its callback: the callback is
 			// refused, and its attempt consumed.
-			state, err := f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
+			state, err := f.start(t, administrator("1"), profileGrantEight, profileGrantRemote)
 			require.NoError(t, err)
-			f.configure(t, profileGrantAgents, tt.value(base, "/moved"))
+			f.configure(t, profileGrantEight, tt.value(base, "/moved"))
 			_, err = f.callback(administrator("1"), state)
 			requireErrHTTP(t, err, http.StatusConflict)
 			_, err = f.gateway.GetMCPOAuthPendingState(t.Context(), state)
 			require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 
-			// Both grants were authorized for the old URL, which neither profile's agents reach any more.
+			// Agent 8's grant was authorized for the old URL, which its agents reach no more; agent 7's still works.
 			require.NoError(t, f.storage.Get(t.Context(), f.key, &stored))
-			for _, profileID := range []string{profileGrantSeven, profileGrantAgents} {
+			for profileID, want := range map[string]string{profileGrantSeven: types.VMCPProfileOAuthAuthorized, profileGrantEight: types.VMCPProfileOAuthInvalid} {
 				status, err := f.grants.ProfileOAuthStatus(t.Context(), stored, profileID)
 				require.NoError(t, err)
-				require.Equal(t, types.VMCPProfileOAuthInvalid, status[profileGrantRemote].State, profileID)
+				require.Equal(t, want, status[profileGrantRemote].State, profileID)
 			}
 		})
 	}
-
-	// An ambiguous fallback is a conflict, as for the vMCP's other ambiguous cases.
-	f := newProfileGrantFixture(t)
-	f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1"})
-	var vmcp v1.VMCP
-	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
-	vmcp.Spec.Manifest.Profiles = append(vmcp.Spec.Manifest.Profiles, types.VMCPProfile{
-		ID:          "vp1everyone",
-		Name:        "everyone",
-		Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
-		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
-	})
-	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
-	_, err := f.start(t, administrator("1"), profileGrantSeven, profileGrantRemote)
-	requireErrHTTP(t, err, http.StatusConflict)
 }
 
 // profileGrantAgent returns the principal of the agent with id.
@@ -899,7 +884,7 @@ func TestProfileOAuthGrantThroughTheLocalhostRelay(t *testing.T) {
 	f := newProfileGrantFixture(t)
 	f.setRemote(t, &types.RemoteCatalogConfig{FixedURL: f.provider.mcpURL(), LocalhostCallbackEnabled: true, LocalhostCallbackPath: "/relay/callback"})
 
-	authorization, state, err := f.startRelay(t, administrator("1"), profileGrantAgents)
+	authorization, state, err := f.startRelay(t, administrator("1"), profileGrantEight)
 	require.NoError(t, err)
 	require.True(t, authorization.LocalhostCallback)
 	require.True(t, strings.HasPrefix(authorization.AuthURL, "http://obot.example/oauth/mcp/login/"), authorization.AuthURL)
@@ -909,7 +894,7 @@ func TestProfileOAuthGrantThroughTheLocalhostRelay(t *testing.T) {
 	// The attempt is the profile's, bound to its administrator, with the relay's loopback-only redirect.
 	pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
 	require.NoError(t, err)
-	owner, mcpID := principal.ProfileGrant(f.key.Name, profileGrantAgents), vmcpconfig.ProfileOAuthGrantMCPID(f.key.Name, profileGrantRemote)
+	owner, mcpID := principal.ProfileGrant(f.key.Name, profileGrantEight), vmcpconfig.ProfileOAuthGrantMCPID(f.key.Name, profileGrantRemote)
 	require.Equal(t, owner, pending.UserID)
 	require.Equal(t, "1", pending.GrantInitiatorUserID)
 	require.True(t, localLoginState(pending))
@@ -950,7 +935,7 @@ func TestProfileOAuthGrantThroughTheLocalhostRelay(t *testing.T) {
 	require.Equal(t, "complete", completion.Query().Get("status"))
 	require.Equal(t, state, completion.Query().Get("state"))
 	require.Equal(t, pending.RedirectURL, f.provider.redirectURI.Load())
-	access, authorizedBy, target, ok := f.storedGrant(t, profileGrantAgents)
+	access, authorizedBy, target, ok := f.storedGrant(t, profileGrantEight)
 	require.True(t, ok)
 	require.Equal(t, profileGrantAccess, access)
 	require.Equal(t, "1", authorizedBy)
@@ -1012,13 +997,13 @@ func TestProfileOAuthGrantRelayRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newProfileGrantFixture(t)
 			f.setRemote(t, &types.RemoteCatalogConfig{FixedURL: f.provider.mcpURL(), LocalhostCallbackEnabled: true})
-			_, state, err := f.startRelay(t, administrator("1"), profileGrantAgents)
+			_, state, err := f.startRelay(t, administrator("1"), profileGrantEight)
 			require.NoError(t, err)
 			tt.change(t, f)
 
 			_, err = f.callback(administrator("1"), state)
 			requireErrHTTP(t, err, tt.code)
-			_, _, _, ok := f.storedGrant(t, profileGrantAgents)
+			_, _, _, ok := f.storedGrant(t, profileGrantEight)
 			require.False(t, ok)
 			require.Zero(t, f.provider.exchanges.Load())
 		})
@@ -1027,7 +1012,7 @@ func TestProfileOAuthGrantRelayRefusals(t *testing.T) {
 	// Profile-configured URLs go through the relay too.
 	f := newProfileGrantFixture(t)
 	f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1", LocalhostCallbackEnabled: true})
-	f.configure(t, profileGrantAgents, map[string]*string{"__url": new(f.provider.mcpURL())})
+	f.configure(t, profileGrantSeven, map[string]*string{"__url": new(f.provider.mcpURL())})
 	authorization, state, err := f.startRelay(t, administrator("1"), profileGrantSeven)
 	require.NoError(t, err)
 	require.True(t, authorization.LocalhostCallback)

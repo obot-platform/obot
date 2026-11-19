@@ -723,21 +723,8 @@ export interface VMCPManifest {
 	toolSearch?: boolean;
 }
 
-// The condition that is true when more than one profile names every agent, so an agent cannot be
-// given one wildcard profile's configuration and OAuth grants (apiclient/types.VMCPConditionAgentSelectionAmbiguous).
-export const VMCP_CONDITION_AGENT_SELECTION_AMBIGUOUS = 'AgentSelectionAmbiguous';
-
-export interface VMCPCondition {
-	type: string;
-	status: 'True' | 'False' | 'Unknown' | string;
-	reason?: string;
-	message?: string;
-	lastTransitionTime?: string;
-}
-
 export interface VMCPStatus {
 	components?: VMCPComponentStatus[];
-	conditions?: VMCPCondition[];
 	ready?: boolean;
 }
 

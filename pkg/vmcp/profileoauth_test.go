@@ -22,9 +22,10 @@ import (
 )
 
 const (
+	// grantExplicit names agent 7, grantOther agent 9, and grantUsers every user.
 	grantExplicit = "vp1explicit"
-	grantWildcard = "vp1wildcard"
-	grantOther    = "vp1otherwildcard"
+	grantOther    = "vp1other"
+	grantUsers    = "vp1users"
 	grantVMCP     = "vmcp1grants"
 )
 
@@ -132,10 +133,10 @@ func oauthComponent(id string) types.VMCPComponent {
 }
 
 // grantTestVMCP returns a shared vMCP whose components are a static OAuth remote, a remote that asks for OAuth when
-// called, and a server that does not use OAuth, with a profile for agent 7 and one for every agent.
+// called, and a server that does not use OAuth, with a profile for agent 7, one for agent 9, and one for every user.
 func grantTestVMCP(profiles ...types.VMCPProfile) v1.VMCP {
 	if len(profiles) == 0 {
-		profiles = []types.VMCPProfile{explicitAgentProfile(grantExplicit, "7"), everyAgentProfile(grantWildcard, types.SubjectTypeAgent)}
+		profiles = []types.VMCPProfile{explicitAgentProfile(grantExplicit, "7"), explicitAgentProfile(grantOther, "9"), everyUserProfile(grantUsers)}
 	}
 	return v1.VMCP{
 		Name:      grantVMCP,
@@ -159,65 +160,52 @@ func grantMCPID(componentID string) string {
 func TestSelectAgentGrants(t *testing.T) {
 	staticURL, dynamicURL := "https://static.example.com/mcp", "https://dynamic.example.com/mcp"
 	for _, tt := range []struct {
-		name     string
-		profiles []types.VMCPProfile
-		agent    uint
+		name  string
+		agent uint
 		// stored are the grants stored, by owner profile and then component.
 		stored map[string]map[string]string
 		// invalid are the stored grants marked invalid, by owner profile and then component.
 		invalid map[string][]string
-		// want is the profile whose grant the agent uses for each component, by component, and wantFallback those it
-		// falls back for.
-		want         map[string]string
-		wantFallback []string
-		wantReasons  []ReadinessReason
+		// want is the profile whose grant the agent uses for each component, by component.
+		want        map[string]string
+		wantReasons []ReadinessReason
 	}{
 		{
-			name:   "explicit grant",
+			name:   "agent's grants",
 			agent:  7,
-			stored: map[string]map[string]string{grantExplicit: {"static": staticURL, "dynamic": dynamicURL}, grantWildcard: {"static": staticURL, "dynamic": dynamicURL}},
+			stored: map[string]map[string]string{grantExplicit: {"static": staticURL, "dynamic": dynamicURL}, grantOther: {"static": staticURL, "dynamic": dynamicURL}},
 			want:   map[string]string{"static": grantExplicit, "dynamic": grantExplicit},
 		},
 		{
-			name:         "explicit grant missing falls back",
-			agent:        7,
-			stored:       map[string]map[string]string{grantExplicit: {"dynamic": dynamicURL}, grantWildcard: {"static": staticURL}},
-			want:         map[string]string{"static": grantWildcard, "dynamic": grantExplicit},
-			wantFallback: []string{"static"},
-		},
-		{
-			name:         "agent without an explicit profile uses the wildcard",
-			agent:        9,
-			stored:       map[string]map[string]string{grantExplicit: {"static": staticURL}, grantWildcard: {"static": staticURL}},
-			want:         map[string]string{"static": grantWildcard},
-			wantFallback: []string{"static"},
-		},
-		{
-			name:        "broken explicit grant never falls back",
+			// Another profile's grant for the static component is never the agent's.
+			name:        "agent's grant missing",
 			agent:       7,
-			stored:      map[string]map[string]string{grantExplicit: {"static": staticURL}, grantWildcard: {"static": staticURL}},
+			stored:      map[string]map[string]string{grantExplicit: {"dynamic": dynamicURL}, grantOther: {"static": staticURL}},
+			want:        map[string]string{"dynamic": grantExplicit},
+			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantExplicit}},
+		},
+		{
+			// The profile for every user names no agent, so its grants are no agent's, even one stored before agents
+			// were named only by ID.
+			name:        "grants of the profile for every user",
+			agent:       7,
+			stored:      map[string]map[string]string{grantUsers: {"static": staticURL}},
+			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantExplicit}},
+		},
+		{
+			name:        "broken grant",
+			agent:       7,
+			stored:      map[string]map[string]string{grantExplicit: {"static": staticURL}, grantOther: {"static": staticURL}},
 			invalid:     map[string][]string{grantExplicit: {"static"}},
 			want:        map[string]string{"static": grantExplicit},
 			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthInvalid, ProfileID: grantExplicit}},
 		},
 		{
-			name:        "explicit grant for another target never falls back",
+			name:        "grant for another target",
 			agent:       7,
-			stored:      map[string]map[string]string{grantExplicit: {"static": "https://moved.example.com/mcp"}, grantWildcard: {"static": staticURL}},
+			stored:      map[string]map[string]string{grantExplicit: {"static": "https://moved.example.com/mcp"}},
 			want:        map[string]string{"static": grantExplicit},
 			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthInvalid, ProfileID: grantExplicit}},
-		},
-		{
-			name:         "broken wildcard grant",
-			agent:        9,
-			stored:       map[string]map[string]string{grantWildcard: {"dynamic": dynamicURL}},
-			invalid:      map[string][]string{grantWildcard: {"dynamic"}},
-			want:         map[string]string{"dynamic": grantWildcard},
-			wantFallback: []string{"dynamic"},
-			wantReasons: []ReadinessReason{
-				{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
-				{ComponentID: "dynamic", Code: types.AgentReadinessOAuthInvalid, ProfileID: grantWildcard},
-			},
 		},
 		{
 			// Only a component known to need OAuth is reported without a grant; the other is caught when it is called.
@@ -226,24 +214,14 @@ func TestSelectAgentGrants(t *testing.T) {
 			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantExplicit}},
 		},
 		{
-			// The wildcard's grant shows that the dynamic component uses OAuth, and the agent's grant for it would come
-			// from the ambiguous fallback.
-			name:        "explicit grant on an ambiguous vMCP",
-			profiles:    []types.VMCPProfile{explicitAgentProfile(grantExplicit, "7"), legacyWildcardProfile(grantWildcard), legacyWildcardProfile(grantOther)},
-			agent:       7,
-			stored:      map[string]map[string]string{grantExplicit: {"static": staticURL}, grantWildcard: {"dynamic": dynamicURL}},
-			want:        map[string]string{"static": grantExplicit},
-			wantReasons: []ReadinessReason{AmbiguousFallbackReason("dynamic")},
-		},
-		{
 			// A component that asks for OAuth only once it is called is known to need it once any profile holds a
-			// grant for it, so an agent whose profiles hold none is not ready.
+			// grant for it, so an agent whose profile holds none is not ready.
 			name:   "late challenge another profile authorized",
 			agent:  9,
 			stored: map[string]map[string]string{grantExplicit: {"dynamic": dynamicURL}},
 			wantReasons: []ReadinessReason{
-				{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
-				{ComponentID: "dynamic", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
+				{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantOther},
+				{ComponentID: "dynamic", Code: types.AgentReadinessOAuthRequired, ProfileID: grantOther},
 			},
 		},
 		{
@@ -252,8 +230,8 @@ func TestSelectAgentGrants(t *testing.T) {
 			stored:  map[string]map[string]string{grantExplicit: {"dynamic": dynamicURL}},
 			invalid: map[string][]string{grantExplicit: {"dynamic"}},
 			wantReasons: []ReadinessReason{
-				{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
-				{ComponentID: "dynamic", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
+				{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantOther},
+				{ComponentID: "dynamic", Code: types.AgentReadinessOAuthRequired, ProfileID: grantOther},
 			},
 		},
 		{
@@ -264,16 +242,9 @@ func TestSelectAgentGrants(t *testing.T) {
 			stored:      map[string]map[string]string{"vp1removed": {"dynamic": dynamicURL}},
 			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantExplicit}},
 		},
-		{
-			name:        "explicit grant missing on an ambiguous vMCP",
-			profiles:    []types.VMCPProfile{explicitAgentProfile(grantExplicit, "7"), legacyWildcardProfile(grantWildcard), legacyWildcardProfile(grantOther)},
-			agent:       7,
-			stored:      map[string]map[string]string{grantWildcard: {"static": staticURL}},
-			wantReasons: []ReadinessReason{AmbiguousFallbackReason("static")},
-		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			vmcp := grantTestVMCP(tt.profiles...)
+			vmcp := grantTestVMCP()
 			grants := newMemoryGrants()
 			for profileID, components := range tt.stored {
 				for componentID, url := range components {
@@ -287,35 +258,22 @@ func TestSelectAgentGrants(t *testing.T) {
 			}
 			store := NewProfileOAuthGrantStore(grants)
 			agent := agentInfo(tt.agent, nil)
-			selection := SelectAgentProfiles(agent, vmcp.Spec.Manifest)
 
-			selected, err := store.SelectAgentGrants(t.Context(), vmcp, selection, vmcp.Spec.Manifest.Components)
+			selected, err := store.SelectAgentGrants(t.Context(), vmcp, AgentProfile(agent, vmcp.Spec.Manifest), vmcp.Spec.Manifest.Components)
 			require.NoError(t, err)
 			require.Equal(t, 1, grants.queries, "selection reads every component's grants with one query")
 			got := map[string]string{}
-			var fallback []string
 			for _, grant := range selected {
 				if grant.ProfileID != "" {
 					got[grant.ComponentID] = grant.ProfileID
 					require.Equal(t, grantOwner(grant.ProfileID), grant.Owner)
 					require.Equal(t, grantMCPID(grant.ComponentID), grant.MCPID)
 				}
-				if grant.Fallback {
-					fallback = append(fallback, grant.ComponentID)
-				}
 			}
 			if tt.want == nil {
 				tt.want = map[string]string{}
 			}
 			require.Equal(t, tt.want, got)
-			require.ElementsMatch(t, tt.wantFallback, fallback)
-			var wantFallbackProfiles []string
-			for _, componentID := range tt.wantFallback {
-				if !slices.Contains(wantFallbackProfiles, tt.want[componentID]) {
-					wantFallbackProfiles = append(wantFallbackProfiles, tt.want[componentID])
-				}
-			}
-			require.Equal(t, wantFallbackProfiles, FallbackGrantProfileIDs(selected))
 
 			readiness, err := readinessWith(t, store, vmcp, agent)
 			require.NoError(t, err)
@@ -354,11 +312,10 @@ func noGrantCheck(*v1.VMCP, types.VMCPProfile, types.VMCPComponent) error {
 // TestProfileOAuthGrantAuthorize checks that a grant is recorded in the vMCP's status, with its profile, before it is
 // stored, and then published as the only grant of its component; and which profiles and components can hold one.
 func TestProfileOAuthGrantAuthorize(t *testing.T) {
-	vmcp := grantTestVMCP(explicitAgentProfile(grantExplicit, "7"), everyAgentProfile(grantWildcard, types.SubjectTypeAgent), everyAgentProfile("vp1users", types.SubjectTypeUser))
-	client, key := newGrantTestStorage(t, vmcp)
+	client, key := newGrantTestStorage(t, grantTestVMCP())
 	// The profile was just added, and the controller has not recorded it yet.
 	current := storedVMCP(t, client, key)
-	current.Status.ProfileIDs = []string{grantWildcard}
+	current.Status.ProfileIDs = []string{grantOther}
 	require.NoError(t, client.Status().Update(t.Context(), current))
 
 	grants := newMemoryGrants()
@@ -401,7 +358,7 @@ func TestProfileOAuthGrantAuthorize(t *testing.T) {
 		code      int
 		contains  string
 	}{
-		{name: "profile for users", profile: "vp1users", component: "static", code: http.StatusBadRequest, contains: "does not apply to agents"},
+		{name: "profile for every user", profile: grantUsers, component: "static", code: http.StatusBadRequest, contains: "names no agent"},
 		{name: "unknown profile", profile: "vp1missing", component: "static", code: http.StatusNotFound, contains: "no profile"},
 		{name: "unknown component", profile: grantExplicit, component: "missing", code: http.StatusNotFound, contains: "no component"},
 		{name: "component without OAuth", profile: grantExplicit, component: "local", code: http.StatusBadRequest, contains: "not a remote server"},
@@ -412,13 +369,6 @@ func TestProfileOAuthGrantAuthorize(t *testing.T) {
 		})
 	}
 	require.Len(t, written, 2, "a refused grant was stored")
-
-	// No grant is written while agent selection is ambiguous.
-	ambiguous := storedVMCP(t, client, key)
-	ambiguous.Spec.Manifest.Profiles = append(ambiguous.Spec.Manifest.Profiles, legacyWildcardProfile(grantOther), legacyWildcardProfile("vp1third"))
-	require.NoError(t, client.Update(t.Context(), ambiguous))
-	_, err = store.Authorize(t.Context(), client, key, grantExplicit, "static", noGrantCheck, write)
-	requireHTTPError(t, err, http.StatusConflict, "more than one profile")
 
 	// The stored status names grants, never their tokens.
 	statusJSON, err := json.Marshal(storedVMCP(t, client, key).Status)
@@ -461,7 +411,7 @@ func TestProfileOAuthGrantReset(t *testing.T) {
 		grants.put(owner, mcpID, grantID, "https://static.example.com/mcp")
 		return nil
 	}
-	for _, profileID := range []string{grantExplicit, grantWildcard} {
+	for _, profileID := range []string{grantExplicit, grantOther} {
 		_, err := store.Authorize(t.Context(), client, key, profileID, "static", noGrantCheck, write)
 		require.NoError(t, err)
 	}
@@ -472,8 +422,8 @@ func TestProfileOAuthGrantReset(t *testing.T) {
 	require.Empty(t, recordedGrantIDs(updated, grantExplicit, "static"))
 	_, ok := grants.get(grantOwner(grantExplicit), grantMCPID("static"))
 	require.False(t, ok)
-	// The wildcard's grant for the same component is another profile's.
-	_, ok = grants.get(grantOwner(grantWildcard), grantMCPID("static"))
+	// Another profile's grant for the same component is kept.
+	_, ok = grants.get(grantOwner(grantOther), grantMCPID("static"))
 	require.True(t, ok)
 
 	_, cleared, err = store.Reset(t.Context(), client, key, grantExplicit, "static")
@@ -484,12 +434,12 @@ func TestProfileOAuthGrantReset(t *testing.T) {
 	// not list, and is kept.
 	grants.beforeDelete = func() {
 		grants.beforeDelete = nil
-		grants.put(grantOwner(grantWildcard), grantMCPID("static"), "grant-after-listing", "https://static.example.com/mcp")
+		grants.put(grantOwner(grantOther), grantMCPID("static"), "grant-after-listing", "https://static.example.com/mcp")
 	}
-	_, cleared, err = store.Reset(t.Context(), client, key, grantWildcard, "static")
+	_, cleared, err = store.Reset(t.Context(), client, key, grantOther, "static")
 	require.NoError(t, err)
 	require.True(t, cleared)
-	kept, ok := grants.get(grantOwner(grantWildcard), grantMCPID("static"))
+	kept, ok := grants.get(grantOwner(grantOther), grantMCPID("static"))
 	require.True(t, ok)
 	require.Equal(t, "grant-after-listing", kept.GrantID)
 
@@ -516,14 +466,14 @@ func TestDeleteRemovedComponentGrants(t *testing.T) {
 	vmcp := grantTestVMCP()
 	vmcp.Status.ProfileOAuthGrants = []v1.VMCPProfileOAuthGrant{
 		{ProfileID: grantExplicit, ComponentID: "static", GrantIDs: []string{"grant-static"}},
-		{ProfileID: grantWildcard, ComponentID: "dynamic", GrantIDs: []string{"grant-dynamic", "grant-pending"}},
-		{ProfileID: grantWildcard, ComponentID: "removed", GrantIDs: []string{"grant-removed"}},
+		{ProfileID: grantOther, ComponentID: "dynamic", GrantIDs: []string{"grant-dynamic", "grant-pending"}},
+		{ProfileID: grantOther, ComponentID: "removed", GrantIDs: []string{"grant-removed"}},
 		{ProfileID: grantExplicit, ComponentID: "readded", GrantIDs: []string{"grant-before-removal"}},
 	}
 	grants := newMemoryGrants()
 	grants.put(grantOwner(grantExplicit), grantMCPID("static"), "grant-static", "https://static.example.com/mcp")
-	grants.put(grantOwner(grantWildcard), grantMCPID("dynamic"), "grant-pending", "https://dynamic.example.com/mcp")
-	grants.put(grantOwner(grantWildcard), grantMCPID("removed"), "grant-removed", "https://removed.example.com/mcp")
+	grants.put(grantOwner(grantOther), grantMCPID("dynamic"), "grant-pending", "https://dynamic.example.com/mcp")
+	grants.put(grantOwner(grantOther), grantMCPID("removed"), "grant-removed", "https://removed.example.com/mcp")
 	grants.put(grantOwner(grantExplicit), grantMCPID("readded"), "grant-after-readding", "https://readded.example.com/mcp")
 	store := NewProfileOAuthGrantStore(grants)
 
@@ -532,7 +482,7 @@ func TestDeleteRemovedComponentGrants(t *testing.T) {
 	require.True(t, changed)
 	require.Equal(t, []v1.VMCPProfileOAuthGrant{
 		{ProfileID: grantExplicit, ComponentID: "static", GrantIDs: []string{"grant-static"}},
-		{ProfileID: grantWildcard, ComponentID: "dynamic", GrantIDs: []string{"grant-dynamic", "grant-pending"}},
+		{ProfileID: grantOther, ComponentID: "dynamic", GrantIDs: []string{"grant-dynamic", "grant-pending"}},
 	}, vmcp.Status.ProfileOAuthGrants)
 	for _, tt := range []struct {
 		profileID   string
@@ -540,8 +490,8 @@ func TestDeleteRemovedComponentGrants(t *testing.T) {
 		kept        bool
 	}{
 		{profileID: grantExplicit, componentID: "static", kept: true},
-		{profileID: grantWildcard, componentID: "dynamic", kept: true},
-		{profileID: grantWildcard, componentID: "removed"},
+		{profileID: grantOther, componentID: "dynamic", kept: true},
+		{profileID: grantOther, componentID: "removed"},
 		{profileID: grantExplicit, componentID: "readded", kept: true},
 	} {
 		_, ok := grants.get(grantOwner(tt.profileID), grantMCPID(tt.componentID))
@@ -559,24 +509,24 @@ func TestProfileOAuthGrantStoreIsAProfileDataStore(t *testing.T) {
 	grants := newMemoryGrants()
 	grants.put(grantOwner(grantExplicit), grantMCPID("static"), "a", "https://static.example.com/mcp")
 	grants.put(grantOwner(grantExplicit), grantMCPID("dynamic"), "b", "https://dynamic.example.com/mcp")
-	grants.put(grantOwner(grantWildcard), grantMCPID("static"), "c", "https://static.example.com/mcp")
+	grants.put(grantOwner(grantOther), grantMCPID("static"), "c", "https://static.example.com/mcp")
 	// Another vMCP's profile of the same ID is another profile, and a user's token is never a grant.
 	grants.put(principal.ProfileGrant("vmcp1other", grantExplicit), ProfileOAuthGrantMCPID("vmcp1other", "static"), "d", "https://static.example.com/mcp")
 	grants.put("7", "msi1connection", "e", "https://static.example.com/mcp")
 	store := NewProfileOAuthGrantStore(grants)
 
 	queries := grants.queries
-	withData, err := store.ProfilesWithData(t.Context(), grantVMCP, []string{"vp1missing", grantWildcard, grantExplicit})
+	withData, err := store.ProfilesWithData(t.Context(), grantVMCP, []string{"vp1missing", grantOther, grantExplicit})
 	require.NoError(t, err)
-	require.Equal(t, []string{grantWildcard, grantExplicit}, withData)
+	require.Equal(t, []string{grantOther, grantExplicit}, withData)
 	require.Equal(t, queries+1, grants.queries)
 
 	for range 2 {
 		require.NoError(t, store.DeleteProfileData(t.Context(), grantVMCP, []string{grantExplicit}))
 	}
-	withData, err = store.ProfilesWithData(t.Context(), grantVMCP, []string{grantWildcard, grantExplicit})
+	withData, err = store.ProfilesWithData(t.Context(), grantVMCP, []string{grantOther, grantExplicit})
 	require.NoError(t, err)
-	require.Equal(t, []string{grantWildcard}, withData)
+	require.Equal(t, []string{grantOther}, withData)
 	_, ok := grants.get(principal.ProfileGrant("vmcp1other", grantExplicit), ProfileOAuthGrantMCPID("vmcp1other", "static"))
 	require.True(t, ok)
 	_, ok = grants.get("7", "msi1connection")
@@ -584,14 +534,14 @@ func TestProfileOAuthGrantStoreIsAProfileDataStore(t *testing.T) {
 }
 
 // TestProfileOAuthStatus checks the status of a profile's grants: every component that can hold one, with who
-// authorized it, when, for which target and scopes, and no fallback to another profile.
+// authorized it, when, for which target and scopes, and nothing of another profile's.
 func TestProfileOAuthStatus(t *testing.T) {
-	vmcp := grantTestVMCP(explicitAgentProfile(grantExplicit, "7"), everyAgentProfile(grantWildcard, types.SubjectTypeAgent), everyAgentProfile("vp1users", types.SubjectTypeUser))
+	vmcp := grantTestVMCP()
 	grants := newMemoryGrants()
 	grants.put(grantOwner(grantExplicit), grantMCPID("static"), "a", "https://static.example.com/mcp")
 	grants.put(grantOwner(grantExplicit), grantMCPID("dynamic"), "b", "https://dynamic.example.com/mcp")
 	grants.invalidate(grantOwner(grantExplicit), grantMCPID("dynamic"))
-	grants.put(grantOwner(grantWildcard), grantMCPID("static"), "c", "https://static.example.com/mcp")
+	grants.put(grantOwner(grantOther), grantMCPID("static"), "c", "https://static.example.com/mcp")
 	store := NewProfileOAuthGrantStore(grants)
 
 	explicit, err := store.ProfileOAuthStatus(t.Context(), vmcp, grantExplicit)
@@ -612,9 +562,9 @@ func TestProfileOAuthStatus(t *testing.T) {
 	// A component without static OAuth is known to need OAuth once a profile holds a grant for it, even a broken one.
 	require.True(t, explicit["dynamic"].Required)
 
-	// The profile alone: the wildcard's grant is not the users profile's. Whether a component requires OAuth does look
-	// at every profile.
-	users, err := store.ProfileOAuthStatus(t.Context(), vmcp, "vp1users")
+	// The profile alone: another profile's grant is not the users profile's. Whether a component requires OAuth does
+	// look at every profile.
+	users, err := store.ProfileOAuthStatus(t.Context(), vmcp, grantUsers)
 	require.NoError(t, err)
 	require.Equal(t, types.VMCPProfileOAuthMissing, users["static"].State)
 	require.Equal(t, types.VMCPProfileOAuthMissing, users["dynamic"].State)
@@ -623,7 +573,7 @@ func TestProfileOAuthStatus(t *testing.T) {
 
 	// Once no profile holds a grant for it, nothing shows that it needs OAuth.
 	require.NoError(t, grants.DeleteMCPOAuthGrants(t.Context(), grantOwner(grantExplicit), grantMCPID("dynamic"), []string{"b"}))
-	for _, profileID := range []string{grantExplicit, grantWildcard, "vp1users"} {
+	for _, profileID := range []string{grantExplicit, grantOther, grantUsers} {
 		status, err := store.ProfileOAuthStatus(t.Context(), vmcp, profileID)
 		require.NoError(t, err)
 		require.False(t, status["dynamic"].Required, profileID)
@@ -638,11 +588,11 @@ func TestProfileOAuthStatus(t *testing.T) {
 }
 
 // TestProfileGrantOwnerIsNeverACaller checks that a caller whose UID is a profile's grant owner, however it presents
-// itself, matches no profile, not even the one that names everyone, owns no instance, and is not an agent, so it can
+// itself, matches no profile, not even the one that names every user, owns no instance, and is not an agent, so it can
 // never reach a vMCP, and so never the grants, as anyone.
 func TestProfileGrantOwnerIsNeverACaller(t *testing.T) {
-	vmcp := grantTestVMCP(legacyWildcardProfile(grantWildcard), everyAgentProfile(grantOther, types.SubjectTypeAgent))
-	owner := grantOwner(grantWildcard)
+	vmcp := grantTestVMCP()
+	owner := grantOwner(grantOther)
 	for _, kind := range []principal.Kind{principal.KindUser, principal.KindAgent, ""} {
 		extra := map[string][]string{}
 		if kind != "" {
@@ -657,31 +607,6 @@ func TestProfileGrantOwnerIsNeverACaller(t *testing.T) {
 		_, err = agentReadiness(t, vmcp, caller)
 		require.Error(t, err, "kind %q", kind)
 	}
-}
-
-// TestProfileGrantSelection checks the agent a profile's grants are bound for: one whose explicit profile is the
-// profile, falling back to the wildcard profile, or one that has only the wildcard profile when the profile is it.
-func TestProfileGrantSelection(t *testing.T) {
-	explicit, wildcard := explicitAgentProfile(grantExplicit, "7"), everyAgentProfile(grantWildcard, types.SubjectTypeAgent)
-	manifest := types.VMCPManifest{Profiles: []types.VMCPProfile{explicit, wildcard}}
-
-	selection := ProfileGrantSelection(manifest, explicit)
-	require.Equal(t, grantExplicit, selection.Explicit.ID)
-	require.Equal(t, grantWildcard, selection.Wildcard.ID)
-	require.False(t, selection.Ambiguous)
-
-	selection = ProfileGrantSelection(manifest, wildcard)
-	require.Nil(t, selection.Explicit)
-	require.Equal(t, grantWildcard, selection.Wildcard.ID)
-
-	// Without a wildcard profile, the profile has no fallback; with several, its fallback is ambiguous.
-	selection = ProfileGrantSelection(types.VMCPManifest{Profiles: []types.VMCPProfile{explicit}}, explicit)
-	require.Equal(t, grantExplicit, selection.Explicit.ID)
-	require.Nil(t, selection.Wildcard)
-	require.False(t, selection.Ambiguous)
-	selection = ProfileGrantSelection(types.VMCPManifest{Profiles: []types.VMCPProfile{explicit, legacyWildcardProfile(grantWildcard), legacyWildcardProfile(grantOther)}}, explicit)
-	require.Nil(t, selection.Wildcard)
-	require.True(t, selection.Ambiguous)
 }
 
 // TestGrantTargetForResponse checks that only a URL the catalog fixes is returned in full, and that any other URL is
@@ -769,22 +694,22 @@ func TestGrantRemovalsAreRecorded(t *testing.T) {
 
 	// A profile that holds grants is reported once for all of them, and one that holds none is not reported.
 	for range 2 {
-		require.NoError(t, store.DeleteProfileData(t.Context(), grantVMCP, []string{grantExplicit, grantWildcard}))
+		require.NoError(t, store.DeleteProfileData(t.Context(), grantVMCP, []string{grantExplicit, grantOther}))
 	}
 	require.Equal(t, []removal{{grantVMCP, grantExplicit, "", "profile or vMCP removed"}}, removed)
 
 	removed = nil
 	vmcp := grantTestVMCP()
 	vmcp.Status.ProfileOAuthGrants = []v1.VMCPProfileOAuthGrant{
-		{ProfileID: grantWildcard, ComponentID: "removed", GrantIDs: []string{"grant-removed"}},
+		{ProfileID: grantOther, ComponentID: "removed", GrantIDs: []string{"grant-removed"}},
 		{ProfileID: grantExplicit, ComponentID: "never-stored", GrantIDs: []string{"grant-never"}},
 		{ProfileID: grantExplicit, ComponentID: "static", GrantIDs: []string{"grant-static"}},
 	}
-	grants.put(grantOwner(grantWildcard), grantMCPID("removed"), "grant-removed", "https://removed.example.com/mcp")
+	grants.put(grantOwner(grantOther), grantMCPID("removed"), "grant-removed", "https://removed.example.com/mcp")
 	changed, err := store.DeleteRemovedComponentGrants(t.Context(), &vmcp)
 	require.NoError(t, err)
 	require.True(t, changed)
-	require.Equal(t, []removal{{grantVMCP, grantWildcard, "removed", "component removed"}}, removed)
+	require.Equal(t, []removal{{grantVMCP, grantOther, "removed", "component removed"}}, removed)
 
 	// Without a recorder, deletions work and nothing is read for the audit.
 	quiet := newMemoryGrants()

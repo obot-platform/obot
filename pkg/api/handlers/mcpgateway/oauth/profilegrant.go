@@ -130,13 +130,11 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 }
 
 // profileGrantTargetURL returns the upstream URL a profile's grant for component is bound to: the URL that the
-// connection of an agent using the profile's grants reaches (vmcpconfig.ProfileGrantSelection). For a component whose
-// definition fixes the URL, that is the fixed URL. Otherwise it is resolved from configuration as the agent's component
-// server is configured (mcp.SessionManager.ComponentTarget): the profile's own values, then, for the required values
-// the profile does not set, the wildcard profile's, or the wildcard profile's alone when the profile is it, and the
-// vMCP's fixed values. A URL that needs a value no profile sets is refused until an administrator configures the
-// profile; one that needs it from an ambiguous fallback is a conflict, as for the vMCP's other ambiguous cases; and one
-// that does not satisfy the component's hostname is refused, as configuring it is.
+// connection of an agent whose profile it is reaches (vmcpconfig.ProfileGrantTarget). For a component whose definition
+// fixes the URL, that is the fixed URL. Otherwise it is resolved from configuration as the agent's component server is
+// configured (mcp.SessionManager.ComponentTarget): the profile's values and the vMCP's fixed values. A URL that needs a
+// value the profile does not set is refused until an administrator configures the profile, and one that does not
+// satisfy the component's hostname is refused, as configuring it is.
 func (f *MCPOAuthHandlerFactory) profileGrantTargetURL(ctx context.Context, vmcp v1.VMCP, profile types.VMCPProfile, component types.VMCPComponent) (string, error) {
 	target, refused, err := vmcpconfig.ProfileGrantTarget(ctx, f.mcpSessionManager, vmcp, profile, component)
 	switch {
@@ -144,8 +142,6 @@ func (f *MCPOAuthHandlerFactory) profileGrantTargetURL(ctx context.Context, vmcp
 		return "", err
 	case refused != nil:
 		return "", refused
-	case target.AmbiguousFallback:
-		return "", types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("the upstream URL of component %q needs a value that profile %q falls back for, and more than one profile of vMCP %q names every agent; leave at most one such profile first", component.ID, profile.ID, vmcp.Name))
 	case target.URL == "":
 		// The keys are named, never values, so an administrator is pointed at the exact fields to set.
 		reasons := make([]types.AgentReadinessReason, 0, len(target.Missing))

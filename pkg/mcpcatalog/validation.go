@@ -200,16 +200,6 @@ func DecodeVMCPManifest(data []byte) (types.VMCPManifest, error) {
 		manifest.Components[i].MCPServerCatalogEntryID = references.Components[i].EntryKey
 	}
 
-	// Agents are created in one Obot deployment, so their IDs mean nothing to a catalog shared between deployments.
-	// Catalog vMCPs may grant every agent (agent '*') or everyone ('*'), but not one agent.
-	for _, profile := range manifest.Profiles {
-		for _, subject := range profile.Subjects {
-			if subject.Type == types.SubjectTypeAgent && subject.ID != types.SubjectWildcardID {
-				return manifest, fmt.Errorf("vMCP %q profile %q: catalog vMCPs cannot name an agent (agent %q); use agent '*' for every agent", manifest.DisplayName, profile.Name, subject.ID)
-			}
-		}
-	}
-
 	return manifest, nil
 }
 

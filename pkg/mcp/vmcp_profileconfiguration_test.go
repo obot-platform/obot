@@ -43,8 +43,8 @@ func TestSharedComponentHeadersStayWithTheirConnection(t *testing.T) {
 			}},
 			Profiles: []types.VMCPProfile{
 				{ID: "vp1seven", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
-				{ID: "vp1agents", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
-				{ID: "vp1users", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+				{ID: "vp1eight", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "8"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+				{ID: "vp1users", Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
 			},
 		}},
 	}
@@ -59,12 +59,12 @@ func TestSharedComponentHeadersStayWithTheirConnection(t *testing.T) {
 		token  string
 	}{
 		{
-			name:   "agent with its own profile",
+			name:   "agent seven",
 			caller: asAgent(7, 11),
 			token:  "agent-seven-token",
 		},
 		{
-			name:   "agent of the wildcard profile",
+			name:   "agent eight",
 			caller: asAgent(8, 12),
 			token:  "agent-eight-token",
 		},
@@ -165,9 +165,9 @@ func TestSharedComponentHeadersStayWithTheirConnection(t *testing.T) {
 	}
 }
 
-// TestAgentConnectFollowsProfileConfiguration checks that an agent is refused while its profiles lack a required
-// value, that its connect waits for its instance to hold the profiles' current configuration before it is checked, and
-// that a value supplied by the wildcard profile is attributed to it as a fallback.
+// TestAgentConnectFollowsProfileConfiguration checks that an agent is refused while its profile lacks a required value,
+// whatever the profile for every user sets, that its connect waits for its instance to hold its profile's current
+// configuration before it is checked, and that the connection is attributed to its profile alone.
 func TestAgentConnectFollowsProfileConfiguration(t *testing.T) {
 	vmcp, shared := sharedComponentVMCP("vmcp1profileconfig",
 		types.VMCPProfile{
@@ -176,8 +176,8 @@ func TestAgentConnectFollowsProfileConfiguration(t *testing.T) {
 			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 		},
 		types.VMCPProfile{
-			ID:          "vp1agents",
-			Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}},
+			ID:          "vp1everyone",
+			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
 			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 		},
 	)
@@ -188,11 +188,14 @@ func TestAgentConnectFollowsProfileConfiguration(t *testing.T) {
 	runVMCPInstanceController(t, storageClient, vmcp.DeepCopy())
 	manager := newAgentTestManager(storageClient)
 
-	// No profile sets the token, so the agent is refused, to be fixed in its own profile.
-	_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, asAgent(5, 11))
-	notReady, ok := errors.AsType[*vmcpaccess.AgentNotReadyError](err)
-	require.True(t, ok, "agent connect error = %v, want an AgentNotReadyError", err)
-	require.Equal(t, vmcpaccess.AgentReadinessFailure{
+	refused := func() vmcpaccess.AgentReadinessFailure {
+		t.Helper()
+		_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, asAgent(5, 11))
+		notReady, ok := errors.AsType[*vmcpaccess.AgentNotReadyError](err)
+		require.True(t, ok, "agent connect error = %v, want an AgentNotReadyError", err)
+		return notReady.Failure()
+	}
+	missingToken := vmcpaccess.AgentReadinessFailure{
 		Error: vmcpaccess.AgentConfigurationRequiredError,
 		Reasons: []vmcpaccess.ReadinessReason{{
 			ComponentID: "one",
@@ -200,15 +203,23 @@ func TestAgentConnectFollowsProfileConfiguration(t *testing.T) {
 			Field:       "X-Token",
 			ProfileID:   "vp1agent",
 		}},
-	}, notReady.Failure())
+	}
+	// No profile sets the token, so the agent is refused, to be fixed in its own profile.
+	require.Equal(t, missingToken, refused())
 
-	// An administrator sets the token on the wildcard profile. Until the instance controller copies it to the agent's
-	// instance, the agent's connect waits rather than going on with the instance's old configuration.
+	// The profile for every user sets the token: that is no agent's configuration.
 	var current v1.VMCP
 	require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &current))
 	current.Status.ProfileConfigurationRevisions = map[string]v1.VMCPProfileConfigurationRevision{
-		"vp1agents": {Name: "configuration-agents", Keys: []string{vmcpaccess.ConfigurationKey("one", "X-Token")}},
+		"vp1everyone": {Name: "configuration-everyone", Keys: []string{vmcpaccess.ConfigurationKey("one", "X-Token")}},
 	}
+	require.NoError(t, storageClient.Update(t.Context(), &current))
+	require.Equal(t, missingToken, refused())
+
+	// An administrator sets the token on the agent's profile. Until the instance controller copies it to the agent's
+	// instance, the agent's connect waits rather than going on with the instance's old configuration.
+	require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &current))
+	current.Status.ProfileConfigurationRevisions["vp1agent"] = v1.VMCPProfileConfigurationRevision{Name: "configuration-agent", Keys: []string{vmcpaccess.ConfigurationKey("one", "X-Token")}}
 	require.NoError(t, storageClient.Update(t.Context(), &current))
 	type result struct {
 		cfg ServerConfig
@@ -231,13 +242,12 @@ func TestAgentConnectFollowsProfileConfiguration(t *testing.T) {
 	require.NoError(t, storageClient.List(t.Context(), &instances))
 	require.Len(t, instances.Items, 1)
 	syncedVMCPInstanceForUser(&instances.Items[0], &current, asAgent(5, 0))
-	require.Equal(t, map[string]string{"vp1agents": "configuration-agents"}, instances.Items[0].Status.AgentConfigurationRevisions)
+	require.Equal(t, map[string]string{"vp1agent": "configuration-agent"}, instances.Items[0].Status.AgentConfigurationRevisions)
 	require.NoError(t, storageClient.Update(t.Context(), &instances.Items[0]))
 
 	r := <-connected
 	require.NoError(t, r.err)
 	cfg := r.cfg
 	require.Equal(t, instances.Items[0].Name, cfg.MCPServerName)
-	require.Equal(t, "vp1agent,vp1agents", cfg.AuditLogMetadata[AuditLogProfiles])
-	require.Equal(t, "vp1agents", cfg.AuditLogMetadata[AuditLogFallbackProfiles])
+	require.Equal(t, "vp1agent", cfg.AuditLogMetadata[AuditLogProfiles])
 }

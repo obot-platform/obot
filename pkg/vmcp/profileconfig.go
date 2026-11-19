@@ -164,15 +164,14 @@ func (s *ProfileConfigurationStore) AgentConfigurationValues(ctx context.Context
 }
 
 // Update changes the configuration of a vMCP's profile by component ID and key: a value sets the key, nil (or a blank
-// value) clears it, and keys left out keep their values. The profile must be agent-capable, and agent selection on the
-// vMCP must not be ambiguous: an agent would not know which wildcard profile's configuration is its. Every component
-// changed must be one the profile grants, since a profile's configuration is only used for the components it grants
-// (AgentSelection.ForComponent). Only the values a user would enter on their own connection can be set
+// value) clears it, and keys left out keep their values. The profile must be agent-capable. Every component changed
+// must be one the profile grants, since a profile's configuration is only used for the components it grants
+// (profileForComponent). Only the values a user would enter on their own connection can be set
 // (ValidateProfileConfiguration). Values the profile kept for components it no longer grants are carried on as they
 // are. It returns the vMCP with the new configuration published.
 func (s *ProfileConfigurationStore) Update(ctx context.Context, client kclient.Client, key kclient.ObjectKey, profileID string, update map[string]map[string]*string) (*v1.VMCP, error) {
 	return s.write(ctx, client, key, profileID, func(vmcp *v1.VMCP, profile types.VMCPProfile, current v1.VMCPProfileConfigurationRevision, values func() (map[string]string, error)) (map[string]string, bool, error) {
-		if err := checkProfileSetup(vmcp, profile, "configuration"); err != nil {
+		if err := checkProfileSetup(profile, "configuration"); err != nil {
 			return nil, false, err
 		}
 		components := ComponentsForInstance(*vmcp, v1.VMCPInstance{})
@@ -202,8 +201,8 @@ func (s *ProfileConfigurationStore) Update(ctx context.Context, client kclient.C
 }
 
 // Reset clears the configuration of a vMCP's profile, and reports whether the profile had any to clear. Unlike Update,
-// it is allowed on a profile that is not agent-capable, or on a vMCP whose agent selection is ambiguous: removing
-// configuration can never give an agent the wrong values.
+// it is allowed on a profile that is not agent-capable: removing configuration can never give an agent the wrong
+// values.
 func (s *ProfileConfigurationStore) Reset(ctx context.Context, client kclient.Client, key kclient.ObjectKey, profileID string) (*v1.VMCP, bool, error) {
 	var cleared bool
 	vmcp, err := s.write(ctx, client, key, profileID, func(_ *v1.VMCP, _ types.VMCPProfile, current v1.VMCPProfileConfigurationRevision, _ func() (map[string]string, error)) (map[string]string, bool, error) {
@@ -372,23 +371,18 @@ func writableProfile(vmcp *v1.VMCP, profileID string) (types.VMCPProfile, error)
 	return profileOf(vmcp, profileID)
 }
 
-// checkProfileSetup refuses to set up what, a kind of profile data such as configuration or OAuth grants, on profile of
-// vmcp for agents, unless the profile is agent-capable and agent selection on the vMCP is not ambiguous: an agent would
-// not know which wildcard profile's setup is its, and writing data puts the vMCP under the wildcard rule for every
-// later edit.
-func checkProfileSetup(vmcp *v1.VMCP, profile types.VMCPProfile, what string) error {
+// checkProfileSetup refuses to set up what, a kind of profile data such as configuration or OAuth grants, on profile
+// for agents, unless the profile is agent-capable: only the agents a profile names use its setup.
+func checkProfileSetup(profile types.VMCPProfile, what string) error {
 	if !profile.IsAgentCapable() {
-		return types.NewErrBadRequest("profile %q does not apply to agents; only a profile that names agents or everyone can hold %s for them", profile.ID, what)
-	}
-	if len(vmcp.Spec.Manifest.AgentWildcardProfiles()) > 1 {
-		return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("more than one profile of vMCP %q names every agent, so agents cannot be given %s from one of them; leave at most one such profile first", vmcp.Name, what))
+		return types.NewErrBadRequest("profile %q names no agent; only a profile that names an agent can hold %s for it", profile.ID, what)
 	}
 	return nil
 }
 
 // checkProfileGrants refuses to set up what, a kind of profile data, on profile for the component with componentID
 // unless the profile grants it, since a profile's data is only used for the components it grants
-// (AgentSelection.ForComponent).
+// (profileForComponent).
 func checkProfileGrants(profile types.VMCPProfile, componentID, what string) error {
 	if !ProfileGrantsComponent(profile, componentID) {
 		return types.NewErrBadRequest("profile %q does not grant component %q; a profile holds %s only for the components it grants", profile.ID, componentID, what)
@@ -535,8 +529,8 @@ func configurableValues(components []types.VMCPComponent, values map[string]stri
 
 // ProfileStatus reports which configuration keys a profile of vmcp sets, for every component the profile grants
 // (ProfileGrantsComponent), from the keys its current revision publishes, and whether superseded revisions are still to
-// be collected. It describes the profile alone, with no fallback, and never reads or returns a value. Values the profile
-// kept for a component it no longer grants are not reported: they are not used.
+// be collected. It describes the profile alone, and never reads or returns a value. Values the profile kept for a
+// component it no longer grants are not reported: they are not used.
 func ProfileStatus(vmcp v1.VMCP, profile types.VMCPProfile) types.VMCPProfileStatus {
 	revision := vmcp.Status.ProfileConfigurationRevisions[profile.ID]
 	set := revision.Keys

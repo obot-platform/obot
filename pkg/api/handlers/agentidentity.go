@@ -124,9 +124,9 @@ func (h *AgentIdentityHandler) Get(req api.Context) error {
 	return h.writeAgent(req, agent)
 }
 
-// Access returns the vMCP profiles, model access policies and skill access rules whose subjects match an agent, and
-// how each matches, as the policy matchers evaluate the agent (pkg/subjects). An agent matches only its own ID, the
-// agent wildcard and the wildcard for everyone, never a user or group subject, so no groups are evaluated.
+// Access returns the vMCP profiles, model access policies and skill access rules whose subjects match an agent, as the
+// policy matchers evaluate the agent (pkg/subjects). An agent matches only a subject that names it by ID, never the
+// selector wildcard, a user or a group subject, so no groups are evaluated.
 func (h *AgentIdentityHandler) Access(req api.Context) error {
 	agent, err := pathAgent(req)
 	if err != nil {
@@ -147,16 +147,13 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 	}
 	info := agentInfo(agent)
 	for _, vmcp := range vmcps {
-		for _, profile := range vmcpconfig.MatchingProfileStrengths(info, vmcp.Spec.Manifest.Profiles) {
-			if match, ok := agentSubjectMatch(profile.Match); ok {
-				access.VMCPProfiles = append(access.VMCPProfiles, types.AgentIdentityVMCPProfileAccess{
-					VMCPID:          vmcp.Name,
-					VMCPDisplayName: vmcp.Spec.Manifest.DisplayName,
-					ProfileID:       profile.Profile.ID,
-					ProfileName:     profile.Profile.Name,
-					Match:           match,
-				})
-			}
+		for _, profile := range vmcpconfig.MatchingProfiles(info, vmcp.Spec.Manifest.Profiles) {
+			access.VMCPProfiles = append(access.VMCPProfiles, types.AgentIdentityVMCPProfileAccess{
+				VMCPID:          vmcp.Name,
+				VMCPDisplayName: vmcp.Spec.Manifest.DisplayName,
+				ProfileID:       profile.ID,
+				ProfileName:     profile.Name,
+			})
 		}
 	}
 
@@ -169,11 +166,10 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 		if !policy.DeletionTimestamp.IsZero() {
 			continue
 		}
-		if match, ok := agentSubjectMatch(caller.Best(policy.Spec.Manifest.Subjects)); ok {
+		if caller.Matches(policy.Spec.Manifest.Subjects) {
 			access.ModelAccessPolicies = append(access.ModelAccessPolicies, types.AgentIdentityPolicyAccess{
 				ID:          policy.Name,
 				DisplayName: policy.Spec.Manifest.DisplayName,
-				Match:       match,
 			})
 		}
 	}
@@ -187,11 +183,10 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 		if !rule.DeletionTimestamp.IsZero() {
 			continue
 		}
-		if match, ok := agentSubjectMatch(caller.Best(rule.Spec.Manifest.Subjects)); ok {
+		if caller.Matches(rule.Spec.Manifest.Subjects) {
 			access.SkillAccessRules = append(access.SkillAccessRules, types.AgentIdentityPolicyAccess{
 				ID:          rule.Name,
 				DisplayName: rule.Spec.Manifest.DisplayName,
-				Match:       match,
 			})
 		}
 	}
@@ -230,20 +225,6 @@ func accessProblems(keys []gtypes.APIKey, access types.AgentIdentityAccess, now 
 		problems = append(problems, types.AgentIdentityAccessProblem{Code: types.AgentProblemNoSkillAccessRule})
 	}
 	return problems
-}
-
-// agentSubjectMatch returns how a policy whose strongest match of an agent is match names the agent, and false if it
-// does not name it. An agent is in no group, so a group match is not one of an agent's, and is reported as none.
-func agentSubjectMatch(match subjects.Match) (types.SubjectMatch, bool) {
-	switch match {
-	case subjects.MatchExplicit:
-		return types.SubjectMatchExplicit, true
-	case subjects.MatchWildcardKind:
-		return types.SubjectMatchKindWildcard, true
-	case subjects.MatchWildcardAll:
-		return types.SubjectMatchWildcard, true
-	}
-	return "", false
 }
 
 // Update replaces the metadata of an agent. It changes nothing else: an agent is disabled and deleted by their own

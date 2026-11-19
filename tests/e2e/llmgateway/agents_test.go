@@ -20,8 +20,8 @@ const (
 	// effect on every replica well inside it, because each cache hit re-reads the key's and the agent's state.
 	agentKeyCacheWindow = 15 * time.Second
 
-	// agentVIPModel is granted to no agent by the setup policies: "e2e everyone" names subjects:*, which agents
-	// match, but leaves it out, and "e2e vip" names one user. Tests grant it to an agent to see a grant change take
+	// agentVIPModel is granted to no agent by the setup policies: "e2e everyone" names subjects:*, which no agent
+	// matches, and leaves it out, and "e2e vip" names one user. Tests grant it to an agent to see a grant change take
 	// effect.
 	agentVIPModel = "openai/gpt-e2e-vip"
 )
@@ -99,6 +99,9 @@ func TestAgentLifecycleAcrossReplicas(t *testing.T) {
 	agent := createAgent(t, "e2e lifecycle")
 	key := createLLMAgentKey(t, agent.ID)
 	gwA, gwB := agentGateways(key.Key)
+	// Agents are granted models only by a policy that names them.
+	createAgentPolicy(t, []types.Subject{{Type: types.SubjectTypeAgent, ID: agent.ID}}, "openai/gpt-e2e-a")
+	waitForAgentModels(t, key.Key, "openai/gpt-e2e-a", true)
 
 	// Warm B's cache of validated keys, and check the agent is admitted on both replicas.
 	requireModelsStatus(t, gwB, http.StatusOK, "warm on B")
@@ -217,12 +220,13 @@ func TestAgentGrantChanges(t *testing.T) {
 	gwA, gwB := agentGateways(key.Key)
 	agentSubject := []types.Subject{{Type: types.SubjectTypeAgent, ID: agent.ID}}
 
-	// Before: subjects:* grants the agent the everyday models, and nothing grants it the vip model.
+	// Before: nothing grants the agent a model. The setup policy for every user (subjects:*) grants no agent.
 	for _, c := range []*harness.Client{gwA, gwB} {
-		if ids := listedModels(t, c); slices.Contains(ids, agentVIPModel) || !slices.Contains(ids, "openai/gpt-e2e-a") {
+		if ids := listedModels(t, c); len(ids) != 0 {
 			t.Fatalf("before the grant, the agent's models on %s are %v", c.BaseURL, ids)
 		}
 		requireChatStatus(t, c, agentVIPModel, http.StatusForbidden, "before the grant")
+		requireChatStatus(t, c, "openai/gpt-e2e-a", http.StatusForbidden, "the policy for every user grants no agent")
 	}
 
 	policyID := createAgentPolicy(t, agentSubject, agentVIPModel)
@@ -254,24 +258,35 @@ func TestAgentGrantChanges(t *testing.T) {
 		waitForAgentModels(t, key.Key, agentVIPModel, false)
 		for _, c := range []*harness.Client{gwA, gwB} {
 			requireChatStatus(t, c, agentVIPModel, http.StatusForbidden, "after the policy naming the agent was deleted")
-			// The grants subjects:* gives are untouched.
-			requireChatStatus(t, c, "openai/gpt-e2e-a", http.StatusOK, "the everyday model after the policy was deleted")
 		}
 	})
 
-	// agents:* grants every agent, and only agents: the vip model's only user is unaffected, and a user without it
-	// stays without it.
-	t.Run("agents wildcard", func(t *testing.T) {
-		wildcardID := createAgentPolicy(t, []types.Subject{{Type: types.SubjectTypeAgent, ID: "*"}}, agentVIPModel)
-		waitForAgentModels(t, key.Key, agentVIPModel, true)
-		requireChatStatus(t, gwB, agentVIPModel, http.StatusOK, "granted by agents:*")
-		u := env.newUser(t, "agent-wildcard")
-		requireChatStatus(t, u.Gateway(env.B), agentVIPModel, http.StatusForbidden, "a user is not granted by agents:*")
+	// A policy for every user (subjects:*) grants every user, and no agent.
+	t.Run("policy for every user", func(t *testing.T) {
+		everyoneID := createAgentPolicy(t, []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, agentVIPModel)
+		u := env.newUser(t, "agent-everyone")
+		for _, r := range []*harness.Replica{env.A, env.B} {
+			env.waitForModelAccess(t, u.Gateway(r), agentVIPModel)
+		}
+		for _, c := range []*harness.Client{gwA, gwB} {
+			if ids := listedModels(t, c); slices.Contains(ids, agentVIPModel) {
+				t.Fatalf("a policy for every user granted the agent %s on %s", agentVIPModel, c.BaseURL)
+			}
+			requireChatStatus(t, c, agentVIPModel, http.StatusForbidden, "a policy for every user grants no agent")
+		}
 
-		// It grants every agent, so it must be gone from both replicas before another test grants an agent the vip
-		// model and waits for that.
-		env.admin.Delete(t, "/api/model-access-policies/"+wildcardID)
-		waitForAgentModels(t, key.Key, agentVIPModel, false)
+		// It grants every user the vip model, so it must be gone from both replicas before another test relies on who
+		// has it.
+		env.admin.Delete(t, "/api/model-access-policies/"+everyoneID)
+		for _, r := range []*harness.Replica{env.A, env.B} {
+			c := u.Gateway(r)
+			harness.Eventually(t, time.Minute, fmt.Sprintf("%s no longer listed for every user on %s", agentVIPModel, c.BaseURL), func() error {
+				if ids := listedModels(t, c); slices.Contains(ids, agentVIPModel) {
+					return fmt.Errorf("listed %v", ids)
+				}
+				return nil
+			})
+		}
 	})
 }
 

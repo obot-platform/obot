@@ -17,89 +17,6 @@ func profileWith(name string, subjects ...Subject) VMCPProfile {
 	return VMCPProfile{Name: name, Subjects: subjects, Permissions: VMCPProfilePermissions{AllowAllComponents: true}}
 }
 
-func TestVMCPManifestValidateWildcardProfiles(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		profiles []VMCPProfile
-		wantErr  string
-	}{
-		{
-			name: "no wildcards",
-			profiles: []VMCPProfile{
-				profileWith("a", someGroup),
-				profileWith("b", agentSeven),
-			},
-		},
-		{
-			name: "one selector wildcard",
-			profiles: []VMCPProfile{
-				profileWith("a", everyone),
-				profileWith("b", someGroup),
-			},
-		},
-		{
-			name: "one user and one agent wildcard",
-			profiles: []VMCPProfile{
-				profileWith("users", everyUser),
-				profileWith("agents", everyAgent),
-			},
-		},
-		{
-			name: "two selector wildcards",
-			profiles: []VMCPProfile{
-				profileWith("a", everyone),
-				profileWith("b", everyone, someGroup),
-			},
-			wantErr: `profiles "a" and "b" both use the selector wildcard`,
-		},
-		{
-			name: "two user wildcards",
-			profiles: []VMCPProfile{
-				profileWith("a", everyUser),
-				profileWith("b", everyUser),
-			},
-			wantErr: `profiles "a" and "b" both use the user wildcard`,
-		},
-		{
-			name: "two agent wildcards",
-			profiles: []VMCPProfile{
-				profileWith("a", everyAgent),
-				profileWith("b", everyAgent, someGroup),
-			},
-			wantErr: `profiles "a" and "b" both use the agent wildcard`,
-		},
-		{
-			name: "selector and user wildcards",
-			profiles: []VMCPProfile{
-				profileWith("everyone", everyone),
-				profileWith("users", everyUser),
-			},
-			wantErr: `profile "everyone" uses the selector wildcard (*) and profile "users" the user wildcard`,
-		},
-		{
-			name: "selector and agent wildcards",
-			profiles: []VMCPProfile{
-				profileWith("agents", everyAgent),
-				profileWith("everyone", everyone),
-			},
-			wantErr: `profile "everyone" uses the selector wildcard (*) and profile "agents" the agent wildcard`,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			err := VMCPManifest{Profiles: tc.profiles}.ValidateWildcardProfiles()
-			if tc.wantErr == "" {
-				if err != nil {
-					t.Fatalf("ValidateWildcardProfiles() = %v, want nil", err)
-				}
-				return
-			}
-			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
-				t.Fatalf("ValidateWildcardProfiles() = %v, want error containing %q", err, tc.wantErr)
-			}
-		})
-	}
-}
-
 func TestVMCPManifestValidateProfileIDsAndAgents(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -156,13 +73,6 @@ func TestVMCPManifestValidateProfileIDsAndAgents(t *testing.T) {
 			},
 			wantErr: `agent "7" is named by profiles "a" and "b"`,
 		},
-		{
-			name: "agent wildcard in several profiles is the wildcard rule, not this one",
-			profiles: []VMCPProfile{
-				profileWith("a", everyAgent),
-				profileWith("b", everyAgent),
-			},
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := VMCPManifest{DisplayName: "vMCP", Profiles: tc.profiles}.Validate()
@@ -179,22 +89,6 @@ func TestVMCPManifestValidateProfileIDsAndAgents(t *testing.T) {
 	}
 }
 
-func TestVMCPManifestAgentWildcardProfiles(t *testing.T) {
-	manifest := VMCPManifest{Profiles: []VMCPProfile{
-		profileWith("everyone", everyone),
-		profileWith("users", everyUser),
-		profileWith("agents", everyAgent),
-		profileWith("seven", agentSeven),
-	}}
-	var names []string
-	for _, profile := range manifest.AgentWildcardProfiles() {
-		names = append(names, profile.Name)
-	}
-	if strings.Join(names, ",") != "everyone,agents" {
-		t.Fatalf("AgentWildcardProfiles() = %v, want [everyone agents]", names)
-	}
-}
-
 func TestVMCPProfileIsAgentCapable(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -202,19 +96,22 @@ func TestVMCPProfileIsAgentCapable(t *testing.T) {
 		want    bool
 	}{
 		{
-			name:    "selector wildcard",
-			profile: profileWith("a", everyone),
-			want:    true,
-		},
-		{
-			name:    "agent wildcard",
-			profile: profileWith("a", everyAgent),
-			want:    true,
-		},
-		{
 			name:    "explicit agent",
 			profile: profileWith("a", someGroup, agentSeven),
 			want:    true,
+		},
+		{
+			name:    "explicit agent and every user",
+			profile: profileWith("a", everyone, agentSeven),
+			want:    true,
+		},
+		{
+			name:    "every user",
+			profile: profileWith("a", everyone),
+		},
+		{
+			name:    "stored agent wildcard",
+			profile: profileWith("a", everyAgent),
 		},
 		{
 			name:    "user wildcard",

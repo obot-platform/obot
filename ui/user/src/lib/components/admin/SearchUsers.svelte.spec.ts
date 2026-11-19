@@ -50,30 +50,30 @@ describe('SearchUsers', () => {
 			return onAdd;
 		}
 
-		it('offers no agents or kind wildcards unless asked to', async () => {
+		it('offers no agents unless asked to, and the wildcard as All Obot Users', async () => {
 			await openPicker({});
 
 			await expect.element(page.getByText('Build bot')).not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: /All Obot Users/ })).toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: /All Agents/ }))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByRole('button', { name: /All Users/ })).not.toBeInTheDocument();
-			await expect.element(page.getByRole('button', { name: /All Obot Users/ })).toBeVisible();
-			await expect
-				.element(page.getByRole('button', { name: /and Agents/ }))
-				.not.toBeInTheDocument();
 		});
 
-		it('offers active agents and the wildcards when asked to', async () => {
+		it('offers active agents by name, and still only All Obot Users as the wildcard', async () => {
 			await openPicker({ offerAgents: true });
 
 			await expect.element(page.getByText('Build bot')).toBeVisible();
 			await expect.element(page.getByText('Paused bot')).not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: /All Obot Users/ })).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: /Everyone \(All Obot Users and Agents\)/ }))
-				.toBeVisible();
-			await expect.element(page.getByRole('button', { name: /All Users/ })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeVisible();
+				.element(page.getByRole('button', { name: /All Agents/ }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: /All Users/ })).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: /and Agents/ }))
+				.not.toBeInTheDocument();
 		});
 
 		it('keeps a user and an agent with the same ID apart', async () => {
@@ -90,54 +90,50 @@ describe('SearchUsers', () => {
 			);
 		});
 
-		it('disables the other wildcards once Everyone is selected', async () => {
+		it('lets All Obot Users be picked next to agents when it need not be alone', async () => {
 			const onAdd = await openPicker({ offerAgents: true });
 
-			await page.getByRole('button', { name: /Everyone \(All Obot Users and Agents\)/ }).click();
-
-			await expect.element(page.getByRole('button', { name: /All Users/ })).toBeDisabled();
-			await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeDisabled();
-			// Individual users and agents are not wildcards, so they stay available.
+			await page.getByRole('button', { name: /All Obot Users/ }).click();
 			await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeEnabled();
-
+			await page.getByRole('button', { name: /Build bot/ }).click();
 			await page.getByRole('button', { name: 'Confirm' }).click();
-			expect(onAdd).toHaveBeenCalledWith([], [{ id: '*', name: expect.any(String) }], []);
+
+			expect(onAdd).toHaveBeenCalledWith(
+				[],
+				[{ id: '*', name: 'All Obot Users' }],
+				[expect.objectContaining({ id: '5' })]
+			);
 		});
 
-		it('disables Everyone once all users or all agents are selected', async () => {
-			await openPicker({ offerAgents: true });
+		it('disables All Obot Users next to a user when it must be alone', async () => {
+			// A user who is already a subject: not listed here, but All Obot Users can't join them.
+			await openPicker({ offerAgents: true, wildcardMustBeAlone: true, filterIds: ['7'] });
 
-			await page.getByRole('button', { name: /All Users/ }).click();
-
-			await expect
-				.element(page.getByRole('button', { name: /Everyone \(All Obot Users and Agents\)/ }))
-				.toBeDisabled();
-			// All users with all agents is everyone, which has its own wildcard.
-			await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeDisabled();
+			await expect.element(page.getByRole('button', { name: /All Obot Users/ })).toBeDisabled();
+			await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeEnabled();
 		});
 
-		it('disables the wildcards that conflict with a subject that is already added', async () => {
-			await openPicker({ offerAgents: true, filterIds: ['*'] });
-
-			await expect.element(page.getByRole('button', { name: /All Users/ })).toBeDisabled();
-			await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeDisabled();
-		});
-
-		it('makes a wildcard exclusive with other subjects when it must be alone', async () => {
+		// All Obot Users doesn't include agents, so a policy for every user names its agents next to it.
+		it('lets All Obot Users be added next to an agent when it must be alone', async () => {
 			await openPicker({ offerAgents: true, wildcardMustBeAlone: true, filterIds: ['agent:9'] });
 
-			await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeDisabled();
-			await expect
-				.element(page.getByRole('button', { name: /Everyone \(All Obot Users and Agents\)/ }))
-				.toBeDisabled();
-			await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeEnabled();
+			await expect.element(page.getByRole('button', { name: /All Obot Users/ })).toBeEnabled();
+			await expect.element(page.getByRole('button', { name: /Alice/ })).toBeEnabled();
 		});
 
-		it('disables every other subject once a wildcard is added and it must be alone', async () => {
-			await openPicker({ offerAgents: true, wildcardMustBeAlone: true, filterIds: ['agents:*'] });
+		it('lets agents, but no user, be added once All Obot Users is added and it must be alone', async () => {
+			const onAdd = await openPicker({
+				offerAgents: true,
+				wildcardMustBeAlone: true,
+				filterIds: ['*']
+			});
 
-			await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeDisabled();
 			await expect.element(page.getByRole('button', { name: /Alice/ })).toBeDisabled();
+			await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeEnabled();
+			await page.getByRole('button', { name: /Build bot/ }).click();
+			await page.getByRole('button', { name: 'Confirm' }).click();
+
+			expect(onAdd).toHaveBeenCalledWith([], [], [expect.objectContaining({ id: '5' })]);
 		});
 	});
 });

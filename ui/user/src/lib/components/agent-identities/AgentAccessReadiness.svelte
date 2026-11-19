@@ -6,7 +6,6 @@
 		AgentIdentityAccess,
 		AgentReadinessReason,
 		AgentReadinessSource,
-		AgentSubjectMatch,
 		AgentVMCPReadiness
 	} from '$lib/services/agent-identities/types';
 	import { vmcpComponentName } from '$lib/services/vmcps/utils';
@@ -84,14 +83,7 @@
 		untrack(load);
 	});
 
-	const matchLabels: Record<AgentSubjectMatch, string> = {
-		explicit: m.identity_access_agents_match_explicit(),
-		kindWildcard: m.identity_access_agents_match_kind_wildcard(),
-		wildcard: m.identity_access_agents_match_wildcard()
-	};
-
-	// The name of a profile of a vMCP, from the profiles that name the agent. The fallback wildcard profile is
-	// not among them when the agent has its own, so the ID stands in for a name that is not known.
+	// The name of a profile of a vMCP, from the profiles that name the agent.
 	function profileName(vmcpID: string, profileID: string | undefined) {
 		if (!profileID) return '';
 		const match = access?.vmcpProfiles.find(
@@ -101,37 +93,25 @@
 	}
 
 	// Where an administrator fixes a reason: the profile it names, at the field or button that does it.
-	function reasonLinks(item: AgentVMCPReadiness, reason: AgentReadinessReason) {
-		const links: { href: string; text: string }[] = [];
+	function reasonLink(item: AgentVMCPReadiness, reason: AgentReadinessReason) {
+		if (!reason.profileID) return undefined;
 		const componentID = reason.componentID;
-		if (reason.profileID) {
-			const name = profileName(item.vmcpID, reason.profileID);
-			links.push({
-				href: vmcpProfileHref(
-					item.vmcpID,
-					reason.profileID,
-					componentID
-						? {
-								componentID,
-								field: reason.code === 'configuration_required' ? reason.field : undefined
-							}
-						: undefined
-				),
-				text: name
-					? m.identity_access_agents_reason_open_profile({ profile: name })
-					: m.identity_access_agents_reason_open_profile_unnamed()
-			});
-		}
-		if (reason.urlProfileID && reason.urlProfileID !== reason.profileID) {
-			const name = profileName(item.vmcpID, reason.urlProfileID);
-			links.push({
-				href: vmcpProfileHref(item.vmcpID, reason.urlProfileID),
-				text: name
-					? m.identity_access_agents_reason_open_url_profile({ profile: name })
-					: m.identity_access_agents_reason_open_url_profile_unnamed()
-			});
-		}
-		return links;
+		const name = profileName(item.vmcpID, reason.profileID);
+		return {
+			href: vmcpProfileHref(
+				item.vmcpID,
+				reason.profileID,
+				componentID
+					? {
+							componentID,
+							field: reason.code === 'configuration_required' ? reason.field : undefined
+						}
+					: undefined
+			),
+			text: name
+				? m.identity_access_agents_reason_open_profile({ profile: name })
+				: m.identity_access_agents_reason_open_profile_unnamed()
+		};
 	}
 
 	function sourceLabel(vmcpID: string, source: AgentReadinessSource) {
@@ -143,9 +123,7 @@
 
 	function sourceFrom(vmcpID: string, source: AgentReadinessSource) {
 		const profile = profileName(vmcpID, source.profileID) || source.profileID;
-		return source.fallback
-			? m.identity_access_agents_source_from_fallback({ profile })
-			: m.identity_access_agents_source_from({ profile });
+		return m.identity_access_agents_source_from({ profile });
 	}
 
 	function reasonLabel(vmcpID: string, reason: AgentReadinessReason): string {
@@ -160,18 +138,13 @@
 				return m.identity_access_agents_reason_oauth_required({ component });
 			case 'oauth_invalid':
 				return m.identity_access_agents_reason_oauth_invalid({ component });
-			case 'selection_ambiguous':
-				return m.identity_access_agents_reason_selection_ambiguous();
 			default:
 				return reason.code;
 		}
 	}
 </script>
 
-{#snippet policyList(
-	title: string,
-	items: { id: string; name: string; match: AgentSubjectMatch }[]
-)}
+{#snippet policyList(title: string, items: { id: string; name: string }[])}
 	<div class="flex flex-col gap-1">
 		<h3 class="text-sm font-semibold">{title}</h3>
 		{#if items.length === 0}
@@ -179,13 +152,8 @@
 		{:else}
 			<ul class="flex flex-col gap-1">
 				{#each items as item (item.id)}
-					<li
-						class="bg-base-200 flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm"
-					>
-						<span class="truncate">{item.name}</span>
-						<span class="badge badge-ghost badge-sm whitespace-nowrap"
-							>{matchLabels[item.match]}</span
-						>
+					<li class="bg-base-200 rounded-lg px-3 py-2 text-sm">
+						<span class="block truncate">{item.name}</span>
 					</li>
 				{/each}
 			</ul>
@@ -217,25 +185,16 @@
 			m.identity_access_agents_access_vmcp_profiles(),
 			access.vmcpProfiles.map((p) => ({
 				id: `${p.vmcpID}/${p.profileID ?? p.profileName}`,
-				name: `${p.vmcpDisplayName || p.vmcpID} · ${p.profileName}`,
-				match: p.match
+				name: `${p.vmcpDisplayName || p.vmcpID} · ${p.profileName}`
 			}))
 		)}
 		{@render policyList(
 			m.identity_access_agents_access_model_policies(),
-			access.modelAccessPolicies.map((p) => ({
-				id: p.id,
-				name: p.displayName || p.id,
-				match: p.match
-			}))
+			access.modelAccessPolicies.map((p) => ({ id: p.id, name: p.displayName || p.id }))
 		)}
 		{@render policyList(
 			m.identity_access_agents_access_skill_rules(),
-			access.skillAccessRules.map((p) => ({
-				id: p.id,
-				name: p.displayName || p.id,
-				match: p.match
-			}))
+			access.skillAccessRules.map((p) => ({ id: p.id, name: p.displayName || p.id }))
 		)}
 
 		<div class="flex flex-col gap-1">
@@ -272,15 +231,11 @@
 							{#if item.reasons.length > 0}
 								<ul class="text-xs">
 									{#each item.reasons as reason, index (index)}
+										{@const link = reasonLink(item, reason)}
 										<li class="flex flex-col">
 											<span class="text-warning">{reasonLabel(item.vmcpID, reason)}</span>
-											{#each reasonLinks(item, reason) as link (link.href)}
+											{#if link}
 												<a class="link w-fit" href={resolve(link.href)}>{link.text}</a>
-											{/each}
-											{#if reason.code === 'selection_ambiguous' && !reason.profileID}
-												<span class="text-muted-content">
-													{m.identity_access_agents_reason_ambiguous_fix()}
-												</span>
 											{/if}
 										</li>
 									{/each}

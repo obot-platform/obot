@@ -143,7 +143,7 @@ Guardrail filters are managed with the filter API, `/api/mcp-webhook-validations
 }
 ```
 
-`action` is `block` or `redact`; guardrail filters can't log only. `direction` is `request`, `response` or `both` (the default). `samplingRate` defaults to 100. `subjects` are `user`, `group` or `everyone`; none means everyone. `allowedToMutate` is set from the action (true for `redact`) and doesn't otherwise apply to guardrail filters.
+`action` is `block` or `redact`; guardrail filters can't log only. `direction` is `request`, `response` or `both` (the default). `samplingRate` defaults to 100. `subjects` are `user`, `agent`, `group` or `everyone`; none means everyone. An `agent` subject's `id` is the agent's decimal ID, never `*`. `everyone` is every user, and no agent. `allowedToMutate` is set from the action (true for `redact`) and doesn't otherwise apply to guardrail filters.
 
 ## Related topics
 

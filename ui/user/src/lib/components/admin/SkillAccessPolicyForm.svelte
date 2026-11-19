@@ -186,7 +186,7 @@
 			skillAccessPolicy.subjects ?? [],
 			usersAndGroups?.users ?? [],
 			usersAndGroups?.groups ?? [],
-			{ agents: agentLookup.current, offerAgents: true }
+			{ agents: agentLookup.current }
 		)
 	);
 	const resourceTableData = $derived(

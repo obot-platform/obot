@@ -76,9 +76,8 @@ func (h *Helper) UserHasAccessToSkill(user kuser.Info, skill *v1.Skill) (bool, e
 }
 
 // UserHasAccessToSkillID reports whether a rule that covers the skill, its repository, or every skill names the
-// caller among its subjects (subjects.Caller.Best). Users match through their ID, every user, everyone, and their
-// groups; agents only through their ID, every agent, and everyone. A caller that is not a well-formed user or agent
-// principal has access to no skill.
+// caller among its subjects (subjects.Caller.Best). Users match through their ID, every user (*), and their groups;
+// agents only through their ID. A caller that is not a well-formed user or agent principal has access to no skill.
 func (h *Helper) UserHasAccessToSkillID(user kuser.Info, skillID, repoID string) (bool, error) {
 	if skillID == "" && repoID == "" {
 		return false, nil
@@ -205,7 +204,7 @@ func (h *Helper) getIndexedRules(namespace, indexName, key, target string) ([]v1
 // hasMatchingSubject reports whether any of rules has a subject that names caller.
 func hasMatchingSubject(rules []v1.SkillAccessRule, caller subjects.Caller) bool {
 	for _, rule := range rules {
-		if caller.Best(rule.Spec.Manifest.Subjects) != subjects.NoMatch {
+		if caller.Matches(rule.Spec.Manifest.Subjects) {
 			return true
 		}
 	}

@@ -237,15 +237,17 @@ func TestAgentReadinessReportAgreesWithConnectForProbedOAuth(t *testing.T) {
 
 	reasons := requireReadinessAgreesWithConnect(t, manager, probed, "probed: asks for OAuth", false, false)
 	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthRequired, ProfileID: grantSeven}}, reasons["agent:7"])
-	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthRequired, ProfileID: grantAgents}}, reasons["agent:8"])
-	for _, profileID := range []string{grantSeven, grantAgents} {
+	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthRequired, ProfileID: grantEight}}, reasons["agent:8"])
+	for _, profileID := range []string{grantSeven, grantEight} {
 		status, err := grants.ProfileOAuthStatus(t.Context(), *probed, profileID)
 		require.NoError(t, err)
 		require.True(t, status["one"].Required, profileID)
 	}
 	requireUser()
 
-	storeGrant(t, gateway, vmcp.Name, grantAgents, upstream.mcpURL(), "grant-agents")
-	requireReadinessAgreesWithConnect(t, manager, probed, "the wildcard profile authorized", true, true)
+	storeGrant(t, gateway, vmcp.Name, grantSeven, upstream.mcpURL(), "grant-seven")
+	requireReadinessAgreesWithConnect(t, manager, probed, "agent 7's profile authorized", true, false)
+	storeGrant(t, gateway, vmcp.Name, grantEight, upstream.mcpURL(), "grant-eight")
+	requireReadinessAgreesWithConnect(t, manager, probed, "agent 8's profile authorized", true, true)
 	requireUser()
 }

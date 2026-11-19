@@ -163,12 +163,12 @@ func TestVMCPConnectionsAreIsolatedPerPrincipal(t *testing.T) {
 	vmcp, shared := sharedComponentVMCP("vmcp1isolation",
 		types.VMCPProfile{
 			ID:          "vp1users",
-			Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}},
+			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
 			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 		},
 		types.VMCPProfile{
 			ID:          "vp1agents",
-			Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}},
+			Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "5"}, {Type: types.SubjectTypeAgent, ID: "6"}},
 			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 		},
 	)
@@ -272,56 +272,29 @@ func TestVMCPConnectionsAreIsolatedPerPrincipal(t *testing.T) {
 }
 
 // TestAgentConnectRefusedUntilReady checks that an agent is refused, with the reasons, when a component enabled for
-// it needs setup that its profiles do not give it, and on a vMCP whose wildcard profiles make its selection ambiguous,
-// while a user still connects to the same vMCP.
+// it needs setup that its profile does not give it, while a user still connects to the same vMCP through the profile
+// that names every user, which never applies to the agent.
 func TestAgentConnectRefusedUntilReady(t *testing.T) {
-	everyone := func(id string) types.VMCPProfile {
-		return types.VMCPProfile{
-			ID:          id,
-			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
-			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
-		}
-	}
-	explicit := func(id string) types.VMCPProfile {
-		return types.VMCPProfile{
-			ID:          id,
+	profiles := []types.VMCPProfile{
+		{
+			ID:          "vp1agent",
 			Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "5"}},
 			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
-		}
+		},
+		{
+			ID:          "vp1everyone",
+			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
+			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+		},
 	}
 	for _, tt := range []struct {
 		name        string
-		profiles    []types.VMCPProfile
 		configure   func(*types.VMCPComponent)
 		wantError   string
 		wantReasons []vmcpaccess.ReadinessReason
 	}{
 		{
-			name:      "legacy wildcard profiles",
-			profiles:  []types.VMCPProfile{everyone("vp1first"), everyone("vp1second")},
-			wantError: vmcpaccess.AgentSelectionAmbiguousError,
-			wantReasons: []vmcpaccess.ReadinessReason{{
-				Code: types.AgentReadinessSelectionAmbiguous,
-			}},
-		},
-		{
-			// An agent with its own profile, which does not set the header, falls back for it, and that fallback is
-			// ambiguous.
-			name:     "legacy wildcard profiles with an explicit profile and a header a user would enter",
-			profiles: []types.VMCPProfile{explicit("vp1agent"), everyone("vp1first"), everyone("vp1second")},
-			configure: func(component *types.VMCPComponent) {
-				component.CatalogEntry.Manifest.Config = []types.MCPConfig{{Key: "X-Token", Usage: types.Header, Required: true}}
-				component.Configuration = []types.VMCPConfigurationPolicy{{Key: "X-Token", Policy: types.VMCPConfigurationPolicyUserAllowed}}
-			},
-			wantError: vmcpaccess.AgentSelectionAmbiguousError,
-			wantReasons: []vmcpaccess.ReadinessReason{{
-				ComponentID: "one",
-				Code:        types.AgentReadinessSelectionAmbiguous,
-			}},
-		},
-		{
-			name:     "header a user would enter",
-			profiles: []types.VMCPProfile{everyone("vp1everyone")},
+			name: "header a user would enter",
 			configure: func(component *types.VMCPComponent) {
 				component.CatalogEntry.Manifest.Config = []types.MCPConfig{{Key: "X-Token", Usage: types.Header, Required: true}}
 				component.Configuration = []types.VMCPConfigurationPolicy{{Key: "X-Token", Policy: types.VMCPConfigurationPolicyUserAllowed}}
@@ -331,12 +304,11 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 				ComponentID: "one",
 				Code:        types.AgentReadinessConfigurationRequired,
 				Field:       "X-Token",
-				ProfileID:   "vp1everyone",
+				ProfileID:   "vp1agent",
 			}},
 		},
 		{
-			name:     "static OAuth",
-			profiles: []types.VMCPProfile{everyone("vp1everyone")},
+			name: "static OAuth",
 			configure: func(component *types.VMCPComponent) {
 				component.CatalogEntry.Manifest.Runtime = types.RuntimeRemote
 				component.CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://one.example.com/mcp", StaticOAuthRequired: true}
@@ -345,15 +317,13 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			wantReasons: []vmcpaccess.ReadinessReason{{
 				ComponentID: "one",
 				Code:        types.AgentReadinessOAuthRequired,
-				ProfileID:   "vp1everyone",
+				ProfileID:   "vp1agent",
 			}},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			vmcp, shared := sharedComponentVMCP("vmcp1notready", tt.profiles...)
-			if tt.configure != nil {
-				tt.configure(&vmcp.Spec.Manifest.Components[0])
-			}
+			vmcp, shared := sharedComponentVMCP("vmcp1notready", profiles...)
+			tt.configure(&vmcp.Spec.Manifest.Components[0])
 			storageClient := newVMCPTestStorage(vmcp, shared)
 			runVMCPInstanceController(t, storageClient, vmcp)
 			manager := newAgentTestManager(storageClient)
@@ -365,7 +335,7 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			if !ok {
 				t.Fatalf("agent connect error = %v, want an AgentNotReadyError", err)
 			}
-			if failure := notReady.Failure(); failure.Error != tt.wantError || len(failure.Reasons) != len(tt.wantReasons) || failure.Reasons[0] != tt.wantReasons[0] {
+			if failure := notReady.Failure(); failure.Error != tt.wantError || !slices.Equal(failure.Reasons, tt.wantReasons) {
 				t.Fatalf("failure = %#v, want %q with %#v", failure, tt.wantError, tt.wantReasons)
 			}
 
@@ -374,23 +344,22 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 				t.Fatalf("second agent connect error = %v, want an AgentNotReadyError", err)
 			}
 
-			// Users are not held to agent readiness: on the legacy vMCP, a user connects as before.
-			if strings.HasPrefix(tt.name, "legacy wildcard profiles") {
-				cfg := connectVMCP(t, manager, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "5"}))
-				// The user with the agent's numeric ID never matches the agent's profile.
-				if len(cfg.Components) != 1 || cfg.AuditLogMetadata[AuditLogProfiles] != "vp1first,vp1second" {
-					t.Fatalf("user connection = %#v, want the component, attributed to both profiles", cfg)
-				}
+			// Users are not held to agent readiness. The user with the agent's numeric ID never matches the agent's
+			// profile.
+			cfg := connectVMCP(t, manager, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "5"}))
+			if len(cfg.Components) != 1 || cfg.AuditLogMetadata[AuditLogProfiles] != "vp1everyone" {
+				t.Fatalf("user connection = %#v, want the component, attributed to the profile for every user", cfg)
 			}
 		})
 	}
 }
 
-// TestExplicitAgentConnectsToLegacyVMCP checks that an agent with its own profile connects to a vMCP whose wildcard
-// profiles make the fallback ambiguous, when none of its components needs anything from that fallback. Its tools are
-// still the union of every profile that names it.
-func TestExplicitAgentConnectsToLegacyVMCP(t *testing.T) {
-	vmcp, shared := sharedComponentVMCP("vmcp1legacy",
+// TestSelectorWildcardProfileNeverAppliesToAgents checks that the profile that names every user ({selector, "*"})
+// grants an agent nothing: an agent named in another profile gets that profile's tools only, and is attributed to it
+// alone, and an agent named in no profile is given no component of the vMCP. The MCP gateway's authorization refuses
+// such an agent before it connects (authz.UserCanReadVMCP); the session manager never widens it to the wildcard.
+func TestSelectorWildcardProfileNeverAppliesToAgents(t *testing.T) {
+	vmcp, shared := sharedComponentVMCP("vmcp1wildcard",
 		types.VMCPProfile{
 			ID:       "vp1agent",
 			Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "5"}},
@@ -399,38 +368,42 @@ func TestExplicitAgentConnectsToLegacyVMCP(t *testing.T) {
 			}},
 		},
 		types.VMCPProfile{
-			ID:       "vp1first",
+			ID:       "vp1everyone",
 			Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
 			Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
 				"one": {AllowedTools: []string{"write"}},
 			}},
-		},
-		types.VMCPProfile{
-			ID:       "vp1second",
-			Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
 		},
 	)
 	storageClient := newVMCPTestStorage(vmcp, shared)
 	runVMCPInstanceController(t, storageClient, vmcp)
 	manager := newAgentTestManager(storageClient)
 
-	cfg := connectVMCP(t, manager, vmcp.Name, asAgent(5, 11))
-	if len(cfg.Components) != 1 || cfg.Components[0].ComponentID != "one" {
-		t.Fatalf("components = %#v, want component one", cfg.Components)
-	}
-	var tools []string
-	for _, tool := range cfg.Components[0].Tools {
-		tools = append(tools, tool.Name)
-	}
-	if !slices.Equal(tools, []string{"read", "write"}) {
-		t.Fatalf("tools = %v, want the union of the agent's and the wildcard profiles' grants", tools)
-	}
-	if cfg.AuditLogMetadata[AuditLogProfiles] != "vp1agent,vp1first,vp1second" {
-		t.Fatalf("profiles = %q, want every profile that names the agent", cfg.AuditLogMetadata[AuditLogProfiles])
+	toolNames := func(cfg ServerConfig) []string {
+		var tools []string
+		for _, component := range cfg.Components {
+			for _, tool := range component.Tools {
+				tools = append(tools, tool.Name)
+			}
+		}
+		return tools
 	}
 
-	// An agent without its own profile is still refused on the same vMCP.
-	if _, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, asAgent(6, 12)); !errors.As(err, new(*vmcpaccess.AgentNotReadyError)) {
-		t.Fatalf("wildcard-only agent connect error = %v, want an AgentNotReadyError", err)
+	agent := connectVMCP(t, manager, vmcp.Name, asAgent(5, 11))
+	if len(agent.Components) != 1 || !slices.Equal(toolNames(agent), []string{"read"}) {
+		t.Fatalf("agent tools = %v, want only its own profile's", toolNames(agent))
+	}
+	if agent.AuditLogMetadata[AuditLogProfiles] != "vp1agent" {
+		t.Fatalf("agent profiles = %q, want only the profile that names it", agent.AuditLogMetadata[AuditLogProfiles])
+	}
+
+	user := connectVMCP(t, manager, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "5"}))
+	if !slices.Equal(toolNames(user), []string{"write"}) || user.AuditLogMetadata[AuditLogProfiles] != "vp1everyone" {
+		t.Fatalf("user connection = %#v, want the profile for every user", user)
+	}
+
+	unnamed := connectVMCP(t, manager, vmcp.Name, asAgent(6, 12))
+	if len(unnamed.Components) != 0 || unnamed.AuditLogMetadata[AuditLogProfiles] != "" {
+		t.Fatalf("unnamed agent connection = %#v, want no component and no profile", unnamed)
 	}
 }

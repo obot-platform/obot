@@ -384,13 +384,6 @@ func newAgentReadinessTestStorage(objects ...kclient.Object) storage.Client {
 // TestAgentNotReadyIsAConflict connects an agent to vMCPs it is granted but cannot use yet: the gateway answers 409
 // with the reasons and no challenge, before any MCP exchange.
 func TestAgentNotReadyIsAConflict(t *testing.T) {
-	everyone := func(id string) types.VMCPProfile {
-		return types.VMCPProfile{
-			ID:          id,
-			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
-			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
-		}
-	}
 	staticOAuth := types.VMCPComponent{
 		ID:   "salesforce",
 		Name: "Salesforce",
@@ -405,41 +398,43 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 		wantFailure vmcpaccess.AgentReadinessFailure
 	}{
 		{
-			name:     "component that needs OAuth",
-			profiles: []types.VMCPProfile{everyone("vp1everyone")},
+			name: "component that needs OAuth",
+			profiles: []types.VMCPProfile{{
+				ID:          "vp1agent",
+				Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
+				Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+			}},
 			wantFailure: vmcpaccess.AgentReadinessFailure{
 				Error: vmcpaccess.AgentOAuthRequiredError,
 				Reasons: []vmcpaccess.ReadinessReason{{
 					ComponentID: "salesforce",
 					Code:        types.AgentReadinessOAuthRequired,
-					ProfileID:   "vp1everyone",
+					ProfileID:   "vp1agent",
 				}},
 			},
 		},
 		{
-			name:     "legacy wildcard profiles",
-			profiles: []types.VMCPProfile{everyone("vp1first"), everyone("vp1second")},
-			wantFailure: vmcpaccess.AgentReadinessFailure{
-				Error:   vmcpaccess.AgentSelectionAmbiguousError,
-				Reasons: []vmcpaccess.ReadinessReason{{Code: types.AgentReadinessSelectionAmbiguous}},
-			},
-		},
-		{
-			// The agent's own profile cannot hold the grant the component needs, so the grant would come from the
-			// ambiguous fallback.
-			name: "explicit profile on legacy wildcard profiles",
+			// The profile for every user grants the agent nothing, so its own profile is the one to fix.
+			name: "component that needs OAuth, beside a profile for every user",
 			profiles: []types.VMCPProfile{
 				{
 					ID:          "vp1agent",
 					Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
 					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 				},
-				everyone("vp1first"),
-				everyone("vp1second"),
+				{
+					ID:          "vp1everyone",
+					Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+				},
 			},
 			wantFailure: vmcpaccess.AgentReadinessFailure{
-				Error:   vmcpaccess.AgentSelectionAmbiguousError,
-				Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "salesforce", Code: types.AgentReadinessSelectionAmbiguous}},
+				Error: vmcpaccess.AgentOAuthRequiredError,
+				Reasons: []vmcpaccess.ReadinessReason{{
+					ComponentID: "salesforce",
+					Code:        types.AgentReadinessOAuthRequired,
+					ProfileID:   "vp1agent",
+				}},
 			},
 		},
 	} {

@@ -152,12 +152,11 @@ func TestCollectMCPAuditEntryRecordsVMCPAttribution(t *testing.T) {
 	handler := NewAuditLogHandler(gatewayClient)
 	now := time.Now().UTC()
 	metadata := map[string]string{
-		"mcpID":                      "vmcp1shared",
-		"userID":                     "agent:7",
-		mcp.AuditLogVMCPID:           "vmcp1shared",
-		mcp.AuditLogComponentID:      "search",
-		mcp.AuditLogProfiles:         "vp1explicit,vp1wildcard",
-		mcp.AuditLogFallbackProfiles: "",
+		"mcpID":                 "vmcp1shared",
+		"userID":                "agent:7",
+		mcp.AuditLogVMCPID:      "vmcp1shared",
+		mcp.AuditLogComponentID: "search",
+		mcp.AuditLogProfiles:    "vp1agent",
 	}
 	handler.CollectMCPProxyAuditEntry(auditlogs.MCPAuditLog{
 		Metadata:       metadata,
@@ -187,8 +186,7 @@ func TestCollectMCPAuditEntryRecordsVMCPAttribution(t *testing.T) {
 			fields := logs[0].MCP()
 			require.Equal(t, "vmcp1shared", fields.VMCPID)
 			require.Equal(t, "search", fields.VMCPComponentID)
-			require.Equal(t, []string{"vp1explicit", "vp1wildcard"}, []string(fields.ProfileIDs))
-			require.Empty(t, fields.FallbackProfileIDs)
+			require.Equal(t, []string{"vp1agent"}, []string(fields.ProfileIDs))
 			require.Equal(t, "agent", logs[0].PrincipalKind)
 			require.Empty(t, logs[0].UserID)
 			return

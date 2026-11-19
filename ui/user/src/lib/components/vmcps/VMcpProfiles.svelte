@@ -37,16 +37,14 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import VMcpProfileAgentSetup, {
-		ambiguousAlert
-	} from '$lib/components/vmcps/VMcpProfileAgentSetup.svelte';
+	import VMcpProfileAgentSetup from '$lib/components/vmcps/VMcpProfileAgentSetup.svelte';
 	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
 	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type OrgUser, type VMCP, type VMCPComponent } from '$lib/services';
 	import AgentIdentitiesService, { type AgentIdentity } from '$lib/services/agent-identities';
 	import { compositeEffectiveToolNames, duplicateToolNames } from '$lib/services/user/mcp';
-	import { vmcpAgentSelectionAmbiguous, vmcpManifest } from '$lib/services/vmcps/utils';
+	import { vmcpManifest } from '$lib/services/vmcps/utils';
 	import { notifications } from '$lib/stores';
 	import {
 		agentLookupWith,
@@ -55,8 +53,7 @@
 		hasNamedAgent,
 		resolveSubjects,
 		resolveSubjectPickerById,
-		subjectPickerOptions,
-		wildcardConflicts
+		subjectPickerOptions
 	} from '$lib/subjectResolver';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
@@ -139,10 +136,9 @@
 	const nameError = $derived(error === NAME_REQUIRED_ERROR || error === NAME_EXISTS_ERROR);
 	const subjectsError = $derived(error === SUBJECTS_REQUIRED_ERROR);
 	const componentServers = $derived(vmcp?.components ?? []);
-	const selectionAmbiguous = $derived(vmcpAgentSelectionAmbiguous(vmcp));
-	// Agent setup is for a saved profile that agents can use, as its saved identities say. A profile
-	// whose identities in the editor include agents, and that is not saved as one yet, is asked to be
-	// saved first. A profile no agent can use has none.
+	// Agent setup is for a saved profile that names an agent, as its saved identities say. A profile
+	// whose identities in the editor name an agent, and that is not saved as one yet, is asked to be
+	// saved first. A profile that names no agent has none.
 	const savedAgentCapable = $derived(
 		Boolean(editingProfile?.profileID) && profileIsAgentCapable(editingProfile?.users ?? [])
 	);
@@ -162,26 +158,22 @@
 	const groupsById = $derived(
 		new Map([...resolvedGroups, ...directoryGroups].map((group) => [group.id, group]))
 	);
-	// The rows the inline picker offers, as the picker dialog builds them. Profiles accept agents, so
-	// everyone includes them.
-	const subjectOptions = $derived.by(() => {
-		const assigned = [...assignedSubjectIds];
-		return subjectPickerOptions({
+	// The rows the inline picker offers, as the picker dialog builds them. Profiles accept agents.
+	const subjectOptions = $derived(
+		subjectPickerOptions({
 			users: directoryUsers,
 			groups: directoryGroups,
 			agents: directoryAgents,
 			query: subjectQuery,
 			offerAgents: true,
 			offerObotAdmin: true,
-			existingPickerIds: assigned
+			existingPickerIds: assignedSubjectIds
 		}).map((option) => ({
 			id: option.key,
 			label: option.agent ? `${option.label} (${option.kind})` : option.label,
-			subject: option.subject,
-			// Everyone is not combined with the other wildcards, and all users with all agents is everyone.
-			disabled: wildcardConflicts(option.key, assigned)
-		}));
-	});
+			subject: option.subject
+		}))
+	);
 
 	let groupsRequest: AbortController | undefined;
 
@@ -668,8 +660,7 @@
 
 	function subjectDisplay(subject: AccessControlRuleSubject) {
 		const [row] = convertSubjectsToTableData([subject], directoryUsers, [...groupsById.values()], {
-			agents: agentLookup,
-			offerAgents: true
+			agents: agentLookup
 		});
 		const user =
 			subject.type === 'user'
@@ -677,8 +668,8 @@
 				: undefined;
 		return {
 			name: row.displayName,
-			// Wildcards are shown as groups, and named agents and users as themselves.
-			group: !row.agent && !(subject.type === 'user' && subject.id !== '*'),
+			// All Obot Users and groups are shown as groups, and agents and users as themselves.
+			group: !row.agent && subject.type !== 'user',
 			agent: Boolean(row.agent),
 			iconURL: user?.iconURL,
 			role: user?.effectiveRole,
@@ -1002,9 +993,6 @@
 		</p>
 		{#if vmcp}
 			{@render actions()}
-			{#if selectionAmbiguous && agentSetup}
-				<div class="mb-4">{@render ambiguousAlert()}</div>
-			{/if}
 			{@render list()}
 		{:else}
 			<div class="flex flex-col items-center justify-center text-center">

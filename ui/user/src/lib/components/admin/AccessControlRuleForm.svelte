@@ -289,9 +289,7 @@
 				{@const tableData = convertSubjectsToTableData(
 					accessControlRule.subjects ?? [],
 					usersAndGroups?.users ?? [],
-					usersAndGroups?.groups ?? [],
-					// Access control rules never match an agent, even through everyone.
-					{ offerAgents: false }
+					usersAndGroups?.groups ?? []
 				)}
 				<Table
 					data={tableData}

@@ -5,9 +5,10 @@
 //
 // A subject names its principals by kind:
 //
-//   - {selector, "*"} (subjects:*) is every user and every agent.
-//   - {user, "*"} (users:*) is every user, and {user, "<id>"} is one user.
-//   - {agent, "*"} (agents:*) is every agent, and {agent, "<id>"} is one agent, by its bare decimal ID.
+//   - {selector, "*"} (subjects:*) is every user. It never names an agent.
+//   - {user, "<id>"} is one user. {user, "*"} names no one, since no user has the ID "*".
+//   - {agent, "<id>"} is one agent, by its bare decimal ID. It is the only subject that names an agent, so granting or
+//     restricting an agent always names it.
 //   - {group, "<id>"} and {obotGroup, "<id>"} are the users in a group. Agents have no groups.
 //
 // The kind is always part of the comparison, so a user and an agent that share a numeric ID never match each other's
@@ -25,28 +26,12 @@ import (
 )
 
 const (
-	// NoMatch is a subject that does not name the caller.
-	NoMatch Match = iota
-	// MatchWildcardAll is the selector wildcard (subjects:*), which names every user and every agent.
-	MatchWildcardAll
-	// MatchWildcardKind is the wildcard of the caller's kind: {user, "*"} for a user, {agent, "*"} for an agent.
-	MatchWildcardKind
-	// MatchGroup is a group or Obot group the caller is in. Only users are in groups.
-	MatchGroup
-	// MatchExplicit is a subject that names the caller itself.
-	MatchExplicit
-
 	// PrincipalIndex, GroupIndex and ObotGroupIndex are the indexes of policies by subject that Indexers returns and
 	// LookupIndexes reads.
 	PrincipalIndex = "subjects-principal"
 	GroupIndex     = "subjects-group"
 	ObotGroupIndex = "subjects-obot-group"
 )
-
-// Match is how strongly a subject names a caller. A greater value is a more specific match, so the strongest of
-// several is their maximum. Callers that only grant access check that a match is not NoMatch; vMCP profile selection
-// for agents tells explicit assignments from wildcards by it.
-type Match int
 
 // Groups are the groups a user is in, as subject IDs: the auth provider groups that {group, id} subjects name, and
 // the Obot groups that {obotGroup, id} subjects name.
@@ -77,40 +62,32 @@ func CallerFromUserInfo(u kuser.Info) (Caller, bool) {
 	return Caller{Principal: p, Groups: Groups{AuthProvider: authProvider, Obot: obot}}, true
 }
 
-// Evaluate returns how s names caller, who is in groups.
+// Evaluate reports whether s names caller, who is in groups.
 //
-// A user matches {selector, "*"}, {user, "*"}, {user, <their ID>}, and the groups and Obot groups they are in. An
-// agent matches only {selector, "*"}, {agent, "*"} and {agent, <its ID>}: never a user, group or Obot group subject,
-// whatever its ID, and groups is ignored for it. A caller of any other kind, or without an ID, matches nothing.
-func Evaluate(s types.Subject, caller principal.Principal, groups Groups) Match {
+// A user matches {selector, "*"}, {user, <their ID>}, and the groups and Obot groups they are in. An agent matches
+// only {agent, <its ID>}: never the selector wildcard, nor a user, group or Obot group subject, whatever its ID, and
+// groups is ignored for it. A caller of any other kind, or without an ID, matches nothing.
+func Evaluate(s types.Subject, caller principal.Principal, groups Groups) bool {
 	kindType, ok := subjectType(caller)
 	if !ok {
-		return NoMatch
+		return false
 	}
 
 	switch s.Type {
 	case types.SubjectTypeSelector:
-		if s.ID == types.SubjectWildcardID {
-			return MatchWildcardAll
-		}
+		return s.ID == types.SubjectWildcardID && caller.Kind == principal.KindUser
 	case kindType:
-		// User subjects for a user, agent subjects for an agent: never the other kind's, whatever the ID.
-		if s.ID == types.SubjectWildcardID {
-			return MatchWildcardKind
-		}
-		if s.ID == caller.ID {
-			return MatchExplicit
-		}
+		// User subjects for a user, agent subjects for an agent: never the other kind's, whatever the ID. No
+		// principal has the ID "*", so {user, "*"} and {agent, "*"} name no one.
+		return s.ID == caller.ID
 	case types.SubjectTypeGroup:
-		if _, ok := groups.AuthProvider[s.ID]; ok && caller.Kind == principal.KindUser {
-			return MatchGroup
-		}
+		_, ok := groups.AuthProvider[s.ID]
+		return ok && caller.Kind == principal.KindUser
 	case types.SubjectTypeObotGroup:
-		if _, ok := groups.Obot[s.ID]; ok && caller.Kind == principal.KindUser {
-			return MatchGroup
-		}
+		_, ok := groups.Obot[s.ID]
+		return ok && caller.Kind == principal.KindUser
 	}
-	return NoMatch
+	return false
 }
 
 // subjectType returns the subject type that names principals of p's kind: user subjects for a user, and agent
@@ -128,39 +105,37 @@ func subjectType(p principal.Principal) (types.SubjectType, bool) {
 	return "", false
 }
 
-// EvaluateRestriction returns how s names caller for a policy that restricts callers rather than grants them
+// EvaluateRestriction reports whether s names caller for a policy that restricts callers rather than grants them
 // anything, such as an MCP guardrail filter. It is Evaluate, except for a caller that is not a user or an agent with
-// an ID, such as one without a recorded kind: such a caller still matches the selector wildcard (everyone).
+// an ID, such as one without a recorded kind: such a caller still matches the selector wildcard (everyone). So the
+// selector wildcard restricts every user and every caller it cannot identify, but no agent: a restriction applies to
+// an agent only when it names the agent.
 //
 // The grant matchers fail closed, so an unidentified caller gets nothing. A restriction fails closed the other way:
 // one that applies to everyone must still apply to a caller it cannot identify, or such a caller would escape it. An
 // unidentified caller matches no other subject, since nothing says which user, agent or group it is.
-func EvaluateRestriction(s types.Subject, caller principal.Principal, groups Groups) Match {
-	if s.Type == types.SubjectTypeSelector && s.ID == types.SubjectWildcardID {
-		return MatchWildcardAll
+func EvaluateRestriction(s types.Subject, caller principal.Principal, groups Groups) bool {
+	if _, ok := subjectType(caller); !ok {
+		return s.Type == types.SubjectTypeSelector && s.ID == types.SubjectWildcardID
 	}
 	return Evaluate(s, caller, groups)
 }
 
-// Evaluate returns how s names the caller.
-func (c Caller) Evaluate(s types.Subject) Match {
+// Evaluate reports whether s names the caller.
+func (c Caller) Evaluate(s types.Subject) bool {
 	return Evaluate(s, c.Principal, c.Groups)
 }
 
-// Best returns the strongest match of any of subjects for the caller, or NoMatch.
-func (c Caller) Best(subjects []types.Subject) Match {
-	best := NoMatch
-	for _, s := range subjects {
-		best = max(best, c.Evaluate(s))
-	}
-	return best
+// Matches reports whether any of subjects names the caller.
+func (c Caller) Matches(subjects []types.Subject) bool {
+	return slices.ContainsFunc(subjects, c.Evaluate)
 }
 
 // IndexKey returns the key under which a policy index files a subject that names principals rather than groups:
-// "*" for {selector, "*"}, "user:*" and "agent:*" for the wildcards of a kind, and "user:<id>" and "agent:<id>" for
-// one user or agent. The kind is part of every key but the selector wildcard's, so a user and an agent that share a
-// numeric ID never find each other's policies. It reports false for group subjects, which indexes file under their
-// group IDs, and for subjects that name no principal, such as a selector other than "*".
+// "*" for {selector, "*"}, and "user:<id>" and "agent:<id>" for one user or agent. The kind is part of every key but
+// the selector wildcard's, so a user and an agent that share a numeric ID never find each other's policies. It reports
+// false for group subjects, which indexes file under their group IDs, and for subjects that name no principal, such as
+// a selector other than "*".
 //
 // The keys of the subjects that match a principal without a group are exactly LookupKeys of it, and every lookup
 // must use LookupKeys, so that indexes and Evaluate agree.
@@ -193,15 +168,18 @@ func IndexKeys(subjects []types.Subject) []string {
 	return keys
 }
 
-// LookupKeys returns the index keys (IndexKey) of the subjects that name p other than through a group: the selector
-// wildcard, its kind's wildcard, and its own. It is empty for a principal that is neither a user nor an agent, or that
-// has no ID.
+// LookupKeys returns the index keys (IndexKey) of the subjects that name p other than through a group: for a user, the
+// selector wildcard and its own; for an agent, only its own. It is empty for a principal that is neither a user nor an
+// agent, or that has no ID.
 func LookupKeys(p principal.Principal) []string {
 	if _, ok := subjectType(p); !ok {
 		return nil
 	}
-	kind := string(p.Kind)
-	return []string{types.SubjectWildcardID, kind + ":" + types.SubjectWildcardID, kind + ":" + p.ID}
+	own := string(p.Kind) + ":" + p.ID
+	if p.Kind == principal.KindAgent {
+		return []string{own}
+	}
+	return []string{types.SubjectWildcardID, own}
 }
 
 // Indexers returns the indexes that file a policy by its subjects, which subjectsOf returns: PrincipalIndex under

@@ -110,7 +110,6 @@ func (h *AgentIdentityHandler) vmcpReadiness(req api.Context, vmcp v1.VMCP, inst
 				ComponentID: source.ComponentID,
 				Field:       source.Field,
 				ProfileID:   source.ProfileID,
-				Fallback:    source.Fallback,
 			})
 		}
 	}
@@ -120,7 +119,6 @@ func (h *AgentIdentityHandler) vmcpReadiness(req api.Context, vmcp v1.VMCP, inst
 				Kind:        types.AgentSourceOAuth,
 				ComponentID: grant.ComponentID,
 				ProfileID:   grant.ProfileID,
-				Fallback:    grant.Fallback,
 			})
 		}
 	}
@@ -129,14 +127,13 @@ func (h *AgentIdentityHandler) vmcpReadiness(req api.Context, vmcp v1.VMCP, inst
 
 func convertAgentReadiness(vmcp v1.VMCP, report vmcpconfig.AgentReadinessReport, disabled bool) types.AgentVMCPReadiness {
 	result := types.AgentVMCPReadiness{
-		VMCPID:            vmcp.Name,
-		VMCPDisplayName:   vmcp.Spec.Manifest.DisplayName,
-		Ready:             report.Readiness.Ready(),
-		Disabled:          disabled,
-		ExplicitProfileID: report.Readiness.ExplicitProfileID,
-		WildcardProfileID: report.Readiness.WildcardProfileID,
-		Reasons:           append([]types.AgentReadinessReason{}, report.Readiness.Reasons...),
-		PendingSync:       report.PendingSync,
+		VMCPID:          vmcp.Name,
+		VMCPDisplayName: vmcp.Spec.Manifest.DisplayName,
+		Ready:           report.Readiness.Ready(),
+		Disabled:        disabled,
+		ProfileID:       report.Readiness.ProfileID,
+		Reasons:         append([]types.AgentReadinessReason{}, report.Readiness.Reasons...),
+		PendingSync:     report.PendingSync,
 	}
 	return result
 }

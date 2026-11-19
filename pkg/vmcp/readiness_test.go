@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -13,9 +14,9 @@ import (
 )
 
 const (
-	readinessExplicitProfile = "vp1explicit"
-	readinessWildcardProfile = "vp1wildcard"
-	readinessOtherWildcard   = "vp1otherwildcard"
+	// readinessAgentProfile names agent 7, and readinessUsersProfile every user.
+	readinessAgentProfile = "vp1explicit"
+	readinessUsersProfile = "vp1users"
 )
 
 // failingGrants is a store of grants that cannot be read.
@@ -74,16 +75,6 @@ func staticOAuthComponent(id string) types.VMCPComponent {
 	return component
 }
 
-// legacyWildcardProfile returns a profile that names everyone and allows every component, as a vMCP stored before the
-// wildcard rule may have several of.
-func legacyWildcardProfile(id string) types.VMCPProfile {
-	return types.VMCPProfile{
-		ID:          id,
-		Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
-		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
-	}
-}
-
 // staticOAuthConfiguredComponent returns a static OAuth component that also needs a value a user would enter.
 func staticOAuthConfiguredComponent(id string) types.VMCPComponent {
 	component := staticOAuthComponent(id)
@@ -120,54 +111,35 @@ func readinessVMCP(components []types.VMCPComponent, profiles ...types.VMCPProfi
 func TestAgentReadiness(t *testing.T) {
 	agent := agentInfo(7, nil)
 	for _, tt := range []struct {
-		name         string
-		vmcp         v1.VMCP
-		wantExplicit string
-		wantWildcard string
-		wantReasons  []ReadinessReason
-		wantError    string
+		name        string
+		vmcp        v1.VMCP
+		wantProfile string
+		wantReasons []ReadinessReason
+		wantError   string
 	}{
 		{
 			name: "components that need nothing",
 			vmcp: readinessVMCP(
 				[]types.VMCPComponent{readinessComponent("plain")},
-				agentProfile(readinessExplicitProfile, "7", "plain"),
-				agentProfile(readinessWildcardProfile, types.SubjectWildcardID, "plain"),
+				agentProfile(readinessAgentProfile, "7", "plain"),
+				everyUserProfile(readinessUsersProfile),
 			),
-			wantExplicit: readinessExplicitProfile,
-			wantWildcard: readinessWildcardProfile,
+			wantProfile: readinessAgentProfile,
 		},
 		{
-			// No profile sets the required value a user would enter, so it blocks the agent, fixed by the explicit
-			// profile. Optional and fixed values do not.
-			name: "required configuration with an explicit profile",
+			// The profile does not set the required value a user would enter, so it blocks the agent, fixed in the
+			// agent's profile. Optional and fixed values do not.
+			name: "required configuration",
 			vmcp: readinessVMCP(
 				[]types.VMCPComponent{configuredComponent("configured")},
-				agentProfile(readinessExplicitProfile, "7", "configured"),
-				agentProfile(readinessWildcardProfile, types.SubjectWildcardID),
+				agentProfile(readinessAgentProfile, "7", "configured"),
 			),
-			wantExplicit: readinessExplicitProfile,
-			wantWildcard: readinessWildcardProfile,
+			wantProfile: readinessAgentProfile,
 			wantReasons: []ReadinessReason{{
 				ComponentID: "configured",
 				Code:        types.AgentReadinessConfigurationRequired,
 				Field:       "REGION",
-				ProfileID:   readinessExplicitProfile,
-			}},
-			wantError: AgentConfigurationRequiredError,
-		},
-		{
-			name: "required configuration fixed in the wildcard profile",
-			vmcp: readinessVMCP(
-				[]types.VMCPComponent{configuredComponent("configured")},
-				agentProfile(readinessWildcardProfile, types.SubjectWildcardID, "configured"),
-			),
-			wantWildcard: readinessWildcardProfile,
-			wantReasons: []ReadinessReason{{
-				ComponentID: "configured",
-				Code:        types.AgentReadinessConfigurationRequired,
-				Field:       "REGION",
-				ProfileID:   readinessWildcardProfile,
+				ProfileID:   readinessAgentProfile,
 			}},
 			wantError: AgentConfigurationRequiredError,
 		},
@@ -175,13 +147,13 @@ func TestAgentReadiness(t *testing.T) {
 			name: "static OAuth",
 			vmcp: readinessVMCP(
 				[]types.VMCPComponent{staticOAuthComponent("oauth"), readinessComponent("plain")},
-				agentProfile(readinessExplicitProfile, "7", "oauth", "plain"),
+				agentProfile(readinessAgentProfile, "7", "oauth", "plain"),
 			),
-			wantExplicit: readinessExplicitProfile,
+			wantProfile: readinessAgentProfile,
 			wantReasons: []ReadinessReason{{
 				ComponentID: "oauth",
 				Code:        types.AgentReadinessOAuthRequired,
-				ProfileID:   readinessExplicitProfile,
+				ProfileID:   readinessAgentProfile,
 			}},
 			wantError: AgentOAuthRequiredError,
 		},
@@ -190,20 +162,43 @@ func TestAgentReadiness(t *testing.T) {
 			name: "configuration and OAuth",
 			vmcp: readinessVMCP(
 				[]types.VMCPComponent{staticOAuthComponent("oauth"), configuredComponent("configured")},
-				agentProfile(readinessExplicitProfile, "7", "oauth", "configured"),
+				agentProfile(readinessAgentProfile, "7", "oauth", "configured"),
 			),
-			wantExplicit: readinessExplicitProfile,
+			wantProfile: readinessAgentProfile,
 			wantReasons: []ReadinessReason{
 				{
 					ComponentID: "oauth",
 					Code:        types.AgentReadinessOAuthRequired,
-					ProfileID:   readinessExplicitProfile,
+					ProfileID:   readinessAgentProfile,
 				},
 				{
 					ComponentID: "configured",
 					Code:        types.AgentReadinessConfigurationRequired,
 					Field:       "REGION",
-					ProfileID:   readinessExplicitProfile,
+					ProfileID:   readinessAgentProfile,
+				},
+			},
+			wantError: AgentConfigurationRequiredError,
+		},
+		{
+			// A component that needs both is reported for each.
+			name: "configuration and OAuth for one component",
+			vmcp: readinessVMCP(
+				[]types.VMCPComponent{staticOAuthConfiguredComponent("both")},
+				agentProfile(readinessAgentProfile, "7", "both"),
+			),
+			wantProfile: readinessAgentProfile,
+			wantReasons: []ReadinessReason{
+				{
+					ComponentID: "both",
+					Code:        types.AgentReadinessConfigurationRequired,
+					Field:       "REGION",
+					ProfileID:   readinessAgentProfile,
+				},
+				{
+					ComponentID: "both",
+					Code:        types.AgentReadinessOAuthRequired,
+					ProfileID:   readinessAgentProfile,
 				},
 			},
 			wantError: AgentConfigurationRequiredError,
@@ -213,64 +208,19 @@ func TestAgentReadiness(t *testing.T) {
 			name: "disabled components",
 			vmcp: readinessVMCP(
 				[]types.VMCPComponent{staticOAuthComponent("oauth"), configuredComponent("configured"), readinessComponent("plain")},
-				agentProfile(readinessExplicitProfile, "7", "plain"),
+				agentProfile(readinessAgentProfile, "7", "plain"),
 				agentProfile("vp1otheragent", "8", "oauth", "configured"),
 			),
-			wantExplicit: readinessExplicitProfile,
+			wantProfile: readinessAgentProfile,
 		},
 		{
-			// Two profiles name every agent, so the profile an agent without an explicit one falls back to is unknown,
-			// and nothing else is checked, even for components that need nothing.
-			name: "legacy wildcard profiles without an explicit profile",
+			// A profile for every user never applies to an agent: the components it grants are not the agent's, and
+			// the agent, which no profile names, has nothing enabled. The caller refuses it access.
+			name: "only a profile for every user",
 			vmcp: readinessVMCP(
-				[]types.VMCPComponent{readinessComponent("plain")},
-				legacyWildcardProfile(readinessWildcardProfile),
-				legacyWildcardProfile(readinessOtherWildcard),
+				[]types.VMCPComponent{staticOAuthComponent("oauth"), configuredComponent("configured")},
+				everyUserProfile(readinessUsersProfile),
 			),
-			wantReasons: []ReadinessReason{{Code: types.AgentReadinessSelectionAmbiguous}},
-			wantError:   AgentSelectionAmbiguousError,
-		},
-		{
-			// An agent with an explicit profile needs no fallback for components that need nothing.
-			name: "legacy wildcard profiles with an explicit profile and components that need nothing",
-			vmcp: readinessVMCP(
-				[]types.VMCPComponent{readinessComponent("plain"), readinessComponent("other")},
-				agentProfile(readinessExplicitProfile, "7", "plain"),
-				legacyWildcardProfile(readinessWildcardProfile),
-				legacyWildcardProfile(readinessOtherWildcard),
-			),
-			wantExplicit: readinessExplicitProfile,
-		},
-		{
-			// The explicit profile sets no configuration, and cannot hold grants yet, so components that need them
-			// would need the ambiguous fallback, and are reported as ambiguous, once each, without a profile to fix. A
-			// component that needs nothing is not reported.
-			name: "legacy wildcard profiles with an explicit profile and components that need setup",
-			vmcp: readinessVMCP(
-				[]types.VMCPComponent{configuredComponent("configured"), readinessComponent("plain"), staticOAuthConfiguredComponent("both")},
-				agentProfile(readinessExplicitProfile, "7", "configured", "plain", "both"),
-				legacyWildcardProfile(readinessWildcardProfile),
-				legacyWildcardProfile(readinessOtherWildcard),
-			),
-			wantExplicit: readinessExplicitProfile,
-			wantReasons: []ReadinessReason{
-				{ComponentID: "configured", Code: types.AgentReadinessSelectionAmbiguous},
-				{ComponentID: "both", Code: types.AgentReadinessSelectionAmbiguous},
-			},
-			wantError: AgentSelectionAmbiguousError,
-		},
-		{
-			// Components enabled only by the wildcard profiles are still the agent's, and still need the fallback.
-			name: "legacy wildcard profiles grant an explicit agent more components",
-			vmcp: readinessVMCP(
-				[]types.VMCPComponent{readinessComponent("plain"), staticOAuthComponent("oauth")},
-				agentProfile(readinessExplicitProfile, "7", "plain"),
-				legacyWildcardProfile(readinessWildcardProfile),
-				legacyWildcardProfile(readinessOtherWildcard),
-			),
-			wantExplicit: readinessExplicitProfile,
-			wantReasons:  []ReadinessReason{{ComponentID: "oauth", Code: types.AgentReadinessSelectionAmbiguous}},
-			wantError:    AgentSelectionAmbiguousError,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -278,8 +228,8 @@ func TestAgentReadiness(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if readiness.ExplicitProfileID != tt.wantExplicit || readiness.WildcardProfileID != tt.wantWildcard {
-				t.Errorf("profiles = explicit %q, wildcard %q; want %q, %q", readiness.ExplicitProfileID, readiness.WildcardProfileID, tt.wantExplicit, tt.wantWildcard)
+			if readiness.ProfileID != tt.wantProfile {
+				t.Errorf("profile = %q, want %q", readiness.ProfileID, tt.wantProfile)
 			}
 			if !reflect.DeepEqual(readiness.Reasons, tt.wantReasons) {
 				t.Errorf("reasons = %#v, want %#v", readiness.Reasons, tt.wantReasons)
@@ -297,24 +247,24 @@ func TestAgentReadiness(t *testing.T) {
 	}
 }
 
-// TestUserMatchesLegacyWildcardProfiles checks that the legacy wildcard profiles that make agent selection ambiguous
-// still grant users what they did.
-func TestUserMatchesLegacyWildcardProfiles(t *testing.T) {
+// TestAgentNamedInNoProfileHasNothingEnabled checks that a profile for every user grants users what it always did, and
+// an agent nothing, even when it is the only profile of the vMCP.
+func TestAgentNamedInNoProfileHasNothingEnabled(t *testing.T) {
 	vmcp := readinessVMCP(
 		[]types.VMCPComponent{readinessComponent("one"), readinessComponent("two")},
-		types.VMCPProfile{
-			ID:          readinessWildcardProfile,
-			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
-			Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"one": {}}},
-		},
-		types.VMCPProfile{
-			ID:          readinessOtherWildcard,
-			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
-			Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"two": {}}},
-		},
+		everyUserProfile(readinessUsersProfile),
+		agentProfile(readinessAgentProfile, "7", "one"),
 	)
-	if got := EnabledComponents(userInfo("7", nil), vmcp, ComponentsForInstance(vmcp, v1.VMCPInstance{})); len(got) != 2 {
+	components := ComponentsForInstance(vmcp, v1.VMCPInstance{})
+	// EnabledComponents removes components in place, so each caller gets its own copy.
+	if got := EnabledComponents(userInfo("7", nil), vmcp, slices.Clone(components)); len(got) != 2 {
 		t.Fatalf("user components = %v, want both", got)
+	}
+	if got := EnabledComponents(agentInfo(8, nil), vmcp, slices.Clone(components)); len(got) != 0 {
+		t.Fatalf("components of an agent no profile names = %v, want none", got)
+	}
+	if got := EnabledComponents(agentInfo(7, nil), vmcp, slices.Clone(components)); len(got) != 1 || got[0].ID != "one" {
+		t.Fatalf("agent components = %v, want only the one its profile grants", got)
 	}
 	if _, err := agentReadiness(t, vmcp, userInfo("7", nil)); err == nil {
 		t.Fatal("readiness was computed for a user")
@@ -327,7 +277,7 @@ func TestAgentReadinessChecksOnlyEnabledComponents(t *testing.T) {
 	agent := agentInfo(7, nil)
 	vmcp := readinessVMCP(
 		[]types.VMCPComponent{configuredComponent("configured"), staticOAuthComponent("oauth"), staticOAuthConfiguredComponent("disabled")},
-		agentProfile(readinessExplicitProfile, "7", "configured", "oauth"),
+		agentProfile(readinessAgentProfile, "7", "configured", "oauth"),
 	)
 	instance := v1.VMCPInstance{Name: "vmcpi1agent", Spec: v1.VMCPInstanceSpec{UserID: "agent:7"}}
 
@@ -337,8 +287,8 @@ func TestAgentReadinessChecksOnlyEnabledComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []ReadinessReason{
-		{ComponentID: "configured", Code: types.AgentReadinessConfigurationRequired, Field: "REGION", ProfileID: readinessExplicitProfile},
-		{ComponentID: "oauth", Code: types.AgentReadinessOAuthRequired, ProfileID: readinessExplicitProfile},
+		{ComponentID: "configured", Code: types.AgentReadinessConfigurationRequired, Field: "REGION", ProfileID: readinessAgentProfile},
+		{ComponentID: "oauth", Code: types.AgentReadinessOAuthRequired, ProfileID: readinessAgentProfile},
 	}
 	if !reflect.DeepEqual(report.Readiness.Reasons, want) {
 		t.Fatalf("reasons = %#v, want %#v", report.Readiness.Reasons, want)
@@ -374,8 +324,6 @@ func TestAgentReadinessRefusesPersonalVMCPs(t *testing.T) {
 }
 
 func TestReadinessErrorCodePrecedence(t *testing.T) {
-	ambiguous := ReadinessReason{Code: types.AgentReadinessSelectionAmbiguous}
-	ambiguousComponent := AmbiguousFallbackReason("one")
 	configuration := ReadinessReason{ComponentID: "one", Code: types.AgentReadinessConfigurationRequired, Field: "REGION"}
 	oauth := ReadinessReason{ComponentID: "two", Code: types.AgentReadinessOAuthRequired}
 	invalid := ReadinessReason{ComponentID: "two", Code: types.AgentReadinessOAuthInvalid}
@@ -384,26 +332,6 @@ func TestReadinessErrorCodePrecedence(t *testing.T) {
 		reasons []ReadinessReason
 		want    string
 	}{
-		{
-			name:    "ambiguous vMCP",
-			reasons: []ReadinessReason{ambiguous},
-			want:    AgentSelectionAmbiguousError,
-		},
-		{
-			name:    "ambiguous component",
-			reasons: []ReadinessReason{ambiguousComponent},
-			want:    AgentSelectionAmbiguousError,
-		},
-		{
-			name:    "ambiguity before configuration",
-			reasons: []ReadinessReason{configuration, ambiguousComponent},
-			want:    AgentSelectionAmbiguousError,
-		},
-		{
-			name:    "ambiguity before OAuth",
-			reasons: []ReadinessReason{oauth, ambiguousComponent},
-			want:    AgentSelectionAmbiguousError,
-		},
 		{
 			name:    "configuration",
 			reasons: []ReadinessReason{configuration},
@@ -429,45 +357,5 @@ func TestReadinessErrorCodePrecedence(t *testing.T) {
 				t.Fatalf("failure error = %q, want %q", failure.Error, tt.want)
 			}
 		})
-	}
-}
-
-// TestAgentReadinessWithAnAmbiguousFallback checks readiness on a vMCP whose fallback is ambiguous: an agent with an
-// explicit profile is checked against that profile alone, and is ready when it supplies everything, and an agent
-// without one is refused for the whole vMCP before any component is checked.
-func TestAgentReadinessWithAnAmbiguousFallback(t *testing.T) {
-	agent := agentInfo(7, nil)
-	vmcp := readinessVMCP(
-		[]types.VMCPComponent{configuredComponent("configured")},
-		agentProfile(readinessExplicitProfile, "7", "configured"),
-		legacyWildcardProfile(readinessWildcardProfile),
-		legacyWildcardProfile(readinessOtherWildcard),
-	)
-	vmcp.Status.ProfileConfigurationRevisions = map[string]v1.VMCPProfileConfigurationRevision{
-		readinessExplicitProfile: {Name: "revision1", Keys: []string{ConfigurationKey("configured", "REGION")}},
-	}
-
-	report, err := AgentReadiness(t.Context(), NewProfileOAuthGrantStore(newMemoryGrants()), vmcp, nil, agent)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if readiness := report.Readiness; !readiness.Ready() || readiness.ExplicitProfileID != readinessExplicitProfile || readiness.WildcardProfileID != "" {
-		t.Fatalf("readiness = %#v, want ready with only the explicit profile", readiness)
-	}
-	if len(report.Grants) != 1 {
-		t.Fatalf("grants = %#v, want the explicit agent's component checked", report.Grants)
-	}
-
-	// A wildcard-only agent is refused before any component is checked.
-	grants := newMemoryGrants()
-	report, err = AgentReadiness(t.Context(), NewProfileOAuthGrantStore(grants), vmcp, nil, agentInfo(8, nil))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Grants != nil || grants.queries != 0 {
-		t.Fatal("components were checked for an agent without an explicit profile on an ambiguous vMCP")
-	}
-	if !reflect.DeepEqual(report.Readiness.Reasons, []ReadinessReason{{Code: types.AgentReadinessSelectionAmbiguous}}) {
-		t.Fatalf("reasons = %#v, want the vMCP-wide ambiguity", report.Readiness.Reasons)
 	}
 }

@@ -35,7 +35,7 @@
 	"models_gateway_search_models": "搜索模型...",
 	"models_message_policy_fallback_title": "消息策略",
 	"models_not_configured": "未配置",
-	"models_profile_users_agents_description": "此配置文件适用的用户、用户组和代理。所有人包括代理。",
+	"models_profile_users_agents_description": "此配置文件适用的用户、用户组和代理。",
 	"models_providers_add_models": "添加模型",
 	"models_providers_all_domains": "所有域",
 	"models_providers_all_models_description": "授予对所有当前及未来模型的访问权限",

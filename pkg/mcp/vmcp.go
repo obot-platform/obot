@@ -218,16 +218,10 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	// An agent's readiness was computed for these same components, in the same order. Each component's connection
 	// selects its grant again when the composite reaches it; the grants readiness selected name the grant in the
 	// composite's configuration, so that an authorization failure of the component is reported to the agent as the grant
-	// being invalid, and record the profiles the agent falls back to for configuration and grants.
-	fallbackProfiles := agentReadiness.Configuration.FallbackProfileIDs()
+	// being invalid.
 	for i, grant := range agentReadiness.Grants {
 		if grant.ProfileID != "" {
 			components[i].OAuthGrant = newOAuthGrantRef(grant)
-		}
-	}
-	for _, id := range vmcpaccess.FallbackGrantProfileIDs(agentReadiness.Grants) {
-		if !slices.Contains(fallbackProfiles, id) {
-			fallbackProfiles = append(fallbackProfiles, id)
 		}
 	}
 
@@ -268,9 +262,6 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			"userID":               userID,
 			AuditLogVMCPID:         vmcp.Name,
 			AuditLogProfiles:       strings.Join(contributingProfileIDs(user, *vmcp), ","),
-			// The wildcard profile, when it supplies an agent configuration or OAuth grants as the profile the agent
-			// falls back to.
-			AuditLogFallbackProfiles: strings.Join(fallbackProfiles, ","),
 		},
 	}, nil
 }

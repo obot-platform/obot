@@ -71,16 +71,16 @@ func probedRequiredAnywhere(vmcp v1.VMCP, component types.VMCPComponent) bool {
 }
 
 // probedRequired reports whether the vMCP controller found that component asks for OAuth at the URL that the
-// connection of an agent whose profiles apply to it as selection reaches (ResolveComponentTarget). It reads the vMCP's
+// connection of an agent whose profile is profile reaches (ResolveComponentTarget). It reads the vMCP's
 // status and, for a URL that comes from configuration, only when some probe of the component found that it asks for
 // OAuth, the configuration that sets it; it never contacts the component. A URL that cannot be resolved, because a
 // value it needs is missing or the configured URL is refused, is not known to need OAuth: configuration readiness
 // reports it.
-func (s *ProfileOAuthGrantStore) probedRequired(ctx context.Context, vmcp v1.VMCP, selection AgentSelection, component types.VMCPComponent) (bool, error) {
+func (s *ProfileOAuthGrantStore) probedRequired(ctx context.Context, vmcp v1.VMCP, profile *types.VMCPProfile, component types.VMCPComponent) (bool, error) {
 	if !probedRequiredAnywhere(vmcp, component) {
 		return false, nil
 	}
-	target, _, err := ResolveComponentTarget(ctx, s.targets, vmcp, selection, component)
+	target, _, err := ResolveComponentTarget(ctx, s.targets, vmcp, profile, component)
 	if err != nil {
 		return false, fmt.Errorf("resolve the upstream URL of component %q: %w", component.ID, err)
 	}

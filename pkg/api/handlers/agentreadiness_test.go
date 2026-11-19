@@ -44,15 +44,17 @@ type readinessFixture struct {
 	grants  *vmcpconfig.ProfileOAuthGrantStore
 	config  *VMCPProfileConfigurationHandler
 	manager *mcp.SessionManager
-	// agent is the agent with an explicit profile, and wildcardAgent the one with only the wildcard profile.
-	agent         *gatewaytypes.Agent
-	wildcardAgent *gatewaytypes.Agent
+	// agent and otherAgent are the agents that profiles vp1agent and vp1other name, and stranger an agent that no
+	// profile names.
+	agent      *gatewaytypes.Agent
+	otherAgent *gatewaytypes.Agent
+	stranger   *gatewaytypes.Agent
 }
 
 // readinessTestVMCP returns a vMCP whose component "api" needs a region and a token a user would enter, and whose
-// component "remote" needs administrator static OAuth. Its profiles are for one agent, for every agent, and for every
-// user.
-func readinessTestVMCP(agentID uint) *v1.VMCP {
+// component "remote" needs administrator static OAuth. Its profiles are for one agent, for another agent, and for every
+// user, which never applies to an agent.
+func readinessTestVMCP(agentID, otherAgentID uint) *v1.VMCP {
 	profile := func(id string, subject types.Subject) types.VMCPProfile {
 		return types.VMCPProfile{ID: id, Name: id, Subjects: []types.Subject{subject}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}
 	}
@@ -84,8 +86,8 @@ func readinessTestVMCP(agentID uint) *v1.VMCP {
 		},
 		Profiles: []types.VMCPProfile{
 			profile("vp1agent", types.Subject{Type: types.SubjectTypeAgent, ID: strconv.FormatUint(uint64(agentID), 10)}),
-			profile("vp1agents", types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}),
-			profile("vp1users", types.Subject{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}),
+			profile("vp1other", types.Subject{Type: types.SubjectTypeAgent, ID: strconv.FormatUint(uint64(otherAgentID), 10)}),
+			profile("vp1users", types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}),
 		},
 	}}}
 }
@@ -95,10 +97,12 @@ func newReadinessFixture(t *testing.T) *readinessFixture {
 	gatewayClient := newHandlerTestGateway(t)
 	agent, err := gatewayClient.CreateAgent(t.Context(), gatewaytypes.Agent{DisplayName: "builder"})
 	require.NoError(t, err)
-	wildcardAgent, err := gatewayClient.CreateAgent(t.Context(), gatewaytypes.Agent{DisplayName: "runner"})
+	otherAgent, err := gatewayClient.CreateAgent(t.Context(), gatewaytypes.Agent{DisplayName: "runner"})
+	require.NoError(t, err)
+	stranger, err := gatewayClient.CreateAgent(t.Context(), gatewaytypes.Agent{DisplayName: "stranger"})
 	require.NoError(t, err)
 
-	vmcp := readinessTestVMCP(agent.ID)
+	vmcp := readinessTestVMCP(agent.ID, otherAgent.ID)
 	storage := newProfileConfigurationTestStorage(vmcp)
 	grants := vmcpconfig.NewProfileOAuthGrantStore(gatewayClient)
 	// The connect path's store of grants, as the server configures it.
@@ -106,14 +110,15 @@ func newReadinessFixture(t *testing.T) *readinessFixture {
 	manager.SetProfileOAuthGrants(grants)
 
 	f := &readinessFixture{
-		t:             t,
-		gateway:       gatewayClient,
-		storage:       storage,
-		grants:        grants,
-		config:        NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient)),
-		manager:       manager,
-		agent:         agent,
-		wildcardAgent: wildcardAgent,
+		t:          t,
+		gateway:    gatewayClient,
+		storage:    storage,
+		grants:     grants,
+		config:     NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient)),
+		manager:    manager,
+		agent:      agent,
+		otherAgent: otherAgent,
+		stranger:   stranger,
 	}
 	f.serve(NewAgentIdentityHandler(manager), NewVMCPProfileOAuthHandler(&recordingAuthorizer{}, grants))
 	return f
@@ -202,63 +207,58 @@ func agentPath(agent *gatewaytypes.Agent, rest string) string {
 	return "/api/agents/" + strconv.FormatUint(uint64(agent.ID), 10) + rest
 }
 
-// TestAgentReadinessAPI follows an agent and an agent with only the wildcard profile through setup: the reasons name
-// the profile to fix, fallback is applied and reported as sources, a grant that is invalidated in the database is seen
-// at once, and removing an explicit assignment changes where things come from instead of making the agent unready.
+// TestAgentReadinessAPI follows two agents, each named by its own profile, through setup: the reasons name the profile
+// to fix, each agent takes its configuration and grant only from its own profile, a grant that is invalidated in the
+// database is seen at once, and removing the agent from its profile takes the vMCP away from it.
 func TestAgentReadinessAPI(t *testing.T) {
 	f := newReadinessFixture(t)
-	wildcardAgent, agent := f.wildcardAgent, f.agent
+	otherAgent, agent := f.otherAgent, f.agent
 
-	// Nothing is set up: each agent is told to fix the profile that applies to it.
+	// Nothing is set up: each agent is told to fix its own profile.
 	require.Equal(t, types.AgentVMCPReadiness{
-		VMCPID:            readinessVMCP,
-		VMCPDisplayName:   "Readiness",
-		ExplicitProfileID: "vp1agent",
-		WildcardProfileID: "vp1agents",
+		VMCPID:          readinessVMCP,
+		VMCPDisplayName: "Readiness",
+		ProfileID:       "vp1agent",
 		Reasons: []types.AgentReadinessReason{
 			{ComponentID: "api", Code: types.AgentReadinessConfigurationRequired, Field: "REGION", ProfileID: "vp1agent"},
 			{ComponentID: "remote", Code: types.AgentReadinessOAuthRequired, ProfileID: "vp1agent"},
 		},
 	}, f.readiness(agent))
 	require.Equal(t, types.AgentVMCPReadiness{
-		VMCPID:            readinessVMCP,
-		VMCPDisplayName:   "Readiness",
-		WildcardProfileID: "vp1agents",
+		VMCPID:          readinessVMCP,
+		VMCPDisplayName: "Readiness",
+		ProfileID:       "vp1other",
 		Reasons: []types.AgentReadinessReason{
-			{ComponentID: "api", Code: types.AgentReadinessConfigurationRequired, Field: "REGION", ProfileID: "vp1agents"},
-			{ComponentID: "remote", Code: types.AgentReadinessOAuthRequired, ProfileID: "vp1agents"},
+			{ComponentID: "api", Code: types.AgentReadinessConfigurationRequired, Field: "REGION", ProfileID: "vp1other"},
+			{ComponentID: "remote", Code: types.AgentReadinessOAuthRequired, ProfileID: "vp1other"},
 		},
-	}, f.readiness(wildcardAgent))
+	}, f.readiness(otherAgent))
 
-	// The wildcard profile's setup makes the wildcard agent ready, and the other agent falls back to it.
-	f.configure("vp1agents", map[string]any{"REGION": readinessSecretValue})
-	f.storeGrant("vp1agents", readinessRemoteURL, "grant-agents")
+	// The other profile's setup makes only its agent ready: no agent uses another agent's profile.
+	f.configure("vp1other", map[string]any{"REGION": readinessSecretValue})
+	f.storeGrant("vp1other", readinessRemoteURL, "grant-other")
 	require.Equal(t, types.AgentVMCPReadiness{
-		VMCPID:            readinessVMCP,
-		VMCPDisplayName:   "Readiness",
-		Ready:             true,
-		WildcardProfileID: "vp1agents",
-		Reasons:           []types.AgentReadinessReason{},
-		// An agent with no explicit profile gets everything from the wildcard profile, which is its fallback.
+		VMCPID:          readinessVMCP,
+		VMCPDisplayName: "Readiness",
+		Ready:           true,
+		ProfileID:       "vp1other",
+		Reasons:         []types.AgentReadinessReason{},
 		Sources: []types.AgentReadinessSource{
-			{Kind: types.AgentSourceConfiguration, ComponentID: "api", Field: "REGION", ProfileID: "vp1agents", Fallback: true},
-			{Kind: types.AgentSourceOAuth, ComponentID: "remote", ProfileID: "vp1agents", Fallback: true},
+			{Kind: types.AgentSourceConfiguration, ComponentID: "api", Field: "REGION", ProfileID: "vp1other"},
+			{Kind: types.AgentSourceOAuth, ComponentID: "remote", ProfileID: "vp1other"},
 		},
-	}, f.readiness(wildcardAgent))
+	}, f.readiness(otherAgent))
 	require.Equal(t, types.AgentVMCPReadiness{
-		VMCPID:            readinessVMCP,
-		VMCPDisplayName:   "Readiness",
-		Ready:             true,
-		ExplicitProfileID: "vp1agent",
-		WildcardProfileID: "vp1agents",
-		Reasons:           []types.AgentReadinessReason{},
-		Sources: []types.AgentReadinessSource{
-			{Kind: types.AgentSourceConfiguration, ComponentID: "api", Field: "REGION", ProfileID: "vp1agents", Fallback: true},
-			{Kind: types.AgentSourceOAuth, ComponentID: "remote", ProfileID: "vp1agents", Fallback: true},
+		VMCPID:          readinessVMCP,
+		VMCPDisplayName: "Readiness",
+		ProfileID:       "vp1agent",
+		Reasons: []types.AgentReadinessReason{
+			{ComponentID: "api", Code: types.AgentReadinessConfigurationRequired, Field: "REGION", ProfileID: "vp1agent"},
+			{ComponentID: "remote", Code: types.AgentReadinessOAuthRequired, ProfileID: "vp1agent"},
 		},
 	}, f.readiness(agent))
 
-	// The explicit profile's own value and grant take over from the fallback.
+	// The agent's own profile's value and grant make it ready.
 	f.configure("vp1agent", map[string]any{"REGION": readinessSecretValue})
 	f.storeGrant("vp1agent", readinessRemoteURL, "grant-agent")
 	ready := f.readiness(agent)
@@ -268,8 +268,8 @@ func TestAgentReadinessAPI(t *testing.T) {
 		{Kind: types.AgentSourceOAuth, ComponentID: "remote", ProfileID: "vp1agent"},
 	}, ready.Sources)
 
-	// Invalidating a grant changes only its database row, and the next request sees it: nothing is cached. The agent is
-	// not sent to the wildcard profile's working grant.
+	// Invalidating a grant changes only its database row, and the next request sees it: nothing is cached. The other
+	// agent's grant is unaffected.
 	var marked bool
 	require.NoError(t, f.gateway.WithMCPOAuthRefreshLock(t.Context(), principal.ProfileGrant(readinessVMCP, "vp1agent"), vmcpconfig.ProfileOAuthGrantMCPID(readinessVMCP, "remote"), func(_ context.Context, refresh *gateway.MCPOAuthRefresh) error {
 		var err error
@@ -280,48 +280,17 @@ func TestAgentReadinessAPI(t *testing.T) {
 	invalid := f.readiness(agent)
 	require.False(t, invalid.Ready)
 	require.Equal(t, []types.AgentReadinessReason{{ComponentID: "remote", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1agent"}}, invalid.Reasons)
-	require.True(t, f.readiness(wildcardAgent).Ready)
+	require.True(t, f.readiness(otherAgent).Ready)
 
-	// Removing the explicit assignment leaves the agent on the wildcard profile: its sources change, it is not unready.
+	// Removing the agent from its profile takes the vMCP away from it: the profile for every user never applies to an
+	// agent.
 	f.updateVMCP(func(manifest *types.VMCPManifest) {
 		manifest.Profiles[0].Subjects = []types.Subject{{Type: types.SubjectTypeAgent, ID: "999"}}
 	})
-	removed := f.readiness(agent)
-	require.True(t, removed.Ready, "%+v", removed.Reasons)
-	require.Empty(t, removed.ExplicitProfileID)
-	require.Equal(t, []types.AgentReadinessSource{
-		{Kind: types.AgentSourceConfiguration, ComponentID: "api", Field: "REGION", ProfileID: "vp1agents", Fallback: true},
-		{Kind: types.AgentSourceOAuth, ComponentID: "remote", ProfileID: "vp1agents", Fallback: true},
-	}, removed.Sources)
-}
-
-// TestAgentReadinessAmbiguousSelection checks that more than one profile naming every agent blocks an agent that has
-// only the wildcard on the whole vMCP, and an agent with an explicit profile only for the components that need the
-// fallback.
-func TestAgentReadinessAmbiguousSelection(t *testing.T) {
-	f := newReadinessFixture(t)
-	f.configure("vp1agent", map[string]any{"REGION": readinessSecretValue})
-	f.storeGrant("vp1agent", readinessRemoteURL, "grant-agent")
-	f.updateVMCP(func(manifest *types.VMCPManifest) {
-		manifest.Profiles = append(manifest.Profiles, types.VMCPProfile{
-			ID:          "vp1others",
-			Name:        "others",
-			Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}},
-			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
-		})
-	})
-
-	blocked := f.readiness(f.wildcardAgent)
-	require.False(t, blocked.Ready)
-	require.Equal(t, []types.AgentReadinessReason{{Code: types.AgentReadinessSelectionAmbiguous}}, blocked.Reasons)
-	require.Empty(t, blocked.WildcardProfileID, "the fallback is unknown")
-
-	// The explicit profile supplies everything, so nothing needs the fallback.
-	require.True(t, f.readiness(f.agent).Ready)
-	// Without its grant, the grant would come from the ambiguous fallback.
-	require.NoError(t, f.gateway.DeleteMCPOAuthGrantsForOwners(t.Context(), []string{principal.ProfileGrant(readinessVMCP, "vp1agent")}))
-	partial := f.readiness(f.agent)
-	require.Equal(t, []types.AgentReadinessReason{{ComponentID: "remote", Code: types.AgentReadinessSelectionAmbiguous}}, partial.Reasons)
+	f.get(http.StatusNotFound, agentPath(agent, "/vmcps/"+readinessVMCP+"/readiness"), nil)
+	var list types.AgentVMCPReadinessList
+	f.get(http.StatusOK, agentPath(agent, "/vmcps"), &list)
+	require.Empty(t, list.Items)
 }
 
 // TestAgentReadinessUsesTheConnectPathChecks checks that the API is computed as the connect path computes it, with the
@@ -370,19 +339,22 @@ func TestAgentReadinessPendingSync(t *testing.T) {
 // agent's access summary, that a disabled agent reports its readiness, and that a deleted one is 404.
 func TestAgentReadinessListAndLifecycle(t *testing.T) {
 	f := newReadinessFixture(t)
-	f.configure("vp1agents", map[string]any{"REGION": readinessSecretValue})
+	f.configure("vp1agent", map[string]any{"REGION": readinessSecretValue})
 	everyone := types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}
+	named := types.Subject{Type: types.SubjectTypeAgent, ID: strconv.FormatUint(uint64(f.agent.ID), 10)}
 	someoneElse := types.Subject{Type: types.SubjectTypeAgent, ID: "999"}
 	profile := func(id string, subject types.Subject) types.VMCPProfile {
 		return types.VMCPProfile{ID: id, Name: id, Subjects: []types.Subject{subject}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}
 	}
 	for _, other := range []*v1.VMCP{
-		// Shared and open to everyone, with nothing to set up.
+		// Shared, naming the agent, with nothing to set up.
+		{Name: "vmcp1named", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{DisplayName: "Named", Profiles: []types.VMCPProfile{profile("vp1named", named)}}}},
+		// Shared and open to every user, which grants no agent.
 		{Name: "vmcp1open", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{DisplayName: "Open", Profiles: []types.VMCPProfile{profile("vp1open", everyone)}}}},
 		// No profile names the agent.
 		{Name: "vmcp1closed", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{DisplayName: "Closed", Profiles: []types.VMCPProfile{profile("vp1closed", someoneElse)}}}},
 		// Personal vMCPs grant only their owner.
-		{Name: "vmcp1personal", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{UserID: "1", Manifest: types.VMCPManifest{DisplayName: "Personal", Profiles: []types.VMCPProfile{profile("vp1personal", everyone)}}}},
+		{Name: "vmcp1personal", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{UserID: "1", Manifest: types.VMCPManifest{DisplayName: "Personal", Profiles: []types.VMCPProfile{profile("vp1personal", named)}}}},
 	} {
 		require.NoError(t, f.storage.Create(t.Context(), other))
 	}
@@ -390,9 +362,11 @@ func TestAgentReadinessListAndLifecycle(t *testing.T) {
 	var list types.AgentVMCPReadinessList
 	f.get(http.StatusOK, agentPath(f.agent, "/vmcps"), &list)
 	require.Len(t, list.Items, 2)
-	require.Equal(t, "vmcp1open", list.Items[0].VMCPID)
+	require.Equal(t, "vmcp1named", list.Items[0].VMCPID)
+	require.Equal(t, "vp1named", list.Items[0].ProfileID)
 	require.True(t, list.Items[0].Ready)
 	require.Equal(t, readinessVMCP, list.Items[1].VMCPID)
+	require.Equal(t, "vp1agent", list.Items[1].ProfileID)
 	require.False(t, list.Items[1].Ready, "the remote component has no grant")
 	require.Equal(t, []types.AgentReadinessReason{{ComponentID: "remote", Code: types.AgentReadinessOAuthRequired, ProfileID: "vp1agent"}}, list.Items[1].Reasons)
 	require.Empty(t, list.Items[1].Sources, "the list leaves out sources")
@@ -408,16 +382,33 @@ func TestAgentReadinessListAndLifecycle(t *testing.T) {
 	}
 	require.Equal(t, []string{list.Items[0].VMCPID, list.Items[1].VMCPID}, accessible)
 
-	// A vMCP the agent has no access to, a personal one, and an unknown one are not found.
+	// A vMCP open to every user, one the agent has no access to, a personal one, and an unknown one are not found.
+	f.get(http.StatusNotFound, agentPath(f.agent, "/vmcps/vmcp1open/readiness"), nil)
 	f.get(http.StatusNotFound, agentPath(f.agent, "/vmcps/vmcp1closed/readiness"), nil)
 	f.get(http.StatusNotFound, agentPath(f.agent, "/vmcps/vmcp1personal/readiness"), nil)
 	f.get(http.StatusNotFound, agentPath(f.agent, "/vmcps/vmcp1unknown/readiness"), nil)
 
-	// A key that can use the LLM gateway and skills, with no policy naming the agent, is a problem the access summary
-	// reports.
+	// A key that can use the LLM gateway and skills is a problem the access summary reports while no policy names the
+	// agent, even when a policy and a rule name every user: those grant no agent.
+	for _, policy := range []kclient.Object{
+		&v1.ModelAccessPolicy{
+			Name:      "map1everyone",
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{DisplayName: "Everyone", Subjects: []types.Subject{everyone}}},
+		},
+		&v1.SkillAccessRule{
+			Name:      "sar1everyone",
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.SkillAccessRuleSpec{Manifest: types.SkillAccessRuleManifest{DisplayName: "Everyone", Subjects: []types.Subject{everyone}}},
+		},
+	} {
+		require.NoError(t, f.storage.Create(t.Context(), policy))
+	}
 	_, err := f.gateway.CreateAgentAPIKey(t.Context(), f.agent.ID, gatewaytypes.AgentAPIKeyCreateRequest{Name: "key", CanAccessLLMProxy: true, CanAccessSkills: true})
 	require.NoError(t, err)
 	f.get(http.StatusOK, agentPath(f.agent, "/access"), &access)
+	require.Empty(t, access.ModelAccessPolicies)
+	require.Empty(t, access.SkillAccessRules)
 	require.Equal(t, []types.AgentIdentityAccessProblem{
 		{Code: types.AgentProblemNoModelAccessPolicy},
 		{Code: types.AgentProblemNoSkillAccessRule},
@@ -433,24 +424,24 @@ func TestAgentReadinessListAndLifecycle(t *testing.T) {
 	require.True(t, list.Items[0].Disabled)
 
 	// A deleted agent, and one that does not exist, are not found.
-	require.NoError(t, f.gateway.DeleteAgent(t.Context(), f.wildcardAgent.ID))
-	f.get(http.StatusNotFound, agentPath(f.wildcardAgent, "/vmcps"), nil)
-	f.get(http.StatusNotFound, agentPath(f.wildcardAgent, "/vmcps/"+readinessVMCP+"/readiness"), nil)
+	require.NoError(t, f.gateway.DeleteAgent(t.Context(), f.otherAgent.ID))
+	f.get(http.StatusNotFound, agentPath(f.otherAgent, "/vmcps"), nil)
+	f.get(http.StatusNotFound, agentPath(f.otherAgent, "/vmcps/"+readinessVMCP+"/readiness"), nil)
 	f.get(http.StatusNotFound, "/api/agents/999/vmcps", nil)
 	f.get(http.StatusNotFound, "/api/agents/nope/vmcps/"+readinessVMCP+"/readiness", nil)
 }
 
-// TestVMCPProfileStatusAPI checks the status of a profile: it covers every component, describes only that profile with
-// no fallback to the wildcard profile, reports the grant's metadata and no value or token, and answers 404 for a vMCP or
-// profile that is not there.
+// TestVMCPProfileStatusAPI checks the status of a profile: it covers every component, describes only that profile, not
+// another agent's profile, reports the grant's metadata and no value or token, and answers 404 for a vMCP or profile that
+// is not there.
 func TestVMCPProfileStatusAPI(t *testing.T) {
 	f := newReadinessFixture(t)
 
-	// Only the wildcard profile is set up.
-	f.configure("vp1agents", map[string]any{"REGION": readinessSecretValue})
-	f.storeGrant("vp1agents", readinessRemoteURL, "grant-agents")
+	// Only the other agent's profile is set up.
+	f.configure("vp1other", map[string]any{"REGION": readinessSecretValue})
+	f.storeGrant("vp1other", readinessRemoteURL, "grant-other")
 
-	// The explicit profile is its own: it does not take the wildcard's setup.
+	// The agent's profile is its own: it does not take the other profile's setup.
 	status := f.profileStatus("vp1agent")
 	require.True(t, status.AgentCapable)
 	require.False(t, status.PendingCollection)
@@ -466,27 +457,27 @@ func TestVMCPProfileStatusAPI(t *testing.T) {
 		},
 	}, status.Components)
 
-	status = f.profileStatus("vp1agents")
+	status = f.profileStatus("vp1other")
 	require.Equal(t, []string{"REGION"}, status.Components[0].Configuration.Set)
 	require.Equal(t, types.VMCPProfileOAuthAuthorized, status.Components[1].OAuth.State)
 	require.Equal(t, readinessRemoteURL, status.Components[1].OAuth.Target)
 	require.Equal(t, "42", status.Components[1].OAuth.AuthorizedBy)
 	require.NotNil(t, status.Components[1].OAuth.AuthorizedAt)
 
-	// A profile that is not for agents says so.
+	// A profile for every user names no agent, so it is not for agents.
 	require.False(t, f.profileStatus("vp1users").AgentCapable)
 
 	// A grant that stopped working is reported as invalid as soon as it does.
-	require.NoError(t, f.gateway.WithMCPOAuthRefreshLock(t.Context(), principal.ProfileGrant(readinessVMCP, "vp1agents"), vmcpconfig.ProfileOAuthGrantMCPID(readinessVMCP, "remote"), func(_ context.Context, refresh *gateway.MCPOAuthRefresh) error {
-		_, err := refresh.Invalidate("grant-agents", "refused")
+	require.NoError(t, f.gateway.WithMCPOAuthRefreshLock(t.Context(), principal.ProfileGrant(readinessVMCP, "vp1other"), vmcpconfig.ProfileOAuthGrantMCPID(readinessVMCP, "remote"), func(_ context.Context, refresh *gateway.MCPOAuthRefresh) error {
+		_, err := refresh.Invalidate("grant-other", "refused")
 		return err
 	}))
-	oauth := f.profileStatus("vp1agents").Components[1].OAuth
+	oauth := f.profileStatus("vp1other").Components[1].OAuth
 	require.Equal(t, types.VMCPProfileOAuthInvalid, oauth.State)
 	require.Equal(t, "refused", oauth.InvalidReason)
 
 	f.get(http.StatusNotFound, "/api/vmcps/"+readinessVMCP+"/profiles/vp1missing/status", nil)
-	f.get(http.StatusNotFound, "/api/vmcps/vmcp1missing/profiles/vp1agents/status", nil)
+	f.get(http.StatusNotFound, "/api/vmcps/vmcp1missing/profiles/vp1agent/status", nil)
 }
 
 // TestAgentAccessProblems checks that the access summary reports a key scope that no policy grants anything for.
@@ -595,7 +586,7 @@ func TestAgentReadinessRoutesAreNotForAgents(t *testing.T) {
 			for _, path := range []string{
 				"/api/agents/7/vmcps",
 				"/api/agents/7/vmcps/" + readinessVMCP + "/readiness",
-				"/api/vmcps/" + readinessVMCP + "/profiles/vp1agents/status",
+				"/api/vmcps/" + readinessVMCP + "/profiles/vp1agent/status",
 			} {
 				require.Equal(t, tt.reads, authorizer.Authorize(httptest.NewRequest(http.MethodGet, path, nil), tt.user), "GET %s", path)
 				for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
@@ -635,7 +626,7 @@ func TestProfileOAuthStatusNeverReturnsConfiguredURLs(t *testing.T) {
 		}
 	})
 	for component, url := range map[string]string{"fixed": readinessRemoteURL, "hostname": hostnameURL, "template": templateURL} {
-		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), principal.ProfileGrant(readinessVMCP, "vp1agents"), vmcpconfig.ProfileOAuthGrantMCPID(readinessVMCP, component), url, "grant-"+component, "42",
+		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), principal.ProfileGrant(readinessVMCP, "vp1agent"), vmcpconfig.ProfileOAuthGrantMCPID(readinessVMCP, component), url, "grant-"+component, "42",
 			&oauth2.Config{ClientID: "client"}, &oauth2.Token{AccessToken: readinessAccessToken, Expiry: time.Now().Add(time.Hour)}))
 	}
 
@@ -654,7 +645,7 @@ func TestProfileOAuthStatusNeverReturnsConfiguredURLs(t *testing.T) {
 	}
 
 	var status types.VMCPProfileStatus
-	check("status", f.get(http.StatusOK, "/api/vmcps/"+readinessVMCP+"/profiles/vp1agents/status", &status))
+	check("status", f.get(http.StatusOK, "/api/vmcps/"+readinessVMCP+"/profiles/vp1agent/status", &status))
 	oauth := byComponent(status)
 	require.Equal(t, readinessRemoteURL, oauth["fixed"].Target)
 	require.Empty(t, oauth["fixed"].TargetHostname)
@@ -664,7 +655,7 @@ func TestProfileOAuthStatusNeverReturnsConfiguredURLs(t *testing.T) {
 	require.Equal(t, "acme-secret-tenant.example.org", oauth["template"].TargetHostname)
 
 	// The response of a reset reports the grants of the profile's other components.
-	body, err := callProfileOAuth(t, NewVMCPProfileOAuthHandler(&recordingAuthorizer{}, f.grants), f.storage, f.gateway, http.MethodDelete, readinessVMCP, "vp1agents", "fixed")
+	body, err := callProfileOAuth(t, NewVMCPProfileOAuthHandler(&recordingAuthorizer{}, f.grants), f.storage, f.gateway, http.MethodDelete, readinessVMCP, "vp1agent", "fixed")
 	require.NoError(t, err)
 	check("reset", body)
 	status = types.VMCPProfileStatus{}

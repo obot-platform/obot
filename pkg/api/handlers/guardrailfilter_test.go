@@ -158,16 +158,16 @@ func TestValidateGuardrailFilter(t *testing.T) {
 			wantErr: "agent subject ID must be",
 		},
 		{
-			name: "the user and agent wildcards together are everyone",
+			name: "agents are named only by ID",
 			config: types.MCPGuardrailFilterConfig{
 				GuardrailIDs: []string{"pii"},
 				Action:       types.MCPGuardrailActionBlock,
 				Subjects: []types.MCPGuardrailFilterSubject{
-					{Type: types.MCPGuardrailSubjectUser, ID: "*"},
+					{Type: types.MCPGuardrailSubjectEveryone},
 					{Type: types.MCPGuardrailSubjectAgent, ID: "*"},
 				},
 			},
-			wantErr: "use the everyone subject",
+			wantErr: "agents must be named by ID",
 		},
 		{
 			name: "subject types are known",

@@ -342,14 +342,15 @@ func testAgent(id uint, extra map[string][]string) kuser.Info {
 	return &kuser.DefaultInfo{Name: uid, UID: uid, Extra: extra}
 }
 
-// TestAgentSkillAccess checks that agents get skills only through rules naming everyone (*), every agent, or the
-// agent itself, and never through user or group subjects, even those of a user with the same numeric ID.
+// TestAgentSkillAccess checks that agents get skills only through rules that name the agent itself, and never through
+// a rule for every user (*), or user or group subjects, even those of a user with the same numeric ID.
 func TestAgentSkillAccess(t *testing.T) {
 	skill := func(id string) []types.SkillResource {
 		return []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: id}}
 	}
 	helper := newTestHelper(t,
 		newRule("everyone", []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, skill("sk-everyone")),
+		// Neither names anyone: no principal has the ID "*". Validation refuses the agent one.
 		newRule("users", []types.Subject{{Type: types.SubjectTypeUser, ID: "*"}}, skill("sk-users")),
 		newRule("agents", []types.Subject{{Type: types.SubjectTypeAgent, ID: "*"}}, skill("sk-agents")),
 		newRule("user-1", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, skill("sk-user-1")),
@@ -370,12 +371,17 @@ func TestAgentSkillAccess(t *testing.T) {
 		{
 			name: "user 1 in groups",
 			user: &kuser.DefaultInfo{UID: "1", Extra: userExtra},
-			want: []string{"sk-admins", "sk-eng", "sk-everyone", "sk-user-1", "sk-users"},
+			want: []string{"sk-admins", "sk-eng", "sk-everyone", "sk-user-1"},
 		},
 		{
+			// A rule for every user grants an agent nothing; only the one that names it does.
 			name: "agent 1 with groups on its user info",
 			user: testAgent(1, groups),
-			want: []string{"sk-agent-1", "sk-agents", "sk-everyone"},
+			want: []string{"sk-agent-1"},
+		},
+		{
+			name: "agent 3, named by no rule",
+			user: testAgent(3, nil),
 		},
 		{
 			name: "a principal without a recorded kind",

@@ -189,21 +189,18 @@ func TestAgentWithoutAGrantIsRefusedOnEveryModelPath(t *testing.T) {
 	})
 }
 
-// TestAgentGetsTheModelsAndBudgetsOfEveryProfileThatMatchesIt checks an agent matched by an every-agent profile and by
-// a profile that names it: it may use the union of their models and no model of a user profile, and a model both
-// grant brings the budgets of both, including one that exempts administrators.
-func TestAgentGetsTheModelsAndBudgetsOfEveryProfileThatMatchesIt(t *testing.T) {
-	everyAgent := types.Subject{
-		Type: types.SubjectTypeAgent,
+// TestAgentGetsTheModelsAndBudgetsOfTheProfilesThatNameIt checks an agent named by two profiles, while a profile for
+// every user grants models too: the agent may use the union of the models of the profiles that name it and no model of
+// a user profile or of the profile for every user, and a model both of its profiles grant brings the budgets of both,
+// including one that exempts administrators, but never the budget of the profile for every user.
+func TestAgentGetsTheModelsAndBudgetsOfTheProfilesThatNameIt(t *testing.T) {
+	everyone := types.Subject{
+		Type: types.SubjectTypeSelector,
 		ID:   "*",
 	}
 	agentSeven := types.Subject{
 		Type: types.SubjectTypeAgent,
 		ID:   "7",
-	}
-	everyUser := types.Subject{
-		Type: types.SubjectTypeUser,
-		ID:   "*",
 	}
 	userSeven := types.Subject{
 		Type: types.SubjectTypeUser,
@@ -217,9 +214,9 @@ func TestAgentGetsTheModelsAndBudgetsOfEveryProfileThatMatchesIt(t *testing.T) {
 			gatewayTestModel("m1-users", "openai/users"),
 		},
 		[]*v1.ModelAccessPolicy{
-			gatewayTestProfile("agents", everyAgent, "m1-a", "m1-shared"),
-			gatewayTestProfile("agent-7", agentSeven, "m1-b", "m1-shared"),
-			gatewayTestProfile("users", everyUser, "m1-users"),
+			gatewayTestProfile("everyone", everyone, "m1-shared", "m1-users"),
+			gatewayTestProfile("agent-7", agentSeven, "m1-a", "m1-shared"),
+			gatewayTestProfile("agent-7-b", agentSeven, "m1-b", "m1-shared"),
 			gatewayTestProfile("user-7", userSeven, "m1-users"),
 		},
 	)
@@ -239,13 +236,13 @@ func TestAgentGetsTheModelsAndBudgetsOfEveryProfileThatMatchesIt(t *testing.T) {
 	_, err := proxyAs(t, proxy, req, agent, "chat/completions", `{"model":"m1-users","messages":[{"role":"user","content":"hi"}]}`)
 	requireStatus(t, err, http.StatusForbidden)
 
-	// The agent's identity has no groups, is never an administrator, and is in both of its profiles.
+	// The agent's identity has no groups, is never an administrator, and is in only the profiles that name it.
 	identity, isAdmin, err := proxy.gatewayIdentity(agent)
 	require.NoError(t, err)
 	assert.False(t, isAdmin)
 	assert.Equal(t, "agent:7", identity.UserID)
 	assert.Empty(t, identity.Groups)
-	assert.ElementsMatch(t, []string{"agents", "agent-7"}, identity.ProfileIDs)
+	assert.ElementsMatch(t, []string{"agent-7", "agent-7-b"}, identity.ProfileIDs)
 
 	ctx := t.Context()
 	budget := func(name, profile string, exemptAdmins bool) *gatewaytypes.LLMGatewayBudget {
@@ -266,10 +263,10 @@ func TestAgentGetsTheModelsAndBudgetsOfEveryProfileThatMatchesIt(t *testing.T) {
 		require.NoError(t, req.GatewayClient.CreateLLMGatewayBudget(ctx, b))
 		return b
 	}
-	agentsBudget := budget("Agents", "agents", false)
 	agentSevenBudget := budget("Agent 7", "agent-7", false)
-	exemptBudget := budget("Exempts admins", "agent-7", true)
-	usersBudget := budget("Users", "users", false)
+	agentSevenBBudget := budget("Agent 7 B", "agent-7-b", false)
+	exemptBudget := budget("Exempts admins", "agent-7-b", true)
+	everyoneBudget := budget("Everyone", "everyone", false)
 
 	// An agent is never an administrator, so it is not exempt from a budget that exempts administrators.
 	attempts := &gatewayAttempts{budgets: map[string][]string{}, identity: identity, isAdmin: isAdmin}
@@ -277,24 +274,25 @@ func TestAgentGetsTheModelsAndBudgetsOfEveryProfileThatMatchesIt(t *testing.T) {
 	require.NoError(t, check(ctx, guardrails.Attempt{Model: "openai/shared"}))
 	served, budgetIDs := attempts.served()
 	assert.Equal(t, "openai/shared", served)
-	assert.ElementsMatch(t, []string{agentsBudget.ID, agentSevenBudget.ID, exemptBudget.ID}, budgetIDs)
-	assert.NotContains(t, budgetIDs, usersBudget.ID)
+	assert.ElementsMatch(t, []string{agentSevenBudget.ID, agentSevenBBudget.ID, exemptBudget.ID}, budgetIDs)
+	assert.NotContains(t, budgetIDs, everyoneBudget.ID, "the profile for every user grants the agent nothing, its budget included")
 
 	require.NoError(t, check(ctx, guardrails.Attempt{Model: "openai/a"}))
 	_, budgetIDs = attempts.served()
-	assert.Equal(t, []string{agentsBudget.ID}, budgetIDs, "a model only the every-agent profile grants brings only its budgets")
+	assert.Equal(t, []string{agentSevenBudget.ID}, budgetIDs, "a model only one of its profiles grants brings only that profile's budgets")
 }
 
 // TestAgentBudgetUsageIsItsOwn checks that a request an agent's budgets admit is counted against the agent, so the
 // user with the agent's numeric ID keeps their own counter.
 func TestAgentBudgetUsageIsItsOwn(t *testing.T) {
+	// The profile names both agent 7 and the user with its numeric ID.
+	seven := gatewayTestProfile("seven", types.Subject{Type: types.SubjectTypeAgent, ID: "7"}, "m1-a")
+	seven.Spec.Manifest.Subjects = append(seven.Spec.Manifest.Subjects, types.Subject{Type: types.SubjectTypeUser, ID: "7"})
 	proxy, req := directProxyWith(t, &directFixture{},
 		[]*v1.Model{
 			gatewayTestModel("m1-a", "openai/a"),
 		},
-		[]*v1.ModelAccessPolicy{
-			gatewayTestProfile("everyone", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}, "m1-a"),
-		},
+		[]*v1.ModelAccessPolicy{seven},
 	)
 	ctx, c := t.Context(), req.GatewayClient
 	backend := proxy.backend.(*bifrostProviderBackend)
@@ -309,7 +307,7 @@ func TestAgentBudgetUsageIsItsOwn(t *testing.T) {
 				Window: "1d",
 			},
 		},
-		ProfileID: "everyone",
+		ProfileID: "seven",
 	}
 	require.NoError(t, c.CreateLLMGatewayBudget(ctx, budget))
 

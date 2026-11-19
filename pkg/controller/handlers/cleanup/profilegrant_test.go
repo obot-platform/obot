@@ -71,15 +71,15 @@ func TestUserCleanupKeepsProfileGrantsTheUserAuthorized(t *testing.T) {
 	require.Equal(t, "1", grant.AuthorizedBy)
 }
 
-// TestAgentCleanupKeepsProfileGrants checks that deleting an agent deletes no grant of the profiles it resolved to,
-// even one whose profile named only that agent: grants belong to profiles.
+// TestAgentCleanupKeepsProfileGrants checks that deleting an agent deletes no grant of the profile that named it, even
+// one that named only that agent, nor any other profile's: grants belong to profiles.
 func TestAgentCleanupKeepsProfileGrants(t *testing.T) {
 	f := newAgentCleanupFixture(t, nil)
-	explicitOwner, mcpID := storeProfileGrant(t, f.gateway, "vp1agent", "3")
-	wildcardOwner, _ := storeProfileGrant(t, f.gateway, "vp1agents", "3")
+	agentOwner, mcpID := storeProfileGrant(t, f.gateway, "vp1agent", "3")
+	otherOwner, _ := storeProfileGrant(t, f.gateway, "vp1other", "3")
 
 	require.NoError(t, DeletedAgent(f.request(t), nil))
 	f.requireCleanedUp(t)
-	requireProfileGrant(t, f.gateway, explicitOwner, mcpID)
-	requireProfileGrant(t, f.gateway, wildcardOwner, mcpID)
+	requireProfileGrant(t, f.gateway, agentOwner, mcpID)
+	requireProfileGrant(t, f.gateway, otherOwner, mcpID)
 }

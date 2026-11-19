@@ -211,9 +211,9 @@ func (g *modelGrants) addModel(resource types.ModelResource, allowed map[string]
 }
 
 // UserPolicies returns the model access policies (gateway profiles) that apply to the caller, each once. For a user,
-// those are the policies naming everyone (*), every user, the user, or one of their auth provider or Obot groups. For
-// an agent, they are the policies naming everyone (*), every agent, or the agent: never a user or group subject. A
-// caller that is not a well-formed user or agent principal (subjects.CallerFromUserInfo) gets none.
+// those are the policies naming every user (*), the user, or one of their auth provider or Obot groups. For an agent,
+// they are only the policies that name the agent: never one for every user, or a user or group subject. A caller that
+// is not a well-formed user or agent principal (subjects.CallerFromUserInfo) gets none.
 //
 // The other functions that take a user.Info resolve the caller's policies here, so they apply to agents the same way.
 func (h *Helper) UserPolicies(user kuser.Info) ([]*v1.ModelAccessPolicy, error) {

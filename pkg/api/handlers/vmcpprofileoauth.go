@@ -44,8 +44,7 @@ func (h *VMCPProfileOAuthHandler) RegisterRoutes(handle func(pattern string, f a
 
 // Status reports how far a profile is set up for agents (types.VMCPProfileStatus): for every component of the vMCP that
 // the profile grants, which configuration keys it sets and lacks, and the OAuth grant it holds.
-// It describes the profile alone, with no fallback to another profile: an agent's readiness, which applies the
-// fallback, is reported by the agent's routes. It is computed on the request, from the status the vMCP publishes and the
+// It describes the profile alone: an agent's readiness is reported by the agent's routes. It is computed on the request, from the status the vMCP publishes and the
 // stored grants, and returns key names, grant metadata and no value or token. A vMCP, or a profile, that does not
 // exist is 404.
 func (h *VMCPProfileOAuthHandler) Status(req api.Context) error {
@@ -80,8 +79,7 @@ func (h *VMCPProfileOAuthHandler) Authorize(req api.Context) error {
 }
 
 // Reset revokes the profile's grant for the component by deleting it. Every agent that used it is refused the
-// component until it is authorized again; an agent whose explicit profile's grant is reset falls back to the wildcard
-// profile's grant, if it holds one. It returns the profile's status.
+// component until it is authorized again. It returns the profile's status.
 func (h *VMCPProfileOAuthHandler) Reset(req api.Context) error {
 	profileID := req.PathValue("profile_id")
 	componentID := req.PathValue("component_id")

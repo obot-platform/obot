@@ -26,226 +26,200 @@ var (
 		AuthProvider: map[string]struct{}{"eng": {}},
 		Obot:         map[string]struct{}{"team": {}, types.GroupAdmin: {}},
 	}}
+	// unidentified is a caller that is neither a user nor an agent with an ID, such as one without a recorded kind.
+	unidentified = Caller{Groups: groupUser5.Groups}
 )
 
+// TestEvaluate is the matrix of subject forms and callers, for grants (Evaluate) and restrictions
+// (EvaluateRestriction). An agent matches only the subject that names it by ID; the selector wildcard is every user;
+// {user, "*"} and {agent, "*"} name no one; and only a restriction's selector wildcard matches an unidentified caller.
 func TestEvaluate(t *testing.T) {
+	callers := map[string]Caller{
+		"user":             user5,
+		"agent":            agent5,
+		"group user":       groupUser5,
+		"admin":            admin7,
+		"agent with group": agentWithGroups,
+		"unidentified":     unidentified,
+	}
 	for _, tt := range []struct {
 		name    string
 		subject types.Subject
-		want    map[string]Match
+		// want is whether the subject grants each caller, and wantRestriction whether it restricts each caller where
+		// that differs from the grant.
+		want            map[string]bool
+		wantRestriction map[string]bool
 	}{
 		{
-			name:    "selector wildcard matches users and agents",
+			name:    "selector wildcard matches every user and no agent",
 			subject: types.Subject{Type: types.SubjectTypeSelector, ID: "*"},
-			want: map[string]Match{
-				"user":             MatchWildcardAll,
-				"agent":            MatchWildcardAll,
-				"group user":       MatchWildcardAll,
-				"admin":            MatchWildcardAll,
-				"agent with group": MatchWildcardAll,
+			want: map[string]bool{
+				"user":       true,
+				"group user": true,
+				"admin":      true,
+			},
+			wantRestriction: map[string]bool{
+				"unidentified": true,
 			},
 		},
 		{
 			name:    "selector other than the wildcard matches nobody",
 			subject: types.Subject{Type: types.SubjectTypeSelector, ID: "all"},
-			want:    map[string]Match{},
+			want:    map[string]bool{},
 		},
 		{
-			name:    "user wildcard matches users only",
+			name:    "user wildcard matches nobody",
 			subject: types.Subject{Type: types.SubjectTypeUser, ID: "*"},
-			want: map[string]Match{
-				"user":       MatchWildcardKind,
-				"group user": MatchWildcardKind,
-				"admin":      MatchWildcardKind,
-			},
+			want:    map[string]bool{},
 		},
 		{
-			name:    "agent wildcard matches agents only",
+			name:    "agent wildcard matches nobody",
 			subject: types.Subject{Type: types.SubjectTypeAgent, ID: "*"},
-			want: map[string]Match{
-				"agent":            MatchWildcardKind,
-				"agent with group": MatchWildcardKind,
-			},
+			want:    map[string]bool{},
 		},
 		{
 			name:    "user 5 matches user 5 and not agent 5",
 			subject: types.Subject{Type: types.SubjectTypeUser, ID: "5"},
-			want: map[string]Match{
-				"user":       MatchExplicit,
-				"group user": MatchExplicit,
+			want: map[string]bool{
+				"user":       true,
+				"group user": true,
 			},
 		},
 		{
 			name:    "agent 5 matches agent 5 and not user 5",
 			subject: types.Subject{Type: types.SubjectTypeAgent, ID: "5"},
-			want: map[string]Match{
-				"agent":            MatchExplicit,
-				"agent with group": MatchExplicit,
+			want: map[string]bool{
+				"agent":            true,
+				"agent with group": true,
 			},
 		},
 		{
 			name:    "user subject with an agent's storage encoding matches nobody",
 			subject: types.Subject{Type: types.SubjectTypeUser, ID: "agent:5"},
-			want:    map[string]Match{},
+			want:    map[string]bool{},
 		},
 		{
 			name:    "agent subject with an agent's storage encoding matches nobody",
 			subject: types.Subject{Type: types.SubjectTypeAgent, ID: "agent:5"},
-			want:    map[string]Match{},
+			want:    map[string]bool{},
 		},
 		{
 			name:    "agent subject with a non-canonical ID matches nobody",
 			subject: types.Subject{Type: types.SubjectTypeAgent, ID: "05"},
-			want:    map[string]Match{},
+			want:    map[string]bool{},
 		},
 		{
 			name:    "other user matches nobody here",
 			subject: types.Subject{Type: types.SubjectTypeUser, ID: "6"},
-			want:    map[string]Match{},
+			want:    map[string]bool{},
 		},
 		{
 			name:    "group matches its members, never an agent",
 			subject: types.Subject{Type: types.SubjectTypeGroup, ID: "eng"},
-			want: map[string]Match{
-				"group user": MatchGroup,
+			want: map[string]bool{
+				"group user": true,
 			},
 		},
 		{
 			name:    "Obot group matches its members, never an agent",
 			subject: types.Subject{Type: types.SubjectTypeObotGroup, ID: "team"},
-			want: map[string]Match{
-				"group user": MatchGroup,
+			want: map[string]bool{
+				"group user": true,
 			},
 		},
 		{
 			name:    "admin Obot group matches admins, never an agent",
 			subject: types.Subject{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin},
-			want: map[string]Match{
-				"admin": MatchGroup,
+			want: map[string]bool{
+				"admin": true,
 			},
 		},
 		{
 			name:    "group wildcard ID is not a wildcard",
 			subject: types.Subject{Type: types.SubjectTypeGroup, ID: "*"},
-			want:    map[string]Match{},
+			want:    map[string]bool{},
 		},
 		{
 			name:    "unknown type matches nobody",
 			subject: types.Subject{Type: "service", ID: "*"},
-			want:    map[string]Match{},
+			want:    map[string]bool{},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			for name, caller := range map[string]Caller{
-				"user":             user5,
-				"agent":            agent5,
-				"group user":       groupUser5,
-				"admin":            admin7,
-				"agent with group": agentWithGroups,
-			} {
+			for name, caller := range callers {
 				if got := caller.Evaluate(tt.subject); got != tt.want[name] {
 					t.Errorf("%s: Evaluate(%v) = %v, want %v", name, tt.subject, got, tt.want[name])
 				}
-			}
-		})
-	}
-}
-
-func TestEvaluateRejectsCallersThatAreNotPrincipals(t *testing.T) {
-	everything := []types.Subject{
-		{Type: types.SubjectTypeSelector, ID: "*"},
-		{Type: types.SubjectTypeUser, ID: "*"},
-		{Type: types.SubjectTypeAgent, ID: "*"},
-		{Type: types.SubjectTypeUser, ID: ""},
-		{Type: types.SubjectTypeAgent, ID: ""},
-	}
-	for _, tt := range []struct {
-		name   string
-		caller principal.Principal
-	}{
-		{
-			name:   "zero principal",
-			caller: principal.Principal{},
-		},
-		{
-			name:   "unknown kind",
-			caller: principal.Principal{Kind: "device", ID: "5"},
-		},
-		{
-			name:   "user without an ID",
-			caller: principal.Principal{Kind: principal.KindUser},
-		},
-		{
-			name:   "agent without an ID",
-			caller: principal.Principal{Kind: principal.KindAgent},
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			for _, s := range everything {
-				if got := Evaluate(s, tt.caller, Groups{}); got != NoMatch {
-					t.Errorf("Evaluate(%v) = %v, want NoMatch", s, got)
+				want, ok := tt.wantRestriction[name]
+				if !ok {
+					want = tt.want[name]
+				}
+				if got := EvaluateRestriction(tt.subject, caller.Principal, caller.Groups); got != want {
+					t.Errorf("%s: EvaluateRestriction(%v) = %v, want %v", name, tt.subject, got, want)
 				}
 			}
 		})
 	}
 }
 
-func TestBest(t *testing.T) {
+func TestMatches(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
 		caller   Caller
 		subjects []types.Subject
-		want     Match
+		want     bool
 	}{
 		{
-			name:   "explicit beats wildcards",
-			caller: agent5,
-			subjects: []types.Subject{
-				{Type: types.SubjectTypeSelector, ID: "*"},
-				{Type: types.SubjectTypeAgent, ID: "5"},
-				{Type: types.SubjectTypeAgent, ID: "*"},
-			},
-			want: MatchExplicit,
-		},
-		{
-			name:   "kind wildcard beats selector wildcard",
+			name:   "user matches the wildcard and its own ID",
 			caller: user5,
 			subjects: []types.Subject{
 				{Type: types.SubjectTypeSelector, ID: "*"},
-				{Type: types.SubjectTypeUser, ID: "*"},
+				{Type: types.SubjectTypeUser, ID: "5"},
 			},
-			want: MatchWildcardKind,
+			want: true,
 		},
 		{
-			name:   "group beats wildcards for a user",
+			name:   "user matches the wildcard and its group",
 			caller: groupUser5,
 			subjects: []types.Subject{
-				{Type: types.SubjectTypeUser, ID: "*"},
+				{Type: types.SubjectTypeSelector, ID: "*"},
 				{Type: types.SubjectTypeGroup, ID: "eng"},
 			},
-			want: MatchGroup,
+			want: true,
 		},
 		{
-			name:   "agent matches none of user subjects",
+			name:   "agent matches only its own ID among the wildcards",
+			caller: agent5,
+			subjects: []types.Subject{
+				{Type: types.SubjectTypeSelector, ID: "*"},
+				{Type: types.SubjectTypeAgent, ID: "*"},
+				{Type: types.SubjectTypeAgent, ID: "5"},
+			},
+			want: true,
+		},
+		{
+			name:   "agent matches none of the wildcards and user subjects",
 			caller: agentWithGroups,
 			subjects: []types.Subject{
+				{Type: types.SubjectTypeSelector, ID: "*"},
+				{Type: types.SubjectTypeAgent, ID: "*"},
 				{Type: types.SubjectTypeUser, ID: "*"},
 				{Type: types.SubjectTypeUser, ID: "5"},
 				{Type: types.SubjectTypeGroup, ID: "eng"},
 				{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin},
 			},
-			want: NoMatch,
+			want: false,
 		},
 		{
 			name:     "no subjects",
 			caller:   user5,
 			subjects: nil,
-			want:     NoMatch,
+			want:     false,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.caller.Best(tt.subjects); got != tt.want {
-				t.Errorf("Best() = %v, want %v", got, tt.want)
+			if got := tt.caller.Matches(tt.subjects); got != tt.want {
+				t.Errorf("Matches() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -308,8 +282,8 @@ func TestCallerFromUserInfo(t *testing.T) {
 				t.Fatalf("CallerFromUserInfo() ok = %v, want %v", ok, tt.wantOK)
 			}
 			if !ok {
-				if got := got.Best([]types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}); got != NoMatch {
-					t.Errorf("Best() of a caller that is not a principal = %v, want NoMatch", got)
+				if got.Matches([]types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}) {
+					t.Error("Matches() of a caller that is not a principal = true, want false")
 				}
 				return
 			}
@@ -357,7 +331,7 @@ func TestIndexKeysAgreeWithEvaluate(t *testing.T) {
 			match := Evaluate(s, p, Groups{})
 			key, indexed := IndexKey(s)
 			found := indexed && slices.Contains(lookup, key)
-			if found != (match != NoMatch) {
+			if found != match {
 				t.Errorf("%v: subject %v has key %q (indexed %v), lookup %v finds it = %v, but Evaluate = %v", p, s, key, indexed, lookup, found, match)
 			}
 		}
@@ -388,31 +362,26 @@ func TestIndexKeys(t *testing.T) {
 	}
 }
 
-// TestEvaluateRestriction checks that a restriction matches as a grant does for users and agents, and that a caller
-// that is not a principal still matches the selector wildcard, but nothing else.
-func TestEvaluateRestriction(t *testing.T) {
+// TestEvaluateRestrictionForUnidentifiedCallers checks that a caller that is not a principal, whatever groups it
+// carries, matches no grant's subject, and only a restriction's selector wildcard.
+func TestEvaluateRestrictionForUnidentifiedCallers(t *testing.T) {
 	forms := []types.Subject{
 		{Type: types.SubjectTypeSelector, ID: "*"},
 		{Type: types.SubjectTypeUser, ID: "*"},
 		{Type: types.SubjectTypeUser, ID: "5"},
+		{Type: types.SubjectTypeUser, ID: ""},
 		{Type: types.SubjectTypeAgent, ID: "*"},
 		{Type: types.SubjectTypeAgent, ID: "5"},
+		{Type: types.SubjectTypeAgent, ID: ""},
 		{Type: types.SubjectTypeGroup, ID: "eng"},
 		{Type: types.SubjectTypeObotGroup, ID: "team"},
 	}
-	for _, caller := range []Caller{user5, agent5, groupUser5, agentWithGroups} {
+	for _, p := range []principal.Principal{{}, {Kind: "device", ID: "5"}, {Kind: principal.KindUser}, {Kind: principal.KindAgent}} {
 		for _, s := range forms {
-			if got, want := EvaluateRestriction(s, caller.Principal, caller.Groups), caller.Evaluate(s); got != want {
-				t.Errorf("%v: EvaluateRestriction(%v) = %v, want Evaluate's %v", caller.Principal, s, got, want)
+			if Evaluate(s, p, groupUser5.Groups) {
+				t.Errorf("%v: Evaluate(%v) = true, want false", p, s)
 			}
-		}
-	}
-	for _, p := range []principal.Principal{{}, {Kind: "device", ID: "5"}, {Kind: principal.KindUser}} {
-		for _, s := range forms {
-			want := NoMatch
-			if s.Type == types.SubjectTypeSelector {
-				want = MatchWildcardAll
-			}
+			want := s.Type == types.SubjectTypeSelector
 			if got := EvaluateRestriction(s, p, groupUser5.Groups); got != want {
 				t.Errorf("%v: EvaluateRestriction(%v) = %v, want %v", p, s, got, want)
 			}

@@ -39,9 +39,9 @@ const (
 	MCPGuardrailDirectionResponse = "response"
 	MCPGuardrailDirectionBoth     = "both"
 
-	// Guardrail filter subject types. They name callers as the subjects of vMCP profiles do: a user by ID, or every
-	// user with the ID "*"; an agent by its bare decimal ID, or every agent with the ID "*"; the users in an auth
-	// provider group; and everyone, users and agents alike.
+	// Guardrail filter subject types. They name callers as the subjects of vMCP profiles do: a user by ID; an agent by
+	// its bare decimal ID, which is the only way a filter applies to an agent; the users in an auth provider group; and
+	// everyone, which is every user, and any caller Obot cannot identify, but no agent.
 	MCPGuardrailSubjectUser     = "user"
 	MCPGuardrailSubjectAgent    = "agent"
 	MCPGuardrailSubjectGroup    = "group"
@@ -92,11 +92,8 @@ func (s MCPGuardrailFilterSubject) Subject() (Subject, bool) {
 }
 
 // ValidateMCPGuardrailFilterSubjects checks the subjects of a guardrail filter: each has a known type, user and
-// group subjects have an ID, and agent subjects have "*" or an agent's canonical decimal ID, as Subject.Validate
-// requires. The wildcards follow the rules of a vMCP profile's subjects, with everyone as the selector wildcard:
-// everyone is not combined with the user or agent wildcard, and those two together are everyone.
+// group subjects have an ID, and agent subjects have an agent's canonical decimal ID, as Subject.Validate requires.
 func ValidateMCPGuardrailFilterSubjects(subjects []MCPGuardrailFilterSubject) error {
-	policySubjects := make([]Subject, 0, len(subjects))
 	for _, s := range subjects {
 		subject, ok := s.Subject()
 		if !ok {
@@ -111,16 +108,6 @@ func ValidateMCPGuardrailFilterSubjects(subjects []MCPGuardrailFilterSubject) er
 				return fmt.Errorf("invalid guardrail %s subject: %w", s.Type, err)
 			}
 		}
-		policySubjects = append(policySubjects, subject)
-	}
-	// The rules are validateWildcardSubjects', worded for guardrail filters, which call the selector wildcard
-	// everyone.
-	everyone, users, agents := wildcardKinds(policySubjects)
-	switch {
-	case everyone && (users || agents):
-		return fmt.Errorf("guardrail subject everyone already includes every user and agent, so it cannot be combined with the user or agent wildcard")
-	case users && agents:
-		return fmt.Errorf("the guardrail user and agent wildcards together include everyone: use the everyone subject instead")
 	}
 	return nil
 }

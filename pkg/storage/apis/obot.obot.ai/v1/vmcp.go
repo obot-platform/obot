@@ -80,8 +80,6 @@ type VMCPStatus struct {
 	// vMCP controller last found by probing them without any credential. Agent readiness and profile status read it,
 	// and never probe. It never holds a URL: each result is keyed by a digest of the URL it is for.
 	ComponentOAuth map[string]VMCPComponentOAuth `json:"componentOAuth,omitempty"`
-	// Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // VMCPComponentOAuthRequirement is what a probe of a component found: that it asks for OAuth

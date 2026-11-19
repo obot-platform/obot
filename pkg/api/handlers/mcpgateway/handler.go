@@ -288,7 +288,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		// The OAuth grant an agent's profile holds for this component no longer works. The agent is refused the
 		// component, never connected without the grant or with another profile's.
 		if grantErr, ok := errors.AsType[*mcp.AgentOAuthGrantError](err); ok {
-			agentOAuthGrantInvalidResponse(req, grantErr.ComponentID, grantErr.ProfileID, grantErr.URLProfileID).write(req.ResponseWriter, nil)
+			agentOAuthGrantInvalidResponse(req, grantErr.ComponentID, grantErr.ProfileID).write(req.ResponseWriter, nil)
 
 			return nil
 		}
@@ -376,7 +376,7 @@ func (h *Handler) Proxy(req api.Context) error {
 				}
 				if grant := serverConfig.OAuthGrant; grant != nil && err != nil {
 					if errors.Is(err, mcp.ErrOAuthGrantInvalid) {
-						agentOAuthGrantInvalidResponse(req, grant.ComponentID, grant.ProfileID, "").write(req.ResponseWriter, nil)
+						agentOAuthGrantInvalidResponse(req, grant.ComponentID, grant.ProfileID).write(req.ResponseWriter, nil)
 						return nil
 					}
 					slog.WarnContext(req.Context(), "Failed to get the token of a vMCP profile OAuth grant", "mcpID", grant.MCPID, "error", err)

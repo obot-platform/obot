@@ -35,7 +35,7 @@
 	"models_gateway_search_models": "モデルを検索...",
 	"models_message_policy_fallback_title": "メッセージポリシー",
 	"models_not_configured": "未設定",
-	"models_profile_users_agents_description": "このプロファイルが適用されるユーザー、グループ、エージェント。全員にはエージェントも含まれます。",
+	"models_profile_users_agents_description": "このプロファイルが適用されるユーザー、グループ、エージェント。",
 	"models_providers_add_models": "モデルを追加",
 	"models_providers_all_domains": "すべてのドメイン",
 	"models_providers_all_models_description": "現在および今後のすべてのモデルへのアクセスを許可します",

@@ -1,7 +1,6 @@
 package mcpcatalog
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -119,15 +118,6 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		vmcpconfig.AssignDerivedProfileIDs(vmcp.Name, &vmcp.Spec.Manifest)
 		if err := vmcp.Spec.Manifest.Validate(); err != nil {
 			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
-			continue
-		}
-		var stored *types.VMCPManifest
-		if existing != nil {
-			stored = &existing.Spec.Manifest
-		}
-		// Sync reports a failed check like a violation, so it needs no distinction between them.
-		if violation, err := vmcpconfig.CheckWildcardProfiles(ctx, h.profileData, vmcp.Name, stored, vmcp.Spec.Manifest); err != nil || violation != nil {
-			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, cmp.Or(err, violation)))
 			continue
 		}
 		if err := mcp.ValidateSecretBindingsVMCP(vmcp.Spec.Manifest, h.mcpBackend); err != nil {

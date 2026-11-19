@@ -18,7 +18,7 @@ import (
 const (
 	agentVMCPGranted   = "vmcp1granted"
 	agentVMCPWildcard  = "vmcp1agents"
-	agentVMCPLegacy    = "vmcp1legacy"
+	agentVMCPEveryone  = "vmcp1everyone"
 	agentVMCPUsersOnly = "vmcp1users"
 	agentVMCPOther     = "vmcp1otheragent"
 	agentVMCPPersonal  = "vmcp1personal"
@@ -59,10 +59,10 @@ func agentVMCP(name string, subjects ...types.Subject) *v1.VMCP {
 	}
 }
 
-// newAgentVMCPTestAuthorizer returns an authorizer over vMCPs that grant agent 7 explicitly, every agent, or everyone
-// twice (a legacy vMCP), and over vMCPs and MCP resources that grant it nothing: a vMCP for users only, one for
-// another agent, a personal vMCP of user 7, one without components, and servers and connections owned by the agent
-// outside any vMCP, which nothing creates but which must not let it in either.
+// newAgentVMCPTestAuthorizer returns an authorizer over a vMCP that names agent 7, and over vMCPs and MCP resources that
+// grant it nothing: a vMCP for every user, one with a stored agent wildcard, which names no agent, one for users only,
+// one for another agent, a personal vMCP of user 7, one without components, and servers and connections owned by the
+// agent outside any vMCP, which nothing creates but which must not let it in either.
 func newAgentVMCPTestAuthorizer(t *testing.T) *Authorizer {
 	t.Helper()
 
@@ -73,7 +73,7 @@ func newAgentVMCPTestAuthorizer(t *testing.T) *Authorizer {
 	storage := newMCPIDIsAuthorizedTestStorage(
 		agentVMCP(agentVMCPGranted, types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
 		agentVMCP(agentVMCPWildcard, types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}),
-		agentVMCP(agentVMCPLegacy, types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}, types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}),
+		agentVMCP(agentVMCPEveryone, types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}),
 		agentVMCP(agentVMCPUsersOnly, types.Subject{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}, types.Subject{Type: types.SubjectTypeUser, ID: "7"}),
 		agentVMCP(agentVMCPOther, types.Subject{Type: types.SubjectTypeAgent, ID: "8"}),
 		personal,
@@ -161,17 +161,15 @@ func TestAgentVMCPConnectAuthorization(t *testing.T) {
 			want:   true,
 		},
 		{
-			name:   "vMCP granted to every agent",
+			// Validation refuses the agent wildcard, but a vMCP stored before agents were named only by ID may hold it.
+			name:   "vMCP with a stored agent wildcard",
 			caller: agentKey,
 			path:   "/mcp-connect/" + agentVMCPWildcard,
-			want:   true,
 		},
 		{
-			// Authorization admits the agent; connect-time readiness refuses it with selection_ambiguous.
-			name:   "legacy vMCP granted to everyone twice",
+			name:   "vMCP granted to every user",
 			caller: agentKey,
-			path:   "/mcp-connect/" + agentVMCPLegacy,
-			want:   true,
+			path:   "/mcp-connect/" + agentVMCPEveryone,
 		},
 		{
 			name:   "the agent's own instance",

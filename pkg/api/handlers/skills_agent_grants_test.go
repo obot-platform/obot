@@ -105,11 +105,17 @@ func TestSkillHandlerAgentGrantChangesApplyToExistingKeys(t *testing.T) {
 	require.NoError(t, indexer.Update(rule))
 	requireAccess(t)
 
-	// agents:* grants it again; removing that rule takes the grant away.
-	wildcard := newSkillRule("rule-agents", []types.Subject{{Type: types.SubjectTypeAgent, ID: "*"}},
+	// A rule for every user grants an agent nothing.
+	everyone := newSkillRule("rule-everyone", []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
 		[]types.SkillResource{{Type: types.SkillResourceTypeSelector, ID: "*"}})
-	require.NoError(t, indexer.Add(wildcard))
+	require.NoError(t, indexer.Add(everyone))
+	requireAccess(t)
+
+	// Naming the agent again grants it; removing that rule takes the grant away.
+	named := newSkillRule("rule-every-skill-agent-7", []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
+		[]types.SkillResource{{Type: types.SkillResourceTypeSelector, ID: "*"}})
+	require.NoError(t, indexer.Add(named))
 	requireAccess(t, "sk-repo-1", "sk-repo-2")
-	require.NoError(t, indexer.Delete(wildcard))
+	require.NoError(t, indexer.Delete(named))
 	requireAccess(t)
 }

@@ -76,8 +76,7 @@
 
 	function subjectLabel(profile: EnvironmentProfile) {
 		const rows = convertSubjectsToTableData(profile.subjects, directoryUsers, resolvedGroups, {
-			agents: agentLookup.current,
-			offerAgents: false
+			agents: agentLookup.current
 		});
 		return rows.map((row) => row.displayName).join(', ');
 	}

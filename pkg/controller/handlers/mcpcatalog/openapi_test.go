@@ -153,7 +153,7 @@ func TestOpenAPICatalogSyncLifecycle(t *testing.T) {
 func TestOpenAPICatalogInlineSchema(t *testing.T) {
 	dir := t.TempDir()
 	writeOpenAPICatalog(t, dir, types.OpenAPISource{Content: catalogOpenAPISchema})
-	handler := New("", "", nil, nil, &mcp.SessionManager{}, 0, nil)
+	handler := New("", "", nil, nil, &mcp.SessionManager{}, 0)
 	require.NotNil(t, handler.openAPIImporter)
 	handler.openAPIImporter = openAPIImporterFunc(func(_ context.Context, config types.OpenAPIRuntimeConfig) (*openapi.Result, error) {
 		require.Equal(t, catalogOpenAPISchema, config.Source.Content)
@@ -204,7 +204,7 @@ func TestOpenAPICatalogSchemaFetchIsIsolated(t *testing.T) {
 	}))
 	defer source.Close()
 	writeOpenAPICatalog(t, dir, types.OpenAPISource{URL: source.URL})
-	handler = New("", "", nil, nil, &mcp.SessionManager{}, 0, nil)
+	handler = New("", "", nil, nil, &mcp.SessionManager{}, 0)
 	entries, _, err = handler.readMCPCatalog(t.Context(), "default", dir, "")
 	require.ErrorContains(t, err, "schema source URL is blocked")
 	require.Empty(t, entries, "the production importer blocks loopback destinations")
@@ -235,7 +235,7 @@ func TestOpenAPIGitOpsDevelopmentMode(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	handler := New("", "", nil, nil, manager, 0, nil)
+	handler := New("", "", nil, nil, manager, 0)
 	config := types.OpenAPIRuntimeConfig{
 		Source: types.OpenAPISource{
 			Content: strings.Replace(catalogOpenAPISchema, "https://8.8.8.8", "http://localhost:8000", 1),
@@ -268,7 +268,7 @@ func TestOpenAPICatalogDestinationValidation(t *testing.T) {
 			schema := strings.Replace(catalogOpenAPISchema, "https://8.8.8.8", test.url, 1)
 			dir := t.TempDir()
 			path := writeOpenAPICatalog(t, dir, types.OpenAPISource{Content: schema})
-			handler := New("", "", nil, nil, &mcp.SessionManager{}, 0, nil)
+			handler := New("", "", nil, nil, &mcp.SessionManager{}, 0)
 			entries, _, err := handler.readMCPCatalog(t.Context(), "default", dir, "")
 			require.ErrorContains(t, err, test.want)
 			require.Empty(t, entries)

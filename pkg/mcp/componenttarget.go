@@ -16,13 +16,12 @@ var (
 	_ vmcpaccess.ComponentTargetResolver = (*SessionManager)(nil)
 )
 
-// ComponentTarget resolves the upstream URL that a remote component's connection reaches for an agent whose profiles
-// apply to it as selection (vmcpaccess.ComponentTargetResolver). It builds the URL from the same values, merged and
-// expanded by the same functions, as the agent's component server is given:
+// ComponentTarget resolves the upstream URL that a remote component's connection reaches for an agent whose profile is
+// profile (vmcpaccess.ComponentTargetResolver). It builds the URL from the same values, merged and expanded by the same
+// functions, as the agent's component server is given:
 //
-//   - The profiles' values are resolved as for the agent's instance (vmcpaccess.ResolveComponentConfiguration and
-//     ProfileConfigurationStore.AgentConfigurationValues): the explicit profile first, and the wildcard profile for the
-//     required values the explicit profile does not set.
+//   - The profile's values are resolved as for the agent's instance (vmcpaccess.ResolveComponentConfiguration and
+//     ProfileConfigurationStore.AgentConfigurationValues).
 //   - They are merged with the vMCP's fixed values as the MCPServer controller merges them for the component server
 //     (vmcpaccess.ComponentServerConfiguration).
 //   - A hostname-constrained remote reaches the configured __url, which must have the hostname, as the runtime reads it
@@ -30,9 +29,9 @@ var (
 //     expands it for the server (ResolveURLTemplate, as resolvedComponentURL calls it).
 //
 // A component whose definition fixes the URL reaches it whoever connects. Only the values the URL needs are read. A URL
-// that does not satisfy its hostname, or values that change the host a URL template pins, are an ErrBadRequest; a value it needs that no profile and not the vMCP supplies
-// leaves the URL empty, with the keys in Missing, or with AmbiguousFallback when the fallback is ambiguous.
-func (sm *SessionManager) ComponentTarget(ctx context.Context, vmcp v1.VMCP, selection vmcpaccess.AgentSelection, component types.VMCPComponent) (vmcpaccess.ComponentTarget, error) {
+// that does not satisfy its hostname, or values that change the host a URL template pins, are an ErrBadRequest; a value
+// it needs that neither the profile nor the vMCP supplies leaves the URL empty, with the keys in Missing.
+func (sm *SessionManager) ComponentTarget(ctx context.Context, vmcp v1.VMCP, profile *types.VMCPProfile, component types.VMCPComponent) (vmcpaccess.ComponentTarget, error) {
 	if url, ok := vmcpaccess.StaticComponentTargetURL(component); ok {
 		return vmcpaccess.ComponentTarget{URL: url}, nil
 	}
@@ -51,7 +50,7 @@ func (sm *SessionManager) ComponentTarget(ctx context.Context, vmcp v1.VMCP, sel
 	}
 
 	var target vmcpaccess.ComponentTarget
-	resolved := vmcpaccess.ResolveComponentConfiguration(component, selection, vmcp.Status.ProfileConfigurationRevisions)
+	resolved := vmcpaccess.ResolveComponentConfiguration(component, profile, vmcp.Status.ProfileConfigurationRevisions)
 	needed := vmcpaccess.ComponentConfiguration{ComponentID: component.ID}
 	revisions := map[string]string{}
 	for _, source := range resolved.Sources {
@@ -60,9 +59,7 @@ func (sm *SessionManager) ComponentTarget(ctx context.Context, vmcp v1.VMCP, sel
 		}
 		needed.Sources = append(needed.Sources, source)
 		revisions[source.ProfileID] = source.Revision
-		if !slices.Contains(target.ProfileIDs, source.ProfileID) {
-			target.ProfileIDs = append(target.ProfileIDs, source.ProfileID)
-		}
+		target.Configured = true
 	}
 	userValues := map[string]string{}
 	if len(needed.Sources) > 0 {
@@ -113,12 +110,7 @@ func (sm *SessionManager) ComponentTarget(ctx context.Context, vmcp v1.VMCP, sel
 		}
 	}
 	if len(missing) > 0 {
-		target.URL = ""
-		if resolved.AmbiguousFallback {
-			target.AmbiguousFallback = true
-		} else {
-			target.Missing = missing
-		}
+		target.URL, target.Missing = "", missing
 	}
 	return target, nil
 }

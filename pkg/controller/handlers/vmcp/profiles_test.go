@@ -21,8 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -73,24 +71,17 @@ func TestReconcileProfiles(t *testing.T) {
 	require.Equal(t, b, current.Spec.Manifest.Profiles[1].ID)
 	require.Empty(t, current.Status.ProfileIDs)
 
-	// The next reconcile records them, and reports that both profiles name every agent.
+	// The next reconcile records them.
 	current = reconcile()
 	require.Equal(t, []string{a, b}, current.Status.ProfileIDs)
-	condition := meta.FindStatusCondition(current.Status.Conditions, types.VMCPConditionAgentSelectionAmbiguous)
-	require.NotNil(t, condition)
-	require.Equal(t, metav1.ConditionTrue, condition.Status)
-	require.Contains(t, condition.Message, `"a"`)
 	require.Empty(t, data.deleted)
 
-	// Removing a profile deletes its data, and leaves selection unambiguous. A rename is not a removal.
+	// Removing a profile deletes its data. A rename is not a removal.
 	current.Spec.Manifest.Profiles = []types.VMCPProfile{{ID: a, Name: "renamed", Subjects: []types.Subject{everyone}}, {ID: "vp1new", Name: "c", Subjects: []types.Subject{user}}}
 	require.NoError(t, client.Update(t.Context(), current))
 	current = reconcile()
 	require.Equal(t, [][]string{{b}}, data.deleted)
 	require.Equal(t, []string{a, "vp1new"}, current.Status.ProfileIDs)
-	condition = meta.FindStatusCondition(current.Status.Conditions, types.VMCPConditionAgentSelectionAmbiguous)
-	require.NotNil(t, condition)
-	require.Equal(t, metav1.ConditionFalse, condition.Status)
 
 	// Nothing changed, so nothing is deleted again.
 	reconcile()
@@ -105,7 +96,6 @@ func TestReconcileProfiles(t *testing.T) {
 // TestReconcileProfilesRemovesProfileConfiguration checks that removing a profile deletes its configuration revisions
 // and its record in status, and that deleting the vMCP deletes every profile's, with a real store.
 func TestReconcileProfilesRemovesProfileConfiguration(t *testing.T) {
-	agents := types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}
 	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{{
 			ID:            "api",
@@ -115,7 +105,7 @@ func TestReconcileProfilesRemovesProfileConfiguration(t *testing.T) {
 		// Profile setup covers only the components a profile grants.
 		Profiles: []types.VMCPProfile{
 			{ID: "vp1kept", Name: "kept", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
-			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{agents}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "8"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
 		},
 	}}}
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(vmcp).WithObjects(vmcp).Build()
@@ -275,7 +265,7 @@ func TestProfileOAuthGrantsAreDeletedWithTheirProfileAndComponent(t *testing.T) 
 		// A profile holds grants only for the components it grants.
 		Profiles: []types.VMCPProfile{
 			{ID: "vp1kept", Name: "kept", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
-			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "8"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
 		},
 	}}}
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(vmcp).WithObjects(vmcp).Build()

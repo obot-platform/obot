@@ -108,11 +108,9 @@ function toolSwitch(index = 0) {
 	return page.getByRole('switch', { name: /^(Enable|Disable) tool$/ }).nth(index);
 }
 
-// The vMCP fixture's default profile already names everyone, and only one profile can, so a second
-// profile is given the Obot Admin group.
-async function assignAdmins() {
+async function assignEveryone() {
 	await page.getByRole('combobox', { name: 'Add identities...' }).click();
-	await page.getByRole('button', { name: 'Obot Admin', exact: true }).click();
+	await page.getByRole('button', { name: 'All Obot Users', exact: true }).click();
 }
 
 /** A vMCP whose own overrides switch one of the two GitHub tools off. */
@@ -218,7 +216,7 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('list_pulls')).toBeVisible();
 		await toolSwitch(1).click();
 		await expect.element(page.getByText('1 of 2 tools')).toBeVisible();
-		await assignAdmins();
+		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 		await expect
@@ -233,7 +231,7 @@ describe('VMcpProfiles.svelte', () => {
 			},
 			{
 				name: 'Support engineers',
-				subjects: [{ type: 'obotGroup', id: 'admin' }],
+				subjects: [{ type: 'selector', id: '*' }],
 				vmcpPermissions: {
 					allowedComponents: { github: { allowedTools: ['list_issues'] } }
 				}
@@ -260,7 +258,7 @@ describe('VMcpProfiles.svelte', () => {
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await page.getByLabelText('Name').fill('Developers');
-		await assignAdmins();
+		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 		await expect.element(page.getByRole('button', { name: 'Edit Developers' })).toBeVisible();
@@ -305,7 +303,7 @@ describe('VMcpProfiles.svelte', () => {
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await expect.element(page.getByRole('button', { name: /^Delete / })).not.toBeInTheDocument();
 		await page.getByLabelText('Name').fill('Developers');
-		await assignAdmins();
+		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 		await page.getByRole('button', { name: 'Edit Developers' }).click();
@@ -331,7 +329,7 @@ describe('VMcpProfiles.svelte', () => {
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await page.getByLabelText('Name').fill('Developers');
-		await assignAdmins();
+		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 		await page
@@ -361,7 +359,7 @@ describe('VMcpProfiles.svelte', () => {
 			.toHaveAttribute('aria-invalid', 'true');
 		await expect.element(page.getByLabelText('Name')).not.toHaveAttribute('aria-invalid', 'true');
 
-		await assignAdmins();
+		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await page.getByLabelText('Name').fill('Developers');
@@ -406,7 +404,7 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(toolSwitch()).toBeChecked();
 
 		await page.getByLabelText('Name').fill('Refined tools');
-		await assignAdmins();
+		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
@@ -512,7 +510,7 @@ describe('VMcpProfiles.svelte', () => {
 		await expandServerTools();
 		await expect.element(toolSwitch(1)).not.toBeChecked();
 		await expect.element(toolSwitch(1)).toBeDisabled();
-		await assignAdmins();
+		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
@@ -539,7 +537,7 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('Disabled on this vMCP.')).toBeVisible();
 		await expect.element(page.getByText('1 of 1 tools')).toBeVisible();
 
-		await assignAdmins();
+		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
@@ -775,21 +773,17 @@ describe('VMcpProfiles.svelte', () => {
 	});
 
 	it('assigns people from the search dropdown', async () => {
-		// The fixture's default profile names everyone, and only one profile can.
-		const vmcp = createVMcp('vmcp-people-dropdown');
-		vmcp.profiles = [];
-		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+		render(VMcpProfiles, {
+			vmcp: createVMcp('vmcp-people-dropdown'),
+			toolFlow: toolFlowStub()
+		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await page.getByRole('combobox', { name: 'Add identities...' }).click();
-		await page
-			.getByRole('button', { name: 'Everyone (All Obot Users and Agents)', exact: true })
-			.click();
+		await page.getByRole('button', { name: 'All Obot Users', exact: true }).click();
 
-		await expect
-			.element(page.getByText('Everyone (All Obot Users and Agents)', { exact: true }))
-			.toBeVisible();
-		await page.getByRole('button', { name: 'Remove Everyone (All Obot Users and Agents)' }).click();
+		await expect.element(page.getByText('All Obot Users', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Remove All Obot Users' }).click();
 		await expect.element(page.getByText('No people or groups assigned.')).toBeVisible();
 	});
 
@@ -1078,7 +1072,7 @@ describe('VMcpProfiles.svelte', () => {
 			await page.getByRole('button', { name }).click();
 		}
 
-		it('offers active agents and the wildcards, and saves the right subject shapes', async () => {
+		it('offers active agents and All Obot Users, and saves the right subject shapes', async () => {
 			const saved = await startNewProfile(vmcpWithProfiles('vmcp-agents', []));
 
 			await page.getByRole('combobox', { name: 'Add identities...' }).click();
@@ -1089,46 +1083,24 @@ describe('VMcpProfiles.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: /Retired bot/ }))
 				.not.toBeInTheDocument();
-			await expect.element(page.getByRole('button', { name: 'All Users' })).toBeVisible();
+			// The one wildcard is All Obot Users, which never includes an agent.
+			await expect
+				.element(page.getByRole('button', { name: 'All Obot Users', exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: /All Agents/ }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: /All Users/ })).not.toBeInTheDocument();
 			await page.getByRole('button', { name: /Build bot/ }).click();
-			await pick('All Users');
+			await pick('All Obot Users');
 			await expect.element(page.getByText('Build bot', { exact: true })).toBeVisible();
 			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 			await vi.waitFor(() => expect(saved).toHaveBeenCalled());
 			expect(savedProfiles(saved)[0].subjects).toEqual([
 				{ type: 'agent', id: '5' },
-				{ type: 'user', id: '*' }
+				{ type: 'selector', id: '*' }
 			]);
-		});
-
-		it('saves all agents as the agent wildcard', async () => {
-			const saved = await startNewProfile(vmcpWithProfiles('vmcp-all-agents', []));
-
-			await pick('All Agents');
-			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
-
-			await vi.waitFor(() => expect(saved).toHaveBeenCalled());
-			expect(savedProfiles(saved)[0].subjects).toEqual([{ type: 'agent', id: '*' }]);
-		});
-
-		it('disables the other wildcards once Everyone is added, and Everyone once another is', async () => {
-			await startNewProfile(vmcpWithProfiles('vmcp-wildcards', []));
-
-			await pick('Everyone (All Obot Users and Agents)');
-			await page.getByRole('combobox', { name: 'Add identities...' }).click();
-			await expect.element(page.getByRole('button', { name: 'All Users' })).toBeDisabled();
-			await expect.element(page.getByRole('button', { name: 'All Agents' })).toBeDisabled();
-			await page
-				.getByRole('button', { name: 'Remove Everyone (All Obot Users and Agents)' })
-				.click();
-
-			await pick('All Agents');
-			await page.getByRole('combobox', { name: 'Add identities...' }).click();
-			await expect
-				.element(page.getByRole('button', { name: 'Everyone (All Obot Users and Agents)' }))
-				.toBeDisabled();
-			await expect.element(page.getByRole('button', { name: 'All Users' })).toBeDisabled();
 		});
 
 		it('shows an agent with a badge and marks a deleted agent', async () => {
@@ -1147,74 +1119,17 @@ describe('VMcpProfiles.svelte', () => {
 			await expect.element(page.getByText('Agent', { exact: true }).first()).toBeVisible();
 		});
 
-		it('refuses a second profile for Everyone', async () => {
-			await startNewProfile(
+		it('allows All Obot Users in more than one profile', async () => {
+			const saved = await startNewProfile(
 				vmcpWithProfiles('vmcp-two-everyone', [profile('Main', [{ type: 'selector', id: '*' }])])
 			);
 
-			await pick('Everyone (All Obot Users and Agents)');
-
-			await expect
-				.element(page.getByRole('alert').first())
-				.toHaveTextContent('Profile "Main" already names Everyone. Only one profile can.');
-			await expect.element(page.getByText('No people or groups assigned.')).toBeVisible();
-		});
-
-		it('refuses all agents while another profile names Everyone', async () => {
-			await startNewProfile(
-				vmcpWithProfiles('vmcp-mixed', [profile('Main', [{ type: 'selector', id: '*' }])])
-			);
-
-			await pick('All Agents');
-
-			await expect
-				.element(page.getByText(/Profile "Main" uses a different wildcard/))
-				.toBeVisible();
-		});
-
-		it('refuses Everyone while another profile names all users', async () => {
-			await startNewProfile(
-				vmcpWithProfiles('vmcp-mixed-users', [profile('Users', [{ type: 'user', id: '*' }])])
-			);
-
-			await pick('Everyone (All Obot Users and Agents)');
-
-			await expect
-				.element(page.getByText(/Profile "Users" uses a different wildcard/))
-				.toBeVisible();
-		});
-
-		it('refuses a second profile for all users and for all agents, but allows one each', async () => {
-			await startNewProfile(
-				vmcpWithProfiles('vmcp-kinds', [
-					profile('Users', [{ type: 'user', id: '*' }]),
-					profile('Agents', [{ type: 'agent', id: '*' }])
-				])
-			);
-
-			await pick('All Users');
-			await expect
-				.element(page.getByText('Profile "Users" already names All Users. Only one profile can.'))
-				.toBeVisible();
-			await pick('All Agents');
-			await expect
-				.element(page.getByText('Profile "Agents" already names All Agents. Only one profile can.'))
-				.toBeVisible();
-		});
-
-		it('allows all users in one profile and all agents in another', async () => {
-			const saved = await startNewProfile(
-				vmcpWithProfiles('vmcp-kinds-ok', [profile('Users', [{ type: 'user', id: '*' }])])
-			);
-
-			await pick('All Agents');
-			await expect
-				.element(page.getByText('Profile "Users"', { exact: false }))
-				.not.toBeInTheDocument();
+			await pick('All Obot Users');
+			await expect.element(page.getByText('All Obot Users', { exact: true })).toBeVisible();
 			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
 			await vi.waitFor(() => expect(saved).toHaveBeenCalled());
-			expect(savedProfiles(saved)[1].subjects).toEqual([{ type: 'agent', id: '*' }]);
+			expect(savedProfiles(saved)[1].subjects).toEqual([{ type: 'selector', id: '*' }]);
 		});
 
 		it('refuses an agent that another profile already names', async () => {
@@ -1264,16 +1179,18 @@ describe('VMcpProfiles.svelte', () => {
 				{
 					id: 'vp1stable',
 					name: 'Bots',
-					subjects: [{ type: 'agent', id: '*' }],
+					subjects: [{ type: 'agent', id: '5' }],
 					vmcpPermissions: { allowAllComponents: true }
 				}
 			];
 			return Object.assign(vmcp, overrides);
 		}
 
+		const buildBot = { id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 };
+
 		function mockCapableStatus() {
 			worker.use(
-				http.get('/api/agents', () => HttpResponse.json({ items: [] })),
+				http.get('/api/agents', () => HttpResponse.json({ items: [buildBot] })),
 				http.get(STATUS, () =>
 					HttpResponse.json({
 						profileID: 'vp1stable',
@@ -1289,7 +1206,7 @@ describe('VMcpProfiles.svelte', () => {
 			);
 		}
 
-		it('shows the agent setup of a saved profile in its editor', async () => {
+		it('shows the agent setup of a saved profile that names an agent, in its editor', async () => {
 			mockCapableStatus();
 			render(VMcpProfiles, { vmcp: setupVMcp(), toolFlow: toolFlowStub(), agentSetup: true });
 
@@ -1316,8 +1233,8 @@ describe('VMcpProfiles.svelte', () => {
 			await page.getByRole('button', { name, exact: typeof name === 'string' }).click();
 		}
 
-		it('keeps agent setup off until a new profile that names agents is saved', async () => {
-			worker.use(http.get('/api/agents', () => HttpResponse.json({ items: [] })));
+		it('keeps agent setup off until a new profile that names an agent is saved', async () => {
+			worker.use(http.get('/api/agents', () => HttpResponse.json({ items: [buildBot] })));
 			render(VMcpProfiles, {
 				vmcp: setupVMcp({ profiles: [] }),
 				toolFlow: toolFlowStub(),
@@ -1326,60 +1243,44 @@ describe('VMcpProfiles.svelte', () => {
 
 			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 			await expect.element(page.getByLabelText('Name')).toBeVisible();
-			// No identity names an agent yet, so there is nothing to set up.
+			// No identity names an agent yet, so there is nothing to set up. All Obot Users is not one.
+			await pickIdentity('All Obot Users');
 			await expect
 				.element(page.getByRole('heading', { name: 'Agent setup' }))
 				.not.toBeInTheDocument();
-			await pickIdentity('All Agents');
-			await expect.element(page.getByText(/Save the profile first/)).toBeVisible();
-		});
-
-		it('shows no agent setup on a saved profile no agent can use', async () => {
-			const status = vi.fn();
-			worker.use(
-				http.get('/api/agents', () =>
-					HttpResponse.json({
-						items: [{ id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 }]
-					})
-				),
-				http.get(STATUS, () => {
-					status();
-					return HttpResponse.json({});
-				})
-			);
-			const vmcp = setupVMcp();
-			vmcp.profiles![0].subjects = [{ type: 'user', id: '*' }];
-			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub(), agentSetup: true });
-
-			await page.getByRole('button', { name: 'Edit Bots' }).click();
-			await expect.element(page.getByLabelText('Name')).toHaveValue('Bots');
-			await expect
-				.element(page.getByRole('heading', { name: 'Agent setup' }))
-				.not.toBeInTheDocument();
-			await expect
-				.element(page.getByText(/Add an agent or wildcard subject/))
-				.not.toBeInTheDocument();
-			expect(status).not.toHaveBeenCalled();
-
-			// Identities that would let agents use it once saved ask for the save first.
 			await pickIdentity(/Build bot/);
 			await expect.element(page.getByText(/Save the profile first/)).toBeVisible();
 		});
 
+		// Only a profile that names an agent by ID applies to agents: All Obot Users never includes one.
 		for (const { name, subjects } of [
-			{ name: 'an explicit agent', subjects: [{ type: 'agent' as const, id: '5' }] },
-			{ name: 'all agents', subjects: [{ type: 'agent' as const, id: '*' }] },
-			{ name: 'Everyone', subjects: [{ type: 'selector' as const, id: '*' }] }
+			{ name: 'All Obot Users', subjects: [{ type: 'selector' as const, id: '*' }] },
+			{ name: 'a user', subjects: [{ type: 'user' as const, id: '7' }] },
+			{ name: 'a group', subjects: [{ type: 'group' as const, id: 'g1' }] }
 		]) {
-			it(`shows the agent setup of a saved profile for ${name}`, async () => {
-				mockCapableStatus();
+			it(`shows no agent setup on a saved profile for ${name}`, async () => {
+				const status = vi.fn();
+				worker.use(
+					http.get('/api/agents', () => HttpResponse.json({ items: [buildBot] })),
+					http.get(STATUS, () => {
+						status();
+						return HttpResponse.json({});
+					})
+				);
 				const vmcp = setupVMcp();
 				vmcp.profiles![0].subjects = subjects;
 				render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub(), agentSetup: true });
 
 				await page.getByRole('button', { name: 'Edit Bots' }).click();
-				await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
-				await expect.element(page.getByRole('region', { name: 'GitHub' })).toBeVisible();
+				await expect.element(page.getByLabelText('Name')).toHaveValue('Bots');
+				await expect
+					.element(page.getByRole('heading', { name: 'Agent setup' }))
+					.not.toBeInTheDocument();
+				expect(status).not.toHaveBeenCalled();
+
+				// Naming an agent lets agents use it once saved, so it asks for the save first.
+				await pickIdentity(/Build bot/);
+				await expect.element(page.getByText(/Save the profile first/)).toBeVisible();
 			});
 		}
 
@@ -1391,7 +1292,7 @@ describe('VMcpProfiles.svelte', () => {
 			await expect
 				.element(page.getByText(/unsaved changes to this profile's identities/))
 				.not.toBeInTheDocument();
-			await page.getByRole('button', { name: 'Remove All Agents' }).click();
+			await page.getByRole('button', { name: 'Remove Build bot' }).click();
 			await expect
 				.element(page.getByText(/unsaved changes to this profile's identities/))
 				.toBeVisible();
@@ -1428,24 +1329,6 @@ describe('VMcpProfiles.svelte', () => {
 			await expect
 				.element(page.getByRole('heading', { name: 'Agent setup' }))
 				.not.toBeInTheDocument();
-		});
-
-		it('explains an ambiguous agent selection above the profiles', async () => {
-			const vmcp = setupVMcp({
-				status: {
-					ready: true,
-					conditions: [
-						{
-							type: 'AgentSelectionAmbiguous',
-							status: 'True',
-							lastTransitionTime: '2026-01-01T00:00:00Z'
-						}
-					]
-				}
-			});
-			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub(), agentSetup: true });
-
-			await expect.element(page.getByText('More than one profile names every agent')).toBeVisible();
 		});
 	});
 });

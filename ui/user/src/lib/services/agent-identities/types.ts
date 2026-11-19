@@ -48,20 +48,18 @@ export interface AgentAPIKeyCreateResponse extends AgentAPIKey {
 	key: string; // Only shown once on creation
 }
 
-export type AgentSubjectMatch = 'explicit' | 'kindWildcard' | 'wildcard';
-
+// A vMCP profile that names an agent.
 export interface AgentIdentityVMCPProfileAccess {
 	vmcpID: string;
 	vmcpDisplayName?: string;
 	profileID?: string;
 	profileName: string;
-	match: AgentSubjectMatch;
 }
 
+// A model access policy or skill access rule that names an agent.
 export interface AgentIdentityPolicyAccess {
 	id: string;
 	displayName?: string;
-	match: AgentSubjectMatch;
 }
 
 export type AgentProblemCode = 'no_model_access_policy' | 'no_skill_access_rule';
@@ -74,11 +72,7 @@ export interface AgentIdentityAccess {
 	problems: { code: AgentProblemCode }[];
 }
 
-export type AgentReadinessCode =
-	| 'configuration_required'
-	| 'oauth_required'
-	| 'oauth_invalid'
-	| 'selection_ambiguous';
+export type AgentReadinessCode = 'configuration_required' | 'oauth_required' | 'oauth_invalid';
 
 export interface AgentReadinessReason {
 	componentID?: string;
@@ -86,7 +80,6 @@ export interface AgentReadinessReason {
 	// The configuration key that is missing, never its value.
 	field?: string;
 	profileID?: string;
-	urlProfileID?: string;
 }
 
 // The profile that supplies something an agent uses on a vMCP. It names the key, never the value.
@@ -95,8 +88,6 @@ export interface AgentReadinessSource {
 	componentID: string;
 	field?: string;
 	profileID: string;
-	// It comes from the profile that names every agent, not the one that names the agent.
-	fallback?: boolean;
 }
 
 export interface AgentVMCPReadiness {
@@ -104,8 +95,8 @@ export interface AgentVMCPReadiness {
 	vmcpDisplayName?: string;
 	ready: boolean;
 	disabled: boolean;
-	explicitProfileID?: string;
-	wildcardProfileID?: string;
+	// The profile that names the agent.
+	profileID?: string;
 	reasons: AgentReadinessReason[];
 	// Only on the readiness of a single vMCP.
 	sources?: AgentReadinessSource[];

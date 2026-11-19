@@ -71,16 +71,20 @@ func TestDeleteUnauthorizedAgentInstances(t *testing.T) {
 		deleted  bool
 	}{
 		{
-			name:     "explicit profile",
+			name:     "profile that names the agent",
 			subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
 		},
 		{
-			name:     "every agent",
+			// An agent subject with the ID "*", which validation refuses, names no agent.
+			name:     "stored agent wildcard",
 			subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}},
+			deleted:  true,
 		},
 		{
-			name:     "everyone",
+			// The profile for every user grants no agent.
+			name:     "every user",
 			subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
+			deleted:  true,
 		},
 		{
 			// Disabling an agent keeps its instance; authentication refuses it until it is enabled again.
@@ -95,7 +99,7 @@ func TestDeleteUnauthorizedAgentInstances(t *testing.T) {
 			deleted:  true,
 		},
 		{
-			name:     "every user",
+			name:     "user wildcard",
 			subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}},
 			deleted:  true,
 		},
@@ -173,7 +177,10 @@ func TestAgentInstanceResourcesAreBoundToComponents(t *testing.T) {
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
 				Components: []types.VMCPComponent{dedicatedTestComponent("dedicated"), shared},
-				Profiles:   allowAllProfiles(),
+				Profiles: append(allowAllProfiles(), types.VMCPProfile{
+					Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+				}),
 			},
 		},
 	}

@@ -480,7 +480,7 @@ type agentTestRoute struct {
 func newAgentTestAuthorizer(t *testing.T) *Authorizer {
 	t.Helper()
 
-	// A shared vMCP whose profile grants every subject, which grants the agent too.
+	// A shared vMCP whose profile names agent 7 and every user.
 	vmcp := &v1.VMCP{
 		Name:      agentTestVMCP,
 		Namespace: system.DefaultNamespace,
@@ -494,6 +494,10 @@ func newAgentTestAuthorizer(t *testing.T) *Authorizer {
 				Profiles: []types.VMCPProfile{
 					{
 						Subjects: []types.Subject{
+							{
+								Type: types.SubjectTypeAgent,
+								ID:   "7",
+							},
 							{
 								Type: types.SubjectTypeSelector,
 								ID:   "*",
@@ -528,8 +532,8 @@ func newAgentTestAuthorizer(t *testing.T) *Authorizer {
 			Manifest: types.SkillAccessRuleManifest{
 				Subjects: []types.Subject{
 					{
-						Type: types.SubjectTypeSelector,
-						ID:   "*",
+						Type: types.SubjectTypeAgent,
+						ID:   "7",
 					},
 				},
 				Resources: []types.SkillResource{
@@ -595,7 +599,8 @@ func TestAgentRouteReachability(t *testing.T) {
 // TestAgentRoutesFollowKeyScopes checks that an agent reaches each route only with the scope that grants it, and needs
 // no other scope for it. In particular, a key without an MCP scope connects to no vMCP, not even one the agent is
 // granted: an empty authorized_mcp_ids restricts nothing, so the key is kept out only because it has no GroupMCP. And a
-// key without the Skills scope reaches no skill route, although a skill access rule grants every skill to everyone.
+// key without the Skills scope reaches no skill route, although a skill access rule that names the agent grants it
+// every skill.
 func TestAgentRoutesFollowKeyScopes(t *testing.T) {
 	authorizer := newAgentTestAuthorizer(t)
 	llmRoutes := slices.DeleteFunc(slices.Clone(agentReachableRoutes), func(route agentTestRoute) bool {

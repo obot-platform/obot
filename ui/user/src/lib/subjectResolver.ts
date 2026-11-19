@@ -17,10 +17,6 @@ import { getUserDisplayName, getUserRoleLabel, isDisabledUser } from '$lib/utils
 
 const EVERYONE_SUBJECT_ID = '*';
 export const OBOT_ADMIN_PICKER_ID = 'obot-admin';
-// The wildcards that only the agent-capable editors offer. They are picker rows, like the Obot Admin
-// group, so they travel through the same group channel as the "everyone" row.
-export const ALL_USERS_PICKER_ID = 'users:*';
-export const ALL_AGENTS_PICKER_ID = 'agents:*';
 
 // agentPickerId keeps an agent apart from a user: both have decimal IDs, so "5" can be either. It is
 // the same "agent:<id>" the audit and usage APIs use.
@@ -31,12 +27,6 @@ function agentPickerId(agentId: string): string {
 export function resolveSubjectFromGroup(group: OrgGroup): AccessControlRuleSubject {
 	if (group.id === EVERYONE_SUBJECT_ID) {
 		return { type: 'selector', id: group.id };
-	}
-	if (group.id === ALL_USERS_PICKER_ID) {
-		return { type: 'user', id: EVERYONE_SUBJECT_ID };
-	}
-	if (group.id === ALL_AGENTS_PICKER_ID) {
-		return { type: 'agent', id: EVERYONE_SUBJECT_ID };
 	}
 	if (group.id === OBOT_ADMIN_PICKER_ID) {
 		return { type: 'obotGroup', id: Group.ADMIN };
@@ -50,11 +40,8 @@ export function resolveSubjectPickerById(
 	if (subject.type === 'obotGroup' && subject.id === Group.ADMIN) {
 		return OBOT_ADMIN_PICKER_ID;
 	}
-	if (subject.type === 'user' && subject.id === EVERYONE_SUBJECT_ID) {
-		return ALL_USERS_PICKER_ID;
-	}
 	if (subject.type === 'agent') {
-		return subject.id === EVERYONE_SUBJECT_ID ? ALL_AGENTS_PICKER_ID : agentPickerId(subject.id);
+		return agentPickerId(subject.id);
 	}
 	return subject.id;
 }
@@ -78,9 +65,9 @@ export function subjectsFromPicker(
 	];
 }
 
-// hasNamedAgent is true when a subject names one agent, which then needs a name to be shown.
+// hasNamedAgent is true when a subject names an agent, which then needs a name to be shown.
 export function hasNamedAgent(subjects: AccessControlRuleSubject[] | undefined): boolean {
-	return subjects?.some((s) => s.type === 'agent' && s.id !== EVERYONE_SUBJECT_ID) ?? false;
+	return subjects?.some((s) => s.type === 'agent') ?? false;
 }
 
 // agentLookupWith adds agents, such as those just picked, to a lookup of agent names.
@@ -91,44 +78,19 @@ export function agentLookupWith(
 	return new Map([...(lookup ?? []), ...agents.map((a): [string, AgentLookup] => [a.id, a])]);
 }
 
-export type WildcardKind = 'everyone' | 'users' | 'agents';
-
-// pickerWildcardKind names the wildcard that a picker ID stands for, if it is one.
-export function pickerWildcardKind(pickerId: string): WildcardKind | undefined {
-	switch (pickerId) {
-		case EVERYONE_SUBJECT_ID:
-			return 'everyone';
-		case ALL_USERS_PICKER_ID:
-			return 'users';
-		case ALL_AGENTS_PICKER_ID:
-			return 'agents';
-	}
-	return undefined;
+// isEveryonePickerId is true for the picker ID of "All Obot Users" ({selector, "*"}).
+export function isEveryonePickerId(pickerId: string): boolean {
+	return pickerId === EVERYONE_SUBJECT_ID;
 }
 
-export function subjectWildcardKind(
-	subject: Pick<AccessControlRuleSubject, 'type' | 'id'>
-): WildcardKind | undefined {
-	return pickerWildcardKind(resolveSubjectPickerById(subject));
-}
-
-// wildcardConflicts applies the server's rule to a picker ID: everyone already includes every user and
-// agent, so it is not combined with the other wildcards, and all users plus all agents is everyone. So
-// a wildcard conflicts with any other kind of wildcard among the other picker IDs.
-export function wildcardConflicts(pickerId: string, otherPickerIds: Iterable<string>): boolean {
-	const kind = pickerWildcardKind(pickerId);
-	if (!kind) return false;
-	for (const other of otherPickerIds) {
-		const otherKind = pickerWildcardKind(other);
-		if (otherKind && otherKind !== kind) return true;
-	}
-	return false;
+// isAgentPickerId is true for the picker ID of an agent (agentPickerId).
+export function isAgentPickerId(pickerId: string): boolean {
+	return pickerId.startsWith(agentPickerId(''));
 }
 
 // agentSubjectName names an agent subject. A deleted agent keeps its subjects in policies but matches
 // nobody, so it is marked; an agent that is not known (the lookup is admin-only) shows its ID.
 export function agentSubjectName(agentId: string, lookup?: Map<string, AgentLookup>): string {
-	if (agentId === EVERYONE_SUBJECT_ID) return m.core_all_agents();
 	return agentDisplayName(lookup, agentId);
 }
 
@@ -145,7 +107,7 @@ export interface SubjectPickerOption {
 	agent?: AgentIdentity;
 }
 
-// subjectPickerOptions builds the rows a subject picker offers for a query: the wildcards, the Obot
+// subjectPickerOptions builds the rows a subject picker offers for a query: All Obot Users, the Obot
 // Admin group, the groups (searched by the caller, as the directory pages them), and the active agents
 // and enabled users that match. Those already added are left out.
 export function subjectPickerOptions(opts: {
@@ -153,8 +115,7 @@ export function subjectPickerOptions(opts: {
 	groups: OrgGroup[];
 	agents?: AgentIdentity[];
 	query: string;
-	// offerAgents offers agents, and the wildcards "All Users" and "All Agents" next to "Everyone",
-	// which then includes agents.
+	// offerAgents offers the active agents, one by one, since All Obot Users never includes an agent.
 	offerAgents: boolean;
 	offerObotAdmin: boolean;
 	existingPickerIds: Iterable<string>;
@@ -163,16 +124,7 @@ export function subjectPickerOptions(opts: {
 	const matches = (...values: (string | undefined)[]) =>
 		!query || values.some((value) => (value ?? '').toLowerCase().includes(query));
 	const specialGroups: OrgGroup[] = [
-		{
-			id: EVERYONE_SUBJECT_ID,
-			name: opts.offerAgents ? m.core_everyone_users_and_agents() : m.core_all_obot_users()
-		},
-		...(opts.offerAgents
-			? [
-					{ id: ALL_USERS_PICKER_ID, name: m.core_all_users() },
-					{ id: ALL_AGENTS_PICKER_ID, name: m.core_all_agents() }
-				]
-			: []),
+		{ id: EVERYONE_SUBJECT_ID, name: m.core_all_obot_users() },
 		...(opts.offerObotAdmin
 			? [{ id: OBOT_ADMIN_PICKER_ID, name: m.identity_access_users_obot_admin() }]
 			: [])
@@ -293,19 +245,13 @@ export async function resolveSubjects(
 export interface SubjectTableOptions {
 	/** Agents by ID, to name agent subjects. */
 	agents?: Map<string, AgentLookup>;
-	/**
-	 * Whether agents can be subjects of the resource, so that its "everyone" includes them and is
-	 * labeled so. Every caller says, as it differs by resource: access control rules never match an
-	 * agent, while profiles, policies and filters that accept agents do.
-	 */
-	offerAgents: boolean;
 }
 
 export function convertSubjectsToTableData(
 	subjects: AccessControlRuleSubject[],
 	users: OrgUser[],
 	groups: OrgGroup[],
-	options: SubjectTableOptions
+	options: SubjectTableOptions = {}
 ): SubjectTableRow[] {
 	const userMap = new Map(users?.map((user) => [user.id, user]));
 	const groupMap = new Map(groups?.map((group) => [group.id, group]));
@@ -317,19 +263,8 @@ export function convertSubjectsToTableData(
 					return {
 						id: resolveSubjectPickerById(subject),
 						displayName: agentSubjectName(subject.id, options.agents),
-						type:
-							subject.id === EVERYONE_SUBJECT_ID
-								? m.identity_access_users_selector()
-								: m.core_col_agent(),
-						agent: subject.id !== EVERYONE_SUBJECT_ID
-					};
-				}
-
-				if (subject.type === 'user' && subject.id === EVERYONE_SUBJECT_ID) {
-					return {
-						id: ALL_USERS_PICKER_ID,
-						displayName: m.core_all_users(),
-						type: m.identity_access_users_selector()
+						type: m.core_col_agent(),
+						agent: true
 					};
 				}
 
@@ -362,12 +297,7 @@ export function convertSubjectsToTableData(
 
 				return {
 					id: subject.id,
-					displayName:
-						subject.id === EVERYONE_SUBJECT_ID
-							? options.offerAgents
-								? m.core_everyone_users_and_agents()
-								: m.core_all_obot_users()
-							: subject.id,
+					displayName: subject.id === EVERYONE_SUBJECT_ID ? m.core_all_obot_users() : subject.id,
 					type: m.identity_access_users_selector()
 				};
 			})
@@ -384,12 +314,7 @@ export function hasAccessWithinSubjects(
 			return true;
 		}
 
-		// Only a user can be the current user, whatever an agent's ID: an agent and a user can share a
-		// decimal ID. All users includes the current user.
-		if (
-			subject.type === 'user' &&
-			(subject.id === EVERYONE_SUBJECT_ID || subject.id === profile.id)
-		) {
+		if (subject.type === 'user' && subject.id === profile.id) {
 			return true;
 		}
 

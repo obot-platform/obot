@@ -84,32 +84,45 @@ components:
 	require.True(t, manifest.ToolSearch)
 }
 
+// TestDecodeVMCPManifestAgentSubjects checks the agent subjects of catalog vMCPs: a profile may name an agent by its
+// decimal ID, which decoding keeps as it is, since agent IDs belong to one deployment and cannot be checked against a
+// catalog; manifest validation, which every caller runs, checks only the ID's form, and refuses the agent wildcard.
 func TestDecodeVMCPManifestAgentSubjects(t *testing.T) {
 	for _, tt := range []struct {
-		name      string
-		subject   string
-		wantError bool
+		name    string
+		subject string
+		wantErr string
 	}{
 		{
-			name:    "every agent",
-			subject: `{type: agent, id: "*"}`,
+			name:    "one agent",
+			subject: `{type: agent, id: "7"}`,
 		},
 		{
-			name:    "everyone",
-			subject: `{type: selector, id: "*"}`,
+			name:    "an agent no deployment has yet",
+			subject: `{type: agent, id: "999999"}`,
 		},
 		{
 			name:    "every user",
-			subject: `{type: user, id: "*"}`,
+			subject: `{type: selector, id: "*"}`,
 		},
 		{
-			name:      "one agent",
-			subject:   `{type: agent, id: "7"}`,
-			wantError: true,
+			name:    "the agent wildcard",
+			subject: `{type: agent, id: "*"}`,
+			wantErr: "agents must be named by ID",
+		},
+		{
+			name:    "an agent's storage encoding",
+			subject: `{type: agent, id: "agent:7"}`,
+			wantErr: "agent subject ID must be the decimal ID of an agent",
+		},
+		{
+			name:    "an agent ID with a leading zero",
+			subject: `{type: agent, id: "07"}`,
+			wantErr: "agent subject ID must be the decimal ID of an agent",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := DecodeVMCPManifest([]byte(`type: vmcp
+			manifest, err := DecodeVMCPManifest([]byte(`type: vmcp
 displayName: Agents
 components:
 - id: files
@@ -120,10 +133,11 @@ profiles:
   subjects:
   - ` + tt.subject + `
 `))
-			if tt.wantError {
-				require.ErrorContains(t, err, "cannot name an agent")
+			require.NoError(t, err)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, manifest.Validate(), tt.wantErr)
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, manifest.Validate())
 			}
 		})
 	}

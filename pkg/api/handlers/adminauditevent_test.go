@@ -280,8 +280,9 @@ func TestProfileConfigurationAuditNeverRecordsValues(t *testing.T) {
 	}
 }
 
-// TestSubjectChangesAreAudited checks that policies and profiles write an event only for the changes that add or remove
-// agent subjects and wildcards, with the diff, on create, update and delete.
+// TestSubjectChangesAreAudited checks that policies write an event only for the changes that add or remove agent
+// subjects, with the diff, on create, update and delete. The selector wildcard names no agent, so changing it records
+// nothing.
 func TestSubjectChangesAreAudited(t *testing.T) {
 	gateway := newHandlerTestGateway(t)
 	agent, err := gateway.CreateAgent(t.Context(), gt.Agent{DisplayName: "builder"})
@@ -313,7 +314,6 @@ func TestSubjectChangesAreAudited(t *testing.T) {
 	users := subject(types.SubjectTypeUser, "2")
 	group := subject(types.SubjectTypeGroup, "eng")
 	explicit := subject(types.SubjectTypeAgent, agentID)
-	agents := subject(types.SubjectTypeAgent, "*")
 	everyone := subject(types.SubjectTypeSelector, "*")
 
 	// A model access policy.
@@ -345,27 +345,22 @@ func TestSubjectChangesAreAudited(t *testing.T) {
 		"added": []any{map[string]any{"type": "agent", "id": agentID}},
 	}, adminAuditEventDetails(t, events[0]))
 
-	// Editing user and group subjects only, or nothing, records nothing; swapping the agent for the wildcard records both.
+	// Editing user and group subjects only records nothing; swapping the agent for every user records only that the
+	// agent was removed.
 	call(handler.Update, http.MethodPut, "/api/model-access-policies/"+created.Name, "id", created.Name, policy(explicit, group))
 	require.Len(t, storedAdminAuditEvents(t, gateway), 1)
-	call(handler.Update, http.MethodPut, "/api/model-access-policies/"+created.Name, "id", created.Name, policy(agents))
+	call(handler.Update, http.MethodPut, "/api/model-access-policies/"+created.Name, "id", created.Name, policy(everyone))
 	events = storedAdminAuditEvents(t, gateway)
 	require.Len(t, events, 2)
 	require.Equal(t, map[string]any{
 		"cause":   "update",
-		"added":   []any{map[string]any{"type": "agent", "id": "*"}},
 		"removed": []any{map[string]any{"type": "agent", "id": agentID}},
 	}, adminAuditEventDetails(t, events[1]))
-	// Deleting it removes the wildcard.
+	// Deleting a policy for every user records nothing.
 	call(handler.Delete, http.MethodDelete, "/api/model-access-policies/"+created.Name, "id", created.Name, nil)
-	events = storedAdminAuditEvents(t, gateway)
-	require.Len(t, events, 3)
-	require.Equal(t, map[string]any{
-		"cause":   "delete",
-		"removed": []any{map[string]any{"type": "agent", "id": "*"}},
-	}, adminAuditEventDetails(t, events[2]))
+	require.Len(t, storedAdminAuditEvents(t, gateway), 2)
 
-	// A skill access rule, with the wildcard of everyone.
+	// A skill access rule for every user records nothing until it names the agent.
 	rule := func(subjects ...types.Subject) types.SkillAccessRuleManifest {
 		return types.SkillAccessRuleManifest{DisplayName: "Rule", Resources: []types.SkillResource{{Type: types.SkillResourceTypeSelector, ID: "*"}}, Subjects: subjects}
 	}
@@ -375,19 +370,21 @@ func TestSubjectChangesAreAudited(t *testing.T) {
 	require.NoError(t, storageClient.List(t.Context(), &ruleList))
 	require.Len(t, ruleList.Items, 1)
 	ruleID := ruleList.Items[0].Name
+	require.Len(t, storedAdminAuditEvents(t, gateway), 2)
+	call(rules.Update, http.MethodPut, "/api/skill-access-rules/"+ruleID, "skill_access_rule_id", ruleID, rule(explicit))
 	events = storedAdminAuditEvents(t, gateway)
-	require.Len(t, events, 4)
-	require.Equal(t, "skill_access_rule.subjects.update", events[3].Action)
-	require.Equal(t, "skillAccessRule", events[3].ResourceKind)
-	require.Equal(t, ruleID, events[3].ResourceID)
+	require.Len(t, events, 3)
+	require.Equal(t, "skill_access_rule.subjects.update", events[2].Action)
+	require.Equal(t, "skillAccessRule", events[2].ResourceKind)
+	require.Equal(t, ruleID, events[2].ResourceID)
 	require.Equal(t, map[string]any{
-		"cause": "create",
-		"added": []any{map[string]any{"type": "selector", "id": "*"}},
-	}, adminAuditEventDetails(t, events[3]))
+		"cause": "update",
+		"added": []any{map[string]any{"type": "agent", "id": agentID}},
+	}, adminAuditEventDetails(t, events[2]))
 	call(rules.Delete, http.MethodDelete, "/api/skill-access-rules/"+ruleID, "skill_access_rule_id", ruleID, nil)
 	events = storedAdminAuditEvents(t, gateway)
-	require.Len(t, events, 5)
-	require.Equal(t, "delete", adminAuditEventDetails(t, events[4])["cause"])
+	require.Len(t, events, 4)
+	require.Equal(t, "delete", adminAuditEventDetails(t, events[3])["cause"])
 
 	// A refused change records nothing.
 	err = handler.Create(api.Context{
@@ -398,7 +395,7 @@ func TestSubjectChangesAreAudited(t *testing.T) {
 		User:           &user.DefaultInfo{UID: "5", Groups: types.RoleAdmin.Groups()},
 	})
 	requireHTTPStatus(t, err, http.StatusBadRequest)
-	require.Len(t, storedAdminAuditEvents(t, gateway), 5)
+	require.Len(t, storedAdminAuditEvents(t, gateway), 4)
 }
 
 // TestProfileSubjectChangesAreAudited checks the events of the profiles of a vMCP, by profile ID: a created vMCP, a
@@ -410,8 +407,11 @@ func TestProfileSubjectChangesAreAudited(t *testing.T) {
 	named, err := gateway.CreateAgent(t.Context(), gt.Agent{DisplayName: "builder"})
 	require.NoError(t, err)
 	namedID := strconv.FormatUint(uint64(named.ID), 10)
+	bot, err := gateway.CreateAgent(t.Context(), gt.Agent{DisplayName: "bot"})
+	require.NoError(t, err)
+	botID := strconv.FormatUint(uint64(bot.ID), 10)
 
-	agent := types.Subject{Type: types.SubjectTypeAgent, ID: "*"}
+	agent := types.Subject{Type: types.SubjectTypeAgent, ID: botID}
 	manifest := testVMCPManifest()
 	manifest.Profiles = []types.VMCPProfile{
 		vmcpProfileForTest("people", vmcpEngineering),
@@ -427,9 +427,10 @@ func TestProfileSubjectChangesAreAudited(t *testing.T) {
 	require.Equal(t, bots, events[0].ResourceID)
 	require.Equal(t, created.ID, events[0].ParentID)
 	require.Equal(t, "admin", events[0].ActorUserID)
-	require.Equal(t, map[string]any{"cause": "create", "added": []any{map[string]any{"type": "agent", "id": "*"}}}, adminAuditEventDetails(t, events[0]))
+	require.Equal(t, map[string]any{"cause": "create", "added": []any{map[string]any{"type": "agent", "id": botID}}}, adminAuditEventDetails(t, events[0]))
 
-	// The people profile gains the everyone wildcard, the bots profile is removed, and a new profile is added.
+	// The people profile gains every user, which names no agent and records nothing; the bots profile is removed; and a
+	// new profile is added.
 	edited := created.VMCPManifest
 	edited.Profiles = []types.VMCPProfile{created.Profiles[0], vmcpProfileForTest("new", types.Subject{Type: types.SubjectTypeAgent, ID: namedID})}
 	edited.Profiles[0].Subjects = []types.Subject{vmcpEngineering, vmcpEveryone}
@@ -438,15 +439,15 @@ func TestProfileSubjectChangesAreAudited(t *testing.T) {
 	newID := updated.Profiles[1].ID
 
 	events = storedAdminAuditEvents(t, gateway)
-	require.Len(t, events, 4)
+	require.Len(t, events, 3)
 	byProfile := map[string]gt.AdminAuditEvent{}
 	for _, event := range events[1:] {
 		require.Equal(t, "update", adminAuditEventDetails(t, event)["cause"])
 		byProfile[event.ResourceID] = event
 	}
-	require.Equal(t, []any{map[string]any{"type": "selector", "id": "*"}}, adminAuditEventDetails(t, byProfile[people])["added"])
+	require.NotContains(t, byProfile, people)
 	require.Equal(t, []any{map[string]any{"type": "agent", "id": namedID}}, adminAuditEventDetails(t, byProfile[newID])["added"])
-	require.Equal(t, []any{map[string]any{"type": "agent", "id": "*"}}, adminAuditEventDetails(t, byProfile[bots])["removed"])
+	require.Equal(t, []any{map[string]any{"type": "agent", "id": botID}}, adminAuditEventDetails(t, byProfile[bots])["removed"])
 	require.NotContains(t, adminAuditEventDetails(t, byProfile[bots]), "added")
 
 	// An edit that changes no agent-relevant subject records nothing.
@@ -454,51 +455,5 @@ func TestProfileSubjectChangesAreAudited(t *testing.T) {
 	edited.Profiles[0].Name = "renamed"
 	_, err = callVMCPUpdate(t, storageClient, gateway, handler, created.ID, edited)
 	require.NoError(t, err)
-	require.Len(t, storedAdminAuditEvents(t, gateway), 4)
-}
-
-// TestIsAgentRelevantSubject checks which subjects can grant something to an agent: agent subjects and the selector
-// wildcard, but not the user wildcard, which names only users.
-func TestIsAgentRelevantSubject(t *testing.T) {
-	for _, tt := range []struct {
-		name    string
-		subject types.Subject
-		want    bool
-	}{
-		{
-			name:    "explicit agent",
-			subject: types.Subject{Type: types.SubjectTypeAgent, ID: "7"},
-			want:    true,
-		},
-		{
-			name:    "agent wildcard",
-			subject: types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID},
-			want:    true,
-		},
-		{
-			name:    "selector wildcard",
-			subject: types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID},
-			want:    true,
-		},
-		{
-			name:    "user wildcard",
-			subject: types.Subject{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID},
-		},
-		{
-			name:    "explicit user",
-			subject: types.Subject{Type: types.SubjectTypeUser, ID: "7"},
-		},
-		{
-			name:    "group",
-			subject: types.Subject{Type: types.SubjectTypeGroup, ID: "eng"},
-		},
-		{
-			name:    "explicit selector",
-			subject: types.Subject{Type: types.SubjectTypeSelector, ID: "team"},
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, isAgentRelevantSubject(tt.subject))
-		})
-	}
+	require.Len(t, storedAdminAuditEvents(t, gateway), 3)
 }

@@ -8,8 +8,7 @@ import {
 	resolveSubjectFromGroup,
 	resolveSubjectPickerById,
 	subjectPickerOptions,
-	subjectsFromPicker,
-	wildcardConflicts
+	subjectsFromPicker
 } from './subjectResolver';
 import { describe, expect, it } from 'vitest';
 
@@ -50,11 +49,9 @@ describe('resolveSubjectFromGroup', () => {
 
 describe('convertSubjectsToTableData', () => {
 	it('labels an obot group without a directory lookup', () => {
-		expect(
-			convertSubjectsToTableData([{ type: 'obotGroup', id: 'admin' }], [], [], {
-				offerAgents: false
-			})
-		).toEqual([{ id: 'obot-admin', displayName: 'Obot Admin', type: 'Group' }]);
+		expect(convertSubjectsToTableData([{ type: 'obotGroup', id: 'admin' }], [], [])).toEqual([
+			{ id: 'obot-admin', displayName: 'Obot Admin', type: 'Group' }
+		]);
 	});
 
 	it('uses the directory name for a group subject', () => {
@@ -62,8 +59,7 @@ describe('convertSubjectsToTableData', () => {
 			convertSubjectsToTableData(
 				[{ type: 'group', id: 'entra/engineering' }],
 				[],
-				[{ id: 'entra/engineering', name: 'Engineering' }],
-				{ offerAgents: false }
+				[{ id: 'entra/engineering', name: 'Engineering' }]
 			)
 		).toEqual([{ id: 'entra/engineering', displayName: 'Engineering', type: 'Group' }]);
 	});
@@ -79,8 +75,7 @@ describe('convertSubjectsToTableData', () => {
 					{ id: 'u1', displayName: 'Alice', status: 'active' } as OrgUser,
 					{ id: 'u2', displayName: 'Dan', status: 'disabled' } as OrgUser
 				],
-				[],
-				{ offerAgents: false }
+				[]
 			)
 		).toEqual([
 			{ id: 'u1', displayName: 'Alice', type: 'User', disabled: false },
@@ -90,30 +85,12 @@ describe('convertSubjectsToTableData', () => {
 });
 
 describe('agent subjects', () => {
-	it('stores the wildcard picker rows as typed wildcards', () => {
-		expect(resolveSubjectFromGroup({ id: 'users:*', name: 'All Users' })).toEqual({
-			type: 'user',
-			id: '*'
-		});
-		expect(resolveSubjectFromGroup({ id: 'agents:*', name: 'All Agents' })).toEqual({
-			type: 'agent',
-			id: '*'
-		});
-	});
-
-	it('keeps an agent apart from a user with the same ID', () => {
-		expect(resolveSubjectPickerById({ type: 'agent', id: '5' })).toBe('agent:5');
-		expect(resolveSubjectPickerById({ type: 'user', id: '5' })).toBe('5');
-		expect(resolveSubjectPickerById({ type: 'agent', id: '*' })).toBe('agents:*');
-		expect(resolveSubjectPickerById({ type: 'user', id: '*' })).toBe('users:*');
-	});
-
 	it('builds subjects from the picker, skipping those already added', () => {
 		expect(
 			subjectsFromPicker(
 				['agent:5'],
 				[{ id: '5', displayName: 'Alice' } as OrgUser],
-				[{ id: 'agents:*', name: 'All Agents' }],
+				[{ id: '*', name: 'All Obot Users' }],
 				[
 					{ id: '5', displayName: 'Bot' },
 					{ id: '6', displayName: 'Other bot' }
@@ -121,7 +98,7 @@ describe('agent subjects', () => {
 			)
 		).toEqual([
 			{ type: 'user', id: '5' },
-			{ type: 'agent', id: '*' },
+			{ type: 'selector', id: '*' },
 			{ type: 'agent', id: '6' }
 		]);
 	});
@@ -136,31 +113,26 @@ describe('agent subjects', () => {
 				[
 					{ type: 'agent', id: '5' },
 					{ type: 'agent', id: '6' },
-					{ type: 'agent', id: '7' },
-					{ type: 'agent', id: '*' },
-					{ type: 'user', id: '*' }
+					{ type: 'agent', id: '7' }
 				],
 				[],
 				[],
-				{ agents, offerAgents: true }
+				{ agents }
 			)
 		).toEqual([
 			{ id: 'agent:5', displayName: 'Build bot', type: 'Agent', agent: true },
 			{ id: 'agent:6', displayName: 'Old bot (Deleted)', type: 'Agent', agent: true },
-			{ id: 'agent:7', displayName: 'Agent 7', type: 'Agent', agent: true },
-			{ id: 'agents:*', displayName: 'All Agents', type: 'Selector', agent: false },
-			{ id: 'users:*', displayName: 'All Users', type: 'Selector' }
+			{ id: 'agent:7', displayName: 'Agent 7', type: 'Agent', agent: true }
 		]);
 	});
 
-	it('says that everyone includes agents only where agents are offered', () => {
+	it('labels the selector wildcard All Obot Users, which never includes an agent', () => {
 		const everyone = [{ type: 'selector' as const, id: '*' }];
-		expect(
-			convertSubjectsToTableData(everyone, [], [], { offerAgents: false })[0].displayName
-		).toBe('All Obot Users');
-		expect(convertSubjectsToTableData(everyone, [], [], { offerAgents: true })[0].displayName).toBe(
-			'Everyone (All Obot Users and Agents)'
-		);
+		expect(convertSubjectsToTableData(everyone, [], [])[0]).toEqual({
+			id: '*',
+			displayName: 'All Obot Users',
+			type: 'Selector'
+		});
 	});
 
 	// Policies, profiles, owner lists, audit and usage all name agents with the same helper, so a
@@ -192,16 +164,19 @@ describe('agent subjects', () => {
 		] as AgentIdentity[];
 		const options = subjectPickerOptions({
 			users,
-			groups: [{ id: 'g1', name: 'Engineering' }],
+			groups: [
+				{ id: 'g1', name: 'Engineering' },
+				{ id: 'g2', name: 'Sales' }
+			],
 			agents,
 			query: '',
 			offerAgents: true,
 			offerObotAdmin: false,
-			existingPickerIds: ['users:*']
+			existingPickerIds: ['g2']
 		});
+		// The one wildcard is All Obot Users: there is no row for all agents or all users.
 		expect(options.map((option) => [option.key, option.label, option.subject])).toEqual([
-			['*', 'Everyone (All Obot Users and Agents)', { type: 'selector', id: '*' }],
-			['agents:*', 'All Agents', { type: 'agent', id: '*' }],
+			['*', 'All Obot Users', { type: 'selector', id: '*' }],
 			['g1', 'Engineering', { type: 'group', id: 'g1' }],
 			['agent:5', 'Build bot', { type: 'agent', id: '5' }],
 			['5', 'Alice', { type: 'user', id: '5' }]
@@ -219,19 +194,12 @@ describe('agent subjects', () => {
 		expect(matching.map((option) => option.key)).toEqual(['5']);
 	});
 
-	it('does not combine everyone with the other wildcards', () => {
-		expect(wildcardConflicts('*', ['users:*'])).toBe(true);
-		expect(wildcardConflicts('agents:*', ['*'])).toBe(true);
-		expect(wildcardConflicts('agents:*', ['users:*'])).toBe(true);
-		expect(wildcardConflicts('agents:*', ['agents:*', 'agent:5', '5'])).toBe(false);
-		expect(wildcardConflicts('agent:5', ['*'])).toBe(false);
-	});
-
 	it('never treats an agent as the current user', () => {
 		const profile = { id: '5', groups: [] } as unknown as Profile;
 		expect(hasAccessWithinSubjects([{ type: 'agent', id: '5' }], profile)).toBe(false);
-		expect(hasAccessWithinSubjects([{ type: 'agent', id: '*' }], profile)).toBe(false);
 		expect(hasAccessWithinSubjects([{ type: 'user', id: '5' }], profile)).toBe(true);
-		expect(hasAccessWithinSubjects([{ type: 'user', id: '*' }], profile)).toBe(true);
+		// The user ID "*" is an ordinary user subject that names no one.
+		expect(hasAccessWithinSubjects([{ type: 'user', id: '*' }], profile)).toBe(false);
+		expect(hasAccessWithinSubjects([{ type: 'selector', id: '*' }], profile)).toBe(true);
 	});
 });

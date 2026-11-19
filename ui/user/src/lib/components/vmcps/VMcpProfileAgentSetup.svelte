@@ -1,11 +1,3 @@
-<script module lang="ts">
-	import { m } from '$lib/i18n';
-	import { TriangleAlert } from '@lucide/svelte';
-
-	// The vMCP list of profiles shows the same alert.
-	export { ambiguousAlert };
-</script>
-
 <script lang="ts">
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -16,6 +8,7 @@
 		parseErrorContent,
 		parseErrorReasons
 	} from '$lib/errors';
+	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		UserService,
@@ -26,11 +19,7 @@
 		type VMCPProfileStatus
 	} from '$lib/services';
 	import { onOAuthCompletion } from '$lib/services/mcp/oauth-completion';
-	import {
-		vmcpAgentSelectionAmbiguous,
-		vmcpComponentId,
-		vmcpComponentName
-	} from '$lib/services/vmcps/utils';
+	import { vmcpComponentId, vmcpComponentName } from '$lib/services/vmcps/utils';
 	import { notifications } from '$lib/stores';
 	import {
 		AGENT_SETUP_ANCHOR,
@@ -102,9 +91,8 @@
 	// The ID alone, so a vMCP that is saved again (a new object with the same ID) does not reload the setup.
 	const vmcpID = $derived(vmcp.id);
 	const components = $derived(vmcp.components ?? []);
-	const ambiguous = $derived(vmcpAgentSelectionAmbiguous(vmcp));
 	const deleting = $derived(Boolean(vmcp.deleted));
-	const editable = $derived(!ambiguous && !deleting && !blockedReason);
+	const editable = $derived(!deleting && !blockedReason);
 	const pendingChanges = $derived(
 		Object.values(typed).some((value) => value.trim() !== '') ||
 			Object.values(clearing).some(Boolean)
@@ -579,9 +567,7 @@
 	{:else if !status.agentCapable}
 		<!-- The profile was saved as one no agent can use since it was opened: there is nothing to set up. -->
 	{:else}
-		{#if ambiguous}
-			{@render ambiguousAlert()}
-		{:else if deleting}
+		{#if deleting}
 			<p class="notification-alert text-sm" role="alert">{m.vmcps_agent_setup_deleting()}</p>
 		{:else if blockedReason}
 			<p class="notification-alert text-sm" role="alert">{blockedReason}</p>
@@ -956,13 +942,3 @@
 	msg={m.vmcps_agent_setup_oauth_reset_msg({ name: confirmOAuthReset?.name ?? '' })}
 	submitText={m.vmcps_agent_setup_reset()}
 />
-
-{#snippet ambiguousAlert()}
-	<div class="notification-alert flex flex-col gap-1 text-sm" role="alert">
-		<p class="flex items-center gap-2 font-medium">
-			<TriangleAlert class="size-4 shrink-0" />
-			{m.vmcps_agent_setup_ambiguous_title()}
-		</p>
-		<p class="font-light">{m.vmcps_agent_setup_ambiguous_guidance()}</p>
-	</div>
-{/snippet}

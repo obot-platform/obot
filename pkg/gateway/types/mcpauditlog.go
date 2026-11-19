@@ -118,13 +118,12 @@ type MCPAuditLogFields struct {
 	ResponseHeaders json.RawMessage `json:"responseHeaders,omitempty"`
 
 	// VMCPID is the vMCP a call was made through, VMCPComponentID the component the call reached when the gateway
-	// resolved it to one, and ProfileIDs and FallbackProfileIDs the IDs of the vMCP profiles that granted the caller
-	// its permissions and of those it fell back to for configuration or OAuth grants. They are empty for calls that
-	// are not made through a vMCP.
-	VMCPID             string                      `json:"vmcpID,omitempty"`
-	VMCPComponentID    string                      `json:"vmcpComponentID,omitempty"`
-	ProfileIDs         datatypes.JSONSlice[string] `json:"profileIDs,omitempty"`
-	FallbackProfileIDs datatypes.JSONSlice[string] `json:"fallbackProfileIDs,omitempty"`
+	// resolved it to one, and ProfileIDs the IDs of the vMCP profiles that granted the caller its permissions: for an
+	// agent, the one profile that names it, which also supplies its configuration and OAuth grants. They are empty for
+	// calls that are not made through a vMCP.
+	VMCPID          string                      `json:"vmcpID,omitempty"`
+	VMCPComponentID string                      `json:"vmcpComponentID,omitempty"`
+	ProfileIDs      datatypes.JSONSlice[string] `json:"profileIDs,omitempty"`
 }
 
 type LocalAgentToolCallAuditLogFields struct {

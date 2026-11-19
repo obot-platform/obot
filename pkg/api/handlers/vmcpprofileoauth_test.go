@@ -29,8 +29,7 @@ func (r *recordingAuthorizer) StartProfileOAuthGrant(_ api.Context, vmcpID, prof
 	return types.VMCPProfileOAuthAuthorization{AuthURL: "https://provider.example.com/authorize?state=s"}, nil
 }
 
-// profileOAuthTestVMCP returns a stored vMCP with a remote component, with a profile for agent 7 and one for every
-// agent.
+// profileOAuthTestVMCP returns a stored vMCP with a remote component, with a profile for agent 7 and one for agent 8.
 func profileOAuthTestVMCP() *v1.VMCP {
 	profile := func(id string, subject types.Subject) types.VMCPProfile {
 		return types.VMCPProfile{ID: id, Name: id, Subjects: []types.Subject{subject}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}
@@ -46,7 +45,7 @@ func profileOAuthTestVMCP() *v1.VMCP {
 		}},
 		Profiles: []types.VMCPProfile{
 			profile("vp1seven", types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
-			profile("vp1agents", types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}),
+			profile("vp1eight", types.Subject{Type: types.SubjectTypeAgent, ID: "8"}),
 		},
 	}}}
 }
@@ -83,16 +82,16 @@ func TestVMCPProfileOAuthAPI(t *testing.T) {
 	authorizer := &recordingAuthorizer{}
 	handler := NewVMCPProfileOAuthHandler(authorizer, grants)
 
-	body, err := callProfileOAuth(t, handler, storage, gatewayClient, http.MethodPost, vmcp.Name, "vp1agents", "remote")
+	body, err := callProfileOAuth(t, handler, storage, gatewayClient, http.MethodPost, vmcp.Name, "vp1eight", "remote")
 	require.NoError(t, err)
 	var authorization types.VMCPProfileOAuthAuthorization
 	require.NoError(t, json.Unmarshal([]byte(body), &authorization))
 	require.Equal(t, "https://provider.example.com/authorize?state=s", authorization.AuthURL)
-	require.Equal(t, [][3]string{{vmcp.Name, "vp1agents", "remote"}}, authorizer.started)
+	require.Equal(t, [][3]string{{vmcp.Name, "vp1eight", "remote"}}, authorizer.started)
 
 	// A grant the callback stored.
 	key := kclient.ObjectKeyFromObject(vmcp)
-	_, err = grants.Authorize(t.Context(), storage, key, "vp1agents", "remote", func(*v1.VMCP, types.VMCPProfile, types.VMCPComponent) error { return nil },
+	_, err = grants.Authorize(t.Context(), storage, key, "vp1eight", "remote", func(*v1.VMCP, types.VMCPProfile, types.VMCPComponent) error { return nil },
 		func(ctx context.Context, owner, mcpID, grantID string) error {
 			return gatewayClient.ReplaceMCPOAuthGrant(ctx, owner, mcpID, "https://remote.example.com/mcp", grantID, "1", &oauth2.Config{ClientID: "client"}, &oauth2.Token{AccessToken: "secret-access-token", RefreshToken: "secret-refresh-token"})
 		})
@@ -103,17 +102,17 @@ func TestVMCPProfileOAuthAPI(t *testing.T) {
 	var status types.VMCPProfileStatus
 	require.NoError(t, json.Unmarshal([]byte(body), &status))
 	require.Equal(t, types.VMCPProfileOAuthMissing, status.Components[0].OAuth.State)
-	_, err = gatewayClient.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(vmcp.Name, "vp1agents"), vmcpconfig.ProfileOAuthGrantMCPID(vmcp.Name, "remote"), "https://remote.example.com/mcp")
+	_, err = gatewayClient.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(vmcp.Name, "vp1eight"), vmcpconfig.ProfileOAuthGrantMCPID(vmcp.Name, "remote"), "https://remote.example.com/mcp")
 	require.NoError(t, err, "resetting one profile's grant deleted another's")
 
-	body, err = callProfileOAuth(t, handler, storage, gatewayClient, http.MethodDelete, vmcp.Name, "vp1agents", "remote")
+	body, err = callProfileOAuth(t, handler, storage, gatewayClient, http.MethodDelete, vmcp.Name, "vp1eight", "remote")
 	require.NoError(t, err)
 	require.NotContains(t, body, "secret-")
 	status = types.VMCPProfileStatus{}
 	require.NoError(t, json.Unmarshal([]byte(body), &status))
-	require.Equal(t, "vp1agents", status.ProfileID)
+	require.Equal(t, "vp1eight", status.ProfileID)
 	require.Equal(t, types.VMCPProfileOAuthMissing, status.Components[0].OAuth.State)
-	_, err = gatewayClient.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(vmcp.Name, "vp1agents"), vmcpconfig.ProfileOAuthGrantMCPID(vmcp.Name, "remote"), "https://remote.example.com/mcp")
+	_, err = gatewayClient.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(vmcp.Name, "vp1eight"), vmcpconfig.ProfileOAuthGrantMCPID(vmcp.Name, "remote"), "https://remote.example.com/mcp")
 	require.Error(t, err)
 	var stored v1.VMCP
 	require.NoError(t, storage.Get(t.Context(), key, &stored))
@@ -125,7 +124,7 @@ func TestVMCPProfileOAuthAPI(t *testing.T) {
 	require.Equal(t, "admin", events[0].ActorUserID)
 	require.Equal(t, "vmcp.profile.oauth.reset", events[0].Action)
 	require.Equal(t, "vmcpProfile", events[0].ResourceKind)
-	require.Equal(t, "vp1agents", events[0].ResourceID)
+	require.Equal(t, "vp1eight", events[0].ResourceID)
 	require.Equal(t, vmcp.Name, events[0].ParentID)
 	require.Equal(t, map[string]any{"componentID": "remote"}, adminAuditEventDetails(t, events[0]))
 	require.NotContains(t, string(events[0].Details), "secret-")
@@ -171,7 +170,7 @@ func TestVMCPProfileStatusCoversOnlyGrantedComponents(t *testing.T) {
 	seven := status("vp1seven")
 	require.Equal(t, []string{"remote"}, componentIDs(seven))
 	require.Equal(t, &types.VMCPProfileOAuthStatus{Required: true, State: types.VMCPProfileOAuthMissing}, seven.Components[0].OAuth)
-	require.Equal(t, []string{"remote", "api"}, componentIDs(status("vp1agents")))
+	require.Equal(t, []string{"remote", "api"}, componentIDs(status("vp1eight")))
 
 	configuration := NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient))
 	_, err := callProfileConfiguration(t, configuration, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1seven", map[string]any{
@@ -179,7 +178,7 @@ func TestVMCPProfileStatusCoversOnlyGrantedComponents(t *testing.T) {
 	})
 	requireHTTPStatus(t, err, http.StatusBadRequest)
 	require.ErrorContains(t, err, `does not grant component "api"`)
-	_, err = callProfileConfiguration(t, configuration, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1agents", map[string]any{
+	_, err = callProfileConfiguration(t, configuration, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1eight", map[string]any{
 		"components": map[string]any{"api": map[string]any{"REGION": "us-east"}},
 	})
 	require.NoError(t, err)

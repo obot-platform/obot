@@ -73,7 +73,7 @@ Filter logs by:
 - Operation type
 - Status
 
-An agent's calls are attributed to the agent and its key, with an **Agent** badge, and name the vMCP, the component, and the profiles whose configuration or OAuth grants the call used. See [Audit fields](../reference/agent-identities.md#activity-audit).
+An agent's calls are attributed to the agent and its key, with an **Agent** badge, and name the vMCP, the component, and the profile that names the agent, which supplied the call's configuration and OAuth grants. See [Audit fields](../reference/agent-identities.md#activity-audit).
 
 ### Retention {#audit-logs-and-usage-retention}
 

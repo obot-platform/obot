@@ -10,13 +10,6 @@ import (
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
-// ProfileMatch is a vMCP profile that names a caller, and how strongly its subjects do.
-type ProfileMatch struct {
-	Profile types.VMCPProfile
-	// Match is the strongest match of the profile's subjects (subjects.Caller.Best). It is never subjects.NoMatch.
-	Match subjects.Match
-}
-
 // PruneRemovedComponentProfiles removes grants only for components that were
 // actually removed, leaving unrelated invalid references for validation.
 func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *types.VMCPManifest) {
@@ -30,28 +23,19 @@ func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *typ
 	}
 }
 
-// MatchingProfileStrengths returns the profiles whose subjects name u, in order, with how strongly each does. Users
-// match their user ID, users:*, subjects:*, and their auth provider and Obot groups; agents match their agent ID,
-// agents:* and subjects:* only. A caller that is not a well-formed user or agent principal matches no profile.
-func MatchingProfileStrengths(u kuser.Info, profiles []types.VMCPProfile) []ProfileMatch {
+// MatchingProfiles returns the profiles whose subjects name u, in order (subjects.Evaluate). Users match their user
+// ID, subjects:*, and their auth provider and Obot groups; agents match only their agent ID, so an agent matches at
+// most one profile (AgentProfile). A caller that is not a well-formed user or agent principal matches no profile.
+func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
 	caller, ok := subjects.CallerFromUserInfo(u)
 	if !ok {
 		return nil
 	}
-	var matching []ProfileMatch
-	for _, profile := range profiles {
-		if match := caller.Best(profile.Subjects); match != subjects.NoMatch {
-			matching = append(matching, ProfileMatch{Profile: profile, Match: match})
-		}
-	}
-	return matching
-}
-
-// MatchingProfiles returns the profiles whose subjects name u, in order, as MatchingProfileStrengths does.
-func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
 	var matching []types.VMCPProfile
-	for _, match := range MatchingProfileStrengths(u, profiles) {
-		matching = append(matching, match.Profile)
+	for _, profile := range profiles {
+		if caller.Matches(profile.Subjects) {
+			matching = append(matching, profile)
+		}
 	}
 	return matching
 }
@@ -121,7 +105,7 @@ func InstanceGrant(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types
 // ProfileGrantsComponent reports whether profile grants the component with componentID: it allows all components, or
 // has an entry for the component in AllowedComponents, even one that grants no tools. A profile's setup for agents
 // covers only the components it grants, and only those take their configuration and OAuth grant from it
-// (AgentSelection.ForComponent).
+// (profileForComponent).
 func ProfileGrantsComponent(profile types.VMCPProfile, componentID string) bool {
 	if profile.Permissions.AllowAllComponents {
 		return true

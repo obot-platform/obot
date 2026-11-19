@@ -215,8 +215,8 @@ type Services struct {
 
 	// VMCPProfileData are the stores of data kept per vMCP profile outside the manifest: profile configuration and
 	// profile OAuth grants. The vMCP controller deletes a profile's data when the profile or its vMCP is deleted, and
-	// a vMCP with any keeps no exception from the wildcard rule across profiles. Each store is appended here as it is
-	// added; with none, no profile has data.
+	// an API update may not replace a profile that has data. Each store is appended here as it is added; with none, no
+	// profile has data.
 	VMCPProfileData vmcp.ProfileDataStores
 	// VMCPProfileConfiguration stores the configuration that administrators set on vMCP profiles for agents. It is
 	// one of VMCPProfileData.

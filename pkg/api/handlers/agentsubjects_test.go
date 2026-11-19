@@ -18,8 +18,8 @@ import (
 )
 
 // TestAgentIdentityAccess checks the access summary of an agent: the shared vMCP profiles, model access policies and
-// skill access rules that match it, with how they match, and none that only name users, groups, another agent, or
-// the user that has the agent's numeric ID.
+// skill access rules that name it by ID, and none that name every user, a stored agent wildcard, users, groups, another
+// agent, or the user that has the agent's numeric ID.
 func TestAgentIdentityAccess(t *testing.T) {
 	f := newAgentIdentityFixture(t)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "builder"})
@@ -44,6 +44,7 @@ func TestAgentIdentityAccess(t *testing.T) {
 				Profiles: []types.VMCPProfile{
 					{Name: "everyone", Subjects: []types.Subject{everyone}},
 					{Name: "users", Subjects: []types.Subject{users, group, admins, sameIDUser}},
+					// A subject validation now refuses, as a vMCP stored before agents were named only by ID may hold.
 					{Name: "agents", Subjects: []types.Subject{agents}},
 					{Name: "mine", Subjects: []types.Subject{everyone, explicit}},
 					{Name: "other", Subjects: []types.Subject{otherAgent}},
@@ -57,7 +58,7 @@ func TestAgentIdentityAccess(t *testing.T) {
 				UserID: "1",
 				Manifest: types.VMCPManifest{
 					DisplayName: "Personal",
-					Profiles:    []types.VMCPProfile{{Name: "everyone", Subjects: []types.Subject{everyone}}},
+					Profiles:    []types.VMCPProfile{{Name: "mine", Subjects: []types.Subject{explicit}}},
 				},
 			},
 		},
@@ -95,18 +96,13 @@ func TestAgentIdentityAccess(t *testing.T) {
 	require.Equal(t, types.AgentIdentityAccess{
 		AgentID: agent.ID,
 		VMCPProfiles: []types.AgentIdentityVMCPProfileAccess{
-			{VMCPID: "vmcp1a", VMCPDisplayName: "A", ProfileName: "everyone", Match: types.SubjectMatchWildcard},
-			{VMCPID: "vmcp1a", VMCPDisplayName: "A", ProfileName: "agents", Match: types.SubjectMatchKindWildcard},
-			{VMCPID: "vmcp1a", VMCPDisplayName: "A", ProfileName: "mine", Match: types.SubjectMatchExplicit},
+			{VMCPID: "vmcp1a", VMCPDisplayName: "A", ProfileName: "mine"},
 		},
 		ModelAccessPolicies: []types.AgentIdentityPolicyAccess{
-			{ID: "map1everyone", DisplayName: "Everyone", Match: types.SubjectMatchWildcard},
-			{ID: "map1mine", DisplayName: "Mine", Match: types.SubjectMatchExplicit},
+			{ID: "map1mine", DisplayName: "Mine"},
 		},
-		SkillAccessRules: []types.AgentIdentityPolicyAccess{
-			{ID: "sar1agents", DisplayName: "Agents", Match: types.SubjectMatchKindWildcard},
-		},
-		Problems: []types.AgentIdentityAccessProblem{},
+		SkillAccessRules: []types.AgentIdentityPolicyAccess{},
+		Problems:         []types.AgentIdentityAccessProblem{},
 	}, access)
 
 	// A deleted agent has no access summary.
@@ -115,8 +111,8 @@ func TestAgentIdentityAccess(t *testing.T) {
 	f.call(http.StatusNotFound, http.MethodGet, "/api/agents/999/access", nil, nil)
 }
 
-// TestCheckNewAgentSubjects checks that a policy write may add an explicit agent subject only for an agent that
-// exists and is not deleted, while subjects it already had, and the agent wildcard, are not looked up.
+// TestCheckNewAgentSubjects checks that a policy write may add an agent subject only for an agent that exists and is not
+// deleted, while subjects it already had are not looked up.
 func TestCheckNewAgentSubjects(t *testing.T) {
 	f := newAgentIdentityFixture(t)
 	active := f.createAgent(types.AgentIdentityManifest{DisplayName: "active"})
@@ -156,10 +152,6 @@ func TestCheckNewAgentSubjects(t *testing.T) {
 			name:     "deleted agent the policy already named",
 			subjects: []types.Subject{agent(deleted.ID)},
 			previous: []types.Subject{agent(deleted.ID)},
-		},
-		{
-			name:     "agent wildcard",
-			subjects: []types.Subject{agent("*")},
 		},
 		{
 			// A user with the ID of a deleted agent is not an agent subject.
@@ -228,7 +220,10 @@ func TestGuardrailFilterAgentSubjectsMustExist(t *testing.T) {
 	require.NoError(t, f.storage.List(t.Context(), &filters))
 	require.Empty(t, filters.Items, "a refused filter must not be created")
 
-	require.NoError(t, call(http.MethodPost, handler.Create, "", agent(active.ID), agent("*")))
+	// Agents are named only by ID.
+	requireBadRequest(call(http.MethodPost, handler.Create, "", agent("*")), "agents must be named by ID")
+
+	require.NoError(t, call(http.MethodPost, handler.Create, "", agent(active.ID)))
 	require.NoError(t, f.storage.List(t.Context(), &filters))
 	require.Len(t, filters.Items, 1)
 	id := filters.Items[0].Name
@@ -238,4 +233,52 @@ func TestGuardrailFilterAgentSubjectsMustExist(t *testing.T) {
 	// An agent the filter already names is kept on an unrelated edit, even once it is deleted.
 	f.call(http.StatusNoContent, http.MethodDelete, "/api/agents/"+active.ID, nil, nil)
 	require.NoError(t, call(http.MethodPut, handler.Update, id, agent(active.ID)))
+}
+
+// TestAgentWildcardSubjectsAreRefused checks that the model access policy and skill access rule handlers refuse the agent
+// wildcard ({agent, "*"}): agents are named only by ID. Nothing is stored for a refused request. vMCP profiles
+// (TestVMCPCreateEnforcesProfileSubjectRules) and guardrail filters (TestGuardrailFilterAgentSubjectsMustExist) refuse
+// it too.
+func TestAgentWildcardSubjectsAreRefused(t *testing.T) {
+	f := newAgentIdentityFixture(t)
+	agents := []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}}
+	for _, tt := range []struct {
+		name   string
+		create api.HandlerFunc
+		path   string
+		body   any
+	}{
+		{
+			name:   "model access policy",
+			create: (&ModelAccessPolicyHandler{}).Create,
+			path:   "/api/model-access-policies",
+			body:   types.ModelAccessPolicyManifest{DisplayName: "Agents", Models: []types.ModelResource{{ID: "*"}}, Subjects: agents},
+		},
+		{
+			name:   "skill access rule",
+			create: (&SkillAccessRuleHandler{}).Create,
+			path:   "/api/skill-access-rules",
+			body:   types.SkillAccessRuleManifest{DisplayName: "Agents", Resources: []types.SkillResource{{Type: types.SkillResourceTypeSelector, ID: "*"}}, Subjects: agents},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.body)
+			require.NoError(t, err)
+			err = tt.create(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        httptest.NewRequest(http.MethodPost, tt.path, bytes.NewReader(data)),
+				GatewayClient:  f.gateway,
+				Storage:        f.storage,
+				User:           vmcpAdminForTest(),
+			})
+			requireBadRequest(t, err, "agents must be named by ID")
+		})
+	}
+
+	var policies v1.ModelAccessPolicyList
+	require.NoError(t, f.storage.List(t.Context(), &policies))
+	require.Empty(t, policies.Items)
+	var rules v1.SkillAccessRuleList
+	require.NoError(t, f.storage.List(t.Context(), &rules))
+	require.Empty(t, rules.Items)
 }

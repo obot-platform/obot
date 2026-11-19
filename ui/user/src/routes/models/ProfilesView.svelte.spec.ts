@@ -134,15 +134,13 @@ describe('Models profiles tab', () => {
 			.toHaveAttribute('title', 'Alice\nBob\nEngineers\nObot Admin');
 	});
 
-	// A model access policy accepts agents, so its everyone includes them, as its editor says.
-	it('says that everyone includes agents, as the editor does', async () => {
+	// All Obot Users never includes an agent, so it is labeled as everywhere else.
+	it('labels the wildcard All Obot Users, as the editor does', async () => {
 		mockProfiles();
 		await renderModelsTab('profiles');
 
 		const everyone = page.getByRole('row').filter({ hasText: 'Everyone' });
-		await expect
-			.element(everyone.getByTitle('Everyone (All Obot Users and Agents)'))
-			.toBeInTheDocument();
+		await expect.element(everyone.getByTitle('All Obot Users')).toBeInTheDocument();
 	});
 
 	it('deletes a profile after saying its budgets and applied guardrails go with it', async () => {

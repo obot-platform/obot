@@ -21,9 +21,9 @@ import (
 )
 
 const (
+	// profileExplicit names agent 7, profileOther agent 8, and profileUsers every user.
 	profileExplicit = "vp1explicit"
 	profileOther    = "vp1other"
-	profileAgents   = "vp1agents"
 	profileUsers    = "vp1users"
 )
 
@@ -136,11 +136,12 @@ func hostnameComponent(id string) types.VMCPComponent {
 	return component
 }
 
-func everyAgentProfile(id string, subject types.SubjectType) types.VMCPProfile {
+// everyUserProfile returns a profile that names every user ({selector, "*"}), and so no agent.
+func everyUserProfile(id string) types.VMCPProfile {
 	return types.VMCPProfile{
 		ID:          id,
 		Name:        id,
-		Subjects:    []types.Subject{{Type: subject, ID: types.SubjectWildcardID}},
+		Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
 		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 	}
 }
@@ -168,12 +169,13 @@ func profileRevisions(componentID string, keys map[string][]string) map[string]v
 	return result
 }
 
-func source(profileID, field string, fallback bool) ConfigurationSource {
-	return ConfigurationSource{ComponentID: "api", Field: field, ProfileID: profileID, Fallback: fallback, Revision: "configuration-" + profileID}
+func source(profileID, field string) ConfigurationSource {
+	return ConfigurationSource{ComponentID: "api", Field: field, ProfileID: profileID, Revision: "configuration-" + profileID}
 }
 
-// TestResolveComponentConfiguration is the precedence table of profile configuration: the explicit profile first, the
-// wildcard only for required values it does not set, and optional values never falling back.
+// TestResolveComponentConfiguration is the table of profile configuration: the profile that names the agent supplies
+// what it sets, a required value it does not set is missing, and no other profile supplies anything, not even one that
+// names every user.
 func TestResolveComponentConfiguration(t *testing.T) {
 	component := profileConfiguredComponent("api")
 	for _, tt := range []struct {
@@ -182,71 +184,47 @@ func TestResolveComponentConfiguration(t *testing.T) {
 		keys        map[string][]string
 		wantSources []ConfigurationSource
 		wantMissing []string
-		wantAmbig   bool
 	}{
 		{
-			name:     "explicit profile only",
+			name:     "agent's profile supplies every value",
 			profiles: []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7")},
 			keys:     map[string][]string{profileExplicit: {"REGION", "VERBOSE"}},
 			wantSources: []ConfigurationSource{
-				source(profileExplicit, "REGION", false),
-				source(profileExplicit, "VERBOSE", false),
+				source(profileExplicit, "REGION"),
+				source(profileExplicit, "VERBOSE"),
 			},
 		},
 		{
-			// With no explicit profile, the wildcard's configuration is used as it is, optional values included.
-			name:     "wildcard profile only",
-			profiles: []types.VMCPProfile{everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
-			keys:     map[string][]string{profileAgents: {"REGION", "VERBOSE"}},
-			wantSources: []ConfigurationSource{
-				source(profileAgents, "REGION", true),
-				source(profileAgents, "VERBOSE", true),
-			},
+			// An unset optional value stays unset.
+			name:        "agent's profile supplies the required value",
+			profiles:    []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7")},
+			keys:        map[string][]string{profileExplicit: {"REGION"}},
+			wantSources: []ConfigurationSource{source(profileExplicit, "REGION")},
 		},
 		{
-			// The explicit profile wins, and its unset optional value does not fall back.
-			name:        "both profiles",
-			profiles:    []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
-			keys:        map[string][]string{profileExplicit: {"REGION"}, profileAgents: {"REGION", "VERBOSE"}},
-			wantSources: []ConfigurationSource{source(profileExplicit, "REGION", false)},
-		},
-		{
-			name:     "required value falls back",
-			profiles: []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyAgentProfile(profileAgents, types.SubjectTypeSelector)},
-			keys:     map[string][]string{profileExplicit: {"VERBOSE"}, profileAgents: {"REGION"}},
-			wantSources: []ConfigurationSource{
-				source(profileAgents, "REGION", true),
-				source(profileExplicit, "VERBOSE", false),
-			},
-		},
-		{
-			// A value cleared from the explicit profile is one it does not set.
-			name:        "explicit profile without configuration",
-			profiles:    []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
-			keys:        map[string][]string{profileAgents: {"REGION", "VERBOSE"}},
-			wantSources: []ConfigurationSource{source(profileAgents, "REGION", true)},
-		},
-		{
-			name:        "required value set nowhere",
-			profiles:    []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
-			keys:        map[string][]string{profileExplicit: {"VERBOSE"}},
-			wantSources: []ConfigurationSource{source(profileExplicit, "VERBOSE", false)},
+			name:        "required value the agent's profile does not set",
+			profiles:    []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyUserProfile(profileUsers)},
+			keys:        map[string][]string{profileExplicit: {"VERBOSE"}, profileUsers: {"REGION"}},
+			wantSources: []ConfigurationSource{source(profileExplicit, "VERBOSE")},
 			wantMissing: []string{"REGION"},
 		},
 		{
-			// Removing the agent from its explicit profile makes it fall back for every value; it revokes nothing.
-			name:     "explicit assignment removed",
-			profiles: []types.VMCPProfile{explicitAgentProfile(profileExplicit, "8"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
-			keys:     map[string][]string{profileExplicit: {"REGION", "VERBOSE"}, profileAgents: {"REGION", "VERBOSE"}},
-			wantSources: []ConfigurationSource{
-				source(profileAgents, "REGION", true),
-				source(profileAgents, "VERBOSE", true),
-			},
+			// A value cleared from the agent's profile is one it does not set.
+			name:        "agent's profile without configuration",
+			profiles:    []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7")},
+			wantMissing: []string{"REGION"},
 		},
 		{
-			// Another agent's explicit profile never supplies this agent.
+			// A profile that names every user names no agent, so it supplies nothing to one.
+			name:        "only a profile for every user",
+			profiles:    []types.VMCPProfile{everyUserProfile(profileUsers)},
+			keys:        map[string][]string{profileUsers: {"REGION", "VERBOSE"}},
+			wantMissing: []string{"REGION"},
+		},
+		{
+			// Another agent's profile never supplies this agent.
 			name:        "another agent's profile",
-			profiles:    []types.VMCPProfile{explicitAgentProfile(profileOther, "8"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
+			profiles:    []types.VMCPProfile{explicitAgentProfile(profileOther, "8")},
 			keys:        map[string][]string{profileOther: {"REGION", "VERBOSE"}},
 			wantMissing: []string{"REGION"},
 		},
@@ -258,36 +236,13 @@ func TestResolveComponentConfiguration(t *testing.T) {
 			keys:        map[string][]string{profileExplicit: {"ADMIN_TOKEN", "CATALOG_LITERAL", "CATALOG_SECRET", "BLOCKED"}},
 			wantMissing: []string{"REGION"},
 		},
-		{
-			name: "ambiguous fallback for a required value",
-			profiles: []types.VMCPProfile{
-				explicitAgentProfile(profileExplicit, "7"),
-				everyAgentProfile(profileAgents, types.SubjectTypeSelector),
-				everyAgentProfile(profileUsers, types.SubjectTypeSelector),
-			},
-			keys:        map[string][]string{profileExplicit: {"VERBOSE"}},
-			wantSources: []ConfigurationSource{source(profileExplicit, "VERBOSE", false)},
-			wantAmbig:   true,
-		},
-		{
-			// Optional values never fall back, so they are never ambiguous.
-			name: "ambiguous fallback not needed",
-			profiles: []types.VMCPProfile{
-				explicitAgentProfile(profileExplicit, "7"),
-				everyAgentProfile(profileAgents, types.SubjectTypeSelector),
-				everyAgentProfile(profileUsers, types.SubjectTypeSelector),
-			},
-			keys:        map[string][]string{profileExplicit: {"REGION"}},
-			wantSources: []ConfigurationSource{source(profileExplicit, "REGION", false)},
-		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			selection := SelectAgentProfiles(agentInfo(7, nil), types.VMCPManifest{Profiles: tt.profiles})
-			got := ResolveComponentConfiguration(component, selection, profileRevisions("api", tt.keys))
+			profile := AgentProfile(agentInfo(7, nil), types.VMCPManifest{Profiles: tt.profiles})
+			got := ResolveComponentConfiguration(component, profile, profileRevisions("api", tt.keys))
 			require.Equal(t, "api", got.ComponentID)
 			require.Equal(t, tt.wantSources, got.Sources)
 			require.Equal(t, tt.wantMissing, got.Missing)
-			require.Equal(t, tt.wantAmbig, got.AmbiguousFallback)
 		})
 	}
 }
@@ -304,25 +259,19 @@ func TestProfileConfigurationReadiness(t *testing.T) {
 		wantReasons []ReadinessReason
 	}{
 		{
-			name:       "explicit profile supplies every required value",
+			name:       "agent's profile supplies every required value",
 			agent:      7,
 			components: []types.VMCPComponent{profileConfiguredComponent("api")},
-			profiles:   []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
+			profiles:   []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyUserProfile(profileUsers)},
 			keys:       map[string][]string{profileExplicit: {"REGION"}},
 		},
 		{
-			name:       "required value supplied by the fallback",
+			// The profile for every user never supplies an agent, so its value does not count.
+			name:       "missing value is fixed in the agent's profile",
 			agent:      7,
 			components: []types.VMCPComponent{profileConfiguredComponent("api")},
-			profiles:   []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
-			keys:       map[string][]string{profileAgents: {"REGION"}},
-		},
-		{
-			name:       "missing value is fixed in the explicit profile",
-			agent:      7,
-			components: []types.VMCPComponent{profileConfiguredComponent("api")},
-			profiles:   []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
-			keys:       map[string][]string{profileAgents: {"VERBOSE"}},
+			profiles:   []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyUserProfile(profileUsers)},
+			keys:       map[string][]string{profileExplicit: {"VERBOSE"}, profileUsers: {"REGION"}},
 			wantReasons: []ReadinessReason{{
 				ComponentID: "api",
 				Code:        types.AgentReadinessConfigurationRequired,
@@ -331,17 +280,13 @@ func TestProfileConfigurationReadiness(t *testing.T) {
 			}},
 		},
 		{
-			name:       "missing value is fixed in the wildcard profile",
+			// An agent that no profile names has no components enabled, so nothing is missing: it is refused access
+			// instead.
+			name:       "agent no profile names",
 			agent:      9,
 			components: []types.VMCPComponent{profileConfiguredComponent("api")},
-			profiles:   []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyAgentProfile(profileAgents, types.SubjectTypeAgent)},
+			profiles:   []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7"), everyUserProfile(profileUsers)},
 			keys:       map[string][]string{profileExplicit: {"REGION"}},
-			wantReasons: []ReadinessReason{{
-				ComponentID: "api",
-				Code:        types.AgentReadinessConfigurationRequired,
-				Field:       "REGION",
-				ProfileID:   profileAgents,
-			}},
 		},
 		{
 			name:       "hostname-constrained URL",
@@ -354,28 +299,6 @@ func TestProfileConfigurationReadiness(t *testing.T) {
 				Field:       "__url",
 				ProfileID:   profileExplicit,
 			}},
-		},
-		{
-			name:       "explicit profile supplies everything on an ambiguous vMCP",
-			agent:      7,
-			components: []types.VMCPComponent{profileConfiguredComponent("api")},
-			profiles: []types.VMCPProfile{
-				explicitAgentProfile(profileExplicit, "7"),
-				everyAgentProfile(profileAgents, types.SubjectTypeSelector),
-				everyAgentProfile(profileUsers, types.SubjectTypeSelector),
-			},
-			keys: map[string][]string{profileExplicit: {"REGION"}},
-		},
-		{
-			name:       "ambiguous fallback",
-			agent:      7,
-			components: []types.VMCPComponent{profileConfiguredComponent("api")},
-			profiles: []types.VMCPProfile{
-				explicitAgentProfile(profileExplicit, "7"),
-				everyAgentProfile(profileAgents, types.SubjectTypeSelector),
-				everyAgentProfile(profileUsers, types.SubjectTypeSelector),
-			},
-			wantReasons: []ReadinessReason{AmbiguousFallbackReason("api")},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -473,8 +396,8 @@ func TestValidateProfileConfiguration(t *testing.T) {
 	}
 }
 
-// newProfileConfigurationTestVMCP returns a stored shared vMCP whose profiles name agent 7, every agent, and every
-// user, as the vMCP controller has last seen it.
+// newProfileConfigurationTestVMCP returns a stored shared vMCP whose profiles name agent 7, agent 8, and every user,
+// as the vMCP controller has last seen it.
 func newProfileConfigurationTestVMCP(t *testing.T, objects ...kclient.Object) (kclient.WithWatch, *v1.VMCP) {
 	t.Helper()
 	vmcp := &v1.VMCP{
@@ -485,8 +408,8 @@ func newProfileConfigurationTestVMCP(t *testing.T, objects ...kclient.Object) (k
 			Components:  []types.VMCPComponent{profileConfiguredComponent("api"), hostnameComponent("remote")},
 			Profiles: []types.VMCPProfile{
 				explicitAgentProfile(profileExplicit, "7"),
-				everyAgentProfile(profileAgents, types.SubjectTypeAgent),
-				everyAgentProfile(profileUsers, types.SubjectTypeUser),
+				explicitAgentProfile(profileOther, "8"),
+				everyUserProfile(profileUsers),
 			},
 		}},
 	}
@@ -570,18 +493,18 @@ func TestProfileConfigurationStoreUpdate(t *testing.T) {
 	require.Equal(t, version, getVMCP(t, client, vmcp).ResourceVersion)
 	require.Len(t, credentials.revisions(vmcp.Name, profileExplicit), 2)
 
-	// Writes are refused for a profile that does not apply to agents, a profile the vMCP lacks, and a key a profile
-	// cannot set, and none of them stores anything.
+	// Writes are refused for a profile that names no agent, even one that names every user, a profile the vMCP lacks,
+	// and a key a profile cannot set, and none of them stores anything.
 	_, err = store.Update(t.Context(), client, key, profileUsers, map[string]map[string]*string{"api": {"REGION": new("x")}})
-	requireHTTPError(t, err, http.StatusBadRequest, "does not apply to agents")
+	requireHTTPError(t, err, http.StatusBadRequest, "names no agent")
 	_, err = store.Update(t.Context(), client, key, "vp1missing", map[string]map[string]*string{"api": {"REGION": new("x")}})
 	requireHTTPError(t, err, http.StatusNotFound, "no profile")
-	_, err = store.Update(t.Context(), client, key, profileAgents, map[string]map[string]*string{"api": {"ADMIN_TOKEN": new("x")}})
+	_, err = store.Update(t.Context(), client, key, profileOther, map[string]map[string]*string{"api": {"ADMIN_TOKEN": new("x")}})
 	requireHTTPError(t, err, http.StatusBadRequest, "fixed by the vMCP")
 	_, err = store.Update(t.Context(), client, kclient.ObjectKey{Namespace: "default", Name: "vmcp1missing"}, profileExplicit, nil)
 	requireHTTPError(t, err, http.StatusNotFound, "not found")
 	require.Empty(t, credentials.revisions(vmcp.Name, profileUsers))
-	require.Empty(t, credentials.revisions(vmcp.Name, profileAgents))
+	require.Empty(t, credentials.revisions(vmcp.Name, profileOther))
 
 	// Reset clears the configuration, keeping the revisions until no instance uses them.
 	updated, cleared, err := store.Reset(t.Context(), client, key, profileExplicit)
@@ -602,31 +525,26 @@ func TestProfileConfigurationStoreUpdate(t *testing.T) {
 }
 
 // TestProfileConfigurationResetIsAllowedWhereUpdatesAreNot checks that configuration can be removed from a profile that
-// no longer applies to agents, and from a vMCP whose agent selection became ambiguous, where it can no longer be set.
+// no longer names an agent, where it can no longer be set.
 func TestProfileConfigurationResetIsAllowedWhereUpdatesAreNot(t *testing.T) {
 	client, vmcp := newProfileConfigurationTestVMCP(t)
 	store := NewProfileConfigurationStore(newMemoryCredentials())
 	key := kclient.ObjectKeyFromObject(vmcp)
-	_, err := store.Update(t.Context(), client, key, profileAgents, map[string]map[string]*string{"api": {"REGION": new("x")}})
+	_, err := store.Update(t.Context(), client, key, profileOther, map[string]map[string]*string{"api": {"REGION": new("x")}})
 	require.NoError(t, err)
 
-	// The profile that named every agent now names every user, and a second profile names everyone: agent selection
-	// is ambiguous too.
+	// The profile that named agent 8 now names every user, and so no agent.
 	current := getVMCP(t, client, vmcp)
-	current.Spec.Manifest.Profiles[1].Subjects = []types.Subject{{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}}
-	current.Spec.Manifest.Profiles = append(current.Spec.Manifest.Profiles,
-		everyAgentProfile("vp1everyone", types.SubjectTypeSelector), everyAgentProfile("vp1everyonetoo", types.SubjectTypeSelector))
+	current.Spec.Manifest.Profiles[1].Subjects = []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}}
 	require.NoError(t, client.Update(t.Context(), current))
 
-	_, err = store.Update(t.Context(), client, key, profileAgents, map[string]map[string]*string{"api": {"REGION": new("y")}})
-	requireHTTPError(t, err, http.StatusBadRequest, "does not apply to agents")
-	_, err = store.Update(t.Context(), client, key, profileExplicit, map[string]map[string]*string{"api": {"REGION": new("y")}})
-	requireHTTPError(t, err, http.StatusConflict, "more than one profile")
+	_, err = store.Update(t.Context(), client, key, profileOther, map[string]map[string]*string{"api": {"REGION": new("y")}})
+	requireHTTPError(t, err, http.StatusBadRequest, "names no agent")
 
-	updated, cleared, err := store.Reset(t.Context(), client, key, profileAgents)
+	updated, cleared, err := store.Reset(t.Context(), client, key, profileOther)
 	require.NoError(t, err)
 	require.True(t, cleared)
-	require.Empty(t, updated.Status.ProfileConfigurationRevisions[profileAgents].Name)
+	require.Empty(t, updated.Status.ProfileConfigurationRevisions[profileOther].Name)
 }
 
 // TestProfileConfigurationWriteRecordsTheProfileFirst checks that a profile's ID is in the vMCP's status, recorded at a
@@ -636,17 +554,17 @@ func TestProfileConfigurationWriteRecordsTheProfileFirst(t *testing.T) {
 	client, vmcp := newProfileConfigurationTestVMCP(t)
 	// The profile was just added, and the controller has not recorded it yet.
 	current := getVMCP(t, client, vmcp)
-	current.Status.ProfileIDs = slices.DeleteFunc(current.Status.ProfileIDs, func(id string) bool { return id == profileAgents })
+	current.Status.ProfileIDs = slices.DeleteFunc(current.Status.ProfileIDs, func(id string) bool { return id == profileOther })
 	require.NoError(t, client.Status().Update(t.Context(), current))
 
 	credentials := newMemoryCredentials()
 	var checked bool
 	credentials.onUpsert = func(gatewaytypes.Credential) {
 		stored := getVMCP(t, client, vmcp)
-		require.Contains(t, stored.Status.ProfileIDs, profileAgents, "configuration was stored before its profile was recorded")
+		require.Contains(t, stored.Status.ProfileIDs, profileOther, "configuration was stored before its profile was recorded")
 		checked = true
 	}
-	_, err := NewProfileConfigurationStore(credentials).Update(t.Context(), client, kclient.ObjectKeyFromObject(vmcp), profileAgents, map[string]map[string]*string{"api": {"REGION": new("x")}})
+	_, err := NewProfileConfigurationStore(credentials).Update(t.Context(), client, kclient.ObjectKeyFromObject(vmcp), profileOther, map[string]map[string]*string{"api": {"REGION": new("x")}})
 	require.NoError(t, err)
 	require.True(t, checked)
 }
@@ -708,7 +626,7 @@ func TestProfileConfigurationStoreIsAProfileDataStore(t *testing.T) {
 	credentials := newMemoryCredentials()
 	store := NewProfileConfigurationStore(credentials)
 	key := kclient.ObjectKeyFromObject(vmcp)
-	for _, profileID := range []string{profileExplicit, profileAgents} {
+	for _, profileID := range []string{profileExplicit, profileOther} {
 		_, err := store.Update(t.Context(), client, key, profileID, map[string]map[string]*string{"api": {"REGION": new("x")}})
 		require.NoError(t, err)
 	}
@@ -716,16 +634,16 @@ func TestProfileConfigurationStoreIsAProfileDataStore(t *testing.T) {
 	require.NoError(t, credentials.UpsertCredential(t.Context(), gatewaytypes.Credential{Context: ProfileConfigurationCredentialContext("vmcp1other", profileUsers), Name: "configuration-x"}))
 
 	queries := credentials.contextQueries
-	withData, err := store.ProfilesWithData(t.Context(), vmcp.Name, []string{profileUsers, profileAgents, profileExplicit, "vp1missing"})
+	withData, err := store.ProfilesWithData(t.Context(), vmcp.Name, []string{profileUsers, profileOther, profileExplicit, "vp1missing"})
 	require.NoError(t, err)
-	require.Equal(t, []string{profileAgents, profileExplicit}, withData)
+	require.Equal(t, []string{profileOther, profileExplicit}, withData)
 	require.Equal(t, queries+1, credentials.contextQueries)
 
 	require.NoError(t, store.DeleteProfileData(t.Context(), vmcp.Name, []string{profileExplicit, "vp1missing"}))
 	require.NoError(t, store.DeleteProfileData(t.Context(), vmcp.Name, []string{profileExplicit, "vp1missing"}))
-	withData, err = store.ProfilesWithData(t.Context(), vmcp.Name, []string{profileUsers, profileAgents, profileExplicit})
+	withData, err = store.ProfilesWithData(t.Context(), vmcp.Name, []string{profileUsers, profileOther, profileExplicit})
 	require.NoError(t, err)
-	require.Equal(t, []string{profileAgents}, withData)
+	require.Equal(t, []string{profileOther}, withData)
 	withData, err = store.ProfilesWithData(t.Context(), "vmcp1other", []string{profileUsers})
 	require.NoError(t, err)
 	require.Equal(t, []string{profileUsers}, withData)
@@ -737,11 +655,11 @@ func TestCollectSupersededProfileConfiguration(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1collect"}
 	vmcp.Status.ProfileConfigurationRevisions = map[string]v1.VMCPProfileConfigurationRevision{
 		profileExplicit: {Name: "configuration-current", Keys: []string{"k"}, Superseded: []string{"configuration-used", "configuration-unused"}},
-		profileAgents:   {Superseded: []string{"configuration-reset"}},
+		profileOther:    {Superseded: []string{"configuration-reset"}},
 	}
 	for profileID, names := range map[string][]string{
 		profileExplicit: {"configuration-current", "configuration-used", "configuration-unused"},
-		profileAgents:   {"configuration-reset"},
+		profileOther:    {"configuration-reset"},
 	} {
 		for _, name := range names {
 			require.NoError(t, credentials.UpsertCredential(t.Context(), gatewaytypes.Credential{Context: ProfileConfigurationCredentialContext(vmcp.Name, profileID), Name: name}))
@@ -755,7 +673,7 @@ func TestCollectSupersededProfileConfiguration(t *testing.T) {
 		{
 			// An instance of another vMCP keeps nothing of this one's.
 			Spec:   v1.VMCPInstanceSpec{Manifest: types.VMCPInstanceManifest{VMCPID: "vmcp1other"}},
-			Status: v1.VMCPInstanceStatus{AgentConfigurationRevisions: map[string]string{profileAgents: "configuration-reset"}},
+			Status: v1.VMCPInstanceStatus{AgentConfigurationRevisions: map[string]string{profileOther: "configuration-reset"}},
 		},
 	}
 
@@ -766,7 +684,7 @@ func TestCollectSupersededProfileConfiguration(t *testing.T) {
 		profileExplicit: {Name: "configuration-current", Keys: []string{"k"}, Superseded: []string{"configuration-used"}},
 	}, vmcp.Status.ProfileConfigurationRevisions)
 	require.Equal(t, []string{"configuration-current", "configuration-used"}, credentials.revisions(vmcp.Name, profileExplicit))
-	require.Empty(t, credentials.revisions(vmcp.Name, profileAgents))
+	require.Empty(t, credentials.revisions(vmcp.Name, profileOther))
 
 	// Once the instance moves to the current revision, the last superseded one goes too.
 	instances[0].Status.AgentConfigurationRevisions[profileExplicit] = "configuration-current"
@@ -780,65 +698,56 @@ func TestCollectSupersededProfileConfiguration(t *testing.T) {
 	require.False(t, changed)
 }
 
-// TestAgentConfigurationValuesStayWithTheirProfiles checks that an agent is given the values of the profiles that name
-// it and nothing else: one profile's values never reach an agent that resolves only to another, and the wildcard's
-// reach an agent only for what its own profile lacks.
+// TestAgentConfigurationValuesStayWithTheirProfiles checks that an agent is given the values of the profile that names
+// it and nothing else: one profile's values never reach an agent that resolves only to another, and the values of the
+// profile for every user reach no agent.
 func TestAgentConfigurationValuesStayWithTheirProfiles(t *testing.T) {
 	client, vmcp := newProfileConfigurationTestVMCP(t)
-	current := getVMCP(t, client, vmcp)
-	current.Spec.Manifest.Profiles = append(current.Spec.Manifest.Profiles, explicitAgentProfile(profileOther, "8"))
-	require.NoError(t, client.Update(t.Context(), current))
 	store := NewProfileConfigurationStore(newMemoryCredentials())
 	key := kclient.ObjectKeyFromObject(vmcp)
 	for profileID, update := range map[string]map[string]map[string]*string{
-		profileExplicit: {"api": {"REGION": new("seven-region"), "VERBOSE": new("seven-verbose")}},
+		profileExplicit: {"api": {"REGION": new("seven-region"), "VERBOSE": new("seven-verbose")}, "remote": {"__url": new("https://tenant.example.com/seven")}},
 		profileOther:    {"api": {"VERBOSE": new("eight-verbose")}},
-		profileAgents:   {"api": {"REGION": new("agents-region"), "VERBOSE": new("agents-verbose")}, "remote": {"__url": new("https://tenant.example.com/agents")}},
 	} {
 		_, err := store.Update(t.Context(), client, key, profileID, update)
 		require.NoError(t, err)
 	}
 	stored := getVMCP(t, client, vmcp)
+	// A value stored for the profile for every user, as one could be before agents were named only by ID, is no
+	// agent's.
+	stored.Status.ProfileConfigurationRevisions[profileUsers] = v1.VMCPProfileConfigurationRevision{
+		Name: "configuration-users",
+		Keys: []string{ConfigurationKey("api", "REGION")},
+	}
 
 	for _, tt := range []struct {
 		name          string
 		agent         uint
 		want          map[string]string
-		wantFallback  []string
 		wantRevisions []string
 	}{
 		{
-			name:  "agent with a profile that supplies everything but the URL",
+			name:  "agent whose profile supplies everything",
 			agent: 7,
 			want: map[string]string{
 				ConfigurationKey("api", "REGION"):   "seven-region",
 				ConfigurationKey("api", "VERBOSE"):  "seven-verbose",
-				ConfigurationKey("remote", "__url"): "https://tenant.example.com/agents",
+				ConfigurationKey("remote", "__url"): "https://tenant.example.com/seven",
 			},
-			wantFallback:  []string{profileAgents},
-			wantRevisions: []string{profileAgents, profileExplicit},
+			wantRevisions: []string{profileExplicit},
 		},
 		{
 			name:  "agent whose profile lacks a required value",
 			agent: 8,
 			want: map[string]string{
-				ConfigurationKey("api", "REGION"):   "agents-region",
-				ConfigurationKey("api", "VERBOSE"):  "eight-verbose",
-				ConfigurationKey("remote", "__url"): "https://tenant.example.com/agents",
+				ConfigurationKey("api", "VERBOSE"): "eight-verbose",
 			},
-			wantFallback:  []string{profileAgents},
-			wantRevisions: []string{profileAgents, profileOther},
+			wantRevisions: []string{profileOther},
 		},
 		{
-			name:  "agent without a profile of its own",
+			name:  "agent no profile names",
 			agent: 9,
-			want: map[string]string{
-				ConfigurationKey("api", "REGION"):   "agents-region",
-				ConfigurationKey("api", "VERBOSE"):  "agents-verbose",
-				ConfigurationKey("remote", "__url"): "https://tenant.example.com/agents",
-			},
-			wantFallback:  []string{profileAgents},
-			wantRevisions: []string{profileAgents},
+			want:  map[string]string{},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -846,7 +755,6 @@ func TestAgentConfigurationValuesStayWithTheirProfiles(t *testing.T) {
 			values, err := store.AgentConfigurationValues(t.Context(), stored.Name, configuration)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, values)
-			require.Equal(t, tt.wantFallback, configuration.FallbackProfileIDs())
 			require.Equal(t, tt.wantRevisions, slices.Sorted(maps.Keys(configuration.Revisions)))
 		})
 	}

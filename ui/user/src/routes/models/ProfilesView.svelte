@@ -107,8 +107,7 @@
 			p.subjects ?? [],
 			usersAndGroups.users,
 			usersAndGroups.groups,
-			// Model access policies accept agents, so everyone includes them.
-			{ agents: agentLookup.current, offerAgents: true }
+			{ agents: agentLookup.current }
 		).map((row) => row.displayName);
 	}
 

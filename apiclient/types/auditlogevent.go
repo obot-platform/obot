@@ -225,10 +225,9 @@ type AuditLogScopeDetails struct {
 	// the call to one.
 	VMCPID          string `json:"vmcpID,omitempty"`
 	VMCPComponentID string `json:"vmcpComponentID,omitempty"`
-	// ProfileIDs are the vMCP profiles that granted the caller its permissions, and FallbackProfileIDs those it fell
-	// back to for configuration or OAuth grants.
-	ProfileIDs         []string `json:"profileIDs,omitempty"`
-	FallbackProfileIDs []string `json:"fallbackProfileIDs,omitempty"`
+	// ProfileIDs are the vMCP profiles that granted the caller its permissions. For an agent, it is the one profile
+	// that names it, which also supplies its configuration and OAuth grants.
+	ProfileIDs []string `json:"profileIDs,omitempty"`
 }
 
 // AuditLogEnvironmentDetails contains client-reported local execution and source-control context.

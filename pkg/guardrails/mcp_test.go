@@ -187,14 +187,30 @@ func TestMCPFilterSubjects(t *testing.T) {
 		t.Fatalf("filter should block its subjects: %+v", d)
 	}
 
-	// A group never names an agent, and the agent wildcard does.
+	// Neither a group nor everyone, nor a filter without subjects, names an agent: only a filter that names the agent
+	// applies to it.
 	msg.Identity = Identity{UserID: "agent:5", Principal: principal.Agent(5), Groups: []string{"eng"}}
 	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
 		t.Fatalf("a group filter applied to an agent: %+v", d)
 	}
-	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectAgent, ID: "*"}}
+	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectEveryone}}
+	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
+		t.Fatalf("a filter for everyone applied to an agent: %+v", d)
+	}
+	f.Config.Subjects = nil
+	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
+		t.Fatalf("a filter without subjects applied to an agent: %+v", d)
+	}
+	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectAgent, ID: "5"}}
 	if d := e.CheckMCPFilter(t.Context(), f, msg); !d.Blocked {
-		t.Fatalf("an agent filter should block an agent: %+v", d)
+		t.Fatalf("a filter that names the agent should block it: %+v", d)
+	}
+
+	// A caller Obot cannot identify as a user or an agent is still restricted by a filter for everyone.
+	msg.Identity = Identity{UserID: "agent:5", Groups: []string{"eng"}}
+	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectEveryone}}
+	if d := e.CheckMCPFilter(t.Context(), f, msg); !d.Blocked {
+		t.Fatalf("a filter for everyone should block an unidentified caller: %+v", d)
 	}
 }
 

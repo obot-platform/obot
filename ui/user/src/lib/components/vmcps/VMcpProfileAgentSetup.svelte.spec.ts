@@ -106,13 +106,10 @@ describe('VMcpProfileAgentSetup', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('offers nothing to set up, and no note about subjects, for a profile no agent can use', async () => {
+	it('offers nothing to set up for a profile no agent can use', async () => {
 		mockStatus(profileStatus({ agentCapable: false, components: [] }));
 		renderSetup();
 		await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
-		await expect
-			.element(page.getByText(/Add an agent or wildcard subject/))
-			.not.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'Save configuration' }))
 			.not.toBeInTheDocument();
@@ -312,29 +309,6 @@ describe('VMcpProfileAgentSetup', () => {
 		await page.getByRole('button', { name: 'Reset configuration' }).click();
 		await page.getByRole('button', { name: 'Reset', exact: true }).click();
 		await expect.element(page.getByText(/still being removed/)).toBeVisible();
-	});
-
-	it('explains an ambiguous selection and leaves the values read-only', async () => {
-		mockStatus();
-		const vmcp = createSetupVMcp({
-			status: {
-				ready: true,
-				conditions: [
-					{
-						type: 'AgentSelectionAmbiguous',
-						status: 'True',
-						lastTransitionTime: '2026-01-01T00:00:00Z'
-					}
-				]
-			}
-		});
-		renderSetup(vmcp);
-
-		await expect.element(page.getByText('More than one profile names every agent')).toBeVisible();
-		await expect.element(page.getByLabelText(/API token/)).toBeDisabled();
-		await expect
-			.element(page.getByRole('button', { name: 'Authorize', exact: true }))
-			.toBeDisabled();
 	});
 
 	it('disables editing with the server’s reason when a save is refused as a conflict', async () => {

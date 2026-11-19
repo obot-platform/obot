@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -66,7 +67,7 @@ func watchesOf(storage *vmcpTestStorage) int32 {
 }
 
 // profileConfigurationTestVMCP returns a stored vMCP whose component has a required and an optional value a user would
-// enter and a value the vMCP fixes, with a profile for agent 7, one for every agent and one for every user.
+// enter and a value the vMCP fixes, with a profile for agent 7, one for agent 8 and one for every user.
 func profileConfigurationTestVMCP() *v1.VMCP {
 	profile := func(id string, subject types.Subject) types.VMCPProfile {
 		return types.VMCPProfile{ID: id, Name: id, Subjects: []types.Subject{subject}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}
@@ -90,8 +91,8 @@ func profileConfigurationTestVMCP() *v1.VMCP {
 		}},
 		Profiles: []types.VMCPProfile{
 			profile("vp1seven", types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
-			profile("vp1agents", types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}),
-			profile("vp1users", types.Subject{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}),
+			profile("vp1eight", types.Subject{Type: types.SubjectTypeAgent, ID: "8"}),
+			profile("vp1users", types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}),
 		},
 	}}}
 }
@@ -304,7 +305,7 @@ func TestVMCPProfileConfigurationResetWithNothingToClear(t *testing.T) {
 
 	// A profile that never had configuration.
 	handler.collectionTimeout = time.Minute
-	body, err := callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPost, vmcp.Name, "vp1agents", nil)
+	body, err := callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPost, vmcp.Name, "vp1eight", nil)
 	require.NoError(t, err)
 	require.Zero(t, watchesOf(storage))
 	require.False(t, resetStatus(t, body).PendingCollection)
@@ -321,9 +322,8 @@ func TestVMCPProfileConfigurationResetWithNothingToClear(t *testing.T) {
 	require.True(t, resetStatus(t, body).PendingCollection)
 }
 
-// TestVMCPUpdateGuardsProfileConfiguration checks the two vMCP update rules that depend on profile data with the real
-// store: an update may not replace a profile that has configuration with a new profile of its name, and a vMCP stored
-// before the wildcard rule loses its exception from it once a profile has configuration.
+// TestVMCPUpdateGuardsProfileConfiguration checks the vMCP update rule that depends on profile data with the real store:
+// an update may not replace a profile that has configuration with a new profile of its name.
 func TestVMCPUpdateGuardsProfileConfiguration(t *testing.T) {
 	entry := vmcpCatalogEntryForTest("entry")
 	entry.Spec.Manifest.Config = []types.MCPConfig{{Key: "REGION", Required: true}}
@@ -332,67 +332,37 @@ func TestVMCPUpdateGuardsProfileConfiguration(t *testing.T) {
 	configuration := NewVMCPProfileConfigurationHandler(store)
 	handler := NewVMCPHandler(nil, "", "", vmcpconfig.ProfileDataStores{store})
 
-	t.Run("replacing a profile", func(t *testing.T) {
-		everyAgent := types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}
-		storage := newProfileConfigurationTestStorage(entry.DeepCopy())
-		manifest := testVMCPManifest()
-		manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{Key: "REGION", Policy: types.VMCPConfigurationPolicyUserAllowed}}
-		manifest.Profiles = []types.VMCPProfile{vmcpProfileForTest("ops", everyAgent)}
-		created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, vmcpAdminForTest())
-		ops := created.Profiles[0]
+	agent, err := gatewayClient.CreateAgent(t.Context(), gatewaytypes.Agent{DisplayName: "builder"})
+	require.NoError(t, err)
+	named := types.Subject{Type: types.SubjectTypeAgent, ID: strconv.FormatUint(uint64(agent.ID), 10)}
+	storage := newProfileConfigurationTestStorage(entry.DeepCopy())
+	manifest := testVMCPManifest()
+	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{Key: "REGION", Policy: types.VMCPConfigurationPolicyUserAllowed}}
+	manifest.Profiles = []types.VMCPProfile{vmcpProfileForTest("ops", named)}
+	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, vmcpAdminForTest())
+	ops := created.Profiles[0]
 
-		// Without data, a client that does not send the ID back replaces the profile.
-		withoutID := created.VMCPManifest
-		withoutID.Profiles = []types.VMCPProfile{vmcpProfileForTest("ops", everyAgent)}
-		updated, err := callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, withoutID)
-		require.NoError(t, err)
-		require.NotEqual(t, ops.ID, updated.Profiles[0].ID)
-		ops = updated.Profiles[0]
+	// Without data, a client that does not send the ID back replaces the profile.
+	withoutID := created.VMCPManifest
+	withoutID.Profiles = []types.VMCPProfile{vmcpProfileForTest("ops", named)}
+	updated, err := callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, withoutID)
+	require.NoError(t, err)
+	require.NotEqual(t, ops.ID, updated.Profiles[0].ID)
+	ops = updated.Profiles[0]
 
-		_, err = callProfileConfiguration(t, configuration, storage, gatewayClient, http.MethodPut, created.ID, ops.ID, map[string]any{
-			"components": map[string]any{created.Components[0].ID: map[string]any{"REGION": "us-east"}},
-		})
-		require.NoError(t, err)
-		withoutID = updated.VMCPManifest
-		withoutID.Profiles = []types.VMCPProfile{vmcpProfileForTest("ops", everyAgent)}
-		_, err = callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, withoutID)
-		requireBadRequest(t, err, `profile "ops" has stored configuration or OAuth grants; send its id`)
-
-		// Sending the ID keeps the profile, and its configuration.
-		updated, err = callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, updated.VMCPManifest)
-		require.NoError(t, err)
-		require.Equal(t, ops.ID, updated.Profiles[0].ID)
+	_, err = callProfileConfiguration(t, configuration, storage, gatewayClient, http.MethodPut, created.ID, ops.ID, map[string]any{
+		"components": map[string]any{created.Components[0].ID: map[string]any{"REGION": "us-east"}},
 	})
+	require.NoError(t, err)
+	withoutID = updated.VMCPManifest
+	withoutID.Profiles = []types.VMCPProfile{vmcpProfileForTest("ops", named)}
+	_, err = callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, withoutID)
+	requireBadRequest(t, err, `profile "ops" has stored configuration or OAuth grants; send its id`)
 
-	t.Run("legacy wildcard profiles", func(t *testing.T) {
-		// Stored before the wildcard rule: one profile names everyone and another every user. Only the first names
-		// agents, so agent selection is not ambiguous and it can be given configuration.
-		manifest := testVMCPManifest()
-		manifest.Components[0].ID = "api"
-		manifest.Components[0].CatalogEntry = types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest}
-		manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{Key: "REGION", Policy: types.VMCPConfigurationPolicyUserAllowed}}
-		manifest.Profiles = []types.VMCPProfile{
-			vmcpProfileForTest("everyone", vmcpEveryone),
-			vmcpProfileForTest("users", types.Subject{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}),
-		}
-		manifest.Profiles[0].ID, manifest.Profiles[1].ID = "vp1everyone", "vp1users"
-		legacy := &v1.VMCP{Name: "vmcp1legacy", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: manifest}}
-		require.Error(t, manifest.ValidateWildcardProfiles())
-		storage := newProfileConfigurationTestStorage(entry.DeepCopy(), legacy)
-
-		edited := manifest
-		edited.DisplayName = "Renamed"
-		_, err := callVMCPUpdate(t, storage, gatewayClient, handler, legacy.Name, edited)
-		require.NoError(t, err)
-
-		_, err = callProfileConfiguration(t, configuration, storage, gatewayClient, http.MethodPut, legacy.Name, "vp1everyone", map[string]any{
-			"components": map[string]any{"api": map[string]any{"REGION": "us-east"}},
-		})
-		require.NoError(t, err)
-		edited.DisplayName = "Renamed again"
-		_, err = callVMCPUpdate(t, storage, gatewayClient, handler, legacy.Name, edited)
-		requireBadRequest(t, err, "profile configuration or OAuth grants")
-	})
+	// Sending the ID keeps the profile, and its configuration.
+	updated, err = callVMCPUpdate(t, storage, gatewayClient, handler, created.ID, updated.VMCPManifest)
+	require.NoError(t, err)
+	require.Equal(t, ops.ID, updated.Profiles[0].ID)
 }
 
 // TestVMCPInstanceConfigurationRefusedForAgents checks that an agent's instance cannot be configured, deconfigured or
@@ -463,12 +433,12 @@ func TestVMCPProfileConfigurationOnCatalogVMCPs(t *testing.T) {
 	storage := newProfileConfigurationTestStorage(vmcp)
 	gatewayClient := newHandlerTestGateway(t)
 	handler := NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient))
-	_, err := callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1agents", map[string]any{
+	_, err := callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1eight", map[string]any{
 		"components": map[string]any{"api": map[string]any{"REGION": "us-east"}},
 	})
 	require.NoError(t, err)
 	var stored v1.VMCP
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &stored))
-	require.Equal(t, []string{vmcpconfig.ConfigurationKey("api", "REGION")}, stored.Status.ProfileConfigurationRevisions["vp1agents"].Keys)
+	require.Equal(t, []string{vmcpconfig.ConfigurationKey("api", "REGION")}, stored.Status.ProfileConfigurationRevisions["vp1eight"].Keys)
 	require.Equal(t, vmcp.Spec.Manifest, stored.Spec.Manifest)
 }

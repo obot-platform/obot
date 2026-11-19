@@ -95,8 +95,8 @@ type wireCaller struct {
 }
 
 // wireFixture is a shared vMCP whose one component is a shared remote server that takes a user-supplied X-Token
-// header, with an agent profile for agent 7, a wildcard agent profile and a profile for every user. Agent 7, agent 8
-// and user 7 are each connected, and each connection carries its own X-Token value.
+// header, with a profile for agent 7, one for agent 8 and one for every user. Agent 7, agent 8 and user 7 are each
+// connected, and each connection carries its own X-Token value.
 //
 // It serves the whole path a caller's MCP request takes, each hop over HTTP: an outer gateway that resolves the
 // caller's vMCP configuration with the session manager and mints its composite loopback token; the composite
@@ -259,7 +259,7 @@ func wireLoopbackCaller(claims *persistent.TokenContext) user.Info {
 
 func newWireFixture(t *testing.T) *wireFixture {
 	t.Helper()
-	upstream := newWireUpstream(t, "seven-grant", "agents-grant", "user-seven-own")
+	upstream := newWireUpstream(t, "seven-grant", "eight-grant", "user-seven-own")
 	component := types.VMCPComponent{
 		ID:            wireComponent,
 		Name:          "one",
@@ -278,8 +278,8 @@ func newWireFixture(t *testing.T) *wireFixture {
 		Components:  []types.VMCPComponent{component},
 		Profiles: []types.VMCPProfile{
 			profile("vp1seven", types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
-			profile("vp1agents", types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}),
-			profile("vp1users", types.Subject{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}),
+			profile("vp1eight", types.Subject{Type: types.SubjectTypeAgent, ID: "8"}),
+			profile("vp1users", types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}),
 		},
 	}}}
 	require.True(t, vmcpaccess.IsMultiUser(component), "the component must share one server")
@@ -311,7 +311,7 @@ func newWireFixture(t *testing.T) *wireFixture {
 				"authorized_mcp_ids": {"*"},
 			}),
 			token:  "agent-eight-value",
-			bearer: "agents-grant",
+			bearer: "eight-grant",
 		},
 		{
 			// The user with agent 7's numeric ID.
@@ -362,10 +362,9 @@ func newWireFixture(t *testing.T) *wireFixture {
 
 	gateway, db := newHeadlessTestGatewayClient(t)
 
-	// An administrator configures the header for the agents' profiles: agent 7's own profile, and the wildcard profile,
-	// which agent 8 falls back to.
+	// An administrator configures the header for each agent's profile.
 	configurations := vmcpaccess.NewProfileConfigurationStore(gateway)
-	for _, profile := range []struct{ id, value string }{{id: "vp1seven", value: callers[0].token}, {id: "vp1agents", value: callers[1].token}} {
+	for _, profile := range []struct{ id, value string }{{id: "vp1seven", value: callers[0].token}, {id: "vp1eight", value: callers[1].token}} {
 		_, err := configurations.Update(t.Context(), storageClient, kclient.ObjectKeyFromObject(vmcp), profile.id, map[string]map[string]*string{wireComponent: {wireHeader: new(profile.value)}})
 		require.NoError(t, err)
 	}
@@ -401,7 +400,7 @@ func newWireFixture(t *testing.T) *wireFixture {
 	// The grants an administrator authorized for the agents' profiles, and the user's own token for the user's
 	// connection.
 	conf := &oauth2.Config{ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: "https://provider.test/token"}}
-	for _, grant := range []struct{ profile, token string }{{profile: "vp1seven", token: "seven-grant"}, {profile: "vp1agents", token: "agents-grant"}} {
+	for _, grant := range []struct{ profile, token string }{{profile: "vp1seven", token: "seven-grant"}, {profile: "vp1eight", token: "eight-grant"}} {
 		require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), principal.ProfileGrant(vmcp.Name, grant.profile), vmcpaccess.ProfileOAuthGrantMCPID(vmcp.Name, wireComponent), upstream.server.URL, "grant-"+grant.profile, "1",
 			conf, &oauth2.Token{AccessToken: grant.token, TokenType: "Bearer", Expiry: time.Now().Add(time.Hour)}))
 	}
@@ -633,9 +632,8 @@ func (f *wireFixture) challenges(t *testing.T) []gatewaytypes.MCPOAuthChallenge 
 
 // TestSharedComponentHeadersOnTheWire runs agents and a user through the whole vMCP path at once, each over its own
 // stateful MCP session, to a shared component whose only user-supplied input is a header. The upstream must see each
-// caller's header value, and the OAuth token selected for it, only on that caller's requests: agent 7's value with
-// its explicit profile's grant, agent 8's with the wildcard profile's grant, and the value of user 7, whose numeric ID
-// is agent 7's, with the user's own token. Every request the upstream receives carries exactly one caller's pair.
+// caller's header value, and the OAuth token selected for it, only on that caller's requests: each agent's value with
+// its own profile's grant, and the value of user 7, whose numeric ID is agent 7's, with the user's own token. Every request the upstream receives carries exactly one caller's pair.
 func TestSharedComponentHeadersOnTheWire(t *testing.T) {
 	f := newWireFixture(t)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
@@ -704,7 +702,7 @@ func TestAgentMidSessionUpstreamRefusal(t *testing.T) {
 		{status: http.StatusForbidden, challenge: `Bearer error="insufficient_scope", scope="write", resource_metadata="https://provider.test/metadata"`},
 	} {
 		t.Run(strconv.Itoa(refusal.status), func(t *testing.T) {
-			// A working session: the agent's request reaches the upstream with its explicit profile's grant.
+			// A working session: the agent's request reaches the upstream with its profile's grant.
 			session, responses := f.connect(t, agent)
 			seen, err := whoami(ctx, session)
 			require.NoError(t, err)
@@ -726,7 +724,7 @@ func TestAgentMidSessionUpstreamRefusal(t *testing.T) {
 				Error:   vmcpaccess.AgentOAuthRequiredError,
 				Reasons: []vmcpaccess.ReadinessReason{{ComponentID: wireComponent, Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1seven"}},
 			}, readAgentFailure(t, strings.NewReader(last.body)))
-			// The refused request reached the upstream with the explicit profile's grant, never the wildcard's.
+			// The refused request reached the upstream with the agent's profile's grant, never another profile's.
 			requests := f.upstream.requests()
 			require.NotEmpty(t, requests)
 			for _, request := range requests {

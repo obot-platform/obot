@@ -286,21 +286,21 @@ func appliesTo(policy types.GuardrailPolicy, identity Identity) bool {
 // subjectsMatch reports whether an MCP guardrail filter's subjects include the caller. Empty subjects are everyone.
 //
 // Subjects are policy subjects, as filterSubjects converts them, and mean what they mean in vMCP profiles
-// (pkg/subjects): the selector wildcard (everyone) is every caller,
-// user "*" every user, agent "*" every agent, a user or agent subject the one with that ID and kind, and a group
-// subject the users in that auth provider group, never an agent. Filters restrict rather than grant, so a caller
-// without a recorded kind still matches everyone, and empty subjects, though nothing else
-// (subjects.EvaluateRestriction): unlike a grant, a filter must not be escaped by a caller it cannot identify.
+// (pkg/subjects): the selector wildcard (everyone) is every user, a user or agent subject the one with that ID and
+// kind, and a group subject the users in that auth provider group. Everyone never includes an agent, so a filter
+// applies to an agent only when it names the agent. Filters restrict rather than grant, so a caller without a recorded
+// kind still matches everyone, though nothing else (subjects.EvaluateRestriction): unlike a grant, a filter must not
+// be escaped by a caller it cannot identify.
 func subjectsMatch(policySubjects []types2.Subject, identity Identity) bool {
 	if len(policySubjects) == 0 {
-		return true
+		policySubjects = []types2.Subject{{Type: types2.SubjectTypeSelector, ID: types2.SubjectWildcardID}}
 	}
 	groups := subjects.Groups{AuthProvider: make(map[string]struct{}, len(identity.Groups))}
 	for _, g := range identity.Groups {
 		groups.AuthProvider[g] = struct{}{}
 	}
 	return slices.ContainsFunc(policySubjects, func(s types2.Subject) bool {
-		return subjects.EvaluateRestriction(s, identity.Principal, groups) != subjects.NoMatch
+		return subjects.EvaluateRestriction(s, identity.Principal, groups)
 	})
 }
 

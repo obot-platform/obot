@@ -90,7 +90,7 @@ func (h *VMCPProfileConfigurationHandler) Update(req api.Context) error {
 // Reset clears a profile's configuration. Agents stop being given its values as soon as it is published, but its
 // revisions stay stored until no agent's instance uses them and the vMCP controller deletes them; until then the
 // profile still counts as having data (vmcpconfig.ProfileDataStore.ProfilesWithData), so the guard against replacing
-// it by name and the wildcard rule across profiles still apply. So a reset that cleared configuration waits, for a
+// it by name still applies. So a reset that cleared configuration waits, for a
 // bounded time, until the controller has collected it. If that takes longer, the reset still succeeds, and the status
 // it returns reports the revisions still to be collected (PendingCollection).
 func (h *VMCPProfileConfigurationHandler) Reset(req api.Context) error {

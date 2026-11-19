@@ -831,9 +831,6 @@ func convertMCPAuditLog(auditLog *auditLogInput) {
 	if len(fields.ProfileIDs) == 0 {
 		fields.ProfileIDs = auditProfileIDs(auditLog.Metadata[mcp.AuditLogProfiles])
 	}
-	if len(fields.FallbackProfileIDs) == 0 {
-		fields.FallbackProfileIDs = auditProfileIDs(auditLog.Metadata[mcp.AuditLogFallbackProfiles])
-	}
 }
 
 // auditProfileIDs decodes the comma-separated profile IDs of audit metadata. Profile IDs never contain commas.

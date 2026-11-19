@@ -117,9 +117,8 @@
 		})
 	);
 
-	// The picker and the table speak in policy subjects, where everyone is the selector wildcard and all
-	// users and all agents are the "*" of their own type. A filter's subjects name everyone as "everyone"
-	// instead, so it is mapped here and back in the saved manifest (see guardrailSubjects).
+	// The picker and the table speak in policy subjects, where everyone is the "All Obot Users" selector.
+	// A filter's subjects name it "everyone" instead, so it is mapped here and back in the saved manifest.
 	type Subject = AccessControlRuleSubject;
 	let subjects = $state<Subject[]>(
 		untrack(() =>
@@ -204,8 +203,7 @@
 	);
 	let subjectRows = $derived(
 		convertSubjectsToTableData(subjects, resolved.users, resolved.groups, {
-			agents: agentLookup.current,
-			offerAgents: true
+			agents: agentLookup.current
 		})
 	);
 

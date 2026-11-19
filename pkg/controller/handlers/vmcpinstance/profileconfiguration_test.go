@@ -28,8 +28,8 @@ import (
 )
 
 // profileDelivery is a vMCP whose profiles give agents configuration, the controllers that deliver it, and the
-// instances of agent 7 (named by its own profile), agent 9 (named only by the profile for every agent) and user 7 (the
-// user with agent 7's numeric ID, who enters their own values).
+// instances of agent 7 and agent 9 (each named by its own profile) and user 7 (the user with agent 7's numeric ID,
+// whom the profile for every user names, and who enters their own values).
 type profileDelivery struct {
 	t           *testing.T
 	client      kclient.WithWatch
@@ -85,8 +85,8 @@ func newProfileDelivery(t *testing.T) *profileDelivery {
 			Components:  []types.VMCPComponent{dedicated, shared},
 			Profiles: []types.VMCPProfile{
 				profile("vp1seven", types.Subject{Type: types.SubjectTypeAgent, ID: "7"}),
-				profile("vp1agents", types.Subject{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}),
-				profile("vp1users", types.Subject{Type: types.SubjectTypeUser, ID: types.SubjectWildcardID}),
+				profile("vp1nine", types.Subject{Type: types.SubjectTypeAgent, ID: "9"}),
+				profile("vp1users", types.Subject{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}),
 			},
 		},
 		StaticConfigurationHash: "static",
@@ -237,27 +237,28 @@ func TestProfileConfigurationDelivery(t *testing.T) {
 		"dedicated": {"REGION": new("seven-region")},
 		"shared":    {"X-Token": new("seven-token")},
 	})
-	d.configure("vp1agents", map[string]map[string]*string{
-		"dedicated": {"REGION": new("agents-region"), "VERBOSE": new("agents-verbose")},
-		"shared":    {"X-Token": new("agents-token")},
+	d.configure("vp1nine", map[string]map[string]*string{
+		"dedicated": {"REGION": new("nine-region"), "VERBOSE": new("nine-verbose")},
+		"shared":    {"X-Token": new("nine-token")},
 	})
 	d.sync()
 
-	// Agent 7 takes everything from its own profile. Its unset optional value does not fall back.
+	// Agent 7 takes everything from its own profile. Its unset optional value stays unset: no other profile supplies
+	// it.
 	require.Equal(t, map[string]string{
 		vmcpconfig.ConfigurationKey("dedicated", "REGION"): "seven-region",
 		vmcpconfig.ConfigurationKey("shared", "X-Token"):   "seven-token",
 	}, d.instanceValues(d.seven))
 	require.Equal(t, map[string]string{"REGION": "seven-region", "ADMIN_TOKEN": "fixed-admin-token"}, d.dedicatedServerValues(d.seven))
 	require.Equal(t, map[string]string{"X-Token": "seven-token"}, d.connectionValues(d.seven))
-	// Agent 9 has no profile of its own, so it is given the wildcard's configuration as it is.
+	// Agent 9 takes everything from its own profile.
 	require.Equal(t, map[string]string{
-		vmcpconfig.ConfigurationKey("dedicated", "REGION"):  "agents-region",
-		vmcpconfig.ConfigurationKey("dedicated", "VERBOSE"): "agents-verbose",
-		vmcpconfig.ConfigurationKey("shared", "X-Token"):    "agents-token",
+		vmcpconfig.ConfigurationKey("dedicated", "REGION"):  "nine-region",
+		vmcpconfig.ConfigurationKey("dedicated", "VERBOSE"): "nine-verbose",
+		vmcpconfig.ConfigurationKey("shared", "X-Token"):    "nine-token",
 	}, d.instanceValues(d.nine))
-	require.Equal(t, map[string]string{"REGION": "agents-region", "VERBOSE": "agents-verbose", "ADMIN_TOKEN": "fixed-admin-token"}, d.dedicatedServerValues(d.nine))
-	require.Equal(t, map[string]string{"X-Token": "agents-token"}, d.connectionValues(d.nine))
+	require.Equal(t, map[string]string{"REGION": "nine-region", "VERBOSE": "nine-verbose", "ADMIN_TOKEN": "fixed-admin-token"}, d.dedicatedServerValues(d.nine))
+	require.Equal(t, map[string]string{"X-Token": "nine-token"}, d.connectionValues(d.nine))
 	// The user with agent 7's numeric ID keeps their own values.
 	require.Equal(t, map[string]string{"REGION": "user-region", "ADMIN_TOKEN": "fixed-admin-token"}, d.dedicatedServerValues(d.user))
 	require.Equal(t, map[string]string{"X-Token": "user-token"}, d.connectionValues(d.user))
@@ -287,13 +288,13 @@ func TestProfileConfigurationDelivery(t *testing.T) {
 }
 
 // TestProfileConfigurationChangeReachesAgentInstances checks that changing a profile's value updates the running
-// agent instances it reaches, and leaves other agents' and users' instances alone; that removing an agent's own
-// profile makes it fall back rather than lose its configuration; and that the superseded revisions are deleted once no
-// instance uses them.
+// agent instances it reaches, and leaves other agents' and users' instances alone; that an agent moved to another
+// profile is given that profile's configuration and nothing of its old one's; and that the superseded revisions are
+// deleted once no instance uses them.
 func TestProfileConfigurationChangeReachesAgentInstances(t *testing.T) {
 	d := newProfileDelivery(t)
 	d.configure("vp1seven", map[string]map[string]*string{"dedicated": {"REGION": new("seven-region")}, "shared": {"X-Token": new("seven-token")}})
-	d.configure("vp1agents", map[string]map[string]*string{"dedicated": {"REGION": new("agents-region")}, "shared": {"X-Token": new("agents-token")}})
+	d.configure("vp1nine", map[string]map[string]*string{"dedicated": {"REGION": new("nine-region")}, "shared": {"X-Token": new("nine-token")}})
 	d.sync()
 	before := map[string]v1.VMCPInstance{}
 	for _, instance := range []*v1.VMCPInstance{d.seven, d.nine, d.user} {
@@ -326,17 +327,18 @@ func TestProfileConfigurationChangeReachesAgentInstances(t *testing.T) {
 	_, err := d.store.RevisionValues(t.Context(), vmcp.Name, "vp1seven", superseded[0])
 	require.ErrorAs(t, err, &gateway.CredentialNotFoundError{})
 
-	// Agent 7 leaves its own profile: it falls back to the wildcard's configuration for every value.
+	// Agent 7 moves to agent 9's profile: it is given that profile's configuration, and nothing of its old profile's.
 	vmcp.Spec.Manifest.Profiles[0].Subjects = []types.Subject{{Type: types.SubjectTypeAgent, ID: "8"}}
+	vmcp.Spec.Manifest.Profiles[1].Subjects = []types.Subject{{Type: types.SubjectTypeAgent, ID: "9"}, {Type: types.SubjectTypeAgent, ID: "7"}}
 	require.NoError(t, d.client.Update(t.Context(), vmcp))
 	d.sync()
-	require.Equal(t, map[string]string{"REGION": "agents-region", "ADMIN_TOKEN": "fixed-admin-token"}, d.dedicatedServerValues(d.seven))
-	require.Equal(t, map[string]string{"X-Token": "agents-token"}, d.connectionValues(d.seven))
-	require.Equal(t, map[string]string{"vp1agents": vmcp.Status.ProfileConfigurationRevisions["vp1agents"].Name}, d.syncInstance(d.seven).Status.AgentConfigurationRevisions)
+	require.Equal(t, map[string]string{"REGION": "nine-region", "ADMIN_TOKEN": "fixed-admin-token"}, d.dedicatedServerValues(d.seven))
+	require.Equal(t, map[string]string{"X-Token": "nine-token"}, d.connectionValues(d.seven))
+	require.Equal(t, map[string]string{"vp1nine": vmcp.Status.ProfileConfigurationRevisions["vp1nine"].Name}, d.syncInstance(d.seven).Status.AgentConfigurationRevisions)
 
-	// Clearing the wildcard's values leaves agent 7 with nothing, which its instance reports, rather than any value
+	// Clearing that profile's values leaves agent 7 with nothing, which its instance reports, rather than any value
 	// from before.
-	_, _, err = d.store.Reset(t.Context(), d.client, kclient.ObjectKeyFromObject(d.vmcp), "vp1agents")
+	_, _, err = d.store.Reset(t.Context(), d.client, kclient.ObjectKeyFromObject(d.vmcp), "vp1nine")
 	require.NoError(t, err)
 	d.sync()
 	require.Empty(t, d.instanceValues(d.seven))
@@ -348,17 +350,17 @@ func TestProfileConfigurationChangeReachesAgentInstances(t *testing.T) {
 	// The instances, synced again, no longer use the reset profile's revision, so collection deletes it and the profile
 	// has no data left, which is what a reset waits for.
 	require.NoError(t, d.client.Get(t.Context(), kclient.ObjectKeyFromObject(d.vmcp), vmcp))
-	require.NotEmpty(t, vmcp.Status.ProfileConfigurationRevisions["vp1agents"].Superseded)
+	require.NotEmpty(t, vmcp.Status.ProfileConfigurationRevisions["vp1nine"].Superseded)
 	require.NoError(t, collector.CollectProfileConfiguration(router.Request{Ctx: t.Context(), Client: d.client, Object: vmcp}, nil))
 	require.NoError(t, d.client.Get(t.Context(), kclient.ObjectKeyFromObject(d.vmcp), vmcp))
-	require.NotContains(t, vmcp.Status.ProfileConfigurationRevisions, "vp1agents")
-	withData, err := d.store.ProfilesWithData(t.Context(), vmcp.Name, []string{"vp1agents"})
+	require.NotContains(t, vmcp.Status.ProfileConfigurationRevisions, "vp1nine")
+	withData, err := d.store.ProfilesWithData(t.Context(), vmcp.Name, []string{"vp1nine"})
 	require.NoError(t, err)
 	require.Empty(t, withData)
 }
 
 // TestProfileConfigurationReplacesWhatWasEnteredOnAnAgentInstance checks that an agent's instance holds only what its
-// profiles give it, even when an administrator entered values on it before profile configuration existed.
+// profile gives it, even when an administrator entered values on it before profile configuration existed.
 func TestProfileConfigurationReplacesWhatWasEnteredOnAnAgentInstance(t *testing.T) {
 	d := newProfileDelivery(t)
 	require.NoError(t, d.gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
@@ -369,8 +371,8 @@ func TestProfileConfigurationReplacesWhatWasEnteredOnAnAgentInstance(t *testing.
 	d.sync()
 	require.Empty(t, d.instanceValues(d.seven))
 
-	d.configure("vp1agents", map[string]map[string]*string{"dedicated": {"VERBOSE": new("agents-verbose")}})
+	d.configure("vp1nine", map[string]map[string]*string{"dedicated": {"VERBOSE": new("nine-verbose")}})
 	d.sync()
-	require.Empty(t, d.instanceValues(d.seven), "an optional value fell back to agent 7, which has its own profile")
-	require.Equal(t, map[string]string{vmcpconfig.ConfigurationKey("dedicated", "VERBOSE"): "agents-verbose"}, d.instanceValues(d.nine))
+	require.Empty(t, d.instanceValues(d.seven), "agent 7 was given another profile's value")
+	require.Equal(t, map[string]string{vmcpconfig.ConfigurationKey("dedicated", "VERBOSE"): "nine-verbose"}, d.instanceValues(d.nine))
 }

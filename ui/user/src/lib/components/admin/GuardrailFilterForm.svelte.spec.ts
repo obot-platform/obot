@@ -298,40 +298,23 @@ describe('GuardrailFilterForm.svelte: agent subjects', () => {
 		return body?.guardrail?.subjects;
 	}
 
-	it('says that a filter for everyone also applies to agents', async () => {
+	// Everyone restricts every user and no agent: an agent is restricted only by a filter that names it.
+	it('does not say that a filter for everyone applies to agents', async () => {
 		await render(GuardrailFilterForm, {});
 
-		await expect.element(page.getByText(/also applies to agents/)).toBeVisible();
-		await expect.element(page.getByText(/including agents/)).toBeVisible();
+		await expect
+			.element(page.getByText('Not limited to anyone. The filter applies to everyone.'))
+			.toBeVisible();
+		await expect.element(page.getByText(/applies to agents/)).not.toBeInTheDocument();
+		await expect.element(page.getByText(/including agents/)).not.toBeInTheDocument();
 	});
 
-	it('saves everyone as the everyone subject, not as a selector', async () => {
-		expect(await createWith([/Everyone \(All Obot Users and Agents\)/])).toEqual([
-			{ type: 'everyone' }
-		]);
-	});
-
-	it('saves all users as the user wildcard and all agents as the agent wildcard', async () => {
-		expect(await createWith([/All Users/])).toEqual([{ type: 'user', id: '*' }]);
-	});
-
-	it('saves all agents as the agent wildcard', async () => {
-		expect(await createWith([/All Agents/])).toEqual([{ type: 'agent', id: '*' }]);
+	it('saves All Obot Users as the everyone subject, not as a selector', async () => {
+		expect(await createWith([/All Obot Users/])).toEqual([{ type: 'everyone' }]);
 	});
 
 	it('saves a selected agent with its bare ID', async () => {
 		expect(await createWith([/Build bot/])).toEqual([{ type: 'agent', id: '5' }]);
-	});
-
-	it('disables the other wildcards once everyone is selected', async () => {
-		worker.use(http.get('/api/agents', () => HttpResponse.json({ items: agents })));
-		await render(GuardrailFilterForm, {});
-
-		await page.getByRole('button', { name: 'Add User/Group' }).click();
-		await page.getByRole('button', { name: /Everyone \(All Obot Users and Agents\)/ }).click();
-
-		await expect.element(page.getByRole('button', { name: /All Users/ })).toBeDisabled();
-		await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeDisabled();
 	});
 
 	it('round-trips existing subjects and shows a deleted agent as such', async () => {

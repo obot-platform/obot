@@ -75,9 +75,10 @@ func (h *Handler) SetComponentOAuthProber(prober ComponentOAuthProber) {
 // client registration rather than static OAuth, is known to need a grant before an agent connects to it. Probes never
 // run on a request.
 //
-// It probes each remote component that an agent-capable profile grants and that is probed at all
-// (vmcpconfig.ComponentOAuthProbed), at each URL agents reach: the URL its definition fixes, or each distinct URL that
-// its URL configuration resolves to for the profiles that grant it (vmcpconfig.ProfileGrantSelection). A URL is probed:
+// It probes each remote component that an agent-capable profile, one that names an agent, grants and that is probed
+// at all (vmcpconfig.ComponentOAuthProbed), at each URL agents reach: the URL its definition fixes, or each distinct
+// URL that its URL configuration resolves to for the agent-capable profiles that grant it
+// (vmcpconfig.ProfileGrantTarget). A URL is probed:
 //
 //   - when it is first seen: a component was added or granted, its definition changed, or a profile's configuration
 //     now resolves to a URL that has not been probed;
@@ -221,10 +222,10 @@ func (h *Handler) runComponentOAuthProbes(ctx context.Context, jobs []componentO
 }
 
 // componentOAuthTargets returns, by component ID, the URLs of vmcp's components to probe (ProbeComponentOAuth). Only a
-// shared vMCP's components are, since agents connect to no other, and only those that an agent-capable profile grants.
-// A URL that comes from configuration is resolved for each such profile as for an agent that uses the profile's grants
-// (vmcpconfig.ProfileGrantSelection), and skipped when it lacks a value or is refused: configuration readiness reports
-// that.
+// shared vMCP's components are, since agents connect to no other, and only those that an agent-capable profile
+// (types.VMCPProfile.IsAgentCapable) grants. A URL that comes from configuration is resolved for each such profile as
+// for an agent whose profile it is (vmcpconfig.ProfileGrantTarget), and skipped when it lacks a value or is refused:
+// configuration readiness reports that.
 func (h *Handler) componentOAuthTargets(ctx context.Context, vmcp v1.VMCP) (map[string]componentOAuthTargets, error) {
 	if vmcp.Spec.UserID != "" {
 		return nil, nil

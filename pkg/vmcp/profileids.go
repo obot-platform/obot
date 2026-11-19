@@ -19,10 +19,8 @@ import (
 // keep such data too, because nothing about it is in the manifest that catalog sync replaces.
 type ProfileDataStore interface {
 	// ProfilesWithData returns the IDs, among profileIDs, of the vMCP's profiles that the store holds data for, so
-	// that one call answers for many profiles. While any profile has data, the wildcard rule across profiles
-	// (types.VMCPManifest.ValidateWildcardProfiles) applies to every change to the vMCP, with no legacy exception; and
-	// an API update may not replace a profile that has data with a new profile of the same name
-	// (CheckReplacedProfiles).
+	// that one call answers for many profiles. An API update may not replace a profile that has data with a new profile
+	// of the same name (CheckReplacedProfiles).
 	ProfilesWithData(ctx context.Context, vmcpID string, profileIDs []string) ([]string, error)
 	// DeleteProfileData deletes the data stored for the vMCP's profiles. The vMCP controller calls it with the
 	// profiles removed from a vMCP, and with every profile of a vMCP being deleted. It must be idempotent and succeed
@@ -140,61 +138,6 @@ func RecordedProfileIDs(vmcp v1.VMCP) []string {
 		}
 	}
 	return ids
-}
-
-// ProfileSubjectsChanged reports whether desired adds a profile or changes the subjects of a stored one, in any way
-// other than their order. Profiles are matched by ID, or by name for a stored profile that has no ID yet. Removing
-// profiles is not a change to their subjects.
-func ProfileSubjectsChanged(stored, desired types.VMCPManifest) bool {
-	for _, profile := range desired.Profiles {
-		index := slices.IndexFunc(stored.Profiles, func(candidate types.VMCPProfile) bool {
-			return candidate.ID != "" && candidate.ID == profile.ID || candidate.ID == "" && candidate.Name == profile.Name
-		})
-		if index < 0 || !sameSubjects(stored.Profiles[index].Subjects, profile.Subjects) {
-			return true
-		}
-	}
-	return false
-}
-
-// sameSubjects reports whether a and b hold the same subjects, ignoring order and repeats.
-func sameSubjects(a, b []types.Subject) bool {
-	for _, subject := range a {
-		if !slices.Contains(b, subject) {
-			return false
-		}
-	}
-	for _, subject := range b {
-		if !slices.Contains(a, subject) {
-			return false
-		}
-	}
-	return true
-}
-
-// CheckWildcardProfiles applies the wildcard rule across profiles (types.VMCPManifest.ValidateWildcardProfiles) to a
-// vMCP being saved, and returns the violation, if any, as violation. err is a failure to check.
-//
-// stored is the vMCP as stored, or nil for a new one, which always follows the rule. A stored vMCP may predate the
-// rule, and keeps working for users, so the rule applies to it only when desired adds a profile or changes a profile's
-// subjects (ProfileSubjectsChanged), or when store holds data for any of its profiles. Nothing new is stored to make
-// this exception: it compares with the stored manifest.
-func CheckWildcardProfiles(ctx context.Context, store ProfileDataStore, vmcpID string, stored *types.VMCPManifest, desired types.VMCPManifest) (violation error, err error) {
-	violation = desired.ValidateWildcardProfiles()
-	if violation == nil || stored == nil || ProfileSubjectsChanged(*stored, desired) {
-		return violation, nil
-	}
-	if store == nil {
-		return nil, nil
-	}
-	withData, err := store.ProfilesWithData(ctx, vmcpID, ProfileIDs(*stored))
-	if err != nil {
-		return nil, fmt.Errorf("check vMCP %q for profile data: %w", vmcpID, err)
-	}
-	if len(withData) > 0 {
-		return fmt.Errorf("%w; this vMCP has profile configuration or OAuth grants, so it must follow this rule", violation), nil
-	}
-	return nil, nil
 }
 
 // CheckReplacedProfiles refuses an API update that would replace a stored profile that has data with a new profile of

@@ -35,7 +35,7 @@
 	"models_gateway_search_models": "Search models...",
 	"models_message_policy_fallback_title": "Message Policy",
 	"models_not_configured": "Not configured",
-	"models_profile_users_agents_description": "The users, groups and agents this profile applies to. Everyone includes agents.",
+	"models_profile_users_agents_description": "The users, groups and agents this profile applies to.",
 	"models_providers_add_models": "Add Models",
 	"models_providers_all_domains": "All domains",
 	"models_providers_all_models_description": "Grants access to all current and future models",

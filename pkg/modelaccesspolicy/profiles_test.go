@@ -286,10 +286,11 @@ func TestPolicyAllowedModels(t *testing.T) {
 }
 
 // TestUserProfileIDsForAgents checks which gateway profiles apply to agents and users with the same numeric ID.
-// Agents match only everyone (*), every agent, and their own ID; users never match agent subjects.
+// Agents match only their own ID, never every user (*); users never match agent subjects.
 func TestUserProfileIDsForAgents(t *testing.T) {
 	h := newModelHelper(t, nil,
 		profile("everyone", types2.Subject{Type: types2.SubjectTypeSelector, ID: "*"}),
+		// Neither names anyone: no principal has the ID "*". Validation refuses the agent one.
 		profile("users", types2.Subject{Type: types2.SubjectTypeUser, ID: "*"}),
 		profile("agents", types2.Subject{Type: types2.SubjectTypeAgent, ID: "*"}),
 		profile("user-5", types2.Subject{Type: types2.SubjectTypeUser, ID: "5"}),
@@ -310,17 +311,18 @@ func TestUserProfileIDsForAgents(t *testing.T) {
 		{
 			name: "user 5 in groups",
 			user: testUser("5", groups),
-			want: []string{"admins", "everyone", "sales", "user-5", "users"},
+			want: []string{"admins", "everyone", "sales", "user-5"},
 		},
 		{
+			// A policy for every user grants an agent nothing; only the one that names it does.
 			name: "agent 5 with groups on its user info",
 			user: testAgent(5, groups),
-			want: []string{"agent-5", "agents", "everyone"},
+			want: []string{"agent-5"},
 		},
 		{
-			name: "agent 7, named by no explicit subject",
+			name: "agent 7, named by no policy",
 			user: testAgent(7, nil),
-			want: []string{"agents", "everyone"},
+			want: nil,
 		},
 		{
 			name: "a principal without a recorded kind",

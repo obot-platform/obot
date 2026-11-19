@@ -12,7 +12,6 @@ import type {
 	VMCPInstance,
 	VMCPManifest
 } from '$lib/services';
-import { VMCP_CONDITION_AGENT_SELECTION_AMBIGUOUS } from '$lib/services/user/types';
 import { profile } from '$lib/stores';
 import { goto, replaceState } from '$lib/url';
 import { getUserDisplayName } from '$lib/utils';
@@ -385,17 +384,6 @@ export function vmcpComponentName(vmcp: VMCP | undefined, componentID: string): 
 		(candidate) => vmcpComponentId(candidate) === componentID
 	);
 	return component?.name || component?.catalogEntry?.manifest?.name || componentID;
-}
-
-// vmcpAgentSelectionAmbiguous is true when more than one profile names every agent, so the server
-// cannot pick the profile that supplies an agent's values, and agent setup is read-only until then.
-export function vmcpAgentSelectionAmbiguous(vmcp?: VMCP): boolean {
-	return (
-		vmcp?.status?.conditions?.some(
-			(condition) =>
-				condition.type === VMCP_CONDITION_AGENT_SELECTION_AMBIGUOUS && condition.status === 'True'
-		) ?? false
-	);
 }
 
 export function vmcpInstancePath(vmcpID: string, instanceID: string) {

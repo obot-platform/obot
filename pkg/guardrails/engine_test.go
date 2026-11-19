@@ -626,8 +626,9 @@ func equalCalls(a, b [][]string) bool {
 }
 
 // TestSubjectsMatch checks every MCP guardrail filter subject form against a user, an agent with the same numeric
-// ID, and callers without a recorded kind. Subjects are matched by kind, as in vMCP profiles; a caller without a kind
-// matches only everyone and empty subjects, so that it never escapes a filter for everyone.
+// ID, and callers without a recorded kind. Subjects are matched by kind, as in vMCP profiles: everyone, like empty
+// subjects, is every user and no agent, and a caller without a kind matches only everyone, so that it never escapes a
+// filter for everyone.
 func TestSubjectsMatch(t *testing.T) {
 	callers := map[string]Identity{
 		"user":  {UserID: "5", Principal: principal.User(5), Groups: []string{"eng"}},
@@ -641,6 +642,8 @@ func TestSubjectsMatch(t *testing.T) {
 		return []apitypes.MCPGuardrailFilterSubject{{Type: typ, ID: id}}
 	}
 	everyCaller := []string{"user", "agent", "kindless", "kindless agent UID"}
+	// everyone are the callers that everyone restricts: every user, and every caller Obot cannot identify, but no agent.
+	everyone := []string{"user", "kindless", "kindless agent UID"}
 
 	for _, tt := range []struct {
 		name     string
@@ -649,32 +652,32 @@ func TestSubjectsMatch(t *testing.T) {
 	}{
 		{
 			name: "no subjects is everyone",
-			want: everyCaller,
+			want: everyone,
 		},
 		{
 			name:     "everyone",
 			subjects: subject(apitypes.MCPGuardrailSubjectEveryone, ""),
-			want:     everyCaller,
+			want:     everyone,
 		},
 		{
 			name:     "everyone with an ID is still everyone",
 			subjects: subject(apitypes.MCPGuardrailSubjectEveryone, "ignored"),
-			want:     everyCaller,
+			want:     everyone,
 		},
 		{
 			name:     "legacy selector",
 			subjects: subject("selector", "*"),
-			want:     everyCaller,
+			want:     everyone,
 		},
 		{
-			name:     "every user",
+			// No principal has the ID "*".
+			name:     "user wildcard names no one",
 			subjects: subject(apitypes.MCPGuardrailSubjectUser, "*"),
-			want:     []string{"user"},
 		},
 		{
-			name:     "every agent",
+			// Validation refuses it, but a filter stored before agents were named only by ID may hold it.
+			name:     "stored agent wildcard names no one",
 			subjects: subject(apitypes.MCPGuardrailSubjectAgent, "*"),
-			want:     []string{"agent"},
 		},
 		{
 			name:     "user 5 is not agent 5",
@@ -718,6 +721,14 @@ func TestSubjectsMatch(t *testing.T) {
 				{Type: apitypes.MCPGuardrailSubjectAgent, ID: "5"},
 			},
 			want: []string{"agent"},
+		},
+		{
+			name: "everyone and the agent apply the filter to both",
+			subjects: []apitypes.MCPGuardrailFilterSubject{
+				{Type: apitypes.MCPGuardrailSubjectEveryone},
+				{Type: apitypes.MCPGuardrailSubjectAgent, ID: "5"},
+			},
+			want: everyCaller,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

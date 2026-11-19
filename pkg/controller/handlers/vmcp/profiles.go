@@ -8,19 +8,15 @@ import (
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ReconcileProfiles keeps the vMCP's profiles identified and their stored data in step with the manifest. It gives
-// each profile stored before profiles had IDs its derived ID, once; deletes the data stored for profiles that the
-// manifest no longer has, by comparing the profile IDs last recorded in status with the manifest's; and reports
-// whether agent selection is ambiguous.
+// each profile stored before profiles had IDs its derived ID, once, and deletes the data stored for profiles that the
+// manifest no longer has, by comparing the profile IDs last recorded in status with the manifest's.
 func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error {
 	vmcp := req.Object.(*v1.VMCP)
 	if !vmcp.DeletionTimestamp.IsZero() {
@@ -54,9 +50,6 @@ func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error
 		}
 	}
 	if vmcpconfig.RemoveProfileOAuthGrantRecords(vmcp, removed) {
-		changed = true
-	}
-	if meta.SetStatusCondition(&vmcp.Status.Conditions, agentSelectionCondition(vmcp.Spec.Manifest)) {
 		changed = true
 	}
 	if !changed {
@@ -142,31 +135,4 @@ func (h *Handler) deleteProfileData(req router.Request, vmcpID string, profileID
 		return fmt.Errorf("failed to delete the data of vMCP %q profiles %v: %w", vmcpID, profileIDs, err)
 	}
 	return nil
-}
-
-// agentSelectionCondition reports whether more than one profile names every agent. Such a vMCP predates the wildcard
-// rule across profiles, so it still validates, but the profile an agent falls back to is ambiguous: an agent without
-// its own profile cannot connect, and one with its own profile cannot connect while it needs setup from the fallback.
-func agentSelectionCondition(manifest types.VMCPManifest) metav1.Condition {
-	profiles := manifest.AgentWildcardProfiles()
-	if len(profiles) < 2 {
-		return metav1.Condition{
-			Type:    types.VMCPConditionAgentSelectionAmbiguous,
-			Status:  metav1.ConditionFalse,
-			Reason:  "AtMostOneAgentWildcardProfile",
-			Message: "At most one profile names every agent.",
-		}
-	}
-	names := make([]string, 0, len(profiles))
-	for _, profile := range profiles {
-		names = append(names, profile.Name)
-	}
-	return metav1.Condition{
-		Type:   types.VMCPConditionAgentSelectionAmbiguous,
-		Status: metav1.ConditionTrue,
-		Reason: "MultipleAgentWildcardProfiles",
-		Message: fmt.Sprintf("Profiles %q all name every agent, with the agent wildcard or the selector wildcard (*), so agents without their own profile cannot connect, "+
-			"and agents with their own profile cannot use components that need configuration or OAuth from the fallback. "+
-			"Users are unaffected. Leave at most one such profile to let agents connect.", names),
-	}
 }
