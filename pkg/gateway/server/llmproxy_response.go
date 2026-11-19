@@ -47,10 +47,10 @@ func (r *llmResponseWriter) commit() {
 		}
 	}
 	if provider != "" {
-		r.header.Set(headerServedProvider, provider)
+		r.header.Set(HeaderServedProvider, provider)
 	}
 	if model != "" {
-		r.header.Set(headerServedModel, model)
+		r.header.Set(HeaderServedModel, model)
 	}
 	resp := &http.Response{StatusCode: r.status, Header: r.header, Request: r.request}
 	r.applyServedModel(resp)

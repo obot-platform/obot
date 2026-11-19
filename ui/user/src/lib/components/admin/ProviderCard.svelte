@@ -25,6 +25,8 @@
 		onConfigure: () => void;
 		// Omitted when the provider cannot be deconfigured, so the menu is not offered at all.
 		onDeconfigure?: () => void;
+		// Omitted when the provider cannot be tested, so the menu item is not offered.
+		onTest?: () => void;
 		configuredActions?: Snippet<[BaseProvider]>;
 		deprecated?: boolean;
 		readonly?: boolean;
@@ -46,6 +48,7 @@
 		iconClass,
 		onConfigure,
 		onDeconfigure,
+		onTest,
 		configuredActions,
 		deprecated,
 		readonly,
@@ -88,15 +91,22 @@
 				{#if configuredActions}
 					{@render configuredActions(provider)}
 				{/if}
-				{#if onDeconfigure}
+				{#if onDeconfigure || onTest}
 					<DotDotDot>
-						<button
-							disabled={readonly}
-							class="menu-button text-error"
-							onclick={() => onDeconfigure()}
-						>
-							{m.models_providers_deconfigure_provider()}
-						</button>
+						{#if onTest}
+							<button disabled={readonly} class="menu-button" onclick={() => onTest()}>
+								{m.models_provider_test_menu()}
+							</button>
+						{/if}
+						{#if onDeconfigure}
+							<button
+								disabled={readonly}
+								class="menu-button text-error"
+								onclick={() => onDeconfigure()}
+							>
+								{m.models_providers_deconfigure_provider()}
+							</button>
+						{/if}
 					</DotDotDot>
 				{/if}
 			{/if}

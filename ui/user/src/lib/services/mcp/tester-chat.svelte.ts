@@ -1,4 +1,5 @@
 import { m } from '$lib/i18n';
+import { MalformedEventError, readJSONEventStream } from '../event-stream';
 import type { RejectedTesterTool } from './tester-client';
 import { testerErrorDetails } from './tester-errors';
 import type {
@@ -200,42 +201,18 @@ async function readEventStream(
 	onEvent: (event: TesterStreamEvent) => void
 ): Promise<void> {
 	if (!response.body) throw new Error(m.mcps_tester_chat_no_stream());
-	const reader = response.body.getReader();
-	const decoder = new TextDecoder();
-	let buffered = '';
-	let dataLines: string[] = [];
-
-	const consumeLine = (line: string) => {
-		if (line === '') {
-			if (dataLines.length) {
-				let value: unknown;
-				try {
-					value = JSON.parse(dataLines.join('\n'));
-				} catch {
-					throw {
-						code: 'unsupported_response',
-						message: m.mcps_tester_chat_malformed_stream_json(),
-						retryable: false
-					} satisfies TesterChatError;
-				}
-				onEvent(parseStreamEvent(value));
-				dataLines = [];
-			}
-			return;
+	try {
+		await readJSONEventStream(response.body, (value) => onEvent(parseStreamEvent(value)));
+	} catch (error) {
+		if (error instanceof MalformedEventError) {
+			throw {
+				code: 'unsupported_response',
+				message: m.mcps_tester_chat_malformed_stream_json(),
+				retryable: false
+			} satisfies TesterChatError;
 		}
-		if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart());
-	};
-
-	while (true) {
-		const { done, value } = await reader.read();
-		buffered += decoder.decode(value, { stream: !done });
-		const lines = buffered.split(/\r?\n/);
-		buffered = done ? '' : (lines.pop() ?? '');
-		for (const line of lines) consumeLine(line);
-		if (done) break;
+		throw error;
 	}
-	if (buffered) consumeLine(buffered);
-	consumeLine('');
 }
 
 async function responseError(response: Response): Promise<TesterChatError> {
