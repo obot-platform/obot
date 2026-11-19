@@ -103,15 +103,15 @@ func (c *Compute) replace(obj kclient.Object) {
 	}
 }
 
-// Usage sums the memory and CPU the servers request under the K8s settings, the way their deployments will. Remote
-// and vMCP servers don't run in a pod, so they request nothing.
+// Usage sums the memory and CPU the servers request under the K8s settings, the way their deployments will. Servers
+// without a deployment request nothing.
 func (c Compute) Usage() (types.EntitlementsUsage, error) {
 	var (
 		settings = c.settings()
 		usage    types.EntitlementsUsage
 	)
 	for _, server := range c.servers() {
-		if server.runtime == types.RuntimeRemote || server.runtime == types.RuntimeVMCP {
+		if deploysNothing(server.runtime) {
 			continue
 		}
 		resources, err := CoreResourceRequirements(server.resources)
