@@ -28,18 +28,18 @@ Entries using `tunnelRequired` must set `minObotVersion` to the first release su
 
 ### Tunnel assignment identity and approval
 
-Obot stores the tunnel assignment on the existing catalog entry, using `remoteConfig.tunnelName` for the tunnel ID and an Obot-managed field for the approved fixed URL.
-Obot resolves the entry by catalog ID, opaque catalog source ID, and the explicit Git `entryKey`.
-The catalog inventory exposes a server-assigned ID for each configured source.
-When a rename changes the entry object ID, catalog sync carries the tunnel assignment forward only for an exact, unambiguous match on the same catalog ID, source ID, and entry key.
-Sync preserves concurrent admin changes when carrying the tunnel assignment forward and retries on a version conflict.
-Replacing the source or changing the entry key requires a new tunnel assignment.
+Obot stores the tunnel ID and approved fixed URL together on the existing catalog entry in an administrator-managed field outside the Git manifest.
+Obot resolves the entry by catalog ID, exact configured source URL, and the explicit Git `entryKey`.
+Catalog sync keeps the entry's object ID across an eligible rename when that identity matches unambiguously, so Git updates and administrators operate on the same object.
+Changing the source URL or entry key requires a new tunnel assignment.
+Re-adding a source through the catalog API clears any saved tunnel assignment on its leftover entries before the source becomes addressable again.
 
 ### Admin API
 
 Obot adds `GET`, `PUT`, and `DELETE` at
-`/api/mcp-catalogs/{catalog_id}/sources/{source_id}/entries/{entry_key}/tunnel`.
-Obot resolves the entry from the path on each request, so Terraform can manage the tunnel assignment in one resource without first looking up the entry's object ID.
+`/api/mcp-catalogs/{catalog_id}/entries/by-key/{entry_key}/tunnel` with the exact configured URL supplied as the `sourceURL` query parameter.
+Obot resolves the entry on each request, so Terraform can manage the tunnel assignment in one resource without first looking up the entry's object ID.
+The source URL must omit embedded credentials. Private sources use the existing Git credential mechanism.
 
 - `PUT` creates or replaces the tunnel assignment. It accepts `{"tunnelName":"mt1example","expectedURL":"https://inventory.internal.example/mcp"}` and returns the saved assignment.
 - `GET` returns the saved tunnel ID and approved URL, the current Git URL, and the assignment's validity and reason. It reports a changed URL as an invalid assignment. It returns `404` when the entry or assignment is absent.
@@ -52,15 +52,15 @@ Removing `tunnelRequired` leaves a valid tunnel assignment in effect.
 ### Terraform
 
 A separate PR in the [Obot Terraform provider repository](https://github.com/obot-platform/terraform-provider-obot) will add a resource that manages tunnel assignments through this API.
-The existing `obot_mcp_catalog_source` resource will expose the opaque ID as a computed `source_id` while retaining its existing URL-based identity and sync wait.
+The existing `obot_mcp_catalog_source` resource already returns its configured URL as `id` and waits for initial catalog sync.
 Referencing that output makes the tunnel assignment depend on source creation and initial catalog sync.
-For a source managed outside Terraform, the operator can obtain its ID from catalog inventory.
+For a source managed outside Terraform, the operator supplies the exact URL configured in Obot.
 The assignment resource uses a reviewed `expected_url` from Terraform configuration, so a Git edit cannot implicitly approve a new destination.
 
 ```hcl
 resource "obot_mcp_tunnel_assignment" "inventory" {
   catalog_id   = "default"
-  source_id    = obot_mcp_catalog_source.team.source_id
+  source_url   = obot_mcp_catalog_source.team.id
   entry_key    = "inventory"
   expected_url = "https://inventory.internal.example/mcp"
   tunnel_id    = obot_mcp_tunnel.private_network.id
@@ -97,7 +97,7 @@ An unflagged entry must pass ordinary import validation and can use a direct con
 An administrator can still assign an allowed tunnel to that entry, for example to send traffic through a specific network.
 
 Storing the tunnel assignment on the catalog entry ties its lifetime to that entry.
-The stable lookup lets Terraform address a renamed entry through the same API identity while catalog sync carries the administrator-approved fields forward.
+The stable lookup lets Terraform address a renamed entry through the same API identity while catalog sync preserves the administrator-approved fields.
 The tunnel allowlist controls where the tunnel can send requests, while the approved URL records which destination the operator intended for this entry.
 
 ## Consequences
