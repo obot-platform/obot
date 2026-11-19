@@ -262,6 +262,7 @@
 
 	let answeringToolListRequest = $derived(
 		!!toolListRequestID &&
+			toolListRequest?.id === toolListRequestID &&
 			toolListRequest?.status === 'pending' &&
 			!toolListRequestForOtherEntry &&
 			!toolListAnswer &&
@@ -319,9 +320,8 @@
 		}
 	}
 
-	async function failToolListRequest(message: string) {
-		if (!toolListRequest) return;
-		toolListDelivery = { id: toolListRequest.id, answer: 'failed', tools: [], error: message };
+	async function failToolListRequest(id: string, message: string) {
+		toolListDelivery = { id, answer: 'failed', tools: [], error: message };
 		await deliverToolListAnswer();
 	}
 
@@ -474,12 +474,14 @@
 		}
 	});
 
+	let disposed = false;
 	onMount(() => {
 		UserService.listUsersIncludeDeleted().then((data) => {
 			users = data;
 		});
 
 		return () => {
+			disposed = true;
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
 	});
@@ -554,7 +556,7 @@
 	}
 
 	function handleTemporaryInstanceOauth(oauthUrlToUse: string) {
-		if (!oauthUrlToUse) return;
+		if (!oauthUrlToUse || disposed) return;
 
 		oauthURL = oauthUrlToUse;
 
@@ -571,7 +573,8 @@
 		// and dryRun mode since the underlying catalog entry is not editable. Answering a tool list
 		// request also lists the tools without saving them on the entry.
 		const isMCPServer = entry.type === 'mcpserver';
-		const dryRun = isMCPServer || answeringToolListRequest;
+		const requestID = confirmedToolListRequestID;
+		const dryRun = isMCPServer || !!requestID;
 		const entryID = isMCPServer ? (entry as MCPCatalogServer).catalogEntryID : entry.id;
 		if (!entryID) return;
 
@@ -597,9 +600,9 @@
 
 			if (result && entry) {
 				previewToolsOverride = result.manifest?.toolPreview;
-				if (answeringToolListRequest && toolListRequest) {
+				if (requestID) {
 					toolListDelivery = {
-						id: toolListRequest.id,
+						id: requestID,
 						answer: 'listed',
 						tools: result.manifest?.toolPreview ?? []
 					};
@@ -633,25 +636,28 @@
 						// Obot couldn't start the server's sign-in.
 						error = errMessage;
 						showButtonInlineError = showInlineError;
-						if (answeringToolListRequest) await failToolListRequest(errMessage);
+						if (requestID) await failToolListRequest(requestID, errMessage);
 					}
 				} catch (oauthErr) {
 					error = oauthErr instanceof Error ? oauthErr.message : m.mcps_unknown_error();
 					showButtonInlineError = showInlineError;
-					if (answeringToolListRequest) await failToolListRequest(error);
+					if (requestID) await failToolListRequest(requestID, error);
 				}
 			} else {
 				error = errMessage;
 				showButtonInlineError = showInlineError;
-				if (answeringToolListRequest) await failToolListRequest(errMessage);
+				if (requestID) await failToolListRequest(requestID, errMessage);
 			}
 		} finally {
 			saving = false;
 		}
 	}
 
+	// Keep discovery, configuration and OAuth retries bound to the confirmation.
+	let confirmedToolListRequestID: string | undefined;
 	function handleInitTemporaryInstance() {
 		if (!entry || toolListDelivery || sendingToolListAnswer) return;
+		confirmedToolListRequestID = answeringToolListRequest ? toolListRequestID : undefined;
 
 		const hostname =
 			entry?.manifest?.remoteConfig &&

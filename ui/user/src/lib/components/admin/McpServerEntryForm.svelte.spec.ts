@@ -1,6 +1,7 @@
 import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
+import CatalogEntryRequestForm from './CatalogEntryRequestForm.svelte';
 import McpServerEntryForm from './McpServerEntryForm.svelte';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -232,6 +233,57 @@ describe('tool list requests from the obot CLI', () => {
 			tools: [{ id: 'echo', name: 'echo', description: 'Echoes its input' }]
 		});
 	});
+
+	it.each([true, false])(
+		'keeps an in-flight result on its confirmed request (success=%s)',
+		async (success) => {
+			await preparePageData();
+			const started = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
+			const completed = vi.fn();
+			worker.use(
+				http.post(
+					'/api/mcp-catalogs/default/entries/default-everything/generate-tool-previews',
+					async () => {
+						started.resolve();
+						await release.promise;
+						return success ? HttpResponse.json(entry()) : new HttpResponse(null, { status: 500 });
+					}
+				),
+				http.post('/api/tool-list-requests/:id/complete', ({ params }) => {
+					completed(params.id);
+					return new HttpResponse(null, { status: 200 });
+				})
+			);
+			const props = {
+				entry: entry(),
+				id: 'default',
+				entity: 'catalog' as const,
+				type: 'remote' as const,
+				isDialogView: true,
+				toolListRequestID: request.id,
+				toolListRequest: request
+			};
+			const form = await render(CatalogEntryRequestForm, props);
+			await page.getByRole('button', { name: 'Tools', exact: true }).click();
+			await page.getByRole('button', { name: 'Launch and list tools' }).click();
+			try {
+				await started.promise;
+				await form.rerender({
+					...props,
+					toolListRequestID: 'tlr2',
+					toolListRequest: { ...request, id: 'tlr2' }
+				});
+			} finally {
+				release.resolve();
+			}
+			await vi.waitFor(() => expect(completed.mock.calls).toEqual([['tlr1']]));
+			await page.getByRole('button', { name: 'Tools', exact: true }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Launch and list tools' }))
+				.toBeEnabled();
+		}
+	);
 
 	it('tells the CLI when the user declines', async () => {
 		await preparePageData();
