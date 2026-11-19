@@ -25,6 +25,9 @@ on:
 
 jobs:
   lint:
+    # The security mirror runs pull request checks, but its main only mirrors
+    # commits that were already tested here.
+    if: github.event_name == 'pull_request' || github.repository == 'obot-platform/obot'
     runs-on: depot-ubuntu-22.04
 
     steps:
@@ -52,6 +55,9 @@ jobs:
         run: helm template obot chart --namespace obot --set dev.useEmbeddedDb=true
 
   build:
+    # The security mirror runs pull request checks, but its main only mirrors
+    # commits that were already tested here.
+    if: github.event_name == 'pull_request' || github.repository == 'obot-platform/obot'
     runs-on: depot-ubuntu-22.04
 
     steps:
