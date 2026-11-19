@@ -17,20 +17,40 @@ import (
 )
 
 func TestLoginRelaysOnlyTheUIAttempt(t *testing.T) {
-	for _, host := range []string{"127.0.0.1", "::1"} {
-		t.Run(host, func(t *testing.T) {
-			probe, err := net.Listen("tcp", net.JoinHostPort(host, "0"))
-			if err != nil && host == "::1" {
+	for _, tc := range []struct {
+		name   string
+		host   string
+		prefix string
+		query  string
+	}{
+		{
+			name: "IPv4",
+			host: "127.0.0.1",
+		},
+		{
+			name: "IPv6",
+			host: "::1",
+		},
+		{
+			name:   "named server under URL prefix",
+			host:   "127.0.0.1",
+			prefix: "/obot",
+			query:  "?serverName=Acme+%26+Co+%2F+Tools",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			probe, err := net.Listen("tcp", net.JoinHostPort(tc.host, "0"))
+			if err != nil && tc.host == "::1" {
 				t.Skipf("IPv6 loopback unavailable: %v", err)
 			}
 			require.NoError(t, err)
 			require.NoError(t, probe.Close())
-			testLoginRelaysOnlyTheUIAttempt(t, host)
+			testLoginRelaysOnlyTheUIAttempt(t, tc.host, tc.prefix, tc.query)
 		})
 	}
 }
 
-func testLoginRelaysOnlyTheUIAttempt(t *testing.T, host string) {
+func testLoginRelaysOnlyTheUIAttempt(t *testing.T, host, prefix, query string) {
 	t.Helper()
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -58,13 +78,14 @@ func testLoginRelaysOnlyTheUIAttempt(t *testing.T, host string) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				require.Empty(t, r.Header.Get("Authorization"), "the CLI must not use an Obot token")
 				switch r.URL.Path {
-				case "/oauth/mcp/login/attempt":
+				case prefix + "/oauth/mcp/login/attempt":
 					require.Equal(t, http.MethodGet, r.Method)
+					require.Empty(t, r.URL.RawQuery, "display metadata must not reach the attempt endpoint")
 					q := url.Values{"redirect_uri": {redirect}, "state": {"attempt"}}
-					require.NoError(t, json.NewEncoder(w).Encode(types.MCPLocalLogin{AuthorizationURL: serverURL + "/provider?" + q.Encode(), RedirectURL: redirect, State: "attempt"}))
-				case "/provider":
+					require.NoError(t, json.NewEncoder(w).Encode(types.MCPLocalLogin{AuthorizationURL: serverURL + prefix + "/provider?" + q.Encode(), RedirectURL: redirect, State: "attempt"}))
+				case prefix + "/provider":
 					http.Redirect(w, r, redirect+"?state=attempt&code=provider-code", http.StatusFound)
-				case "/oauth/mcp/callback":
+				case prefix + "/oauth/mcp/callback":
 					callbacks.Add(1)
 					require.Equal(t, "provider-code", r.URL.Query().Get("code"))
 					status := "status=complete"
@@ -81,7 +102,7 @@ func testLoginRelaysOnlyTheUIAttempt(t *testing.T, host string) {
 			serverURL = server.URL
 			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 			defer cancel()
-			err = run(ctx, server.URL+"/oauth/mcp/login/attempt", server.Client(), func(authURL string) error {
+			err = run(ctx, server.URL+prefix+"/oauth/mcp/login/attempt"+query, server.Client(), func(authURL string) error {
 				// Wrong states and paths cannot complete or consume the attempt.
 				for _, target := range []string{redirect + "?state=wrong&code=bad", fmt.Sprintf("http://localhost:%d/unexpected?state=attempt", port)} {
 					response, err := browser.Get(target)
@@ -194,4 +215,18 @@ func TestLoginRejectsOccupiedIPv6Port(t *testing.T) {
 	listener, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", port))
 	require.NoError(t, err)
 	require.NoError(t, listener.Close())
+}
+
+func TestLoginRejectsUnexpectedQuery(t *testing.T) {
+	for _, query := range []string{
+		"?state=other-attempt",
+		"?serverName=Acme&redirect_uri=http://localhost:54321/callback",
+		"?serverName=Acme&code=unexpected",
+		"?serverName=%zz",
+	} {
+		t.Run(query, func(t *testing.T) {
+			err := run(t.Context(), "https://obot.example/oauth/mcp/login/attempt"+query, nil, nil)
+			require.ErrorContains(t, err, "UI authentication URL")
+		})
+	}
 }

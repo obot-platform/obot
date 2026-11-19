@@ -1216,5 +1216,7 @@
 	"mcps_list_tools_declined": "您已拒绝。未启动任何内容。",
 	"mcps_list_tools_unavailable": "此请求已过期或已被处理。请重新运行 obot 命令。",
 	"mcps_list_tools_failed": "无法列出工具：{error}。已通知 obot 命令，您的代理可以看到此结果。",
-	"mcps_list_tools_other_entry": "此请求针对另一个 MCP 服务器，无法在此处理。请重新运行 obot 命令。"
+	"mcps_list_tools_other_entry": "此请求针对另一个 MCP 服务器，无法在此处理。请重新运行 obot 命令。",
+	"mcps_list_tools_delivery_pending": "Obot 尚未确认收到结果。请重试发送结果，无需再次启动服务器。",
+	"mcps_list_tools_retry_delivery": "重试发送结果"
 }

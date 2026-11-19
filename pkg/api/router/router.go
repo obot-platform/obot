@@ -735,11 +735,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET "+system.CatalogItemSchemaPath, adminmcp.ServeSchema)
 
 	// The Obot Admin server for catalog authoring, which admins add to a vMCP through its built-in
-	// catalog entry. The vMCP's profiles decide who can reach it; the server flag turns it off.
-	if services.AdminMCPAllowed {
-		adminMCP := adminmcp.NewHandler(services.ServerURL, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel, services.MCPSessionManager, services.ProviderDispatcher)
-		mcpGateway.RegisterBuiltin(adminmcp.BuiltinName, adminMCP.Builtin)
-	}
+	// catalog entry. The vMCP's profiles and the handler's current-role check govern access.
+	adminMCP := adminmcp.NewHandler(services.ServerURL, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel, services.MCPSessionManager, services.ProviderDispatcher)
+	mcpGateway.RegisterBuiltin(adminmcp.BuiltinName, adminMCP.Builtin)
 
 	mux.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
 

@@ -478,7 +478,7 @@ func TestGenerateVMCPComponentToolPreviewsListsBuiltinTools(t *testing.T) {
 			User:           testUser("admin"),
 		}, recorder
 	}
-	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, nil, gateway, nil, "")
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, nil, gateway, nil, "", nil)
 
 	// Built-in servers have no URL to launch, so the preview is the tools Obot stored on the entry.
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(builtinVMCP(), entry).Build()
@@ -488,7 +488,7 @@ func TestGenerateVMCPComponentToolPreviewsListsBuiltinTools(t *testing.T) {
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &preview))
 	assert.Equal(t, entryTools, preview.Manifest.ToolPreview)
 
-	// The entry is gone when the admin MCP server is turned off.
+	// Report an unavailable entry rather than attempting a direct built-in connection.
 	req, _ = request(clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(builtinVMCP()).Build())
 	err := handler.GenerateVMCPComponentToolPreviews(req)
 	var httpErr *types.ErrHTTP

@@ -73,8 +73,8 @@ func (h *Handler) builtinClient(req api.Context, serverConfig mcp.ServerConfig) 
 	}
 	server, ok := h.builtins[serverConfig.BuiltinName]
 	if !ok {
-		// The server is turned off, for example by --disable-admin-mcp, but vMCPs that include it keep
-		// their component. An empty server keeps those vMCPs working with their other components.
+		// A persisted component can outlive the built-in implementation it names.
+		// An empty server keeps its vMCP working with the other components.
 		server = unavailableBuiltin
 	}
 	return &http.Client{Transport: builtinTransport{req: req, server: server}}, "http://builtin.obot.internal/" + serverConfig.BuiltinName, nil

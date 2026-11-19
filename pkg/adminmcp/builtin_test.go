@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -18,7 +17,7 @@ import (
 func TestBuiltinServesAdmins(t *testing.T) {
 	for name, role := range map[string]types.Role{"admin": types.RoleAdmin, "owner": types.RoleOwner} {
 		t.Run(name, func(t *testing.T) {
-			// The admin MCP setting is off: vMCP profiles, not the setting, govern the built-in server.
+			// vMCP profiles govern access; the handler also requires a current admin or owner.
 			session := connect(t, newTestServer(t, vmcpUser(role.Groups()...)).url, nil)
 			catalogs, result := callTool[listCatalogsOutput](t, session, "list_catalogs", map[string]any{})
 			require.False(t, result.IsError, resultText(result))
@@ -50,7 +49,7 @@ func TestEnsureBuiltinEntry(t *testing.T) {
 	c := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: BuiltinEntryName}
 
-	require.NoError(t, EnsureBuiltinEntry(ctx, c, true))
+	require.NoError(t, EnsureBuiltinEntry(ctx, c))
 	var entry v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(ctx, key, &entry))
 	assert.Equal(t, system.DefaultCatalog, entry.Spec.MCPCatalogName)
@@ -71,7 +70,7 @@ func TestEnsureBuiltinEntry(t *testing.T) {
 	entry.Spec.Manifest.Name = "Changed"
 	entry.Spec.Manifest.ToolPreview = nil
 	require.NoError(t, c.Update(ctx, &entry))
-	require.NoError(t, EnsureBuiltinEntry(ctx, c, true))
+	require.NoError(t, EnsureBuiltinEntry(ctx, c))
 	var restored v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(ctx, key, &restored))
 	assert.False(t, restored.Spec.Editable)
@@ -79,13 +78,14 @@ func TestEnsureBuiltinEntry(t *testing.T) {
 	assert.Len(t, restored.Spec.Manifest.ToolPreview, len(toolNames))
 
 	// An entry that's already current isn't written.
-	require.NoError(t, EnsureBuiltinEntry(ctx, c, true))
+	require.NoError(t, EnsureBuiltinEntry(ctx, c))
 	var unchanged v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(ctx, key, &unchanged))
 	assert.Equal(t, restored.ResourceVersion, unchanged.ResourceVersion)
 
-	// The server flag turning the admin MCP server off removes the entry.
-	require.NoError(t, EnsureBuiltinEntry(ctx, c, false))
-	assert.True(t, apierrors.IsNotFound(c.Get(ctx, key, &entry)))
-	require.NoError(t, EnsureBuiltinEntry(ctx, c, false))
+	// Recreate a missing entry on the next startup.
+	require.NoError(t, c.Delete(ctx, &unchanged))
+	require.NoError(t, EnsureBuiltinEntry(ctx, c))
+	require.NoError(t, c.Get(ctx, key, &entry))
+	assert.Equal(t, restored.Spec, entry.Spec)
 }

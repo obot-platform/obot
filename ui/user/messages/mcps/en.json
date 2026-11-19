@@ -1216,5 +1216,7 @@
 	"mcps_list_tools_declined": "You declined. Nothing was launched.",
 	"mcps_list_tools_unavailable": "This request expired or was already answered. Run the obot command again.",
 	"mcps_list_tools_failed": "The tools couldn't be listed: {error}. The obot command was told, so your agent can see it.",
-	"mcps_list_tools_other_entry": "This request is for a different MCP server, so it can't be answered here. Run the obot command again."
+	"mcps_list_tools_other_entry": "This request is for a different MCP server, so it can't be answered here. Run the obot command again.",
+	"mcps_list_tools_delivery_pending": "Obot has not acknowledged the result yet. Retry sending it without launching the server again.",
+	"mcps_list_tools_retry_delivery": "Retry sending result"
 }

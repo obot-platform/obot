@@ -255,7 +255,7 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 		panic(fmt.Errorf("failed to set up default system mcp catalog: %w", err))
 	}
 
-	if err := adminmcp.EnsureBuiltinEntry(ctx, client, c.services.AdminMCPAllowed); err != nil {
+	if err := adminmcp.EnsureBuiltinEntry(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to set up the Obot Admin catalog entry: %w", err))
 	}
 

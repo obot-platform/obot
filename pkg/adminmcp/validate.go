@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/openapi"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"sigs.k8s.io/yaml"
 )
@@ -66,11 +67,12 @@ type catalogValidator struct {
 	entries map[string]types.MCPServerCatalogEntryManifest
 	// versionSkipped holds the source references of submitted entries that this Obot version
 	// skips, so sync can't resolve them even if an older copy is synced.
-	versionSkipped map[string]bool
-	mcpBackend     string
-	mcpOptions     mcp.ValidationOptions
-	diagnostics    []Diagnostic
-	access         []VMCPAccess
+	versionSkipped  map[string]bool
+	mcpBackend      string
+	mcpOptions      mcp.ValidationOptions
+	openAPIImporter mcpcatalog.OpenAPIImporter
+	diagnostics     []Diagnostic
+	access          []VMCPAccess
 	// secretTargets maps each bindable Secret to its keys. It is nil when the
 	// backend has no secret bindings.
 	secretTargets map[string][]string
@@ -78,6 +80,9 @@ type catalogValidator struct {
 	existingGroups func(ctx context.Context, ids []string) (map[string]bool, error)
 	// existingUsers reports which of the user ids exist.
 	existingUsers func(ctx context.Context, ids []string) (map[string]bool, error)
+	// existingConfiguration reads retained fixed values for the source vMCP's
+	// identity. Values are used only for validation and never returned to callers.
+	existingConfiguration func(ctx context.Context, entryKey, displayName string) (map[string]string, error)
 }
 
 type catalogItem struct {
@@ -96,16 +101,36 @@ func (v *catalogValidator) add(item catalogItem, severity, format string, args .
 }
 
 func (v *catalogValidator) validate(ctx context.Context, files []CatalogFile) ([]Diagnostic, error) {
+	ctx, cancel := context.WithTimeout(ctx, catalogValidationTimeout)
+	defer cancel()
+	importer := v.openAPIImporter
+	if importer == nil {
+		importer = openapi.NewImporter(v.mcpOptions.RemoteMCPURLValidationConfig.SafeHTTPOptions(), v.mcpOptions.DevMode)
+	}
+	budget := &validationImporter{importer: importer}
+	v.openAPIImporter = budget
+	defer func() { v.openAPIImporter = importer }()
 	sourceID := mcp.SourceIDForURL(v.sourceURL)
 	var vmcps []catalogItem
 	seenEntryKeys := map[string]string{}
+	itemCount := 0
 	for _, file := range files {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		items, isList, err := mcpcatalog.DecodeCatalogContents[json.RawMessage]([]byte(file.Content))
 		if err != nil {
 			v.add(catalogItem{file: file.Path}, severityError, "invalid catalog file: %v", err)
 			continue
 		}
+		itemCount += len(items)
+		if itemCount > maxValidationItems {
+			return nil, fmt.Errorf("send at most %d catalog items per validation call", maxValidationItems)
+		}
 		for i, data := range items {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			item := catalogItem{file: file.Path, data: data}
 			if isList {
 				item.index = &i
@@ -129,14 +154,23 @@ func (v *catalogValidator) validate(ctx context.Context, files []CatalogFile) ([
 			default:
 				v.add(item, severityError, "unsupported catalog item type %q; use vmcp or entry", header.Type)
 			}
+			if budget.err != nil {
+				return nil, budget.err
+			}
 		}
 	}
 
 	seenVMCPKeys := map[string]string{}
 	for _, item := range vmcps {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if err := v.validateVMCP(ctx, item, seenVMCPKeys); err != nil {
 			return nil, err
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return v.diagnostics, nil
 }
@@ -190,6 +224,15 @@ func (v *catalogValidator) validateEntry(ctx context.Context, item catalogItem, 
 		return types.MCPServerCatalogEntryManifest{}, false
 	}
 	mcpcatalog.NormalizeManifest(&entry)
+	if err := mcpcatalog.PrepareSourceEntry(ctx, &entry, v.openAPIImporter); err != nil {
+		v.add(item, severityError, "%v", err)
+		return types.MCPServerCatalogEntryManifest{}, false
+	}
+	for _, config := range entry.Config {
+		if config.Sensitive && config.Value != "" {
+			v.add(item, severityWarning, "entry %q configuration %q is sensitive; credentials in Git are not recommended, use a Kubernetes secretBinding (see list_secret_bindings)", entry.Name, config.Key)
+		}
+	}
 
 	valid := true
 	if err := mcpcatalog.ValidateSourceFields(entry); err != nil {
@@ -201,6 +244,12 @@ func (v *catalogValidator) validateEntry(ctx context.Context, item catalogItem, 
 		MCPBackend: v.mcpBackend,
 		GitManaged: true,
 	}); err != nil {
+		v.add(item, severityError, "%v", err)
+		valid = false
+	}
+	// Sync moves catalog literals into credentials before snapshotting entries
+	// into vMCPs. Apply that same in-memory normalization without storing values.
+	if _, err := mcp.ExtractStaticConfiguration(entry.Config, nil, false); err != nil {
 		v.add(item, severityError, "%v", err)
 		valid = false
 	}
@@ -244,6 +293,7 @@ func (v *catalogValidator) validateVMCP(ctx context.Context, item catalogItem, s
 	if header.Profiles == nil {
 		v.add(item, severityWarning, "vMCP %q has no profiles, so only admins can use it; write profiles, even as an empty list", manifest.DisplayName)
 	}
+	manifest.Default(false)
 
 	if !v.resolveComponents(item, &manifest) {
 		return nil
@@ -258,7 +308,9 @@ func (v *catalogValidator) validateVMCP(ctx context.Context, item catalogItem, s
 		v.add(item, severityError, "%v", err)
 	}
 	v.checkSecretBindingTargets(item, manifest)
-	v.checkRequiredConfiguration(item, manifest)
+	if err := v.checkRequiredConfiguration(ctx, item, header.EntryKey, manifest); err != nil {
+		return err
+	}
 	v.checkToolNames(item, manifest)
 	v.checkProfileGrants(item, manifest)
 	return v.checkSubjects(ctx, item, manifest)
@@ -307,7 +359,7 @@ func (v *catalogValidator) checkSensitiveValues(item catalogItem, manifest types
 			if slices.ContainsFunc(vmcpconfig.ComponentConfig(component), func(config types.MCPConfig) bool {
 				return config.Key == policy.Key && config.Sensitive
 			}) {
-				v.add(item, severityError, "component %q configuration %q is sensitive, so its value must not be in the file; use a secretBinding (see list_secret_bindings)", component.ID, policy.Key)
+				v.add(item, severityWarning, "component %q configuration %q is sensitive; credentials in Git are not recommended, use a Kubernetes secretBinding (see list_secret_bindings)", component.ID, policy.Key)
 			}
 		}
 	}
@@ -335,22 +387,37 @@ func (v *catalogValidator) checkSecretBindingTargets(item catalogItem, manifest 
 }
 
 // checkRequiredConfiguration reports required configuration that sync can't fill.
-func (v *catalogValidator) checkRequiredConfiguration(item catalogItem, manifest types.VMCPManifest) {
-	values := vmcpconfig.ExtractStaticConfiguration(&manifest, nil)
-	for _, component := range manifest.Components {
-		policies := map[string]types.VMCPConfigurationPolicyType{}
-		for _, policy := range component.Configuration {
-			policies[policy.Key] = policy.Policy
-		}
-		for _, missing := range vmcpconfig.MissingRequiredConfiguration(component, values, false) {
-			_, key, _ := vmcpconfig.ParseConfigurationKey(missing)
-			if policies[key] == types.VMCPConfigurationPolicyFixed {
-				v.add(item, severityWarning, "component %q required configuration %q is fixed without a value or secretBinding; sync keeps a value already stored for this vMCP and fails if there is none", component.ID, key)
-			} else {
-				v.add(item, severityError, "component %q required configuration %q must be fixed with a value or secretBinding", component.ID, key)
-			}
-		}
+func (v *catalogValidator) checkRequiredConfiguration(ctx context.Context, item catalogItem, entryKey string, manifest types.VMCPManifest) error {
+	// ExtractStaticConfiguration clears literal values; do not mutate the input
+	// used for subsequent diagnostics or when retrying with retained values.
+	prepared := copyConfigurationPolicies(manifest)
+	values := vmcpconfig.ExtractStaticConfiguration(prepared, nil)
+	if mcpcatalog.ValidateVMCPStaticConfiguration(*prepared, values) == nil {
+		return nil
 	}
+	if v.existingConfiguration != nil {
+		previous, err := v.existingConfiguration(ctx, entryKey, manifest.DisplayName)
+		if err != nil {
+			return fmt.Errorf("failed to check retained vMCP configuration: %w", err)
+		}
+		prepared = copyConfigurationPolicies(manifest)
+		values = vmcpconfig.ExtractStaticConfiguration(prepared, previous)
+	}
+	if err := mcpcatalog.ValidateVMCPStaticConfiguration(*prepared, values); err != nil {
+		v.add(item, severityError, "%v", err)
+	}
+	return nil
+}
+
+// copyConfigurationPolicies isolates the values ExtractStaticConfiguration clears.
+// Snapshots remain read-only and shared: copying a schema per reference amplifies
+// one imported document by the number of components.
+func copyConfigurationPolicies(manifest types.VMCPManifest) *types.VMCPManifest {
+	manifest.Components = slices.Clone(manifest.Components)
+	for i := range manifest.Components {
+		manifest.Components[i].Configuration = slices.Clone(manifest.Components[i].Configuration)
+	}
+	return &manifest
 }
 
 // checkToolNames reports tool names that the referenced entry doesn't have.
@@ -384,6 +451,9 @@ func (v *catalogValidator) checkToolNames(item catalogItem, manifest types.VMCPM
 	for _, profile := range manifest.Profiles {
 		for componentID, set := range profile.Permissions.AllowedComponents {
 			for _, tool := range set.AllowedTools {
+				if tool == "*" {
+					continue // The runtime treats this as every enabled tool, not an upstream name.
+				}
 				check(componentID, tool, fmt.Sprintf("profile %q", profile.Name))
 			}
 		}
@@ -396,23 +466,27 @@ func (v *catalogValidator) checkProfileGrants(item catalogItem, manifest types.V
 	access := VMCPAccess{File: item.file, Item: item.index, VMCP: manifest.DisplayName, Profiles: []ProfileAccess{}}
 	for _, profile := range manifest.Profiles {
 		granted := ProfileAccess{Profile: profile.Name, Components: []ComponentAccess{}}
+		grant := types.ComponentToolReferences(profile.Permissions.AllowedComponents)
+		if profile.Permissions.AllowAllComponents {
+			grant = nil
+		}
 		for _, component := range manifest.Components {
-			set, listed := profile.Permissions.AllowedComponents[component.ID]
+			_, listed := profile.Permissions.AllowedComponents[component.ID]
 			if !profile.Permissions.AllowAllComponents && !listed {
 				continue
 			}
 			enabled, known := enabledTools(component)
-			allTools := profile.Permissions.AllowAllComponents || set.AllowedTools == nil
+			overrides, restricted := vmcpconfig.GrantedToolOverrides(component.ID, component.ToolOverrides, grant)
+			allTools := !restricted
 			if allTools && !profile.Permissions.AllowAllComponents {
 				v.add(item, severityWarning, "profile %q grants every tool on component %q, including tools enabled on it later; list allowedTools unless that's intended", profile.Name, component.ID)
 			}
 			tools := enabled
 			if !allTools {
 				tools = []string{}
-				// The vMCP's own validation already rejected tools the component doesn't enable.
-				for _, tool := range set.AllowedTools {
-					if !known || slices.Contains(enabled, tool) {
-						tools = append(tools, tool)
+				for _, tool := range overrides {
+					if tool.Enabled {
+						tools = append(tools, tool.Name)
 					}
 				}
 			}

@@ -58,10 +58,6 @@ var (
 	startupSyncGeneration = "1/" + version.Tag
 )
 
-type openAPIImporter interface {
-	Import(context.Context, types.OpenAPIRuntimeConfig) (*openapi.Result, error)
-}
-
 type Handler struct {
 	maxRepoSizeMB             int
 	defaultCatalogPath        string
@@ -72,7 +68,7 @@ type Handler struct {
 	remoteURLValidationConfig mcp.ValidationOptions
 	mcpBackend                string
 	mcpSessionManager         *mcp.SessionManager
-	openAPIImporter           openAPIImporter
+	openAPIImporter           catalogvalidation.OpenAPIImporter
 }
 
 // userInfo is a wrapper around kuser.Info that includes the user's role.
@@ -742,28 +738,9 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		catalogvalidation.NormalizeManifest(&entry)
-		if entry.Runtime == types.RuntimeOpenAPI {
-			if entry.OpenAPIConfig == nil {
-				errs = append(errs, fmt.Errorf("catalog entry %s: openAPIConfig is required", entry.Name))
-				continue
-			}
-			entry.OpenAPIConfig.Source.URL = strings.TrimSpace(entry.OpenAPIConfig.Source.URL)
-			entry.OpenAPIConfig.BaseURL = strings.TrimSpace(entry.OpenAPIConfig.BaseURL)
-			if err := openapi.ValidateInput(*entry.OpenAPIConfig); err != nil {
-				errs = append(errs, fmt.Errorf("catalog entry %s: %w", entry.Name, err))
-				continue
-			}
-			// Always import the source, even when Git and info.version are unchanged.
-			// Never forward catalog credentials to the schema URL. Failed imports
-			// leave the last good entry untouched.
-			result, err := h.openAPIImporter.Import(ctx, *entry.OpenAPIConfig)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to import OpenAPI schema for catalog entry %s: %w", entry.Name, err))
-				continue
-			}
-			// Preview destination status is advisory. ValidateManifest below
-			// rejects invalid destinations before the entry can be applied.
-			entry.OpenAPIConfig.Schema = &types.OpenAPISchema{Raw: result.Schema}
+		if err := catalogvalidation.PrepareSourceEntry(ctx, &entry, h.openAPIImporter); err != nil {
+			errs = append(errs, fmt.Errorf("catalog entry %s: %w", entry.Name, err))
+			continue
 		}
 		if err := catalogvalidation.ValidateManifest(ctx, entry, catalogvalidation.ValidationOptions{
 			MCP:        validationOptions,

@@ -155,7 +155,7 @@ config:
           name: github
           key: token`, "        value: ghp_secret", 1),
 			}},
-			wantErrors: []string{`component "github" configuration "TOKEN" is sensitive`},
+			wantWarnings: []string{`component "github" configuration "TOKEN" is sensitive`},
 		},
 		{
 			name: "required configuration not fixed",

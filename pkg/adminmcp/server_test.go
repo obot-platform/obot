@@ -40,7 +40,8 @@ const (
 
 // fakeAuthProviders reports the auth provider Obot serves logins from.
 type fakeAuthProviders struct {
-	configured string
+	configured  string
+	providerURL string
 }
 
 type testServer struct {
@@ -53,6 +54,13 @@ func (f fakeAuthProviders) GetConfiguredAuthProvider(context.Context) (string, e
 }
 
 func (f fakeAuthProviders) URLForAuthProvider(_ context.Context, namespace, name string) (url.URL, error) {
+	if f.providerURL != "" {
+		u, err := url.Parse(f.providerURL)
+		if err != nil {
+			return url.URL{}, err
+		}
+		return *u, nil
+	}
 	return url.URL{Scheme: "http", Host: name + "." + namespace + ".provider.test"}, nil
 }
 
@@ -116,7 +124,7 @@ func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
 
-	gatewayClient := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
+	gatewayClient := gatewayclient.New(t.Context(), db, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 	require.NoError(t, db.WithContext(t.Context()).Create(&gatewaytypes.User{
 		ID:             42,
@@ -303,7 +311,7 @@ profiles:
 			messages = append(messages, diagnostic.Severity+": "+diagnostic.Message)
 		}
 		assert.Len(t, messages, 3, messages)
-		assert.Contains(t, strings.Join(messages, "\n"), `error: component "github" configuration "TOKEN" is sensitive`)
+		assert.Contains(t, strings.Join(messages, "\n"), `warning: component "github" configuration "TOKEN" is sensitive`)
 		assert.Contains(t, strings.Join(messages, "\n"), `error: profile "support" names tool "delete_repo"`)
 		assert.Contains(t, strings.Join(messages, "\n"), `warning: profile "support" grants user "42"`)
 	})
@@ -388,4 +396,34 @@ func TestSearchGroupsExplainsMissingGroups(t *testing.T) {
 			assert.Contains(t, resultText(result), "use obotGroup subjects")
 		})
 	}
+}
+
+func (f fakeAuthProviders) GroupIDPrefixForAuthProvider(context.Context, string, string) (string, error) {
+	return "keycloak/", nil
+}
+
+func TestDirectoryGroupsWithoutCallerProviderContext(t *testing.T) {
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/obot-list-auth-groups":
+			_, _ = w.Write([]byte(`{"items":[{"id":"keycloak/new-management","name":"/management"}]}`))
+		case "/obot-get-auth-groups":
+			_, _ = w.Write([]byte(`{"items":[{"id":"keycloak/new-management","name":"/management"}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(provider.Close)
+	tools := tools{
+		handler: &Handler{authProviders: fakeAuthProviders{configured: "keycloak-auth-provider", providerURL: provider.URL}},
+		req:     api.Context{GatewayClient: newTestGatewayClient(t)},
+	}
+	_, found, err := tools.searchGroups(t.Context(), nil, searchGroupsInput{Query: "management"})
+	require.NoError(t, err)
+	require.Len(t, found.Groups, 1)
+	assert.Equal(t, "keycloak/new-management", found.Groups[0].ID)
+	resolved, err := tools.groups(t.Context(), []string{"keycloak/new-management"})
+	require.NoError(t, err)
+	assert.Equal(t, "/management", resolved["keycloak/new-management"].Name)
 }

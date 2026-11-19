@@ -249,29 +249,86 @@
 	let toolListRequestForOtherEntry = $derived(
 		!!toolListRequest && !!entry && toolListRequest.entryID !== entry.id
 	);
+
+	type ToolListDelivery = {
+		id: string;
+		answer: 'listed' | 'failed' | 'declined';
+		tools?: ToolListRequest['tools'];
+		error?: string;
+	};
+	let toolListDelivery = $state<ToolListDelivery>();
+	let toolListDeliveryError = $state<string>();
+	let sendingToolListAnswer = $state(false);
+
 	let answeringToolListRequest = $derived(
 		!!toolListRequestID &&
 			toolListRequest?.status === 'pending' &&
 			!toolListRequestForOtherEntry &&
-			!toolListAnswer
+			!toolListAnswer &&
+			!toolListDelivery
 	);
 
-	// failToolListRequest tells the waiting CLI that the tools couldn't be listed.
+	function acknowledgeToolListAnswer(delivery: ToolListDelivery) {
+		toolListAnswer = delivery.answer;
+		toolListError = delivery.error;
+		if (delivery.answer === 'listed') {
+			previewToolsOverride =
+				delivery.tools?.map((tool) => ({
+					id: tool.id ?? tool.name,
+					name: tool.name,
+					description: tool.description ?? ''
+				})) ?? [];
+		}
+		toolListDelivery = undefined;
+		toolListDeliveryError = undefined;
+	}
+
+	// Delivery failures do not change the discovered result or repeat the launch.
+	async function deliverToolListAnswer() {
+		const delivery = toolListDelivery;
+		if (!delivery || sendingToolListAnswer) return;
+		sendingToolListAnswer = true;
+		try {
+			if (delivery.answer === 'declined') {
+				await AdminService.cancelToolListRequest(delivery.id);
+			} else {
+				await AdminService.completeToolListRequest(delivery.id, delivery.tools, delivery.error);
+			}
+			acknowledgeToolListAnswer(delivery);
+		} catch (err) {
+			// A response may have been lost after the server committed. Read the
+			// persisted answer before offering another delivery attempt.
+			const current = await AdminService.getToolListRequest(delivery.id).catch(() => undefined);
+			if (current && current.status !== 'pending') {
+				acknowledgeToolListAnswer({
+					id: delivery.id,
+					answer:
+						current.status === 'completed'
+							? 'listed'
+							: current.error === 'the user declined to launch the server'
+								? 'declined'
+								: 'failed',
+					tools: current.tools,
+					error: current.error
+				});
+			} else {
+				toolListDeliveryError = err instanceof Error ? err.message : m.mcps_unknown_error();
+			}
+		} finally {
+			sendingToolListAnswer = false;
+		}
+	}
+
 	async function failToolListRequest(message: string) {
 		if (!toolListRequest) return;
-		toolListError = message;
-		toolListAnswer = 'failed';
-		await AdminService.completeToolListRequest(toolListRequest.id, [], message).catch(() => {});
+		toolListDelivery = { id: toolListRequest.id, answer: 'failed', tools: [], error: message };
+		await deliverToolListAnswer();
 	}
 
 	async function declineToolListRequest() {
 		if (!toolListRequest) return;
-		try {
-			await AdminService.cancelToolListRequest(toolListRequest.id);
-			toolListAnswer = 'declined';
-		} catch (err) {
-			error = err instanceof Error ? err.message : m.mcps_unknown_error();
-		}
+		toolListDelivery = { id: toolListRequest.id, answer: 'declined' };
+		await deliverToolListAnswer();
 	}
 
 	const tabs = $derived.by(() => {
@@ -541,11 +598,12 @@
 			if (result && entry) {
 				previewToolsOverride = result.manifest?.toolPreview;
 				if (answeringToolListRequest && toolListRequest) {
-					await AdminService.completeToolListRequest(
-						toolListRequest.id,
-						result.manifest?.toolPreview
-					);
-					toolListAnswer = 'listed';
+					toolListDelivery = {
+						id: toolListRequest.id,
+						answer: 'listed',
+						tools: result.manifest?.toolPreview ?? []
+					};
+					await deliverToolListAnswer();
 				}
 				oauthURL = undefined;
 				oauthDialog?.close();
@@ -593,7 +651,7 @@
 	}
 
 	function handleInitTemporaryInstance() {
-		if (!entry) return;
+		if (!entry || toolListDelivery || sendingToolListAnswer) return;
 
 		const hostname =
 			entry?.manifest?.remoteConfig &&
@@ -935,6 +993,18 @@
 			<p class="text-sm">{m.mcps_list_tools_declined()}</p>
 		{:else if toolListAnswer === 'failed'}
 			<p class="text-sm">{m.mcps_list_tools_failed({ error: toolListError ?? '' })}</p>
+		{:else if toolListDelivery}
+			<p class="text-sm">{m.mcps_list_tools_delivery_pending()}</p>
+			{#if toolListDeliveryError}
+				<p class="text-sm">{toolListDeliveryError}</p>
+			{/if}
+			<button
+				class="btn btn-primary"
+				onclick={deliverToolListAnswer}
+				disabled={saving || sendingToolListAnswer}
+			>
+				{m.mcps_list_tools_retry_delivery()}
+			</button>
 		{:else if toolListRequestForOtherEntry}
 			<p class="text-sm">{m.mcps_list_tools_other_entry()}</p>
 		{:else if answeringToolListRequest}
@@ -1233,7 +1303,7 @@
 		{#if toolListRequestID}
 			{@render toolListRequestNotice()}
 		{/if}
-		{#if showRegenerateToolsButton}
+		{#if showRegenerateToolsButton && !toolListRequestID}
 			<button class="btn btn-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
 				{m.mcps_catalog_regenerate_tools()}
 			</button>
@@ -1279,7 +1349,7 @@
 								<h4 class="text-muted-content text-lg font-semibold">
 									{m.mcps_catalog_no_tools()}
 								</h4>
-								{#if !isMultiTenant}
+								{#if !isMultiTenant && !toolListRequestID}
 									<button
 										class="btn btn-primary flex items-center gap-1 text-sm"
 										onclick={handleInitTemporaryInstance}

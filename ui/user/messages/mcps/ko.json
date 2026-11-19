@@ -1216,5 +1216,7 @@
 	"mcps_list_tools_declined": "거절했습니다. 아무것도 실행되지 않았습니다.",
 	"mcps_list_tools_unavailable": "이 요청은 만료되었거나 이미 응답되었습니다. obot 명령을 다시 실행하세요.",
 	"mcps_list_tools_failed": "도구 목록을 가져올 수 없습니다: {error}. obot 명령에 알렸으므로 에이전트도 확인할 수 있습니다.",
-	"mcps_list_tools_other_entry": "이 요청은 다른 MCP 서버에 대한 것이므로 여기서 응답할 수 없습니다. obot 명령을 다시 실행하세요."
+	"mcps_list_tools_other_entry": "이 요청은 다른 MCP 서버에 대한 것이므로 여기서 응답할 수 없습니다. obot 명령을 다시 실행하세요.",
+	"mcps_list_tools_delivery_pending": "Obot이 아직 결과를 확인하지 못했습니다. 서버를 다시 시작하지 않고 결과 전송을 다시 시도하세요.",
+	"mcps_list_tools_retry_delivery": "결과 전송 다시 시도"
 }

@@ -46,9 +46,16 @@ func Run(ctx context.Context, loginURL string) error {
 
 func run(ctx context.Context, loginURL string, client *http.Client, openBrowser func(string) error) error {
 	endpoint, err := url.Parse(loginURL)
-	if err != nil || endpoint.User != nil || endpoint.Hostname() == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+	if err != nil || endpoint.User != nil || endpoint.Hostname() == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.Fragment != "" {
 		return fmt.Errorf("URL must be the UI authentication URL from Obot")
 	}
+	query, err := url.ParseQuery(endpoint.RawQuery)
+	if err != nil || len(query) > 1 || (len(query) == 1 && !query.Has("serverName")) {
+		return fmt.Errorf("URL must be the UI authentication URL from Obot")
+	}
+	// Obot may include the component's name for display. It does not change the
+	// pending attempt and must not be forwarded to the callback or provider.
+	endpoint.RawQuery, endpoint.ForceQuery = "", false
 	prefix, state, ok := strings.Cut(endpoint.Path, "/oauth/mcp/login/")
 	if !ok || state == "" || strings.Contains(state, "/") {
 		return fmt.Errorf("URL must be the UI authentication URL from Obot, not an MCP connection URL")

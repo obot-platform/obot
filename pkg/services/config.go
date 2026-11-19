@@ -117,7 +117,6 @@ type Config struct {
 	MCPOAuthClientExpiration       string                `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPOAuthClientNativeExceptions []string              `usage:"Additional Client ID Metadata Document URLs that default to the native application type when application_type is omitted"`
 	ForceDynamicClient             bool                  `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
-	DisableAdminMCP                bool                  `usage:"Turn off the Obot Admin MCP server: its built-in catalog entry is removed, and vMCPs that include it get no tools from it" default:"false"`
 	ProductAnalyticsMode           producttelemetry.Mode `usage:"Product analytics mode: consent, on, or off" default:"consent" env:"OBOT_SERVER_PRODUCT_ANALYTICS_MODE"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
@@ -225,7 +224,6 @@ type Services struct {
 
 	MCPOAuthClientSecretExpiration time.Duration
 	MCPOAuthClientNativeExceptions []string
-	AdminMCPAllowed                bool
 	ForceDynamicClient             bool
 	ProductTelemetryConsent        *producttelemetry.Consent
 	ProductTelemetryPublisher      *producttelemetry.Publisher
@@ -1252,7 +1250,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
 		MCPOAuthClientNativeExceptions: config.MCPOAuthClientNativeExceptions,
-		AdminMCPAllowed:                !config.DisableAdminMCP,
 		ForceDynamicClient:             config.ForceDynamicClient,
 		ProductTelemetryConsent:        telemetryConsent,
 		ProductTelemetryPublisher:      producttelemetry.NewPublisher(ctx, telemetryConsent, gatewayClient, storageClient, entitlementProvider, config.MCPRuntimeBackend),

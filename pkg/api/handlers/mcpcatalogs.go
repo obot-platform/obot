@@ -912,6 +912,14 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	if !dryRun && !entry.Spec.Editable {
 		return types.NewErrBadRequest("entry is not editable")
 	}
+	if entry.Spec.Manifest.Runtime == types.RuntimeBuiltin {
+		if hiddenBuiltinEntry(req, entry) {
+			return types.NewErrNotFound("MCP catalog entry not found")
+		}
+		// Built-ins have no network endpoint. Startup stores their authoritative
+		// tool list, including for CLI requests confirmed on this entry's page.
+		return req.Write(ConvertMCPServerCatalogEntry(entry))
+	}
 
 	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
 		return types.NewErrBadRequest("composite catalog entries are no longer supported")

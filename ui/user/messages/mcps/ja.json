@@ -1216,5 +1216,7 @@
 	"mcps_list_tools_declined": "拒否しました。何も起動されていません。",
 	"mcps_list_tools_unavailable": "このリクエストは期限切れか、すでに応答済みです。obot コマンドをもう一度実行してください。",
 	"mcps_list_tools_failed": "ツールを一覧表示できませんでした: {error}。obot コマンドに通知されたため、エージェントにも伝わります。",
-	"mcps_list_tools_other_entry": "このリクエストは別の MCP サーバー向けのため、ここでは応答できません。obot コマンドをもう一度実行してください。"
+	"mcps_list_tools_other_entry": "このリクエストは別の MCP サーバー向けのため、ここでは応答できません。obot コマンドをもう一度実行してください。",
+	"mcps_list_tools_delivery_pending": "Obot は結果をまだ受信確認していません。サーバーを再起動せずに、結果の送信を再試行してください。",
+	"mcps_list_tools_retry_delivery": "結果の送信を再試行"
 }

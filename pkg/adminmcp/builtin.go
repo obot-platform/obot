@@ -42,26 +42,15 @@ func (h *Handler) Builtin(req api.Context) http.Handler {
 	})
 }
 
-// EnsureBuiltinEntry keeps the Obot Admin catalog entry in the default catalog current, or removes
-// it when the server flag turns the admin MCP server off. The entry isn't synced from a source, so
-// catalog sync leaves it alone, and it isn't editable.
-func EnsureBuiltinEntry(ctx context.Context, c kclient.Client, allowed bool) error {
+// EnsureBuiltinEntry keeps the Obot Admin catalog entry in the default catalog current.
+// The entry isn't synced from a source, so catalog sync leaves it alone, and it isn't editable.
+func EnsureBuiltinEntry(ctx context.Context, c kclient.Client) error {
 	var existing v1.MCPServerCatalogEntry
 	err := c.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: BuiltinEntryName}, &existing)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to get the Obot Admin catalog entry: %w", err)
 	}
 	found := err == nil
-
-	if !allowed {
-		if found {
-			if err := c.Delete(ctx, &existing); err != nil && !apierrors.IsNotFound(err) {
-				return fmt.Errorf("failed to delete the Obot Admin catalog entry: %w", err)
-			}
-			slog.Info("Deleted the Obot Admin catalog entry because the admin MCP server is turned off")
-		}
-		return nil
-	}
 
 	manifest, err := builtinEntryManifest(ctx)
 	if err != nil {

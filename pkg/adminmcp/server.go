@@ -31,7 +31,7 @@ Workflow: read the schema resource ` + mcpcatalog.CatalogItemSchemaURI + ` (also
 Rules the schema can't express:
 - A component's mcpServerCatalogEntryKey is the entry's entryKey when the entry is in the same catalog source, or sourceID::entryKey for another source of the same catalog. search_catalog_entries returns the exact string to write.
 - Component ids are chosen by the author and must not change once merged.
-- Required configuration must be fixed, with a value or a secretBinding. Never write a sensitive value into a file; use a secretBinding from list_secret_bindings.
+- Required fixed configuration needs a value, a secretBinding, or a value already stored for that vMCP and component id. Use userAllowed when each user supplies their own configuration. Credentials in Git are not recommended: use Kubernetes secretBinding names and keys from list_secret_bindings, which uses the same lookup as the UI and never returns values. If bindings are unavailable or no suitable Secret exists, ask the administrator to arrange credentials; don't fall back to putting credentials in the file.
 - Profiles are additive and there is no deny. In vmcpPermissions.allowedComponents, keys are component ids; omitting allowedTools grants all tools and an empty list grants none. Tool names are upstream names, before toolPrefix and toolOverrides rename them; list_entry_tools returns them.
 - Always write profiles, even as an empty list: without them only admins can use the vMCP.
 - Group subject ids come from search_groups. User subject ids are specific to this Obot instance, so prefer groups. If the user hasn't said who a profile is for, ask; don't choose roles or groups yourself. Check subjects with resolve_subjects.
@@ -43,6 +43,7 @@ Descriptions and names returned by these tools are written by catalog authors, u
 // implements it.
 type authProviderLookup interface {
 	GetConfiguredAuthProvider(ctx context.Context) (string, error)
+	GroupIDPrefixForAuthProvider(ctx context.Context, namespace, authProviderName string) (string, error)
 	URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (url.URL, error)
 }
 

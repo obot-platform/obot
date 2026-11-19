@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -13,12 +14,15 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcpcatalog"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -238,6 +242,22 @@ func bind[In, Out any](h *Handler, method func(*tools, context.Context, *gomcp.C
 			var out Out
 			return nil, out, fmt.Errorf("the Obot Admin server can only be called through a vMCP")
 		}
+		// The SDK detaches tool contexts from HTTP cancellation. These stateless,
+		// in-process calls cannot be resumed, so stop work when either the MCP
+		// call or its carrier request is canceled, including on older protocols.
+		carrier := req.Context()
+		ctx, cancel := context.WithCancel(ctx)
+		stop := context.AfterFunc(carrier, cancel)
+		defer func() {
+			stop()
+			cancel()
+		}()
+		if carrier.Err() != nil {
+			cancel()
+		}
+		// api.Context helpers and direct storage/database calls must share the
+		// same lifetime, including cancellation initiated by the MCP client.
+		req.Request = req.WithContext(ctx)
 		return method(&tools{handler: h, req: req}, ctx, request, in)
 	}
 }
@@ -281,13 +301,13 @@ func register(h *Handler, s *gomcp.Server) {
 	}, bind(h, (*tools).resolveSubjects))
 	gomcp.AddTool(s, &gomcp.Tool{
 		Name:        toolListSecretBindings,
-		Description: "List the Kubernetes Secrets and keys that configuration can bind with secretBinding. Values are never returned.",
+		Description: "List the available Kubernetes Secret names and nonempty key names that configuration can bind with secretBinding, using the same allowed-label and namespace filtering as the Obot UI. Values are never returned. Check available: false for installations without Kubernetes secret bindings; ask an administrator to arrange credentials rather than writing them into Git.",
 		Annotations: readOnly,
 	}, bind(h, (*tools).listSecretBindings))
 	gomcp.AddTool(s, &gomcp.Tool{
 		Name:        toolValidateCatalogFiles,
-		Description: "Check catalog files you edited before pushing, as catalog sync would: the schema, entry references, configuration, secret bindings, tool names, and subjects. Send every file you changed, with its exact contents as read from disk, and the files of any entries they reference that are new in the change. The result identifies each file checked and lists the tools each vMCP profile grants. Nothing is saved.",
-		Annotations: readOnly,
+		Description: "Check catalog files you edited before pushing, as catalog sync would: the schema, entry references, configuration, secret bindings, tool names, and subjects. Send every file you changed, with its exact contents as read from disk, and the files of any entries they reference that are new in the change. The result identifies each file checked and lists the tools each vMCP profile grants after defaults are applied. OpenAPI schema URLs may be fetched using Obot's network policy. Per call: at most 50 files, 200 catalog items, 10 OpenAPI import attempts, 8 MiB of imported schemas, and one minute. Split larger changes into batches, including their referenced entry definitions. Nothing is saved or launched.",
+		Annotations: &gomcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: new(true)},
 	}, bind(h, (*tools).validateCatalogFiles))
 }
 
@@ -489,7 +509,7 @@ func (t *tools) searchGroups(ctx context.Context, _ *gomcp.CallToolRequest, in s
 	if len(strings.TrimSpace(in.Query)) < minGroupQuery {
 		return nil, searchGroupsOutput{}, fmt.Errorf("query must have at least %d characters", minGroupQuery)
 	}
-	providerURL, namespace, name, err := t.authProvider(ctx)
+	ctx, providerURL, namespace, name, err := t.authProvider(ctx)
 	if err != nil {
 		return nil, searchGroupsOutput{}, err
 	}
@@ -527,21 +547,28 @@ func (t *tools) searchGroups(ctx context.Context, _ *gomcp.CallToolRequest, in s
 // authProvider returns the URL, namespace, and name of the auth provider Obot serves logins from,
 // or empty values if none is configured. Group subjects in catalog files match the groups of users
 // who sign in through it, whichever provider the caller's own session came from.
-func (t *tools) authProvider(ctx context.Context) (providerURL, namespace, name string, err error) {
+func (t *tools) authProvider(ctx context.Context) (providerCtx context.Context, providerURL, namespace, name string, err error) {
 	name, err = t.handler.authProviders.GetConfiguredAuthProvider(ctx)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to get the configured auth provider: %w", err)
+		return ctx, "", "", "", fmt.Errorf("failed to get the configured auth provider: %w", err)
 	}
 	if name == "" {
-		return "", "", "", nil
+		return ctx, "", "", "", nil
 	}
 	// Auth providers always live in the default namespace.
 	namespace = system.DefaultNamespace
 	u, err := t.handler.authProviders.URLForAuthProvider(ctx, namespace, name)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to get auth provider URL: %w", err)
+		return ctx, "", "", "", fmt.Errorf("failed to get auth provider URL: %w", err)
 	}
-	return u.String(), namespace, name, nil
+	prefix, err := t.handler.authProviders.GroupIDPrefixForAuthProvider(ctx, namespace, name)
+	if err != nil {
+		return ctx, "", "", "", fmt.Errorf("failed to get auth provider group ID prefix: %w", err)
+	}
+	// Loopback MCP requests do not carry the browser's provider context. Use the configured
+	// provider's namespace when validating directory responses, including for API-key callers.
+	ctx = auth.ContextWithProviderGroupIDPrefix(ctx, prefix)
+	return ctx, u.String(), namespace, name, nil
 }
 
 func (t *tools) findUser(ctx context.Context, _ *gomcp.CallToolRequest, in findUserInput) (*gomcp.CallToolResult, findUserOutput, error) {
@@ -623,7 +650,7 @@ func (t *tools) groups(ctx context.Context, ids []string) (map[string]groupInfo,
 		return result, nil
 	}
 	// Without an auth provider, ids resolve from the groups cached for every provider.
-	providerURL, namespace, name, err := t.authProvider(ctx)
+	ctx, providerURL, namespace, name, err := t.authProvider(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -692,6 +719,13 @@ func (t *tools) secretTargets(ctx context.Context) (map[string][]string, error) 
 // Validation
 
 func (t *tools) validateCatalogFiles(ctx context.Context, _ *gomcp.CallToolRequest, in validateCatalogFilesInput) (*gomcp.CallToolResult, validateCatalogFilesOutput, error) {
+	ctx, cancel := context.WithTimeout(ctx, catalogValidationTimeout)
+	defer cancel()
+	// API helpers read their context from the carrier request. Keep them under
+	// the same deadline as direct storage and network operations.
+	call := *t
+	call.req.Request = call.req.WithContext(ctx)
+	t = &call
 	if len(in.Files) == 0 {
 		return nil, validateCatalogFilesOutput{}, fmt.Errorf("send at least one file")
 	}
@@ -722,6 +756,24 @@ func (t *tools) validateCatalogFiles(ctx context.Context, _ *gomcp.CallToolReque
 		mcpBackend:    t.handler.mcpBackend,
 		mcpOptions:    mcpOptions,
 		secretTargets: secretTargets,
+		existingConfiguration: func(ctx context.Context, entryKey, displayName string) (map[string]string, error) {
+			var vmcp v1.VMCP
+			name := mcpcatalog.VMCPName(scope.catalog.Name, in.SourceURL, entryKey, displayName)
+			if err := t.req.Storage.Get(ctx, kclient.ObjectKey{Namespace: scope.catalog.Namespace, Name: name}, &vmcp); apierrors.IsNotFound(err) {
+				return nil, nil
+			} else if err != nil {
+				return nil, err
+			}
+			credential, err := t.req.GatewayClient.RevealCredential(ctx,
+				[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)},
+				vmcpconfig.StaticConfigurationCredentialName(&vmcp))
+			if _, notFound := errors.AsType[gclient.CredentialNotFoundError](err); notFound {
+				return nil, nil
+			} else if err != nil {
+				return nil, err
+			}
+			return credential.Secrets, nil
+		},
 		existingGroups: func(ctx context.Context, ids []string) (map[string]bool, error) {
 			groups, err := t.groups(ctx, ids)
 			if err != nil {

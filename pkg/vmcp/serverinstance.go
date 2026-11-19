@@ -34,7 +34,12 @@ func ServerInstanceComponent(ctx context.Context, client kclient.Client, connect
 
 // ComponentConfig applies vMCP policy rather than the source catalog's sharing flags.
 func ComponentConfig(component types.VMCPComponent) []types.MCPConfig {
-	config := component.CatalogEntry.Manifest.DeepCopy().Config
+	// Callers may mutate configuration, but do not need a copy of the runtime
+	// snapshot (which can contain a large OpenAPI schema).
+	config := slices.Clone(component.CatalogEntry.Manifest.Config)
+	for i := range config {
+		component.CatalogEntry.Manifest.Config[i].DeepCopyInto(&config[i])
+	}
 	for i := range config {
 		config[i].UserAllowed = slices.ContainsFunc(component.Configuration, func(policy types.VMCPConfigurationPolicy) bool {
 			return policy.Key == config[i].Key && policy.Policy == types.VMCPConfigurationPolicyUserAllowed

@@ -340,4 +340,96 @@ describe('tool list requests from the obot CLI', () => {
 			.element(page.getByText(/This request expired or was already answered/))
 			.toBeVisible();
 	});
+	it.each([false, true])(
+		'retries result delivery without relaunching (launchFailed=%s)',
+		async (launchFailed) => {
+			await preparePageData();
+			const tools = [{ id: 'echo', name: 'echo', description: 'Echo' }];
+			const previews = vi.fn();
+			const completed = vi.fn();
+			worker.use(
+				http.post(
+					'/api/mcp-catalogs/default/entries/default-everything/generate-tool-previews',
+					() => {
+						previews();
+						return launchFailed
+							? HttpResponse.json({ message: 'Original launch failure' }, { status: 503 })
+							: HttpResponse.json({
+									...entry(),
+									manifest: { ...entry().manifest, toolPreview: tools }
+								});
+					}
+				),
+				http.post('/api/tool-list-requests/tlr1/complete', async ({ request }) => {
+					completed(await request.json());
+					return completed.mock.calls.length === 1
+						? HttpResponse.json({ message: 'Delivery unavailable' }, { status: 503 })
+						: new HttpResponse(null, { status: 200 });
+				}),
+				http.get('/api/tool-list-requests/tlr1', () => HttpResponse.json(request))
+			);
+			render(McpServerEntryForm, {
+				entry: entry(),
+				id: 'default',
+				entity: 'catalog',
+				type: 'remote',
+				readonly: true,
+				isDialogView: true,
+				toolListRequestID: 'tlr1',
+				toolListRequest: request
+			});
+			await page.getByRole('button', { name: 'Tools', exact: true }).click();
+			await page.getByRole('button', { name: 'Launch and list tools' }).click();
+			await expect.element(page.getByText(/Obot has not acknowledged/)).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Launch and list tools' }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'Retry sending result' }).click();
+			await expect
+				.element(page.getByText(launchFailed ? /The tools couldn't be listed/ : /Listed 1 tools/))
+				.toBeVisible();
+			expect(previews).toHaveBeenCalledOnce();
+			expect(completed).toHaveBeenCalledTimes(2);
+			const expected = launchFailed
+				? { tools: [], error: expect.stringContaining('Original launch failure') }
+				: { tools };
+			expect(completed.mock.calls[0][0]).toEqual(expected);
+			expect(completed.mock.calls[1][0]).toEqual(expected);
+		}
+	);
+
+	it('acknowledges a committed result after a lost completion response', async () => {
+		await preparePageData();
+		const tools = [{ id: 'echo', name: 'echo', description: 'Echo' }];
+		const completed = vi.fn();
+		worker.use(
+			http.post('/api/mcp-catalogs/default/entries/default-everything/generate-tool-previews', () =>
+				HttpResponse.json({ ...entry(), manifest: { ...entry().manifest, toolPreview: tools } })
+			),
+			http.post('/api/tool-list-requests/tlr1/complete', () => {
+				completed();
+				return HttpResponse.error();
+			}),
+			http.get('/api/tool-list-requests/tlr1', () =>
+				HttpResponse.json({ ...request, status: 'completed', tools })
+			)
+		);
+		render(McpServerEntryForm, {
+			entry: entry(),
+			id: 'default',
+			entity: 'catalog',
+			type: 'remote',
+			readonly: true,
+			isDialogView: true,
+			toolListRequestID: 'tlr1',
+			toolListRequest: request
+		});
+		await page.getByRole('button', { name: 'Tools', exact: true }).click();
+		await page.getByRole('button', { name: 'Launch and list tools' }).click();
+		await expect.element(page.getByText(/Listed 1 tools/)).toBeVisible();
+		expect(completed).toHaveBeenCalledOnce();
+		await expect
+			.element(page.getByRole('button', { name: 'Retry sending result' }))
+			.not.toBeInTheDocument();
+	});
 });
