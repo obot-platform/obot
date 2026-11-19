@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -237,6 +238,7 @@ func TestApplyURLTemplate(t *testing.T) {
 	tests := []struct {
 		name        string
 		template    string
+		config      []types.MCPConfig
 		envVars     map[string]string
 		expected    string
 		expectError bool
@@ -324,12 +326,14 @@ func TestApplyURLTemplate(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:     "complex path with variables",
+			name: "complex path with variables",
+			// PROVIDER forms the domain, so it is a static value the admin set. A user-supplied
+			// PROVIDER would let the user choose the domain.
 			template: "https://${REGION}.${SERVICE}.${PROVIDER}.com/${VERSION}/${RESOURCE}/${ID}",
+			config:   []types.MCPConfig{{Key: "PROVIDER", Value: "aws"}},
 			envVars: map[string]string{
 				"REGION":   "us-west-2",
 				"SERVICE":  "compute",
-				"PROVIDER": "aws",
 				"VERSION":  "v1",
 				"RESOURCE": "instances",
 				"ID":       "i-1234567890abcdef0",
@@ -341,7 +345,7 @@ func TestApplyURLTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := applyURLTemplate(tt.template, nil, tt.envVars)
+			result, err := applyURLTemplate(tt.template, tt.config, tt.envVars)
 
 			if tt.expectError {
 				if err == nil {
@@ -666,4 +670,20 @@ func newCreateServerSecretBindingK8sClient(t *testing.T, objects ...kclient.Obje
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+}
+
+func TestApplyURLTemplateRejectsHostChangeAsBadRequest(t *testing.T) {
+	_, err := applyURLTemplate("https://${REGION}.api.example.com/mcp", nil, map[string]string{"REGION": "attacker.example/x?"})
+	httpErr, ok := errors.AsType[*types.ErrHTTP](err)
+	require.True(t, ok, "expected *types.ErrHTTP, got %v", err)
+	require.Equal(t, http.StatusBadRequest, httpErr.Code)
+	require.ErrorContains(t, err, "REGION")
+}
+
+func TestApplyURLTemplateExpandsValuesOnce(t *testing.T) {
+	// A value that itself looks like a reference is used literally, matching the runtime's
+	// single-pass expansion regardless of map iteration order.
+	result, err := applyURLTemplate("https://api.example.com/${A}/${B}", nil, map[string]string{"A": "${B}", "B": "x"})
+	require.NoError(t, err)
+	require.Equal(t, "https://api.example.com/${B}/x", result)
 }

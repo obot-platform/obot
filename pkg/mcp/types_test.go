@@ -1123,3 +1123,461 @@ func TestServerToServerConfig_RemoteURLTemplate(t *testing.T) {
 		})
 	}
 }
+
+func TestExpandURLTemplatePinsTemplateHost(t *testing.T) {
+	tests := []struct {
+		name        string
+		template    string
+		values      map[string]string
+		expectedURL string
+		expectError bool
+	}{
+		{
+			name:        "host label",
+			template:    "https://${REGION}.api.example.com/mcp",
+			values:      map[string]string{"REGION": "us"},
+			expectedURL: "https://us.api.example.com/mcp",
+		},
+		{
+			name:        "multi-label host value stays under the admin's domain",
+			template:    "https://${REGION}.api.example.com/mcp",
+			values:      map[string]string{"REGION": "attacker.example"},
+			expectedURL: "https://attacker.example.api.example.com/mcp",
+		},
+		{
+			name:        "port",
+			template:    "https://api.example.com:${PORT}/mcp",
+			values:      map[string]string{"PORT": "8443"},
+			expectedURL: "https://api.example.com:8443/mcp",
+		},
+		{
+			// The admin delegated the whole host to the user.
+			name:        "whole host",
+			template:    "https://${HOST}/mcp",
+			values:      map[string]string{"HOST": "anything.example"},
+			expectedURL: "https://anything.example/mcp",
+		},
+		{
+			// The user already chooses the whole host, so a value that brings its own path is
+			// not a host change.
+			name:        "whole host value with a path",
+			template:    "https://${SERVER}",
+			values:      map[string]string{"SERVER": "tenant.example.com/api/mcp"},
+			expectedURL: "https://tenant.example.com/api/mcp",
+		},
+		{
+			name:        "whole host value with userinfo",
+			template:    "https://${SERVER}",
+			values:      map[string]string{"SERVER": "user@tenant.example.com"},
+			expectedURL: "https://user@tenant.example.com",
+		},
+		{
+			// HOST may be admin-fixed, so a userinfo value must not end the authority early
+			// even though the host part is a single variable.
+			name:        "userinfo value moves a one-variable host",
+			template:    "https://${TOKEN}@${HOST}/mcp",
+			values:      map[string]string{"TOKEN": "x@evil.example/", "HOST": "api.example.com"},
+			expectError: true,
+		},
+		{
+			name:        "userinfo value before a one-variable host",
+			template:    "https://${TOKEN}@${HOST}/mcp",
+			values:      map[string]string{"TOKEN": "p@ss", "HOST": "api.example.com"},
+			expectedURL: "https://p@ss@api.example.com/mcp",
+		},
+		{
+			// Literal text next to the variable (here the port) means the host part is pinned.
+			name:        "host variable with literal port moves the host",
+			template:    "https://${HOST}:8443/mcp",
+			values:      map[string]string{"HOST": "anything.example/x?"},
+			expectError: true,
+		},
+		{
+			// With no literal domain after the variable, a dotted value becomes the domain.
+			name:        "value at the end of the hostname moves the domain",
+			template:    "http://api.lab.${TLD}:9000/mcp",
+			values:      map[string]string{"TLD": "attacker.lab.test"},
+			expectError: true,
+		},
+		{
+			name:        "suffix value with a port moves the domain",
+			template:    "http://us.api.lab.test${SUFFIX}",
+			values:      map[string]string{"SUFFIX": ".attacker.lab.test:9000"},
+			expectError: true,
+		},
+		{
+			// The literal ".com" is only a public suffix, so X alone names the domain.
+			name:        "value forms the registrable domain",
+			template:    "https://api.${X}.com/mcp",
+			values:      map[string]string{"X": "evil"},
+			expectError: true,
+		},
+		{
+			// Provider suffixes don't count: the admin chose the platform, and the user picks
+			// a tenant on it.
+			name:        "value picks a tenant under a provider suffix",
+			template:    "https://${APP}.herokuapp.com/mcp",
+			values:      map[string]string{"APP": "tenant"},
+			expectedURL: "https://tenant.herokuapp.com/mcp",
+		},
+		{
+			name:        "value forms the domain before a multi-label ICANN suffix",
+			template:    "https://api.${X}.co.uk/mcp",
+			values:      map[string]string{"X": "evil"},
+			expectError: true,
+		},
+		{
+			name:        "value next to literal domain text stays under it",
+			template:    "https://api${X}example.com/mcp",
+			values:      map[string]string{"X": "-eu."},
+			expectedURL: "https://api-eu.example.com/mcp",
+		},
+		{
+			// Literal "example.com" must be whole labels, not the end of "evilexample.com".
+			name:        "value joins literal domain text into a new domain",
+			template:    "https://api${X}example.com/mcp",
+			values:      map[string]string{"X": "x.evil"},
+			expectError: true,
+		},
+		{
+			name:        "port variable after a literal hostname",
+			template:    "http://localhost:${PORT}/mcp",
+			values:      map[string]string{"PORT": "8080"},
+			expectedURL: "http://localhost:8080/mcp",
+		},
+		{
+			name:        "host variable with literal port",
+			template:    "https://${HOST}:8443/mcp",
+			values:      map[string]string{"HOST": "anything.example"},
+			expectedURL: "https://anything.example:8443/mcp",
+		},
+		{
+			// Without literal octets in front, the user would choose the whole address.
+			name:        "IP address made only of values",
+			template:    "http://${A}.${B}:8080/mcp",
+			values:      map[string]string{"A": "203.0.113", "B": "7"},
+			expectError: true,
+		},
+		{
+			name:        "fully qualified hostname with a trailing dot",
+			template:    "https://${R}.api.example.com./mcp",
+			values:      map[string]string{"R": "us"},
+			expectedURL: "https://us.api.example.com./mcp",
+		},
+		{
+			name:        "IP address octet",
+			template:    "http://10.0.0.${N}:8080/mcp",
+			values:      map[string]string{"N": "5"},
+			expectedURL: "http://10.0.0.5:8080/mcp",
+		},
+		{
+			name:        "single-label hostname",
+			template:    "http://mcp-${ID}:8080/mcp",
+			values:      map[string]string{"ID": "a"},
+			expectedURL: "http://mcp-a:8080/mcp",
+		},
+		{
+			// net/http converts these full-width dots to '.' before dialing.
+			name:        "ideographic full stops in a single-label hostname move the domain",
+			template:    "https://mcp-${ID}/mcp",
+			values:      map[string]string{"ID": "x。attacker。example"},
+			expectError: true,
+		},
+		{
+			name:        "fullwidth full stops in a single-label hostname move the domain",
+			template:    "https://mcp-${ID}/mcp",
+			values:      map[string]string{"ID": "x．attacker．example"},
+			expectError: true,
+		},
+		{
+			name:        "halfwidth ideographic full stops in a single-label hostname move the domain",
+			template:    "https://mcp-${ID}/mcp",
+			values:      map[string]string{"ID": "x｡attacker｡example"},
+			expectError: true,
+		},
+		{
+			name:        "single-label hostname without a port",
+			template:    "https://mcp-${ID}/mcp",
+			values:      map[string]string{"ID": "abc"},
+			expectedURL: "https://mcp-abc/mcp",
+		},
+		{
+			name:        "non-ASCII literal domain",
+			template:    "https://${R}.münchen.de/mcp",
+			values:      map[string]string{"R": "api"},
+			expectedURL: "https://api.münchen.de/mcp",
+		},
+		{
+			name:        "dotted value in a single-label hostname moves the domain",
+			template:    "http://mcp-${ID}:8080/mcp",
+			values:      map[string]string{"ID": "a.attacker.example"},
+			expectError: true,
+		},
+		{
+			name:        "scheme variable",
+			template:    "${SCHEME}://api.example.com/mcp",
+			values:      map[string]string{"SCHEME": "http"},
+			expectedURL: "http://api.example.com/mcp",
+		},
+		{
+			name:        "path value may contain URL delimiters",
+			template:    "https://api.example.com/${TENANT}/mcp",
+			values:      map[string]string{"TENANT": "a/b?c#d"},
+			expectedURL: "https://api.example.com/a/b?c#d/mcp",
+		},
+		{
+			// Without a literal "://", the user's value decides where the host begins.
+			name:        "no literal scheme separator",
+			template:    "${BASE_URL}/mcp",
+			values:      map[string]string{"BASE_URL": "https://anything.example"},
+			expectedURL: "https://anything.example/mcp",
+		},
+		{
+			name:        "scheme separator in the query is not the template's",
+			template:    "${BASE}/r?u=https://x.example",
+			values:      map[string]string{"BASE": "https://anything.example"},
+			expectedURL: "https://anything.example/r?u=https://x.example",
+		},
+		{
+			name:        "slash in host label moves the host",
+			template:    "https://${REGION}.api.example.com/mcp",
+			values:      map[string]string{"REGION": "attacker.example/x?"},
+			expectError: true,
+		},
+		{
+			name:        "query in host label moves the host",
+			template:    "https://${REGION}.api.example.com/mcp",
+			values:      map[string]string{"REGION": "attacker.example?"},
+			expectError: true,
+		},
+		{
+			name:        "fragment in host label moves the host",
+			template:    "https://${REGION}.api.example.com/mcp",
+			values:      map[string]string{"REGION": "attacker.example#"},
+			expectError: true,
+		},
+		{
+			name:        "userinfo in host label moves the host",
+			template:    "https://${REGION}api.example.com/mcp",
+			values:      map[string]string{"REGION": "x@attacker.example/"},
+			expectError: true,
+		},
+		{
+			name:        "admin-written userinfo",
+			template:    "https://${USER}@api.example.com/mcp",
+			values:      map[string]string{"USER": "x"},
+			expectedURL: "https://x@api.example.com/mcp",
+		},
+		{
+			name:        "uppercase template scheme",
+			template:    "HTTPS://${REGION}.api.example.com/mcp",
+			values:      map[string]string{"REGION": "us"},
+			expectedURL: "HTTPS://us.api.example.com/mcp",
+		},
+		{
+			// The admin's literal '@' is still the URL's last one, so the host is unchanged.
+			name:        "at sign in admin-written userinfo value",
+			template:    "https://user:${PW}@api.example.com/mcp",
+			values:      map[string]string{"PW": "p@ss"},
+			expectedURL: "https://user:p@ss@api.example.com/mcp",
+		},
+		{
+			name:        "at sign in host value after admin-written userinfo",
+			template:    "https://${USER}@api-${REGION}.example.com/mcp",
+			values:      map[string]string{"USER": "u", "REGION": "x@attacker"},
+			expectError: true,
+		},
+		{
+			// Documented limit: with no literal '/', '?' or '#' after the host, the variable
+			// counts as part of the host, so a value that starts a path is rejected.
+			name:        "path variable directly after host",
+			template:    "https://api.example.com${PATH}",
+			values:      map[string]string{"PATH": "/mcp"},
+			expectError: true,
+		},
+		{
+			name:        "slash in admin-written userinfo moves the host",
+			template:    "https://${USER}@api.example.com/mcp",
+			values:      map[string]string{"USER": "attacker.example/"},
+			expectError: true,
+		},
+		{
+			name:        "userinfo skips the admin host prefix",
+			template:    "https://api-${REGION}.example.com/mcp",
+			values:      map[string]string{"REGION": "x@attacker"},
+			expectError: true,
+		},
+		{
+			name:        "slash in port moves the host",
+			template:    "https://api.example.com:${PORT}/mcp",
+			values:      map[string]string{"PORT": "443@attacker.example/"},
+			expectError: true,
+		},
+		{
+			name:        "scheme value adds its own host",
+			template:    "${SCHEME}://api.example.com/mcp",
+			values:      map[string]string{"SCHEME": "https://attacker.example/?x="},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expanded, missing, err := expandURLTemplate(tt.template, tt.values, nil)
+			if len(missing) > 0 {
+				t.Fatalf("unexpected missing references: %v", missing)
+			}
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected an error, got URL %q", expanded)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if expanded != tt.expectedURL {
+				t.Fatalf("URL = %q, want %q", expanded, tt.expectedURL)
+			}
+		})
+	}
+}
+
+func TestResolveURLTemplateTreatsAdminValuesAsLiteral(t *testing.T) {
+	ddSiteOptions := []types.MCPConfigurationOption{{Value: "datadoghq.com"}, {Value: "us3.datadoghq.com"}}
+	tests := []struct {
+		name          string
+		template      string
+		config        []types.MCPConfig
+		configuration map[string]string
+		adminKeys     []string
+		expectedURL   string
+		expectError   bool
+	}{
+		{
+			name:          "user value forms the domain",
+			template:      "https://mcp.${DD_SITE}/api/mcp",
+			configuration: map[string]string{"DD_SITE": "datadoghq.eu"},
+			expectError:   true,
+		},
+		{
+			name:        "static value forms the domain",
+			template:    "https://mcp.${DD_SITE}/api/mcp",
+			config:      []types.MCPConfig{{Key: "DD_SITE", Value: "datadoghq.eu"}},
+			expectedURL: "https://mcp.datadoghq.eu/api/mcp",
+		},
+		{
+			name:          "static value overrides a user value",
+			template:      "https://mcp.${DD_SITE}/api/mcp",
+			config:        []types.MCPConfig{{Key: "DD_SITE", Value: "datadoghq.eu"}},
+			configuration: map[string]string{"DD_SITE": "attacker.example"},
+			expectedURL:   "https://mcp.datadoghq.eu/api/mcp",
+		},
+		{
+			name:          "chosen option forms the domain",
+			template:      "https://mcp.${DD_SITE}/api/mcp",
+			config:        []types.MCPConfig{{Key: "DD_SITE", Options: ddSiteOptions}},
+			configuration: map[string]string{"DD_SITE": "us3.datadoghq.com"},
+			expectedURL:   "https://mcp.us3.datadoghq.com/api/mcp",
+		},
+		{
+			// Having options isn't enough: the value must be one of them.
+			name:          "value outside the options forms the domain",
+			template:      "https://mcp.${DD_SITE}/api/mcp",
+			config:        []types.MCPConfig{{Key: "DD_SITE", Options: ddSiteOptions}},
+			configuration: map[string]string{"DD_SITE": "attacker.example"},
+			expectError:   true,
+		},
+		{
+			name:          "admin key forms the domain",
+			template:      "https://mcp.${DD_SITE}/api/mcp",
+			configuration: map[string]string{"DD_SITE": "datadoghq.eu"},
+			adminKeys:     []string{"DD_SITE"},
+			expectedURL:   "https://mcp.datadoghq.eu/api/mcp",
+		},
+		{
+			name:          "user label before an admin domain",
+			template:      "https://${TENANT}.mcp.${DD_SITE}/api/mcp",
+			configuration: map[string]string{"TENANT": "acme", "DD_SITE": "datadoghq.eu"},
+			adminKeys:     []string{"DD_SITE"},
+			expectedURL:   "https://acme.mcp.datadoghq.eu/api/mcp",
+		},
+		{
+			name:          "user label before an admin domain moves the host",
+			template:      "https://${TENANT}.mcp.${DD_SITE}/api/mcp",
+			configuration: map[string]string{"TENANT": "attacker.example/", "DD_SITE": "datadoghq.eu"},
+			adminKeys:     []string{"DD_SITE"},
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved, missing, err := ResolveURLTemplate(tt.template, tt.config, tt.configuration, tt.adminKeys)
+			if len(missing) > 0 {
+				t.Fatalf("unexpected missing references: %v", missing)
+			}
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected an error, got URL %q", resolved)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if resolved != tt.expectedURL {
+				t.Fatalf("expected %q, got %q", tt.expectedURL, resolved)
+			}
+		})
+	}
+}
+
+func TestValidateURLTemplateHostErrorOmitsValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		values   map[string]string
+	}{
+		{
+			name:     "host mismatch",
+			template: "https://${REGION}.api.example.com/mcp",
+			values:   map[string]string{"REGION": "secret-region.example/x?"},
+		},
+		{
+			// url.Parse errors quote the whole URL, so this covers the parse-failure path.
+			name:     "unparseable port",
+			template: "https://api.example.com:${PORT}/mcp",
+			values:   map[string]string{"PORT": "secret-port"},
+		},
+		{
+			// The invalid escape is in a path value, so the error must name it even though it is
+			// outside the scheme and authority.
+			name:     "invalid escape in path value",
+			template: "https://${REGION}.api.example.com/${TENANT}",
+			values:   map[string]string{"REGION": "us", "TENANT": "secret-tenant%zz"},
+		},
+		{
+			name:     "userinfo password that moves the host",
+			template: "https://user:${PW}@api.example.com/mcp",
+			values:   map[string]string{"PW": "secret-password/x"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := expandURLTemplate(tt.template, tt.values, nil)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			for key, value := range tt.values {
+				if strings.Contains(err.Error(), value) {
+					t.Fatalf("error %q contains the value of %s", err, key)
+				}
+				if !strings.Contains(err.Error(), key) {
+					t.Fatalf("error %q does not name %s", err, key)
+				}
+			}
+		})
+	}
+}

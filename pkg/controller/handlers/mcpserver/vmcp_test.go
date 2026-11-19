@@ -635,3 +635,121 @@ func TestSyncVMCPConfigurationClearsURLWhenSharedTemplateBecomesPerUser(t *testi
 		t.Fatalf("URL = %q, want it cleared so the runtime expands the template per request", got)
 	}
 }
+
+// Regression test for the URL template host advisory: the runtime uses a stored URL without
+// re-expanding the template, so the controller must never store one whose host a value moved,
+// and must clear a previously stored valid URL rather than keep it.
+func TestSyncVMCPConfigurationClearsURLWhenValueChangesTemplateHost(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	// A non-header user input keeps the VMCP single-user, so each instance owns its server.
+	component := types.VMCPComponent{
+		ID:   "component-one",
+		Name: "one",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+			Config: []types.MCPConfig{{Key: "REGION", Usage: types.Env, Required: true}},
+		}},
+		Configuration: []types.VMCPConfigurationPolicy{
+			{Key: "REGION", Policy: types.VMCPConfigurationPolicyUserAllowed},
+		},
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1host", Namespace: "default", Spec: v1.VMCPSpec{
+		Manifest:                types.VMCPManifest{Components: []types.VMCPComponent{component}},
+		StaticConfigurationHash: "static-hash",
+	}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1host", Namespace: "default", Spec: v1.VMCPInstanceSpec{
+		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+		UserID:   "user-1",
+	}, Status: v1.VMCPInstanceStatus{UserConfigurationHash: "user-hash"}}
+	server := &v1.MCPServer{
+		Name:        "ms1host",
+		Namespace:   "default",
+		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: "snapshot-1"},
+		Spec: v1.MCPServerSpec{
+			UserID:          instance.Spec.UserID,
+			VMCPInstanceID:  instance.Name,
+			VMCPComponentID: component.ID,
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				Config:  []types.MCPConfig{{Key: "REGION", Usage: types.Env, Required: true}},
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					IsTemplate:  true,
+					URLTemplate: "https://${REGION}.api.example.com/mcp",
+					// Resolved from an earlier, valid value.
+					URL: "https://us.api.example.com/mcp",
+				},
+			},
+		},
+	}
+	storageClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(vmcp, instance, server).
+		Build()
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), server); err != nil {
+		t.Fatal(err)
+	}
+
+	gatewayClient := newTestGatewayClient(t)
+	if err := gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+		Name:    vmcpconfig.ConfigurationCredentialName(),
+		Secrets: map[string]string{vmcpconfig.ConfigurationKey(component.ID, "REGION"): "attacker.example/x?"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&Handler{gatewayClient: gatewayClient}).SyncVMCPConfiguration(router.Request{
+		Ctx:    t.Context(),
+		Client: storageClient,
+		Object: server,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var stored v1.MCPServer
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), &stored); err != nil {
+		t.Fatal(err)
+	}
+	if got := stored.Spec.Manifest.RemoteConfig.URL; got != "" {
+		t.Fatalf("stored URL = %q, want it cleared", got)
+	}
+}
+
+func TestResolvedComponentURLTreatsFixedValuesAsAdminText(t *testing.T) {
+	// DD_SITE forms the domain. Only the fixed policy on a shared vMCP says an admin set it; the
+	// configuration map alone can't tell it apart from the user's TENANT.
+	component := types.VMCPComponent{
+		ID: "component-one",
+		Configuration: []types.VMCPConfigurationPolicy{
+			{Key: "TENANT", Policy: types.VMCPConfigurationPolicyUserAllowed},
+			{Key: "DD_SITE", Policy: types.VMCPConfigurationPolicyFixed},
+		},
+	}
+	server := &v1.MCPServer{Spec: v1.MCPServerSpec{
+		VMCPInstanceID: "instance-1",
+		Manifest: types.MCPServerManifest{
+			Runtime:      types.RuntimeRemote,
+			RemoteConfig: &types.RemoteRuntimeConfig{URLTemplate: "https://${TENANT}.mcp.${DD_SITE}/api/mcp"},
+		},
+	}}
+
+	url, owned := resolvedComponentURL(component, server, map[string]string{"TENANT": "acme", "DD_SITE": "datadoghq.eu"}, true)
+	if !owned || url != "https://acme.mcp.datadoghq.eu/api/mcp" {
+		t.Fatalf("resolvedComponentURL() = %q, %v; want the expanded URL", url, owned)
+	}
+
+	// Any user can own a personal vMCP and fix its values, so there a fixed value is not admin text.
+	if url, _ := resolvedComponentURL(component, server, map[string]string{"TENANT": "acme", "DD_SITE": "attacker.example"}, false); url != "" {
+		t.Fatalf("resolvedComponentURL() = %q; want it rejected when a personal vMCP's fixed value sets the domain", url)
+	}
+
+	// The same values with DD_SITE left to the user would let the user choose the domain.
+	component.Configuration[1].Policy = types.VMCPConfigurationPolicyUserAllowed
+	if url, _ := resolvedComponentURL(component, server, map[string]string{"TENANT": "acme", "DD_SITE": "datadoghq.eu"}, true); url != "" {
+		t.Fatalf("resolvedComponentURL() = %q; want it rejected when the user sets the domain", url)
+	}
+}

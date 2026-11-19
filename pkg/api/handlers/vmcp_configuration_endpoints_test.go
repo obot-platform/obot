@@ -403,3 +403,83 @@ func TestSyncInstanceConfigurationHashRetriesAfterCorrection(t *testing.T) {
 	assert.Equal(t, utils.Digest(raced), updated.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation])
 	assert.Equal(t, "reconciled", updated.Status.ConfigurationCheckHash, "concurrent write was clobbered")
 }
+
+// TestVMCPInstanceConfigureRejectsURLTemplateHostChange covers a user value that would move a
+// templated remote server to another host: it must be refused when submitted, before anything
+// is stored, rather than only failing later when the server connects.
+func TestVMCPInstanceConfigureRejectsURLTemplateHostChange(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:      "vmcp-url-template",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{
+			ID:   "component-id",
+			Name: "component",
+			CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${REGION}.api.example.com/mcp"},
+				Config:       []types.MCPConfig{{Key: "REGION", Usage: types.Env, Required: true}},
+			}},
+			Configuration: []types.VMCPConfigurationPolicy{{Key: "REGION", Policy: types.VMCPConfigurationPolicyUserAllowed}},
+		}}}},
+	}
+	tests := []struct {
+		name      string
+		region    string
+		wantError bool
+	}{
+		{
+			name:   "host label",
+			region: "us",
+		},
+		{
+			name:      "value that moves the host",
+			region:    "attacker.example/x?",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			instance := &v1.VMCPInstance{
+				Name:      "vmcpi-url-template",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.VMCPInstanceSpec{
+					UserID:   "user-1",
+					Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+				},
+			}
+			storage := newVMCPTestStorage(vmcp.DeepCopy(), instance)
+			gatewayClient := newHandlerTestGateway(t)
+
+			body, err := json.Marshal(types.VMCPConfiguration{Components: map[string]map[string]string{
+				"component-id": {"REGION": tt.region},
+			}})
+			require.NoError(t, err)
+			request := httptest.NewRequest(http.MethodPost,
+				"/api/vmcp-instances/"+instance.Name+"/configure", strings.NewReader(string(body)))
+			request.SetPathValue("vmcp_instance_id", instance.Name)
+			err = NewVMCPInstanceHandler().Configure(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        request,
+				Storage:        storage,
+				GatewayClient:  gatewayClient,
+				User:           &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}},
+			})
+
+			_, revealErr := gatewayClient.RevealCredential(t.Context(),
+				[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)}, vmcpconfig.ConfigurationCredentialName())
+			if !tt.wantError {
+				require.NoError(t, err)
+				require.NoError(t, revealErr)
+				return
+			}
+			var httpErr *types.ErrHTTP
+			require.ErrorAs(t, err, &httpErr)
+			assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+			assert.Contains(t, err.Error(), "REGION")
+			assert.NotContains(t, err.Error(), tt.region, "the error must not echo the value")
+			var notFound gateway.CredentialNotFoundError
+			require.ErrorAs(t, revealErr, &notFound, "a rejected value must not be stored")
+		})
+	}
+}

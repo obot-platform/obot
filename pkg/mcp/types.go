@@ -3,14 +3,19 @@ package mcp
 import (
 	"fmt"
 	"maps"
+	"net"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"golang.org/x/net/idna"
+	"golang.org/x/net/publicsuffix"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -192,8 +197,14 @@ func expandEnvVars(text string, credEnv map[string]string, fileEnvVars map[strin
 
 // expandURLTemplate resolves the ${VAR} references in a remote URL template. Rather than
 // returning a partially expanded URL, it returns the names of every reference that has no
-// configured value so the caller can report them as missing configuration.
-func expandURLTemplate(urlTemplate string, credEnv map[string]string) (string, []string) {
+// configured value so the caller can report them as missing configuration. Once every reference
+// resolves, it returns an error if the values change the host the template pins.
+//
+// adminValues holds the values an admin set (see adminURLTemplateValues), keyed like credEnv.
+// They are written into the template before the host check, so their text counts as literal
+// text the admin wrote: an admin who fixes DD_SITE to "datadoghq.eu" in
+// "https://mcp.${DD_SITE}/api/mcp" chose that domain, and the check must not reject it.
+func expandURLTemplate(urlTemplate string, credEnv, adminValues map[string]string) (string, []string, error) {
 	var missing []string
 	for _, reference := range URLTemplateReferences(urlTemplate) {
 		if credEnv[reference] == "" {
@@ -201,10 +212,226 @@ func expandURLTemplate(urlTemplate string, credEnv map[string]string) (string, [
 		}
 	}
 	if len(missing) > 0 {
-		return "", missing
+		return "", missing, nil
 	}
 
-	return expandEnvVars(urlTemplate, credEnv, nil), nil
+	expanded := expandEnvVars(urlTemplate, credEnv, nil)
+	adminTemplate := expandEnvVars(urlTemplate, adminValues, nil)
+	// With every value admin-set, nothing a user supplied reaches the URL, so there is nothing
+	// to pin. Skipping also keeps the check's errors, which name the remaining variables, from
+	// naming none.
+	if len(URLTemplateReferences(adminTemplate)) == 0 {
+		return expanded, nil, nil
+	}
+	if err := validateURLTemplateHost(adminTemplate, expanded, credEnv); err != nil {
+		return "", nil, err
+	}
+	return expanded, nil, nil
+}
+
+// adminURLTemplateValues returns the URL template values in values that an admin chose: a
+// static catalog Value, or a value that matches one of the field's admin-written Options. A
+// user can pick an option, but only from the admin's list, so the result is still a domain the
+// admin wrote. The option is matched here rather than trusted because the field has Options,
+// since a stored value is not re-validated on every path that reaches this.
+func adminURLTemplateValues(config []types.MCPConfig, values map[string]string) map[string]string {
+	adminValues := make(map[string]string)
+	for _, c := range config {
+		if c.Value != "" {
+			adminValues[c.Key] = c.Value
+			continue
+		}
+		if value, ok := values[c.Key]; ok && slices.ContainsFunc(c.Options, func(option types.MCPConfigurationOption) bool {
+			return option.Value == value
+		}) {
+			adminValues[c.Key] = value
+		}
+	}
+	return adminValues
+}
+
+// validateURLTemplateHost rejects configuration values that change the host an admin wrote
+// into a URL template. Without it, a user could set a value like "evil.example/x?" for
+// "https://${REGION}.api.example.com/mcp" and Obot would send the entry's static headers to
+// a host the user chose.
+//
+// The template is admin-authored, so its literal "://" and the first '/', '?' or '#' after it
+// reliably mark where the authority begins and ends. Values may fill in parts of it (a host
+// label, the whole host, a port) but must not end or restructure it, and unless a value is the
+// whole hostname it must not form the host's registrable domain. A template without a
+// literal scheme separator, such as "${BASE_URL}/mcp", lets users choose the whole host on
+// purpose, so there is nothing to pin.
+func validateURLTemplateHost(urlTemplate, expanded string, values map[string]string) error {
+	scheme, rest, ok := strings.Cut(urlTemplate, "://")
+	// A '/', '?' or '#' before the first "://" means that "://" is in the path or query (as in
+	// "${BASE}/r?u=https://x"), not a literal scheme separator.
+	if !ok || strings.ContainsAny(scheme, "/?#") {
+		return nil
+	}
+	// The authority ends at the template's first literal '/', '?' or '#'. A template with none of
+	// those after the host, such as "https://api.example.com${PATH}", has no admin-written end to
+	// its authority, so the variable counts as part of the host and any value that starts a path
+	// is rejected. That limit is deliberate: cutting the expanded authority at the value's own
+	// '/' instead would let a value end the host wherever it likes, which is the attack this
+	// check exists to stop. Admins can write "https://api.example.com/${PATH}" instead.
+	authority := rest
+	if i := strings.IndexAny(rest, "/?#"); i >= 0 {
+		authority = rest[:i]
+	}
+	// Only the part after the template's last literal '@' is the host the admin pinned; anything
+	// before it is userinfo the admin wrote (as in "https://user:${PW}@api.example.com"), so a
+	// value there may contain any character, including '@', without moving the host.
+	hostTemplate := authority[strings.LastIndex(authority, "@")+1:]
+
+	// Expanding the scheme and host on their own gives what the admin's structure allows. If a
+	// value smuggled in a delimiter, the parser splits the URL elsewhere and the hosts differ:
+	// '/', '?' or '#' end the host early, and an '@' in a host value becomes the URL's last '@',
+	// turning the admin's host prefix (the "api-" in "api-${REGION}.example.com") into userinfo.
+	// url.Parse lowercases the scheme, so a template written as "HTTPS://..." compares equal.
+	//
+	// Both errors name variables but never err or the URL: those contain the configured values,
+	// which may be secrets (userinfo) and which these errors carry into API responses and logs.
+	u, err := url.Parse(expanded)
+	if err != nil {
+		// Any value can make the URL unparseable (a non-numeric port, or an invalid escape such
+		// as "%zz" in a path value), so name every variable in the template.
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "urlTemplate",
+			Message: fmt.Sprintf("the values of %s do not form a valid URL",
+				strings.Join(URLTemplateReferences(urlTemplate), ", ")),
+		}
+	}
+	// An authority written as one variable and nothing else ("https://${SERVER}") is the admin
+	// letting users choose any host, so there is nothing to pin, and a value such as
+	// "tenant.example.com/api/mcp" that brings its own path, query or userinfo stays allowed. Any
+	// literal text in the host ("${REGION}.api.example.com", "${HOST}:8443") is pinned.
+	//
+	// The whole authority must be that one variable, not just the part after the last '@'. In
+	// "https://${TOKEN}@${HOST}/mcp" HOST may be admin-fixed while TOKEN is the user's, and a
+	// TOKEN of "x@evil.example/" ends the authority early and moves the host to evil.example.
+	// This function cannot tell who supplied which value, so userinfo before a one-variable host
+	// keeps the host pinned.
+	userChosenHost := hostTemplate == authority && authority != "" && envVarRegex.FindString(authority) == authority
+	if !strings.EqualFold(u.Scheme, expandEnvVars(scheme, values, nil)) ||
+		(!userChosenHost && u.Host != expandEnvVars(hostTemplate, values, nil)) {
+		// Only a value in the scheme or authority can change them, so name just those variables.
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "urlTemplate",
+			Message: fmt.Sprintf("the values of %s must not change the URL template's scheme or host structure",
+				strings.Join(URLTemplateReferences(scheme+"://"+authority), ", ")),
+		}
+	}
+	if userChosenHost {
+		return nil
+	}
+
+	// The structure check above still lets a value put any text, dots included, where its
+	// variable sits. That is harmless before admin-written domain text
+	// ("${REGION}.api.example.com") but not when the value forms the registrable domain:
+	// "api.lab.${TLD}" with TLD "attacker.example", or "api.${X}.com" with X "evil", sends the
+	// entry's static headers to a domain the user owns. So the registrable domain (see
+	// icannRegistrableDomain) must come entirely from literal text after the hostname's last
+	// variable.
+	//
+	// The port is cut off first so a port variable ("api.example.com:${PORT}") doesn't count as
+	// the hostname's last variable. A ':' before the last ']' is inside an IPv6 literal.
+	hostnameTemplate := hostTemplate
+	if i := strings.LastIndex(hostTemplate, ":"); i > strings.LastIndex(hostTemplate, "]") {
+		hostnameTemplate = hostTemplate[:i]
+	}
+	domainErr := types.RuntimeValidationError{
+		Runtime: types.RuntimeRemote,
+		Field:   "urlTemplate",
+		Message: fmt.Sprintf("the values of %s must not change the URL template's domain",
+			strings.Join(URLTemplateReferences(hostnameTemplate), ", ")),
+	}
+	// No variables in the hostname ("localhost:${PORT}") leaves nothing for a value to change.
+	// A hostname that is one variable ("${HOST}:8443", "${TOKEN}@${HOST}") is the admin letting
+	// users choose the host, and only its structure is pinned above.
+	if !strings.Contains(hostnameTemplate, "${") || envVarRegex.FindString(hostnameTemplate) == hostnameTemplate {
+		return nil
+	}
+	// The checks below must see the host the HTTP client will dial, not the text as written.
+	// net/http converts a non-ASCII host to ASCII before dialing, and that conversion turns
+	// full-width dots ('。', '．', '｡') into '.', so "mcp-${ID}" with ID "x。attacker。example"
+	// looks like one label here but dials mcp-x.attacker.example. A host that can't be
+	// converted is rejected rather than skipped. A fully qualified name's trailing '.'
+	// ("api.example.com.") names the same host, so it is dropped here and from the literal tail
+	// below to keep it out of the domain lookup.
+	hostname, err := dialedHostname(u.Hostname())
+	if err != nil {
+		return domainErr
+	}
+	hostname = strings.TrimSuffix(hostname, ".")
+	// Remaining cases with no domain for a value to take over:
+	//   - an IP address behind literal text ("10.0.0.${N}"), whose literal octets bound the
+	//     result. A template that starts with a variable ("${A}.${B}") would let a user pick any
+	//     IP, so it gets no exemption and fails the domain check below;
+	//   - a single-label name ("mcp-${ID}"), which only resolves on the local network and that no
+	//     one can register publicly.
+	if (net.ParseIP(hostname) != nil && !strings.HasPrefix(hostnameTemplate, "${")) || !strings.Contains(hostname, ".") {
+		return nil
+	}
+	// A leading '.' on both sides compares whole labels, so literal "example.com" right after a
+	// variable doesn't match a value-made "evilexample.com". The tail is converted the same way
+	// as the hostname, so an admin-written non-ASCII domain ("${R}.münchen.de") compares in the
+	// form that is dialed. A lookup error (for example an empty label in "api..example.com")
+	// rejects the value rather than skipping the check.
+	literalTail := hostnameTemplate[strings.LastIndex(hostnameTemplate, "}")+1:]
+	leadingDot := strings.HasPrefix(literalTail, ".")
+	literalTail, err = dialedHostname(strings.TrimPrefix(literalTail, "."))
+	if err != nil {
+		return domainErr
+	}
+	if leadingDot {
+		literalTail = "." + literalTail
+	}
+	literalTail = strings.TrimSuffix(literalTail, ".")
+	domain, err := icannRegistrableDomain(hostname)
+	if err != nil || !strings.HasSuffix("."+literalTail, "."+domain) {
+		return domainErr
+	}
+	return nil
+}
+
+// dialedHostname returns host in the form net/http dials it: an ASCII host as is (lowercased
+// for comparison), and any other host converted with IDNA's lookup profile, as net/http does.
+// ASCII hosts skip the conversion because net/http skips it too, and its stricter rules would
+// reject names net/http accepts, such as ones with '_'.
+func dialedHostname(host string) (string, error) {
+	if strings.IndexFunc(host, func(r rune) bool { return r >= utf8.RuneSelf }) < 0 {
+		return strings.ToLower(host), nil
+	}
+	return idna.Lookup.ToASCII(host)
+}
+
+// icannRegistrableDomain returns the hostname's registrable domain: its ICANN public suffix plus
+// one label ("example.com", "example.co.uk"). Provider-registered suffixes on the public suffix
+// list, such as "azurewebsites.net" or "run.app", are skipped on purpose. A template like
+// "https://${APP}.azurewebsites.net" names the platform it trusts, and letting the user pick a
+// tenant on it is what such a template is for. An unlisted TLD ("lab.test") counts as a
+// one-label suffix, as the list's default rule does.
+func icannRegistrableDomain(hostname string) (string, error) {
+	if hostname == "" || strings.HasPrefix(hostname, ".") || strings.HasSuffix(hostname, ".") || strings.Contains(hostname, "..") {
+		return "", fmt.Errorf("invalid hostname")
+	}
+	suffix, icann := publicsuffix.PublicSuffix(hostname)
+	// PublicSuffix returns the longest matching rule, so a private suffix comes back as itself.
+	// Look up its parent to find the next shorter suffix, until an ICANN one or the last label.
+	for !icann {
+		_, parent, ok := strings.Cut(suffix, ".")
+		if !ok {
+			break
+		}
+		suffix, icann = publicsuffix.PublicSuffix(parent)
+	}
+	if hostname == suffix {
+		return "", fmt.Errorf("hostname is a public suffix")
+	}
+	rest := hostname[:len(hostname)-len(suffix)-1]
+	return rest[strings.LastIndex(rest, ".")+1:] + "." + suffix, nil
 }
 
 // URLTemplateReferences returns the names referenced by ${VAR} patterns in a remote URL
@@ -219,24 +446,33 @@ func URLTemplateReferences(urlTemplate string) []string {
 	return references
 }
 
-// ResolveRemoteURLTemplate expands a remote manifest's URL template using the supplied
-// configuration alongside the manifest's own static values, the same way the runtime does
-// when it builds a ServerConfig. It returns the names of every unresolved reference rather
-// than a partially expanded URL.
-func ResolveRemoteURLTemplate(manifest types.MCPServerManifest, configuration map[string]string) (string, []string) {
-	if manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
-		return "", nil
-	}
-
-	values := make(map[string]string, len(configuration)+len(manifest.Config))
+// ResolveURLTemplate expands a remote URL template using the supplied configuration alongside
+// the manifest's own static config values, the same way the runtime does when it builds a
+// ServerConfig. It takes the template and config fields rather than a manifest because system
+// servers use a different manifest type. Static values override the supplied configuration, so
+// a user cannot replace a value the admin fixed. It returns the names of every unresolved
+// reference rather than a partially expanded URL, and an error if the values change the host
+// the template pins.
+//
+// adminKeys names configuration keys whose values an admin set outside the manifest, such as a
+// vMCP component's fixed configuration. Like static values and admin options, their text counts
+// as literal template text in the host check.
+func ResolveURLTemplate(urlTemplate string, config []types.MCPConfig, configuration map[string]string, adminKeys []string) (string, []string, error) {
+	values := make(map[string]string, len(configuration)+len(config))
 	maps.Copy(values, configuration)
-	for _, config := range manifest.Config {
-		if config.Value != "" {
-			values[config.Key] = config.Value
+	for _, c := range config {
+		if c.Value != "" {
+			values[c.Key] = c.Value
 		}
 	}
 
-	return expandURLTemplate(manifest.RemoteConfig.URLTemplate, values)
+	adminValues := adminURLTemplateValues(config, values)
+	for _, key := range adminKeys {
+		if value, ok := values[key]; ok {
+			adminValues[key] = value
+		}
+	}
+	return expandURLTemplate(urlTemplate, values, adminValues)
 }
 
 // dedupe removes duplicate names, preserving the order of their first occurrence.
@@ -348,7 +584,17 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 		// on the manifest. vMCP component servers never take that path: their configuration
 		// lives in a credential synced from the vMCP, so the template is resolved here with
 		// the configuration for this connection.
-		expanded, missing := expandURLTemplate(remoteConfig.URLTemplate, credEnv)
+		//
+		// A vMCP's fixed values don't count as admin-set here, because the manifest doesn't record
+		// which keys the vMCP fixed. The vMCP controller does count them and stores the URL it
+		// resolves before marking the server synced, and vMCP connections wait for that
+		// (vmcpaccess.ServerConfigurationSynced in vmcp.go). So a vMCP connection only reaches
+		// this path when the controller deliberately left the URL empty because it rejected the
+		// values or some were missing, and refusing here as well is correct.
+		expanded, missing, err := expandURLTemplate(remoteConfig.URLTemplate, credEnv, adminURLTemplateValues(config, credEnv))
+		if err != nil {
+			return nil, err
+		}
 		if len(missing) > 0 {
 			missingRequiredNames = append(missingRequiredNames, missing...)
 		} else {

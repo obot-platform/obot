@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"regexp"
 	"slices"
@@ -815,24 +814,19 @@ func validateConfiguredOptions(config []types.MCPConfig, configured map[string]s
 	return nil
 }
 
-// applyURLTemplate resolves submitted and static manifest values into a URL template.
+// applyURLTemplate resolves submitted and static manifest values into a URL template. It reuses
+// the runtime's resolver so the URL stored here is exactly what the runtime would build: the
+// same single-pass expansion (a value containing "${OTHER}" is never expanded again) and the
+// same check that values do not change the template's host.
 func applyURLTemplate(templateStr string, envs []types.MCPConfig, configured map[string]string) (string, error) {
-	values := make(map[string]string, len(configured)+len(envs))
-	maps.Copy(values, configured)
-	for _, env := range envs {
-		if env.Value != "" {
-			values[env.Key] = env.Value
-		}
+	result, missing, err := mcp.ResolveURLTemplate(templateStr, envs, configured, nil)
+	if err != nil {
+		// Reported when the value is submitted, as a bad request, rather than only when the
+		// runtime later refuses to connect.
+		return "", types.NewErrBadRequest("invalid configuration: %v", err)
 	}
-	for _, key := range extractEnvVars(templateStr) {
-		if values[key] == "" {
-			return "", &urlTemplateConfigurationError{key: key}
-		}
-	}
-
-	result := templateStr
-	for key, value := range values {
-		result = strings.ReplaceAll(result, fmt.Sprintf("${%s}", key), value)
+	if len(missing) > 0 {
+		return "", &urlTemplateConfigurationError{key: missing[0]}
 	}
 	return result, nil
 }

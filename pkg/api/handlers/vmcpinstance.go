@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -181,6 +183,30 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 	secrets, err := vmcpconfig.ValidateAndEncodeUserConfiguration(effective, configuration)
 	if err != nil {
 		return types.NewErrBadRequest("invalid VMCP instance configuration: %v", err)
+	}
+	// Reject a URL template value that changes the template's host now, rather than storing it
+	// and letting the connection fail later with an error only admins see in the logs. This runs
+	// here rather than in ValidateAndEncodeUserConfiguration because pkg/mcp imports pkg/vmcp.
+	//
+	// Admin-fixed and catalog-static values live in credentials this request does not read, so
+	// a template that references one resolves as missing and is skipped; the runtime and the vMCP
+	// controller still run the same check with every value before anything connects.
+	for _, component := range effective.Components {
+		remote := component.CatalogEntry.Manifest.RemoteConfig
+		if remote == nil || remote.URLTemplate == "" {
+			continue
+		}
+		// Trim the same way ValidateAndEncodeUserConfiguration does, so the check sees the
+		// values that are stored.
+		values := make(map[string]string, len(configuration.Components[component.ID]))
+		for key, value := range configuration.Components[component.ID] {
+			values[key] = strings.TrimSpace(value)
+		}
+		// No admin keys: the vMCP's fixed values aren't in values (see above), so a template
+		// that uses one resolves as missing before the host check runs.
+		if _, _, err := mcp.ResolveURLTemplate(remote.URLTemplate, vmcpconfig.ComponentConfig(component), values, nil); err != nil {
+			return types.NewErrBadRequest("invalid VMCP instance configuration for component %q: %v", component.ID, err)
+		}
 	}
 
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{

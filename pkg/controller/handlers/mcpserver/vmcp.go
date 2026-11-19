@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -100,7 +101,7 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	if err != nil {
 		return err
 	}
-	if url, owned := resolvedComponentURL(*component, &resolvedServer, configuration); owned && server.Spec.Manifest.RemoteConfig.URL != url {
+	if url, owned := resolvedComponentURL(*component, &resolvedServer, configuration, vmcp.Spec.UserID == ""); owned && server.Spec.Manifest.RemoteConfig.URL != url {
 		server.Spec.Manifest.RemoteConfig.URL = url
 		if err := req.Client.Update(req.Ctx, server); err != nil {
 			return fmt.Errorf("store resolved URL for MCPServer %q: %w", server.Name, err)
@@ -123,10 +124,11 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 // cleared. Leaving a stale URL behind would keep the runtime from expanding the template, since
 // it only does so for a server whose URL is empty.
 //
-// A shared component server backs every user of a multi-user VMCP, and user-provided values are
-// resolved per request rather than stored (see SessionManager.sharedVMCPConfiguration). A
-// template referencing one of those has no single answer, so it is left to the runtime.
-func resolvedComponentURL(component types.VMCPComponent, server *v1.MCPServer, configuration map[string]string) (string, bool) {
+// A shared component server backs every user of a multi-user VMCP, so user-provided values are
+// not stored on it; each user's values travel on that user's component connection (see
+// vmcpconfig.ConnectionConfiguration). A template referencing one of those has no single answer,
+// so it is left to the runtime.
+func resolvedComponentURL(component types.VMCPComponent, server *v1.MCPServer, configuration map[string]string, sharedVMCP bool) (string, bool) {
 	manifest := server.Spec.Manifest
 	if manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
 		return "", false
@@ -141,7 +143,32 @@ func resolvedComponentURL(component types.VMCPComponent, server *v1.MCPServer, c
 		}
 	}
 
-	url, missing := mcp.ResolveRemoteURLTemplate(manifest, configuration)
+	// A value that changes the template's host is treated like a missing one: the stored URL is
+	// cleared so the runtime expands the template itself and rejects the connection, rather than
+	// connecting to the stored host with the entry's static headers.
+	//
+	// On a shared vMCP, which only admins can create, fixed values were set by an admin, so the
+	// host check treats them as template text the admin wrote. A personal vMCP's owner sets its
+	// fixed values and may be any user, so there they get the same check as a user's value;
+	// otherwise the owner could fix a value that moves the entry's static headers to their own
+	// domain. That includes an admin's personal vMCP, which only loses the exemption.
+	var adminKeys []string
+	if sharedVMCP {
+		for _, policy := range component.Configuration {
+			if policy.Policy == types.VMCPConfigurationPolicyFixed {
+				adminKeys = append(adminKeys, policy.Key)
+			}
+		}
+	}
+	url, missing, err := mcp.ResolveURLTemplate(manifest.RemoteConfig.URLTemplate, manifest.Config, configuration, adminKeys)
+	if err != nil {
+		// Not returned as a reconcile error: retrying cannot fix a bad value, and clearing the URL
+		// is the correct state until someone changes it. The log tells admins which component
+		// and variables to look at; the error names the variables but not their values.
+		slog.Warn("Rejected URL template configuration for vMCP component server",
+			"server", server.Name, "vmcpInstance", server.Spec.VMCPInstanceID, "component", component.ID, "error", err)
+		return "", true
+	}
 	if len(missing) > 0 {
 		return "", true
 	}
