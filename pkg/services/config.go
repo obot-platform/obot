@@ -544,18 +544,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if config.Hostname == "" {
 		config.Hostname = fmt.Sprintf("http://localhost:%d", config.HTTPListenPort)
 	}
+	config.Hostname = withURLScheme(config.Hostname)
 	if config.UIHostname == "" {
 		config.UIHostname = config.Hostname
 	}
-
-	if strings.HasPrefix(config.Hostname, "localhost") || strings.HasPrefix(config.Hostname, "127.0.0.1") {
-		config.Hostname = "http://" + config.Hostname
-	} else if !strings.HasPrefix(config.Hostname, "http") {
-		config.Hostname = "https://" + config.Hostname
-	}
-	if !strings.HasPrefix(config.UIHostname, "http") {
-		config.UIHostname = "https://" + config.UIHostname
-	}
+	config.UIHostname = withURLScheme(config.UIHostname)
 
 	var electionConfig *leader.ElectionConfig
 	if config.ElectionFile != "" {
@@ -1042,11 +1035,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, providerDispatcher)
 	var localAuthProvider *localauth.Provider
 	if config.EnableAuthentication {
-		proxyManager = proxy.NewProxyManager(providerDispatcher)
+		proxyManager = proxy.NewProxyManager(providerDispatcher, config.Hostname, config.UIHostname)
 
 		// The local auth provider runs in-process, rather than as a daemon launched from the
 		// provider registry, so that it can use Obot's own database for users and sessions.
-		localAuthProvider, err = localauth.New(gatewayClient, config.Hostname)
+		localAuthProvider, err = localauth.New(gatewayClient, config.Hostname, config.UIHostname)
 		if err != nil {
 			return nil, err
 		}
@@ -1218,6 +1211,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			auditLogger,
 			rateLimiter,
 			config.Hostname,
+			config.UIHostname,
 			oauthServerConfig.ScopesSupported,
 			entitlementProvider,
 		),
@@ -1525,5 +1519,18 @@ func migrateMessagePolicies(ctx context.Context, storageClient kclient.Client, g
 			return
 		case <-time.After(10 * time.Second):
 		}
+	}
+}
+
+// withURLScheme returns hostname as a URL: unchanged if it has an http:// or https:// scheme, with http for localhost, and
+// with https otherwise.
+func withURLScheme(hostname string) string {
+	switch {
+	case strings.HasPrefix(hostname, "http://"), strings.HasPrefix(hostname, "https://"):
+		return hostname
+	case strings.HasPrefix(hostname, "localhost"), strings.HasPrefix(hostname, "127.0.0.1"):
+		return "http://" + hostname
+	default:
+		return "https://" + hostname
 	}
 }

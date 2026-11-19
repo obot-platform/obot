@@ -48,6 +48,7 @@
   "setup_no_local_account": "설정에 사용할 로컬 계정이 없습니다",
   "setup_sign_in_initial": "초기 로컬 계정으로 로그인하여 설정을 계속하세요",
   "setup_change_password": "설정을 완료하기 전에 비밀번호를 변경하세요",
+  "setup_login_not_started": "이 브라우저에서 시작된 설정 로그인이 없습니다. Obot 관리 페이지에서 설정을 다시 시작하세요",
   "setup_provider_required": "authProviderName과 authProviderNamespace가 필요합니다",
   "setup_temp_cached": "임시 사용자가 이미 캐시되어 있습니다: {email}",
   "setup_no_temp_cached": "캐시된 임시 사용자가 없습니다",

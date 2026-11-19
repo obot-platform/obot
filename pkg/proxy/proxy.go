@@ -38,6 +38,10 @@ var (
 
 type Manager struct {
 	dispatcher *dispatcher.Dispatcher
+	// trustedOrigins are the origins of Obot's server and UI URLs, whose pages may send a user to sign out.
+	trustedOrigins map[string]bool
+	// secureCookies matches the Secure attribute of the cookies that Obot sets, so that clearing one replaces it.
+	secureCookies bool
 }
 
 type Proxy struct {
@@ -63,12 +67,41 @@ type serializableState struct {
 	RequirePasswordChange bool       `json:"requirePasswordChange"`
 }
 
-func NewProxyManager(dispatcher *dispatcher.Dispatcher) *Manager {
+// NewProxyManager returns a Manager that serves the auth providers' /oauth2/ routes. A sign-out that another site
+// starts is refused unless it comes from serverURL or uiURL.
+func NewProxyManager(dispatcher *dispatcher.Dispatcher, serverURL, uiURL string) *Manager {
 	m := &Manager{
-		dispatcher: dispatcher,
+		dispatcher:     dispatcher,
+		trustedOrigins: make(map[string]bool, 2),
+		secureCookies:  strings.HasPrefix(serverURL, "https://"),
+	}
+	for _, origin := range auth.TrustedOrigins(serverURL, uiURL) {
+		m.trustedOrigins[origin] = true
 	}
 
 	return m
+}
+
+// forgedSignOut reports whether r is a sign-out that a page outside Obot made the browser send. Sign-out is a GET, so
+// the cross-origin check on state-changing requests does not cover it, and a browser sends the session cookie when any
+// site navigates to it, or, for a same-site page, even from a fetch.
+//
+// Sec-Fetch-Site tells these apart: "same-origin" comes from Obot's own pages, and "none" from the user typing or
+// bookmarking the URL. A same-site or cross-site request is still allowed when its Referer is one of Obot's own URLs,
+// such as a UI served from its own hostname, or when it ends a setup login (see auth.SetupLoginCookieName), whose
+// redirects began at the identity provider. A request without Sec-Fetch-Site is allowed, because an older browser or a
+// non-browser client cannot be told apart from a forged one.
+func (pm *Manager) forgedSignOut(r *http.Request) bool {
+	switch r.Header.Get("Sec-Fetch-Site") {
+	case "same-site", "cross-site":
+	default:
+		return false
+	}
+	if auth.HasSetupLoginCookie(r, pm.secureCookies) {
+		return false
+	}
+	// TrustedOrigins never contains "", so a missing or invalid Referer is not trusted.
+	return !pm.trustedOrigins[auth.OriginOf(r.Header.Get("Referer"))]
 }
 
 func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -176,6 +209,19 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 	if pm == nil {
 		http.Redirect(w, r, auth.SafeRedirectPath(r.URL.Query().Get("rd")), http.StatusFound)
 		return
+	}
+
+	if r.URL.Path == "/oauth2/sign_out" {
+		if pm.forgedSignOut(r) {
+			slog.Warn("Rejected a sign-out that another site started",
+				"secFetchSite", r.Header.Get("Sec-Fetch-Site"), "referer", auth.OriginOf(r.Header.Get("Referer")))
+			http.Error(w, "Sign-out must be started from Obot. Use the Log out button instead.", http.StatusForbidden)
+			return
+		}
+		// Signing out ends any setup login, so its marker must not outlive it and let a later sign-out through.
+		if auth.HasSetupLoginCookie(r, pm.secureCookies) {
+			auth.ClearSetupLoginCookie(w, pm.secureCookies)
+		}
 	}
 
 	// Determine which auth provider to use.

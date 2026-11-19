@@ -254,6 +254,55 @@ func TestTokenRequestOAuthIsSetupOnly(t *testing.T) {
 	assertHTTPError(t, s.redirectForTokenRequest(deviceRedirectContext), http.StatusNotFound, "token not found")
 }
 
+// GET /api/setup/oauth-complete and the sign-out after it accept only a browser that carries the
+// setup login marker, and this redirect is the only place that sets it. Without it, setup could not
+// finish.
+func TestSetupOAuthRedirectMarksTheBrowser(t *testing.T) {
+	s, gatewayClient := newTokenRequestTestServer(t)
+	setup := &types.TokenRequest{
+		ID:                    "setup-request",
+		Purpose:               types.TokenRequestPurposeSetup,
+		RequestExpiresAt:      time.Now().Add(15 * time.Minute),
+		CompletionRedirectURL: "/api/setup/oauth-complete",
+	}
+	if err := gatewayClient.CreateTokenRequest(t.Context(), setup); err != nil {
+		t.Fatal(err)
+	}
+	state, err := gatewayClient.CreateTokenRequestState(t.Context(), setup.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	userInfo := &user.DefaultInfo{UID: "42", Groups: []string{clienttypes.GroupAuthenticated}}
+	ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodGet, "/api/oauth/redirect/default/github?state="+url.QueryEscape(state), nil, userInfo)
+	ctx.SetPathValue("namespace", system.DefaultNamespace)
+	ctx.SetPathValue("name", "github")
+	if err := s.redirect(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := recorder.Header().Get("Location"); got != setup.CompletionRedirectURL {
+		t.Fatalf("Location = %q, want %q", got, setup.CompletionRedirectURL)
+	}
+	// The name is spelled out rather than taken from auth.SetupLoginCookieName, so that losing the __Host- prefix,
+	// which keeps a sibling subdomain from planting the cookie, fails this test.
+	const wantName = "__Host-obot_setup_login"
+	var marker *http.Cookie
+	for _, c := range recorder.Result().Cookies() {
+		if c.Name == wantName {
+			marker = c
+		}
+	}
+	if marker == nil {
+		t.Fatalf("response did not set the %s cookie", wantName)
+	}
+	// Browsers drop a __Host- cookie unless it is Secure with Path "/" and no Domain. Path "/" also lets both
+	// /api/setup/oauth-complete and /oauth2/sign_out read it.
+	if marker.Value != setup.ID || marker.Path != "/" || marker.Domain != "" || !marker.HttpOnly || !marker.Secure || marker.MaxAge <= 0 {
+		t.Fatalf("%s cookie = %+v, want an HttpOnly, Secure, unexpired cookie for %q on path / with no domain", wantName, marker, setup.ID)
+	}
+}
+
 func pollTokenRequest(t *testing.T, s *Server, gatewayClient *client.Client, id string) refreshTokenResponse {
 	t.Helper()
 	ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodGet, "/api/token-request/"+id, nil, nil)

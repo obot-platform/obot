@@ -11,6 +11,7 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
@@ -21,7 +22,7 @@ import (
 )
 
 const (
-	ObotBootstrapCookie = "obot-bootstrap"
+	ObotBootstrapCookie = auth.ObotBootstrapCookie
 )
 
 type Bootstrap struct {
@@ -243,6 +244,7 @@ func (b *Bootstrap) Login(req api.Context) error {
 		MaxAge:   60 * 60 * 24 * 7, // 1 week
 		HttpOnly: true,
 		Secure:   strings.HasPrefix(b.serverURL, "https://"),
+		SameSite: http.SameSiteLaxMode,
 	})
 	http.Redirect(req.ResponseWriter, req.Request, "/identity-access?view=auth-providers", http.StatusFound)
 
@@ -257,6 +259,7 @@ func (b *Bootstrap) Logout(req api.Context) error {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   strings.HasPrefix(b.serverURL, "https://"),
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	return nil

@@ -72,6 +72,8 @@ type Server struct {
 	baseURL                 string
 	mcpOAuthScope           string
 	providerEntitlementGate *license.ProviderEntitlementGate
+	// crossOrigin rejects cross-origin requests that a browser authenticated on its own. See rejectCrossOrigin.
+	crossOrigin *crossOriginGuard
 	// devUI is set when the UI is served by the Vite dev server (dev mode).
 	devUI bool
 
@@ -100,7 +102,7 @@ type tracingResponseWriter struct {
 	wroteHeader bool
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, entitlementProvider gclient.EntitlementProvider) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL, uiURL string, oauthScopesSupported []string, entitlementProvider gclient.EntitlementProvider) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
@@ -119,6 +121,7 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, loca
 		rateLimiter:             rateLimiter,
 		mux:                     http.NewServeMux(),
 		providerEntitlementGate: license.NewProviderEntitlementGate(entitlementProvider, storageClient),
+		crossOrigin:             newCrossOriginGuard(baseURL, uiURL),
 	}
 	s.otelHandler = traced(s.mux)
 	return s
@@ -286,6 +289,17 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			httpError = func(w http.ResponseWriter, message string, code int) {
 				llm.WriteError(w, req, message, code)
 			}
+		}
+
+		// Checked before authentication, so that a forged request has no effect, such as provisioning the bootstrap
+		// user, before it is refused.
+		if s.rejectCrossOrigin(req) {
+			if isSCIM {
+				scim.WriteError(rw, http.StatusForbidden, "cross-origin request rejected")
+			} else {
+				httpError(rw, "cross-origin request rejected", http.StatusForbidden)
+			}
+			return
 		}
 
 		user, err := s.authenticator.Authenticate(req)

@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
+	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -529,4 +530,17 @@ func TestSCIMRateLimitAnswersWithIntegerRetryAfter(t *testing.T) {
 	if err := json.Unmarshal([]byte(retryAfter), &seconds); err != nil || seconds < 1 {
 		t.Fatalf("Retry-After = %q, want a positive integer number of seconds", retryAfter)
 	}
+}
+
+func TestSCIMCrossOriginRejectionIsASCIMError(t *testing.T) {
+	s := newSCIMServerTest(t, 1000)
+	s.server.crossOrigin = newCrossOriginGuard("https://obot.example.com")
+	_, _ = s.enable()
+
+	req := httptest.NewRequest(http.MethodPost, scim.PathPrefix+"Users", strings.NewReader("{}"))
+	req.Header.Set("Sec-Fetch-Site", "same-site")
+	req.Header.Set("Origin", "https://tenant-b.example.com")
+	req.AddCookie(&http.Cookie{Name: auth.ObotAccessTokenCookie, Value: "value"})
+	rec, body := s.do(req)
+	assertSCIMError(t, rec, body, http.StatusForbidden)
 }

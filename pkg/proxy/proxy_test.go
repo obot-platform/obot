@@ -24,7 +24,7 @@ func TestServeHTTPSignOutFallbackRedirect(t *testing.T) {
 			return []string{o.(*v1.AuthProvider).Get("status.configured")}
 		}).
 		Build()
-	pm := NewProxyManager(dispatcher.New(nil, storageClient, nil, nil, "", "", ""))
+	pm := NewProxyManager(dispatcher.New(nil, storageClient, nil, nil, "", "", ""), "", "")
 
 	for _, scenario := range []struct {
 		name    string
@@ -99,6 +99,119 @@ func TestServeHTTPSignOutFallbackRedirect(t *testing.T) {
 						t.Errorf("Location = %q, want %q", got, tt.want)
 					}
 				})
+			}
+		})
+	}
+}
+
+// Sign-out is a GET that a browser sends with the session cookie when any page navigates to it, so a
+// sign-out that a page outside Obot starts must be refused. An allowed sign-out falls through to the
+// redirect for a deployment without a configured provider.
+func TestServeHTTPRejectsForgedSignOut(t *testing.T) {
+	storageClient := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.AuthProvider{}, "status.configured", func(o kclient.Object) []string {
+			return []string{o.(*v1.AuthProvider).Get("status.configured")}
+		}).
+		Build()
+	pm := NewProxyManager(dispatcher.New(nil, storageClient, nil, nil, "", "", ""), "https://obot.example.ai", "https://ui.example.ai")
+
+	for _, tt := range []struct {
+		name    string
+		headers map[string]string
+		// setupCookie is the name of the setup login cookie that the browser sends, if any.
+		setupCookie string
+		rejected    bool
+		clearsSetup bool
+	}{
+		{
+			name: "Log out button",
+			headers: map[string]string{
+				"Sec-Fetch-Site": "same-origin",
+			},
+		},
+		{
+			name: "typed or bookmarked URL",
+			headers: map[string]string{
+				"Sec-Fetch-Site": "none",
+			},
+		},
+		{
+			name: "client without fetch metadata",
+		},
+		{
+			name: "UI served from its own hostname",
+			headers: map[string]string{
+				"Sec-Fetch-Site": "same-site",
+				"Referer":        "https://ui.example.ai/profile",
+			},
+		},
+		{
+			name: "same-site tenant navigates to sign-out",
+			headers: map[string]string{
+				"Sec-Fetch-Site": "same-site",
+				"Referer":        "https://tenant-b.example.ai/",
+			},
+			rejected: true,
+		},
+		{
+			name: "cross-site page without a Referer",
+			headers: map[string]string{
+				"Sec-Fetch-Site": "cross-site",
+			},
+			rejected: true,
+		},
+		{
+			name: "setup login redirected from the identity provider",
+			headers: map[string]string{
+				"Sec-Fetch-Site": "cross-site",
+				"Referer":        "https://idp.example.com/",
+			},
+			setupCookie: auth.SetupLoginCookieName(true),
+			clearsSetup: true,
+		},
+		{
+			// A sibling subdomain can plant a cookie for the parent domain, which the browser then sends to Obot,
+			// but it cannot plant a __Host- one. Over https only the prefixed name counts.
+			name: "same-site tenant plants an unprefixed setup login cookie",
+			headers: map[string]string{
+				"Sec-Fetch-Site": "same-site",
+				"Referer":        "https://tenant-b.example.ai/",
+			},
+			setupCookie: auth.SetupLoginCookieName(false),
+			rejected:    true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/oauth2/sign_out?rd=%2Fadmin", nil)
+			for name, value := range tt.headers {
+				req.Header.Set(name, value)
+			}
+			if tt.setupCookie != "" {
+				req.AddCookie(&http.Cookie{Name: tt.setupCookie, Value: "setup-request"})
+			}
+			rec := httptest.NewRecorder()
+
+			pm.ServeHTTP(&user.DefaultInfo{}, rec, req)
+
+			if tt.rejected {
+				if rec.Code != http.StatusForbidden {
+					t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+				}
+				return
+			}
+			if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/admin" {
+				t.Fatalf("status = %d, Location = %q, want %d to /admin", rec.Code, rec.Header().Get("Location"), http.StatusFound)
+			}
+
+			var cleared bool
+			for _, c := range rec.Result().Cookies() {
+				if c.Name == auth.SetupLoginCookieName(true) && c.MaxAge < 0 && c.Secure {
+					cleared = true
+				}
+			}
+			if cleared != tt.clearsSetup {
+				t.Fatalf("cleared %s = %v, want %v", auth.SetupLoginCookieName(true), cleared, tt.clearsSetup)
 			}
 		})
 	}

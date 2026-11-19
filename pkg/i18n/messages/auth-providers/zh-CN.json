@@ -48,6 +48,7 @@
   "setup_no_local_account": "没有可用于设置的本地账户",
   "setup_sign_in_initial": "请使用初始本地账户登录以继续设置",
   "setup_change_password": "请在完成设置前更改密码",
+  "setup_login_not_started": "此浏览器未开始设置登录，请从 Obot 管理页面重新开始设置",
   "setup_provider_required": "必须提供 authProviderName 和 authProviderNamespace",
   "setup_temp_cached": "临时用户已缓存：{email}",
   "setup_no_temp_cached": "没有已缓存的临时用户",

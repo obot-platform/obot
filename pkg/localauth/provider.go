@@ -52,22 +52,28 @@ const (
 type Provider struct {
 	gatewayClient *client.Client
 	serverURL     string
-	throttle      *throttle
-	tokens        *tokenSigner
+	// crossOrigin rejects cross-origin logins.
+	crossOrigin http.CrossOriginProtection
+	throttle    *throttle
+	tokens      *tokenSigner
 }
 
-func New(gatewayClient *client.Client, serverURL string) (*Provider, error) {
+func New(gatewayClient *client.Client, serverURL, uiURL string) (*Provider, error) {
 	tokens, err := newTokenSigner()
 	if err != nil {
 		return nil, err
 	}
 
-	return &Provider{
+	p := &Provider{
 		gatewayClient: gatewayClient,
 		serverURL:     serverURL,
 		throttle:      newThrottle(),
 		tokens:        tokens,
-	}, nil
+	}
+	// The server URL is trusted, so that a login is accepted when a reverse proxy in front of Obot changes its Host
+	// header.
+	auth.TrustOrigins(&p.crossOrigin, serverURL, uiURL)
+	return p, nil
 }
 
 // Start serves the provider on a random loopback port and returns its URL.
@@ -140,9 +146,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	rd := auth.SafeRedirectPath(r.FormValue("rd"))
 
-	// Reject cross-origin logins. Browsers always send Origin on POST, so this blocks login CSRF
-	// without requiring the login form to carry a token.
-	if !sameOrigin(r) {
+	if err := p.checkLoginOrigin(r); err != nil {
 		http.Error(w, i18n.Text(locale, "local_login_cross_origin"), http.StatusForbidden)
 		return
 	}
@@ -366,23 +370,23 @@ func (p *Provider) secureCookies() bool {
 	return strings.HasPrefix(p.serverURL, "https://")
 }
 
-// sameOrigin reports whether the request was initiated by the page it claims to come from.
-// Requests without an Origin or Referer (curl, tests) are allowed: CSRF requires a browser.
-func sameOrigin(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		origin = r.Header.Get("Referer")
-	}
-	if origin == "" {
-		return true
-	}
-
-	u, err := url.Parse(origin)
-	if err != nil {
-		return false
+// checkLoginOrigin returns an error if r is a cross-origin request. Browsers send Origin or
+// Sec-Fetch-Site on POST, but one that a privacy setting or extension stripped them from may still
+// send Referer, whose origin is checked instead. A request with none of them, such as from curl or
+// tests, is allowed: CSRF requires a browser.
+func (p *Provider) checkLoginOrigin(r *http.Request) error {
+	referer := r.Header.Get("Referer")
+	if r.Header.Get("Origin") != "" || r.Header.Get("Sec-Fetch-Site") != "" || referer == "" {
+		return p.crossOrigin.Check(r)
 	}
 
-	return u.Host == r.Host
+	u, err := url.Parse(referer)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return errors.New("invalid Referer")
+	}
+	withOrigin := r.Clone(r.Context())
+	withOrigin.Header.Set("Origin", u.Scheme+"://"+u.Host)
+	return p.crossOrigin.Check(withOrigin)
 }
 
 func cookieValue(header map[string][]string, name string) string {

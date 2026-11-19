@@ -48,6 +48,7 @@
   "setup_no_local_account": "セットアップ用のローカルアカウントがありません",
   "setup_sign_in_initial": "最初のローカルアカウントでサインインして設定を続けてください",
   "setup_change_password": "設定を完了する前にパスワードを変更してください",
+  "setup_login_not_started": "このブラウザーでは設定用のログインが開始されていません。Obot の管理ページから設定をやり直してください",
   "setup_provider_required": "authProviderName と authProviderNamespace が必要です",
   "setup_temp_cached": "一時ユーザーはすでにキャッシュされています：{email}",
   "setup_no_temp_cached": "キャッシュされた一時ユーザーがありません",

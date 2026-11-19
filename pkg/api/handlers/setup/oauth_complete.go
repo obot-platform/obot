@@ -8,6 +8,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/bootstrap"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/system"
@@ -19,6 +20,16 @@ import (
 // for the bootstrap user to review and confirm as the first Owner.
 // Endpoint: GET /api/setup/oauth-complete
 func (h *Handler) OAuthComplete(req api.Context) error {
+	// This is a GET that a browser sends cookies with even when another site navigates to it, so it must
+	// only run for the browser that just finished a setup login. Without this, another page could make a
+	// signed-in user land here and be cached as the pending Owner, or, as an Owner, lose bootstrap login.
+	// The cookie stays until /oauth2/sign_out or completeOwnerLogin clears it, because the redirect to
+	// sign-out below needs it too.
+	if !auth.HasSetupLoginCookie(req.Request, strings.HasPrefix(h.serverURL, "https://")) {
+		slog.Info("Rejecting setup OAuth completion from a browser that did not finish a setup login")
+		return types.NewErrHTTP(http.StatusForbidden, localized(req, "setup_login_not_started"))
+	}
+
 	// If the user that just logged in is an Owner, then we can redirect them now.
 	// The setup routes will be disabled, so we can just send the owner through without caching them or anything.
 	if req.UserIsOwner() {
@@ -124,7 +135,10 @@ func (h *Handler) completeOwnerLogin(req api.Context) error {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   strings.HasPrefix(h.serverURL, "https://"),
+		SameSite: http.SameSiteLaxMode,
 	})
+	// No sign-out follows this redirect to clear the setup login marker, so clear it here.
+	auth.ClearSetupLoginCookie(req.ResponseWriter, strings.HasPrefix(h.serverURL, "https://"))
 
 	http.Redirect(req.ResponseWriter, req.Request, "/admin", http.StatusFound)
 	return nil

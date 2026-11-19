@@ -81,7 +81,7 @@ func newAdminTestServer(t *testing.T, handler *LLMGatewayHandler, storage kclien
 		return &authenticator.Response{User: principal}, true, nil
 	}))
 	mux := server.NewServer(storage, gateway, nil, system.DefaultNamespace, authentication,
-		authz.NewAuthorizer(gateway, storage, storage, false, nil, nil, nil), nil, logger, limiter, "http://obot.test", nil, &license.Provider{})
+		authz.NewAuthorizer(gateway, storage, storage, false, nil, nil, nil), nil, logger, limiter, "http://obot.test", "http://obot.test", nil, &license.Provider{})
 	handler.RegisterAdminRoutes(mux)
 	mux.HTTPHandle("/api/", http.NotFoundHandler())
 	return mux

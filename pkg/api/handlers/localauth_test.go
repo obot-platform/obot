@@ -78,7 +78,7 @@ func newLocalSetupFixture(t *testing.T) *localSetupFixture {
 		Secrets: map[string]string{localauth.EmailDomainsEnvVar: "*"},
 	}))
 
-	provider, err := localauth.New(c, "https://obot.example.com")
+	provider, err := localauth.New(c, "https://obot.example.com", "https://obot.example.com")
 	require.NoError(t, err)
 	getter := &localSetupProviderGetter{name: system.LocalAuthProvider}
 	t.Setenv("OBOT_BOOTSTRAP_TOKEN", "test-bootstrap-token")
@@ -137,8 +137,13 @@ func (f *localSetupFixture) identity(t *testing.T, email, provider string, role 
 	}, "", role, gateway.UserLimit{Unlimited: true})
 	require.NoError(t, err)
 
+	// The gateway sets this cookie when a setup login finishes its OAuth round trip, which is the only way to reach
+	// the endpoint in a browser.
+	request := httptest.NewRequest(http.MethodGet, "/api/setup/oauth-complete", nil)
+	request.AddCookie(&http.Cookie{Name: auth.SetupLoginCookieName(true), Value: "setup-request"})
+
 	return api.Context{
-		Request:        httptest.NewRequest(http.MethodGet, "/api/setup/oauth-complete", nil),
+		Request:        request,
 		ResponseWriter: httptest.NewRecorder(),
 		GatewayClient:  f.gateway,
 		Storage:        f.storage,
@@ -400,9 +405,12 @@ func TestLocalAuthBootstrapLoginCompletesInOneSession(t *testing.T) {
 			require.NoError(t, f.setup.OAuthComplete(req))
 			result := req.ResponseWriter.(*httptest.ResponseRecorder).Result()
 			require.Equal(t, "/admin", result.Header.Get("Location"))
-			require.Len(t, result.Cookies(), 1)
-			require.Equal(t, bootstrap.ObotBootstrapCookie, result.Cookies()[0].Name)
-			require.Equal(t, -1, result.Cookies()[0].MaxAge)
+			// Both the bootstrap login and the setup login marker end here, because no sign-out follows.
+			require.Len(t, result.Cookies(), 2)
+			for i, name := range []string{bootstrap.ObotBootstrapCookie, auth.SetupLoginCookieName(true)} {
+				require.Equal(t, name, result.Cookies()[i].Name)
+				require.Equal(t, -1, result.Cookies()[i].MaxAge)
+			}
 
 			_, _, err = f.gateway.LocalAuthSession(t.Context(), sessionID)
 			require.NoError(t, err)
@@ -431,8 +439,40 @@ func TestLocalAuthSetupPromotionGuards(t *testing.T) {
 		localUsers int
 		email      string
 		owner      bool
-		wantError  string
+		// navigated marks a request that another page navigated the browser to, without a setup login.
+		navigated bool
+		// planted replaces the setup login cookie with an unprefixed one, as a sibling subdomain could set it.
+		planted   bool
+		wantError string
 	}{
+		{
+			name:       "same-site tenant planted an unprefixed setup login cookie",
+			provider:   system.LocalAuthProvider,
+			configured: system.LocalAuthProvider,
+			localUsers: 1,
+			email:      "owner@example.com",
+			navigated:  true,
+			planted:    true,
+			wantError:  "did not start a setup login",
+		},
+		{
+			name:       "browser navigated here without a setup login",
+			provider:   system.LocalAuthProvider,
+			configured: system.LocalAuthProvider,
+			localUsers: 1,
+			email:      "owner@example.com",
+			navigated:  true,
+			wantError:  "did not start a setup login",
+		},
+		{
+			name:       "external provider identity navigated here without a setup login",
+			provider:   "google-auth-provider",
+			configured: "google-auth-provider",
+			localUsers: 1,
+			email:      "owner@example.com",
+			navigated:  true,
+			wantError:  "did not start a setup login",
+		},
 		{
 			name:       "external provider still requires handoff",
 			provider:   "google-auth-provider",
@@ -498,6 +538,13 @@ func TestLocalAuthSetupPromotionGuards(t *testing.T) {
 			}
 
 			req := f.identity(t, test.email, test.provider, apitypes.RoleBasic)
+			if test.navigated {
+				req.Request.Header.Del("Cookie")
+			}
+			if test.planted {
+				// The fixture's server URL is https, where only the __Host- name counts.
+				req.AddCookie(&http.Cookie{Name: auth.SetupLoginCookieName(false), Value: "setup-request"})
+			}
 			err := f.setup.OAuthComplete(req)
 			if test.wantError != "" {
 				require.ErrorContains(t, err, test.wantError)

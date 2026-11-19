@@ -161,6 +161,9 @@ func (s *Server) redirect(apiContext api.Context) error {
 		if _, err = apiContext.GatewayClient.CreateAPIKeyFromSetupTokenRequest(apiContext.Context(), apiContext.UserID(), tr); err != nil {
 			return s.errorToken(apiContext.Context(), tr, http.StatusInternalServerError, err)
 		}
+		// Only this browser, which just completed the bootstrap user's setup login, may finish it at
+		// GET /api/setup/oauth-complete. See auth.SetupLoginCookieName.
+		auth.SetSetupLoginCookie(apiContext.ResponseWriter, tr.ID, strings.HasPrefix(s.baseURL, "https://"))
 		slog.Info("Completed OAuth redirect and issued auth token", "tokenRequestID", tr.ID, "providerNamespace", namespace, "providerName", name, "userID", apiContext.UserID())
 	}
 

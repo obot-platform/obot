@@ -461,3 +461,41 @@ func TestPSASettingsIndependentOfPodScheduling(t *testing.T) {
 		t.Error("expected PSA settings to be non-nil")
 	}
 }
+
+func TestWithURLScheme(t *testing.T) {
+	for _, tc := range []struct {
+		hostname string
+		expected string
+	}{
+		{
+			hostname: "obot.example.ai",
+			expected: "https://obot.example.ai",
+		},
+		{
+			hostname: "httpdocs.example.com",
+			expected: "https://httpdocs.example.com",
+		},
+		{
+			hostname: "localhost:8080",
+			expected: "http://localhost:8080",
+		},
+		{
+			hostname: "127.0.0.1:5173",
+			expected: "http://127.0.0.1:5173",
+		},
+		{
+			hostname: "http://ui.internal:5173",
+			expected: "http://ui.internal:5173",
+		},
+		{
+			hostname: "https://obot.example.ai",
+			expected: "https://obot.example.ai",
+		},
+	} {
+		t.Run(tc.hostname, func(t *testing.T) {
+			if got := withURLScheme(tc.hostname); got != tc.expected {
+				t.Fatalf("withURLScheme(%q) = %q, want %q", tc.hostname, got, tc.expected)
+			}
+		})
+	}
+}

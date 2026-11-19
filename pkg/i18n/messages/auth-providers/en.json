@@ -48,6 +48,7 @@
   "setup_no_local_account": "no local account exists for setup",
   "setup_sign_in_initial": "sign in with the initial local account to continue setup",
   "setup_change_password": "change your password before completing setup",
+  "setup_login_not_started": "this browser did not start a setup login; start setup again from the Obot admin page",
   "setup_provider_required": "authProviderName and authProviderNamespace are required",
   "setup_temp_cached": "temporary user already cached: {email}",
   "setup_no_temp_cached": "no temporary user cached",

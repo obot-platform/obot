@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
@@ -18,7 +19,7 @@ import (
 const (
 	// HeaderObotAPIKey carries an Obot API key alongside another credential, on LLM proxy
 	// requests.
-	HeaderObotAPIKey = "X-Obot-Api-Key"
+	HeaderObotAPIKey = auth.HeaderObotAPIKey
 
 	llmProxyPathPrefix = "/api/llm-proxy/"
 )
