@@ -2,8 +2,11 @@ package mcpgateway
 
 import (
 	"context"
+	"errors"
 	"io"
+	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"sync"
@@ -44,6 +47,7 @@ type streamingResponse struct {
 	header     http.Header
 	sentHeader http.Header
 	status     int
+	headerErr  error
 	once       sync.Once
 	ready      chan struct{}
 	body       *io.PipeWriter
@@ -94,6 +98,16 @@ func (t builtinTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	inner.ResponseWriter = response
 	go func() {
 		defer func() {
+			if recovered := recover(); recovered != nil {
+				slog.ErrorContext(ctx, "built-in MCP handler panicked", "handler", r.URL.Path, "stack", string(debug.Stack()))
+				err := errors.New("built-in MCP handler panicked")
+				response.once.Do(func() {
+					response.headerErr = err
+					close(response.ready)
+				})
+				_ = bodyWriter.CloseWithError(err)
+				return
+			}
 			// A handler that returns without writing still answers 200 with an empty body.
 			response.WriteHeader(http.StatusOK)
 			_ = bodyWriter.Close()
@@ -103,6 +117,11 @@ func (t builtinTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 
 	select {
 	case <-response.ready:
+		if response.headerErr != nil {
+			cancel()
+			_ = bodyReader.Close()
+			return nil, response.headerErr
+		}
 	case <-ctx.Done():
 		cancel()
 		// Nothing will read the body, so make the handler's writes fail instead of blocking forever.

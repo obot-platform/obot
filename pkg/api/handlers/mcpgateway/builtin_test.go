@@ -240,3 +240,44 @@ func TestUnavailableBuiltinServerHasNoTools(t *testing.T) {
 		t.Fatalf("tools = %v, want none", result.Tools)
 	}
 }
+
+func TestBuiltinTransportReportsPanics(t *testing.T) {
+	for _, afterHeaders := range []bool{false, true} {
+		name := "factory before headers"
+		if afterHeaders {
+			name = "handler after headers"
+		}
+		t.Run(name, func(t *testing.T) {
+			transport := builtinTransport{server: func(api.Context) http.Handler {
+				if !afterHeaders {
+					panic("factory failed")
+				}
+				return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusAccepted)
+					panic("handler failed")
+				})
+			}}
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "http://builtin/test", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := transport.RoundTrip(req)
+			if !afterHeaders {
+				if resp != nil || err == nil {
+					t.Fatalf("before headers: response %v, error %v", resp, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusAccepted {
+				t.Fatal(resp.Status)
+			}
+			if _, err := io.ReadAll(resp.Body); err == nil {
+				t.Fatal("expected interrupted response body")
+			}
+		})
+	}
+}
