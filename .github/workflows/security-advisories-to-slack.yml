@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   notify-slack:
+    if: github.repository == 'obot-platform/obot'
     runs-on: ubuntu-latest
     steps:
       - name: Find time of last successful run

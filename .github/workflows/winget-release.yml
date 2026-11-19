@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   validate:
+    if: github.repository == 'obot-platform/obot'
     runs-on: ubuntu-latest
     steps:
       - name: Validate tag

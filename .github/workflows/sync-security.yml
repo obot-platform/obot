@@ -1,0 +1,73 @@
+name: Sync Security Main
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - .github/SECURITY_SYNC.md
+      - tools/sync-main.sh
+      - tools/test-sync-main.py
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test main mirroring with local repositories
+        run: python3 tools/test-sync-main.py
+      - name: Check shell script
+        run: shellcheck tools/sync-main.sh
+
+  sync:
+    # The definition lives upstream so exact mirroring cannot remove it.
+    if: >-
+      github.repository == 'obot-platform/obot-security' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: sync-security-main
+      cancel-in-progress: false
+    # Configure this environment to allow only main before installing secrets.
+    environment: security-main-sync
+    steps:
+      - name: Check out the public sync implementation
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: obot-platform/obot
+          ref: main
+          persist-credentials: false
+      - name: Create a token scoped to the private mirror
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.SECURITY_SYNC_APP_ID }}
+          private-key: ${{ secrets.SECURITY_SYNC_APP_PRIVATE_KEY }}
+          owner: obot-platform
+          repositories: obot-security
+          permission-contents: write
+          permission-workflows: write
+      - name: Mirror upstream main and verify the result
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Read the ephemeral token through gh; never persist it in Git config.
+          GIT_CONFIG_COUNT: '2'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.https://github.com.helper
+          GIT_CONFIG_VALUE_1: '!gh auth git-credential'
+        run: >-
+          bash tools/sync-main.sh
+          https://github.com/obot-platform/obot.git
+          https://github.com/obot-platform/obot-security.git

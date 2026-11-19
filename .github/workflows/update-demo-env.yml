@@ -12,7 +12,9 @@ on:
 
 jobs:
   copy-tag:
-    if: github.event_name != 'schedule' || vars.DISABLE_DEMO_AUTO_UPDATE != 'true'
+    if: >-
+      github.repository == 'obot-platform/obot' &&
+      (github.event_name != 'schedule' || vars.DISABLE_DEMO_AUTO_UPDATE != 'true')
     runs-on: depot-ubuntu-22.04
 
     steps:

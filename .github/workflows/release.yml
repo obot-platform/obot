@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   docker-build:
+    if: github.repository == 'obot-platform/obot'
     permissions:
       actions: read
       contents: read

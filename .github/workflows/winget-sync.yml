@@ -18,6 +18,7 @@ permissions: {}
 
 jobs:
   winget-sync:
+    if: github.repository == 'obot-platform/obot'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -24,6 +24,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'obot-platform/obot'
     runs-on: depot-ubuntu-22.04
     outputs:
       image-digest: ${{ steps.build-and-push.outputs.digest }}
