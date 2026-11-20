@@ -4,6 +4,37 @@ import versions from '../versions.json';
 
 const olderVersionPrefixes = versions.slice(1).map(version => `/${version}`);
 
+test('enforcement documents managed deployment controls for local clients', async ({ page }) => {
+  await page.goto('/next/device-management/enforcement/');
+  const article = page.locator('article');
+  await expect(article.getByRole('heading', { name: /^Managed deployment for local clients/ })).toBeVisible();
+  for (const [client, anchor, control, source] of [
+    ['Codex', 'codex-managed-deployment', 'requirements.toml', 'https://learn.chatgpt.com/docs/enterprise/managed-configuration'],
+    ['Cursor', 'cursor-managed-deployment', 'MCP Configuration', 'https://cursor.com/docs/enterprise/model-and-integration-management'],
+    ['Kiro', 'kiro-managed-deployment', 'MCP Registry URL', 'https://kiro.dev/docs/enterprise/governance/mcp/'],
+  ]) {
+    await article.locator(`a[href="#${anchor}"]`).first().click();
+    await expect(page.locator(`[id="${anchor}"]`)).toBeVisible();
+    const section = await page.locator(`[id="${anchor}"]`).evaluate(heading => {
+      const elements: string[] = [];
+      for (let el = heading.nextElementSibling; el && !/^H[23]$/.test(el.tagName); el = el.nextElementSibling) {
+        elements.push(el.textContent || '');
+      }
+      return elements.join('\n');
+    });
+    expect(section, client).toContain(control);
+    await expect(article.locator(`a[href="${source}"]`)).toBeVisible();
+  }
+  // Keep the existing limits and rollout instructions available alongside the controls.
+  for (const anchor of ['limitations', 'fail-closed-behavior', 'configure-enforcement', 'verify-managed-deployment']) {
+    await page.goto(`/next/device-management/enforcement/#${anchor}`);
+    await expect(page.locator(`[id="${anchor}"]`)).toBeVisible();
+  }
+  await expect(article).toContainText('Builder ID');
+  await expect(article).toContainText('permissions.json');
+  await expect(article).toContainText('not a verified reference deployment');
+});
+
 test('current documentation navigation and direct loads', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/next/');
