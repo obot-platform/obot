@@ -480,6 +480,7 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 						required: true
 					}),
 					field({ key: 'SETTINGS', name: 'Settings', usage: 'file', required: true }),
+					field({ key: 'ENDPOINT', name: 'Endpoint', required: true }),
 					field({ key: 'TOKEN', name: 'Token', sensitive: true, required: true })
 				]
 			}),
@@ -487,8 +488,10 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 				configuration: [
 					{ key: 'REGION', policy: 'fixed', value: 'us-west-2' },
 					{ key: 'SETTINGS', policy: 'fixed', value: 'mode=production' },
+					{ key: 'ENDPOINT', policy: 'fixed' },
 					{ key: 'TOKEN', policy: 'fixed' }
 				],
+				configuredFixedFields: ['ENDPOINT'],
 				forceSingleUser: true,
 				submitLabel: m.core_save()
 			}
@@ -504,6 +507,8 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		const value = page.getByCSS('#fixed-REGION');
 		await expect.element(value).toHaveValue('us-west-2');
 		await expect.element(value).toBeDisabled();
+		await expect.element(page.getByText('Configured (hidden)', { exact: true })).toBeVisible();
+		await expect.element(page.getByCSS('#fixed-ENDPOINT')).not.toBeInTheDocument();
 		await expect.element(page.getByCSS('textarea#fixed-SETTINGS')).toBeDisabled();
 		await expect.element(page.getByCSS('input[name="Token"]')).toBeDisabled();
 		await openAdvanced();

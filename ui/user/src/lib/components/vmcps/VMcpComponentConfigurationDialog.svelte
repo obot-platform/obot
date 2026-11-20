@@ -44,7 +44,7 @@
 		field: MCPConfig;
 		policy?: VMCPConfigurationPolicyType;
 		input: SecretBindingInput;
-		hasSensitiveValue: boolean;
+		hasHiddenValue: boolean;
 	}
 
 	const POLICY_OPTIONS: { id: VMCPConfigurationPolicyType; label: string }[] = [
@@ -138,10 +138,9 @@
 				return {
 					field,
 					policy: catalogValue ? 'fixed' : initialPolicy(field, policy),
-					hasSensitiveValue: Boolean(
-						field.sensitive &&
-						(catalogValue || policy?.value || configuredFixedFields.has(field.key))
-					),
+					hasHiddenValue:
+						Boolean(field.sensitive && (catalogValue || policy?.value)) ||
+						(!policy?.value && configuredFixedFields.has(field.key)),
 					input: {
 						...field,
 						value: secretBinding || (readonly && field.sensitive) ? '' : (policy?.value ?? ''),
@@ -360,8 +359,8 @@
 							.input.secretBinding.key}
 					</p>
 				{/if}
-			{:else if readonly && draft.hasSensitiveValue}
-				<p class="text-sm text-muted-content">{m.vmcps_sensitive_value_configured()}</p>
+			{:else if readonly && draft.hasHiddenValue}
+				<p class="text-sm text-muted-content">{m.vmcps_value_configured_hidden()}</p>
 			{:else if draft.field.options?.length}
 				<Select
 					id={`fixed-${draft.field.key}`}
