@@ -34,7 +34,7 @@ func (*UserDefaultRoleSettingHandler) Set(req api.Context) error {
 		return types.NewErrHTTP(http.StatusBadRequest, "invalid default role request body")
 	}
 	if !input.Role.IsValidUserRole() {
-		return types.NewErrHTTP(http.StatusBadRequest, "default role must contain one base role and may include Auditor")
+		return types.NewErrHTTP(http.StatusBadRequest, "invalid default role combination")
 	}
 	if (input.Role.ExtractBaseRole() == types.RoleOwner || input.Role.HasAuditorRole()) && !req.UserIsOwner() {
 		return types.NewErrHTTP(http.StatusForbidden, "only owners can set a default role that includes Owner or Auditor")
