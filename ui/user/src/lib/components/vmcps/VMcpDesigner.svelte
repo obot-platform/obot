@@ -752,6 +752,9 @@
 						context={ctx}
 						drag={entryDrag}
 						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
+						onViewDetails={!canEdit && profile.current.hasAdminAccess?.()
+							? () => createEditVMcp?.openView(item)
+							: undefined}
 						onConnect={(options) => handleConnectVMcp(item, options)}
 						onDelete={canEdit ? () => createEditVMcp?.openDelete(item) : undefined}
 						openSelectInstance={vmcpActions?.openSelectInstance}

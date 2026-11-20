@@ -5,6 +5,7 @@ import {
 } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 import {
 	Group,
+	UserService,
 	type MCPCatalogEntry,
 	type ToolOverride,
 	type VMCP,
@@ -2260,9 +2261,7 @@ describe('VMcpDesigner.svelte', () => {
 
 			await componentBlock().click();
 			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
-			await expect
-				.element(page.getByRole('button', { name: 'View Configuration' }))
-				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'View Configuration' })).toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: 'Modify Tools' }))
 				.not.toBeInTheDocument();
@@ -2272,6 +2271,81 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Remove GitHub' }))
 				.not.toBeInTheDocument();
+		});
+
+		it('lets a Read-Only Admin view shared vMCP details without an edit or Reset action', async () => {
+			await renderDesigner([componentEntry], orgVMcp(), {
+				groups: [Group.USER, Group.ADMIN_READONLY]
+			});
+
+			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+			await expect.element(page.getByRole('link', { name: 'View Audit Logs' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Reset', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Edit Details', exact: true }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View Details', exact: true }).click();
+			const details = page.getByRole('dialog').filter({ hasText: 'Tool search' });
+			await expect.element(details.getByRole('heading', { name: 'View Details' })).toBeVisible();
+			await expect
+				.element(details.getByRole('textbox', { name: /Name/ }))
+				.toHaveValue('Issue Tracker vMCP');
+			await expect.element(details.getByRole('textbox', { name: /Name/ })).toBeDisabled();
+			await expect.element(details.getByRole('textbox', { name: /Description/ })).toBeDisabled();
+			await expect.element(details.getByRole('checkbox', { name: 'Tool search' })).toBeDisabled();
+			await expect.element(details.getByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+		});
+
+		it('lets a Read-Only Admin view component configuration policies without revealing values', async () => {
+			const entry: MCPCatalogEntry = {
+				...componentEntry,
+				manifest: {
+					...componentEntry.manifest,
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: true,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			};
+			const vmcp = {
+				...orgVMcp(),
+				components: [
+					createVMCPComponent(entry, {
+						configuration: [{ key: 'API_TOKEN', policy: 'fixed' }]
+					})
+				]
+			} satisfies VMCP;
+			const reveal = vi.spyOn(UserService, 'revealVMCP');
+			await renderDesigner([entry], vmcp, { groups: [Group.USER, Group.ADMIN_READONLY] });
+
+			await componentBlock().click();
+			await expect
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View Configuration' }).click();
+
+			const configuration = page
+				.getByRole('dialog')
+				.filter({ hasText: 'Configuration for GitHub' });
+			await expect
+				.element(configuration.getByRole('heading', { name: 'View GitHub' }))
+				.toBeVisible();
+			const policy = configuration.getByRole('combobox', { name: 'API token policy' });
+			await expect.element(policy).toBeDisabled();
+			await expect.element(policy).toHaveValue('fixed');
+			await expect
+				.element(configuration.getByRole('button', { name: 'Save' }))
+				.not.toBeInTheDocument();
+			expect(reveal).not.toHaveBeenCalled();
 		});
 
 		it('shows component name and tool prefix as read-only', async () => {

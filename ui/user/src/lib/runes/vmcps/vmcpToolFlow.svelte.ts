@@ -328,6 +328,11 @@ export function createVMcpToolFlow() {
 		dialog = 'configure';
 	}
 
+	function canRevealComponentConfiguration() {
+		const vmcp = modifyingVMcp;
+		return Boolean(vmcp && (profile.current.isAdmin?.() || profile.current.id === vmcp.userID));
+	}
+
 	function editDetails() {
 		if (!configuringComponent || !modifyingVMcp) return;
 		dialog = 'details';
@@ -722,10 +727,11 @@ export function createVMcpToolFlow() {
 		},
 		get canSeeComponentConfiguration() {
 			if (!configuringEntry || !hasVMcpComponentConfiguration(configuringEntry)) return false;
-			const vmcp = modifyingVMcp;
-			if (!vmcp) return false;
-			return Boolean(profile.current.isAdmin?.() || profile.current.id === vmcp.userID);
+			return Boolean(
+				modifyingVMcp && (profile.current.hasAdminAccess?.() || canRevealComponentConfiguration())
+			);
 		},
+		canRevealComponentConfiguration,
 		get postCreateConfiguration() {
 			return postCreateConfiguration;
 		},

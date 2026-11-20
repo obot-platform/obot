@@ -80,6 +80,7 @@
 			)
 		)
 	);
+	let canResetAdvanced = $derived(variant === 'catalog' && !readonly);
 
 	let selectedType = $state<'fixedURL' | 'hostname' | 'urlTemplate'>(
 		(config as RemoteCatalogConfigAdmin).urlTemplate &&
@@ -675,8 +676,8 @@
 	onclick={() => {
 		showAdvanced = !showAdvanced;
 
-		if (!showAdvanced && variant === 'catalog') {
-			if (!readonly && injectObotHeaders !== undefined) {
+		if (!showAdvanced && canResetAdvanced) {
+			if (injectObotHeaders !== undefined) {
 				injectObotHeaders = [];
 			}
 			const catalogConfig = config as RemoteCatalogConfigAdmin;
@@ -690,7 +691,7 @@
 	}}
 >
 	{showAdvanced
-		? variant === 'catalog'
+		? canResetAdvanced
 			? m.mcps_catalog_remote_remote_reset_default()
 			: m.mcps_catalog_remote_hide_advanced()
 		: m.mcps_catalog_remote_remote_advanced()}
