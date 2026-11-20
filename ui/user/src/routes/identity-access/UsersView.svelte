@@ -80,6 +80,7 @@
 	// Why a user cannot be deleted in Obot, as the server refuses it: their identity provider still
 	// provisions them through SCIM. Once it deactivates them, they can be deleted.
 	const PRIVILEGED_ROLES = Role.OWNER | Role.AUDITOR;
+	const ADMIN_BASE_ROLES = Role.ADMIN | Role.OWNER;
 	const STILL_PROVISIONED_MESSAGE = m.identity_access_users_still_provisioned();
 	// Why a Claude Tag user's role can't be updated and it can't be deleted: its Claude environment owns it,
 	// and the server refuses both.
@@ -186,6 +187,7 @@
 	let currentAccessDialog = $state<ReturnType<typeof CurrentAccessDialog>>();
 	let updateRoleDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updatingRole = $state<TableItem>();
+	let adminFromGroup = $state<boolean>();
 	let deletingUser = $state<TableItem>();
 	let enablingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
@@ -212,6 +214,28 @@
 		updateRoleDialog?.close();
 		updatingRole = undefined;
 		roleUpdateError = '';
+	}
+
+	async function openUpdateRoleDialog(user: TableItem) {
+		updatingRole = { ...user };
+		const draft = updatingRole;
+		const groups = user.authProviderGroups;
+		const directAdmin = (user.assignedRole & ADMIN_BASE_ROLES) !== 0;
+		adminFromGroup = groups?.length ? undefined : false;
+		updateRoleDialog?.open();
+
+		// A direct Admin or Owner role can mask a group grant in the effective role.
+		if (!directAdmin || !groups?.length) return;
+		try {
+			const mappings = await AdminService.listGroupRoleAssignments();
+			if (updatingRole === draft) {
+				adminFromGroup = mappings.some(
+					({ groupName, role }) => (role & ADMIN_BASE_ROLES) !== 0 && groups.includes(groupName)
+				);
+			}
+		} catch {
+			// Keep the add-on unavailable when the remaining group access is unknown.
+		}
 	}
 
 	function getErrorMessage(error: unknown): string {
@@ -369,7 +393,9 @@
 	}
 
 	function canAssignReadOnlyAdmin(user: TableItem): boolean {
-		return ((user.roleId | user.effectiveRoleId) & (Role.ADMIN | Role.OWNER)) === 0;
+		if (user.roleId & ADMIN_BASE_ROLES) return false;
+		if (user.assignedRole & ADMIN_BASE_ROLES) return adminFromGroup === false;
+		return (user.effectiveRoleId & ADMIN_BASE_ROLES) === 0;
 	}
 
 	function composeRole(user: TableItem): number {
@@ -588,8 +614,7 @@
 								}}
 								onclick={() => {
 									if (!d.hasOrgUser) return;
-									updatingRole = d;
-									updateRoleDialog?.open();
+									void openUpdateRoleDialog(d);
 								}}
 							>
 								{m.identity_access_update_role()}

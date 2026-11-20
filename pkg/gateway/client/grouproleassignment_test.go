@@ -235,6 +235,32 @@ func TestAdminCanChangeReadOnlyAdminWithoutChangingAuditorGrant(t *testing.T) {
 	require.NoError(t, c.DeleteGroupRoleAssignment(ctx, group, false))
 }
 
+func TestReadonlyAdminDirectGrantOnDemotion(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	db := c.db.WithContext(ctx)
+	user := &types.User{
+		Username:       "admin",
+		HashedUsername: "admin-username",
+		Email:          "admin@example.com",
+		HashedEmail:    "admin-email",
+		Role:           types2.RoleAdmin,
+	}
+	require.NoError(t, db.Create(user).Error)
+	require.NoError(t, db.Create(&types.User{
+		Username:       "other-admin",
+		HashedUsername: "other-admin-username",
+		Email:          "other-admin@example.com",
+		HashedEmail:    "other-admin-email",
+		Role:           types2.RoleAdmin,
+	}).Error)
+
+	role := types2.RoleBasic | types2.RoleAdminReadonly
+	updated, err := c.UpdateUser(ctx, true, &types.User{Role: role}, strconv.FormatUint(uint64(user.ID), 10))
+	require.NoError(t, err)
+	require.Equal(t, role, updated.Role)
+}
+
 func TestReadonlyAdminDirectGrantClearedOnPromotion(t *testing.T) {
 	for _, via := range []string{"direct", "owner handoff", "mapping create", "mapping update", "IdP membership", "SCIM membership"} {
 		t.Run(via, func(t *testing.T) {
@@ -308,9 +334,17 @@ func TestReadonlyAdminDirectGrantClearedOnPromotion(t *testing.T) {
 			_, err = c.UpdateUser(ctx, true, &types.User{
 				Role: types2.RoleBasic | types2.RoleAuditor | types2.RoleAdminReadonly,
 			}, id)
-			var httpErr *types2.ErrHTTP
-			require.ErrorAs(t, err, &httpErr)
-			require.Equal(t, http.StatusBadRequest, httpErr.Code)
+			switch via {
+			case "direct":
+				require.ErrorAs(t, err, new(*LastAdminError))
+			case "owner handoff":
+				require.ErrorAs(t, err, new(*LastOwnerError))
+			default:
+				var httpErr *types2.ErrHTTP
+				require.ErrorAs(t, err, &httpErr)
+				require.Equal(t, http.StatusBadRequest, httpErr.Code)
+				require.ErrorContains(t, err, "already inherit Read-Only Admin access")
+			}
 
 			if len(groupIDs) > 0 {
 				require.NoError(t, c.DeleteGroupRoleAssignment(ctx, group.ID, true))

@@ -405,9 +405,8 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 					return types2.NewErrBadRequest("role must be one base role with compatible add-ons")
 				}
 				if role.HasRole(types2.RoleAdminReadonly) {
-					if existingUser.Role.HasRole(types2.RoleAdmin) {
-						return types2.NewErrBadRequest("Admin and Owner already inherit Read-Only Admin access")
-					}
+					// The proposed direct role already passed validation. A group grant can
+					// still make Read-Only Admin redundant after a direct demotion.
 					elevated := elevatedGroupMembers(tx).Where("group_memberships.user_id = ?", existingUser.ID)
 					var count int64
 					if err := elevated.Count(&count).Error; err != nil {
