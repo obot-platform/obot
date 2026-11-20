@@ -14,6 +14,7 @@
 		type UsageStatsFilters
 	} from '$lib/services';
 	import profile from '$lib/stores/profile.svelte';
+	import { getTimeRangeFilter } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName, isBasicUser, withDisabledMarker } from '$lib/utils';
 	import HorizontalBarList from '../../graph/HorizontalBarList.svelte';
@@ -23,11 +24,16 @@
 	import type { SupportedStateFilter } from './types';
 	import {
 		transformAvgToolCallResponseTime,
+		transformIndividualToolResponseTimes,
+		transformMostActiveUsers,
+		transformToolCallErrors,
+		transformToolCallErrorsByServer,
 		transformTopServerUsage,
-		transformTopToolCalls
+		transformTopToolCalls,
+		usageUserDisplayName
 	} from './utils';
 	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from '@lucide/svelte';
-	import { endOfDay, isBefore, set, subDays } from 'date-fns';
+	import { endOfDay } from 'date-fns';
 	import { flip } from 'svelte/animate';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fade, slide } from 'svelte/transition';
@@ -46,7 +52,7 @@
 		tooltip: string;
 		formatXLabel?: (x: string | number) => string;
 		formatTooltipText?: (data: Record<string, string | number>) => string;
-		transform: (stats?: McpAuditLogUsageStats) => Array<Record<string, string | number>>;
+		transform: (stats?: McpAuditLogUsageStats) => object[];
 	};
 
 	let { mcpId, mcpServerCatalogEntryName, mcpServerDisplayName }: Props = $props();
@@ -179,35 +185,12 @@
 		return { ...clone, ...propsFilters, ...enforcedFilters };
 	});
 
-	let timeRangeFilters = $derived.by(() => {
-		const { start_time, end_time } = searchParamFilters;
-
-		const endTime = set(new Date(end_time || new Date()), { milliseconds: 0, seconds: 59 });
-
-		const getStartTime = (date: typeof start_time) => {
-			const parsedStartTime = set(new Date(date ? date : Date.now()), {
-				milliseconds: 0,
-				seconds: 0
-			});
-
-			if (date) {
-				// Ensure start time is not after end time
-				if (isBefore(parsedStartTime, endTime)) {
-					return parsedStartTime;
-				}
-			}
-
-			// Return 7 days before end time
-			return subDays(endTime, 7);
-		};
-
-		const startTime = getStartTime(start_time);
-
-		return {
-			startTime,
-			endTime
-		};
-	});
+	let timeRangeFilters = $derived(
+		getTimeRangeFilter({
+			start_time: searchParamFilters.start_time,
+			end_time: searchParamFilters.end_time
+		})
+	);
 
 	let filters = $derived({
 		...searchParamFilters,
@@ -221,7 +204,7 @@
 	let listUsageStats = $state<Promise<McpAuditLogUsageStats>>();
 	let graphPageSize = $state(10);
 	let graphPages = $state<Record<string, number>>({});
-	let graphData = $derived<Record<string, Record<string, string | number>[]>>({});
+	let graphData = $derived<Record<string, object[]>>({});
 	let graphTotals = $derived<Record<string, number>>({});
 	let showFilters = $state(false);
 	let rightSidebar = $state<HTMLDivElement>();
@@ -284,21 +267,7 @@
 			},
 			formatTooltipText: (data) =>
 				`${(data.processingTimeMs as number).toFixed(2)}ms • ${data.serverDisplayName}`,
-			transform: (stats) => {
-				const rows = [];
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						for (const [itemIndex, item] of (call.items ?? []).entries()) {
-							rows.push({
-								toolName: `${s.mcpServerDisplayName}.${s.mcpID}.${itemIndex}.${call.toolName}`,
-								processingTimeMs: item.processingTimeMs,
-								serverDisplayName: s.mcpServerDisplayName
-							});
-						}
-					}
-				}
-				return rows.sort((a, b) => b.processingTimeMs - a.processingTimeMs);
-			}
+			transform: transformIndividualToolResponseTimes
 		},
 		{
 			id: graphConfigIds.toolCallErrors,
@@ -316,35 +285,7 @@
 					count: data.errorCount,
 					name: data.serverDisplayName
 				}),
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const errorCounts = new Map<string, { errorCount: number; serverDisplayName: string }>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						let count = 0;
-						for (const item of call.items ?? []) {
-							if (item.error || item.responseStatus >= 400) count++;
-						}
-						if (count > 0) {
-							const existing = errorCounts.get(key) ?? {
-								errorCount: 0,
-								serverDisplayName: s.mcpServerDisplayName
-							};
-							existing.errorCount += count;
-							errorCounts.set(key, existing);
-						}
-					}
-				}
-				return Array.from(errorCounts.entries())
-					.filter(([_, { errorCount }]) => errorCount > 0)
-					.map(([toolName, { errorCount, serverDisplayName }]) => ({
-						toolName,
-						errorCount,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.errorCount - a.errorCount);
-			}
+			transform: transformToolCallErrors
 		},
 		{
 			id: graphConfigIds.toolCallErrorsByServer,
@@ -353,27 +294,7 @@
 			yKey: 'errorCount',
 			tooltip: m.audit_usage_usage_unit_errors(),
 			formatXLabel: (d) => String(d),
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const errorCounts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					let count = 0;
-					for (const call of s.toolCalls ?? []) {
-						for (const item of call.items ?? []) {
-							if (item.error || item.responseStatus >= 400) count++;
-						}
-					}
-					if (count > 0) {
-						errorCounts.set(
-							s.mcpServerDisplayName,
-							(errorCounts.get(s.mcpServerDisplayName) ?? 0) + count
-						);
-					}
-				}
-				return Array.from(errorCounts.entries())
-					.map(([serverName, errorCount]) => ({ serverName, errorCount }))
-					.sort((a, b) => b.errorCount - a.errorCount);
-			}
+			transform: transformToolCallErrorsByServer
 		},
 		{
 			id: graphConfigIds.mostActiveUsers,
@@ -385,28 +306,14 @@
 				const user = usersAsArray.find((u) => u.id === data.userId);
 				return m.audit_usage_usage_tooltip_calls({
 					count: data.callCount,
-					name: userDisplayName(user)
+					name: usageUserDisplayName(user)
 				});
 			},
 			formatXLabel: (userId) => {
 				const user = usersAsArray.find((u) => u.id === userId);
-				return withDisabledMarker(userDisplayName(user), user);
+				return withDisabledMarker(usageUserDisplayName(user), user);
 			},
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const userCounts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						for (const item of call.items ?? []) {
-							const count = userCounts.get(item.userID) ?? 0;
-							userCounts.set(item.userID, count + 1);
-						}
-					}
-				}
-				return Array.from(userCounts.entries())
-					.map(([userId, callCount]) => ({ userId, callCount }))
-					.sort((a, b) => b.callCount - a.callCount);
-			}
+			transform: transformMostActiveUsers
 		}
 	];
 
@@ -459,21 +366,9 @@
 				});
 	}
 
-	function userDisplayName(user?: OrgUser): string {
-		if (!user) {
-			return m.core_unknown();
-		}
-
-		let display = user.originalEmail || user.email || user.id || m.core_unknown();
-		if (user.deletedAt) {
-			display = m.audit_usage_usage_deleted_user({ name: display });
-		}
-		return display;
-	}
-
 	async function updateGraphs() {
 		const stats = await listUsageStats;
-		const data: Record<string, Record<string, string | number>[]> = {};
+		const data: Record<string, object[]> = {};
 		const totals: Record<string, number> = {};
 
 		for (const cfg of filteredGraphConfigs) {
@@ -638,7 +533,7 @@
 					<div class="p-4">
 						{#if paginated.length > 0}
 							<HorizontalBarList
-								data={paginated}
+								data={paginated as Record<string, string | number>[]}
 								labelKey={cfg.xKey}
 								valueKey={cfg.yKey}
 								formatLabel={cfg.formatXLabel}
