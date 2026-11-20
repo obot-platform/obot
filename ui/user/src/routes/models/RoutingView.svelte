@@ -138,6 +138,9 @@
 					goto(`/models/routing/${encodeURIComponent(routingRule.id)}`, { replaceState: true });
 				}
 			}}
+			onCancel={() => {
+				goto('/models?view=routing', { replaceState: true });
+			}}
 		/>
 	</div>
 {:else}
