@@ -195,7 +195,7 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 
 		user.Role = provisionedDefaultRole(user.Role, "first sign-in")
 
-		if user, err = c.UpdateUser(ctx, true, user, fmt.Sprintf("%d", user.ID)); err != nil {
+		if user, err = c.updateUser(ctx, true, user, fmt.Sprintf("%d", user.ID), true); err != nil {
 			return nil, err
 		}
 	}

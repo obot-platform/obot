@@ -371,6 +371,10 @@ func (c *Client) deleteUserTx(ctx context.Context, tx *gorm.DB, existingUser *ty
 }
 
 func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string) (*types.User, error) {
+	return c.updateUser(ctx, actingUserCanChangeRole, updatedUser, userID, false)
+}
+
+func (c *Client) updateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string, applyingDefaultRole bool) (*types.User, error) {
 	existingUser := new(types.User)
 	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := refuseClaudeTagUserMutation(tx, userID); err != nil {
@@ -401,7 +405,7 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 				if existingUser.Role.HasRole(types2.RoleAdminReadonly) && !existingUser.Role.HasRole(types2.RoleAdmin) {
 					role = role.WithoutRedundantReadonlyAdmin()
 				}
-				if role != existingUser.Role && !role.IsValid() {
+				if role != existingUser.Role && !role.IsValidUserRole() {
 					return types2.NewErrBadRequest("role must be one base role with compatible add-ons")
 				}
 				if role.HasRole(types2.RoleAdminReadonly) {
@@ -413,7 +417,12 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 						return err
 					}
 					if count > 0 {
-						return types2.NewErrBadRequest("Admin and Owner already inherit Read-Only Admin access")
+						if !applyingDefaultRole {
+							return types2.NewErrBadRequest("Admin and Owner already inherit Read-Only Admin access")
+						}
+						// First sign-in can already have elevated group memberships. Apply the default
+						// base role while letting those memberships supply admin read access.
+						role &^= types2.RoleAdminReadonly
 					}
 				}
 

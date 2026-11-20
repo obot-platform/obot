@@ -121,6 +121,9 @@ type UserList List[User]
 
 // IsValidUserRole reports whether the role has exactly one base and only supported add-ons.
 func (u Role) IsValidUserRole() bool {
+	if u != u.WithoutRedundantReadonlyAdmin() {
+		return false
+	}
 	_, ok := roleMap[u.ExtractBaseRole()]
 	return ok
 }
@@ -148,18 +151,6 @@ func (u Role) WithoutRedundantReadonlyAdmin() Role {
 		return u &^ RoleAdminReadonly
 	}
 	return u
-}
-
-// IsValid reports whether the role contains exactly one base role and optional add-ons.
-func (u Role) IsValid() bool {
-	if u != u.WithoutRedundantReadonlyAdmin() {
-		return false
-	}
-	switch u.ExtractBaseRole() {
-	case RoleOwner, RoleAdmin, RolePowerUserPlus, RolePowerUser, RoleBasic:
-		return true
-	}
-	return false
 }
 
 // ExtractBaseRole removes orthogonal role flags to get the base role

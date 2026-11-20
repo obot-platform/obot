@@ -262,7 +262,7 @@ func TestReadonlyAdminDirectGrantOnDemotion(t *testing.T) {
 }
 
 func TestReadonlyAdminDirectGrantClearedOnPromotion(t *testing.T) {
-	for _, via := range []string{"direct", "owner handoff", "mapping create", "mapping update", "IdP membership", "SCIM membership"} {
+	for _, via := range []string{"direct", "direct owner", "mapping create", "mapping update", "IdP membership", "SCIM membership"} {
 		t.Run(via, func(t *testing.T) {
 			c := newTestClient(t)
 			ctx := t.Context()
@@ -285,9 +285,9 @@ func TestReadonlyAdminDirectGrantClearedOnPromotion(t *testing.T) {
 					Role: types2.RoleAdmin | types2.RoleAuditor | types2.RoleAdminReadonly,
 				}, strconv.FormatUint(uint64(u.ID), 10))
 				require.NoError(t, err)
-			case "owner handoff":
+			case "direct owner":
 				_, err := c.UpdateUser(ctx, true, &types.User{
-					Role: u.Role.SwitchBaseRole(types2.RoleOwner),
+					Role: types2.RoleOwner | types2.RoleAuditor | types2.RoleAdminReadonly,
 				}, strconv.FormatUint(uint64(u.ID), 10))
 				require.NoError(t, err)
 			case "mapping create", "mapping update":
@@ -337,7 +337,7 @@ func TestReadonlyAdminDirectGrantClearedOnPromotion(t *testing.T) {
 			switch via {
 			case "direct":
 				require.ErrorAs(t, err, new(*LastAdminError))
-			case "owner handoff":
+			case "direct owner":
 				require.ErrorAs(t, err, new(*LastOwnerError))
 			default:
 				var httpErr *types2.ErrHTTP
