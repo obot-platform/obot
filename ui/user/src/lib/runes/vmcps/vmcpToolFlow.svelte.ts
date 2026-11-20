@@ -11,7 +11,9 @@ import {
 } from '$lib/services';
 import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
 import {
+	catalogConfigurationFields,
 	getToolCounts,
+	hasSensitiveCatalogValue,
 	hasVMcpComponentConfiguration,
 	resolveVMcpComponents,
 	vmcpComponentId,
@@ -725,10 +727,12 @@ export function createVMcpToolFlow() {
 		get excludedComponentIds() {
 			return excludedComponentIds;
 		},
-		get canSeeComponentConfiguration() {
-			if (!configuringEntry || !hasVMcpComponentConfiguration(configuringEntry)) return false;
-			return Boolean(
-				modifyingVMcp && (profile.current.hasAdminAccess?.() || canRevealComponentConfiguration())
+		canSeeComponentConfiguration(readonly: boolean) {
+			if (!modifyingVMcp || !configuringEntry) return false;
+			if (!(profile.current.hasAdminAccess?.() || canRevealComponentConfiguration())) return false;
+			return (
+				hasVMcpComponentConfiguration(configuringEntry) ||
+				(readonly && catalogConfigurationFields(configuringEntry).some(hasSensitiveCatalogValue))
 			);
 		},
 		canRevealComponentConfiguration,

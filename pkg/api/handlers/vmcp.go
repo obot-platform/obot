@@ -155,6 +155,9 @@ func vmcpForUser(req api.Context, vmcp v1.VMCP) v1.VMCP {
 		_, ok := visible[status.Name]
 		return !ok
 	})
+	for i := range vmcp.Status.Components {
+		vmcp.Status.Components[i].ConfiguredFixedFields = nil
+	}
 	vmcp.Status.Ready = len(vmcp.Status.Components) == len(manifest.Components) && !slices.ContainsFunc(vmcp.Status.Components, func(status v1.VMCPComponentStatus) bool {
 		return !status.Ready
 	})
@@ -662,12 +665,13 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 	componentStatuses := make([]types.VMCPComponentStatus, 0, len(vmcp.Status.Components))
 	for _, status := range vmcp.Status.Components {
 		componentStatuses = append(componentStatuses, types.VMCPComponentStatus{
-			Name:               status.Name,
-			Ready:              status.Ready,
-			Error:              status.Error,
-			SourceMissing:      status.SourceMissing,
-			NeedsUpdate:        status.NeedsUpdate,
-			ConnectionSnapshot: status.ConnectionSnapshot,
+			Name:                  status.Name,
+			Ready:                 status.Ready,
+			Error:                 status.Error,
+			SourceMissing:         status.SourceMissing,
+			NeedsUpdate:           status.NeedsUpdate,
+			ConfiguredFixedFields: status.ConfiguredFixedFields,
+			ConnectionSnapshot:    status.ConnectionSnapshot,
 		})
 	}
 	return types.VMCP{

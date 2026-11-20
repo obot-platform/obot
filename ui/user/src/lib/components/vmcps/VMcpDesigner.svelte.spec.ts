@@ -2312,12 +2312,25 @@ describe('VMcpDesigner.svelte', () => {
 							sensitive: true,
 							value: '',
 							usage: 'env'
+						},
+						{
+							key: 'CATALOG_TOKEN',
+							name: 'Catalog token',
+							description: 'Catalog-provided token',
+							required: true,
+							sensitive: true,
+							static: true,
+							value: '',
+							usage: 'env'
 						}
 					]
 				}
 			};
 			const vmcp = {
 				...orgVMcp(),
+				status: {
+					components: [{ name: 'GitHub', configuredFixedFields: ['API_TOKEN'] }]
+				},
 				components: [
 					createVMCPComponent(entry, {
 						configuration: [{ key: 'API_TOKEN', policy: 'fixed' }]
@@ -2342,6 +2355,12 @@ describe('VMcpDesigner.svelte', () => {
 			const policy = configuration.getByRole('combobox', { name: 'API token policy' });
 			await expect.element(policy).toBeDisabled();
 			await expect.element(policy).toHaveValue('fixed');
+			expect(
+				configuration.getByText('Configured (hidden)', { exact: true }).elements()
+			).toHaveLength(2);
+			await expect
+				.element(configuration.getByRole('button', { name: 'Reveal' }))
+				.not.toBeInTheDocument();
 			await expect
 				.element(configuration.getByRole('button', { name: 'Save' }))
 				.not.toBeInTheDocument();
@@ -2349,7 +2368,7 @@ describe('VMcpDesigner.svelte', () => {
 		});
 
 		it('shows component name and tool prefix as read-only', async () => {
-			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.AUDITOR] });
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.ADMIN_READONLY] });
 
 			await componentBlock().click();
 			await page.getByRole('button', { name: 'View Details' }).click();
@@ -2360,9 +2379,10 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(details.getByRole('textbox', { name: 'Tool name prefix' }))
 				.toHaveValue('github_');
+			await expect.element(details.getByRole('textbox', { name: 'Name *' })).toBeDisabled();
 			await expect
-				.element(details.getByRole('textbox', { name: 'Name *' }))
-				.toHaveAttribute('readonly', '');
+				.element(details.getByRole('textbox', { name: 'Tool name prefix' }))
+				.toBeDisabled();
 			await expect.element(details.getByRole('button', { name: 'Save' })).not.toBeInTheDocument();
 		});
 

@@ -47,7 +47,8 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 				break
 			}
 		}
-		checkHash := utils.Digest([]any{component, vmcp.Spec.StaticConfigurationHash})
+		// Version the check so existing vMCPs also populate field presence.
+		checkHash := utils.Digest([]any{component, vmcp.Spec.StaticConfigurationHash, "field-presence"})
 		if status.ConfigurationCheckHash != checkHash {
 			configurationChanged = true
 			if !revealed {
@@ -57,6 +58,13 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 					return err
 				}
 				revealed = true
+			}
+			status.ConfiguredFixedFields = nil
+			for _, policy := range component.Configuration {
+				if policy.Policy == types.VMCPConfigurationPolicyFixed &&
+					credential.Secrets[vmcpconfig.ConfigurationKey(component.ID, policy.Key)] != "" {
+					status.ConfiguredFixedFields = append(status.ConfiguredFixedFields, policy.Key)
+				}
 			}
 			status.ConfigurationError = ""
 			if _, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true); err != nil {

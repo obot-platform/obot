@@ -720,6 +720,7 @@ export interface VMCPStatus {
 }
 
 export interface VMCPComponentStatus {
+	configuredFixedFields?: string[];
 	/** An outdated snapshot that migrated connections retain while the component itself is current. */
 	connectionSnapshot?: VMCPComponentCatalogEntrySnapshot;
 	error?: string;

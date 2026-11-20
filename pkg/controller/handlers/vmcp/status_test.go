@@ -88,6 +88,9 @@ func TestSyncReadiness(t *testing.T) {
 		}
 	}
 	check(false, "missing required administrator configuration")
+	if len(vmcp.Status.Components[0].ConfiguredFixedFields) != 0 {
+		t.Fatal("missing field was reported as configured")
+	}
 	check(false, "missing required administrator configuration")
 	if reveals != 1 {
 		t.Fatalf("unchanged missing configuration caused %d reveals", reveals)
@@ -98,6 +101,9 @@ func TestSyncReadiness(t *testing.T) {
 		t.Fatal(err)
 	}
 	check(false, "waiting for component server")
+	if !slices.Equal(vmcp.Status.Components[0].ConfiguredFixedFields, []string{"TOKEN"}) {
+		t.Fatalf("expected the configured field key, got %v", vmcp.Status.Components[0].ConfiguredFixedFields)
+	}
 	server := &v1.MCPServer{Name: "ms1test", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name, VMCPComponentID: component.ID}}
 	if err := client.Create(t.Context(), server); err != nil {
 		t.Fatal(err)
