@@ -28,11 +28,6 @@ Enforcement fails closed. A call is blocked when:
 Local tool call auditing for Visual Studio Code continues to work, but Visual Studio Code does not currently support enforcement.
 
 :::important
-Cursor users with enforcement enabled need to go to `Cursor Settings → Rules, Skills, Subagents → Include third-party Plugins, Skills, and other configs` and turn it off.
-Doing this will prevent Cursor from loading Claude's hooks and allow enforcement to work as expected.
-:::
-
-:::important
 Kiro runs hooks only in folders the user has trusted. In an untrusted folder, Kiro still runs the agent and asks the user to approve each tool call, but Obot Sentry neither checks nor audits those calls. The same is true in a window with no folder open. Kiro also reads trust only when it starts, so a folder the user trusts afterward stays unchecked until Kiro is restarted.
 
 Cover this in your MDM:
@@ -45,6 +40,14 @@ A user who turns off an Obot Sentry hook in Kiro's Agent Hooks panel only does s
 The Kiro CLI runs these hooks only on its v3 agent engine (`kiro-cli chat --v3`, or the CLI setting `chat.agentEngine` set to `v3`). Its default v2 engine does not run them, so CLI sessions on v2 are neither checked nor audited. Obot Sentry does not change this setting. If you set it through your MDM, users can still choose v2 for a single session with `--v2`.
 :::
 
+:::important
+Obot Sentry installs Claude Code's hooks in Claude Code's [managed settings](https://code.claude.com/docs/en/settings) file: `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS and `C:\Program Files\ClaudeCode\managed-settings.json` on Windows.
+
+By default, Claude Code uses only one managed settings source. If a device also receives server-managed settings or an MDM policy for Claude Code (the `com.anthropic.claudecode` preference domain on macOS, or `HKLM\SOFTWARE\Policies\ClaudeCode` on Windows), Claude Code ignores the managed settings file, including Obot Sentry's hooks. Claude Code calls on that device are then neither checked nor audited. Obot Sentry doesn't detect this and still reports the hooks as installed. If your organization uses either source, set `managedSourcesBehavior` to `merge` in the highest-ranked source you deploy so that Claude Code also applies the managed settings file.
+
+Earlier Obot Sentry releases installed Claude Code's hooks in the user's `~/.claude/settings.json`. Upgraded devices remove those hooks the next time Obot Sentry installs hooks, and keep any hooks the user added there.
+:::
+
 ### How Obot Sentry identifies the MCP server {#how-servers-are-identified}
 
 When a client calls an MCP tool, its hook reports the tool name and the name the server is configured under. It does not report the URL, package, or command behind that name. Obot Sentry works that out by reading the client's MCP configuration files the same way the client does, and then checks the result against the allowlist.
@@ -55,6 +58,8 @@ For Claude Code, Obot Sentry reads, from highest precedence to lowest:
 2. Project configuration for the folder Claude Code was started in and each folder above it: `.mcp.json` files and per-project servers in `~/.claude.json`.
 3. The user's servers in `~/.claude.json`.
 4. claude.ai connectors recorded in `~/.claude.json`.
+
+When Claude Code is started with `CLAUDE_CONFIG_DIR` set, it reads `.claude.json` from that directory instead of the home directory, and Obot Sentry does the same: steps 2 through 4 use `$CLAUDE_CONFIG_DIR/.claude.json`, and `~/.claude.json` is not consulted. `CLAUDE_CONFIG_DIR` must be an absolute path. Claude Code resolves a relative path against the folder it was started in, which Obot Sentry can't determine, so MCP calls from a session with a relative `CLAUDE_CONFIG_DIR` are blocked, and the decision says to set it to an absolute path.
 
 If the same server name is defined differently in two of these places and Obot Sentry can't tell which one the client used, it blocks the call and the decision asks you to rename one of them.
 
@@ -116,7 +121,7 @@ For an identified, blocked MCP call, an administrator can add an allow rule dire
 
 Enforcement depends on files and settings that the user can change on their own device. A user who means to use an unapproved MCP server can do so in ways that include:
 
-- **Removing the hooks.** Claude Code and Kiro hooks are installed in the user's home directory, so the user can edit or delete them until Obot Sentry's next hourly hook installation puts them back. Codex and Cursor hooks are installed in machine-level files, so they are only as protected as those files' permissions. Use your MDM to check that the hook files are in place and to report devices where they're missing as out of compliance.
+- **Removing the hooks.** Kiro hooks are installed in the user's home directory, so the user can edit or delete them until Obot Sentry's next hourly hook installation puts them back. Claude Code, Codex, and Cursor hooks are installed in machine-level files, so they are only as protected as those files' permissions. Use your MDM to check that the hook files are in place and to report devices where they're missing as out of compliance.
 - **Shadowing an allowed server.** A client can load MCP configuration from places Obot Sentry doesn't read, such as Claude Code's `--mcp-config` flag. A user can define a server there under the same name as an allowed one. Obot Sentry then checks the allowed server while the client runs the other. For Claude Code, a [managed MCP configuration](https://code.claude.com/docs/en/managed-mcp) closes this gap by stopping Claude Code from loading any server that isn't in it, including servers passed with `--mcp-config`. Other clients may have similar controls. Check each client you allow, and treat one without them as a gap.
 - **Replacing the package runner.** Obot Sentry treats a configuration entry that changes `PATH` or other package-resolution settings as unidentifiable and blocks it. It can't see which `npx` or `uvx` the user's own shell finds first, so a different executable earlier on the user's `PATH` can run anything under an allowed package name.
 - **Changing configuration around the check.** Anything that runs as the user, including the user's own hooks, can change a client's configuration files between the time Obot Sentry reads them and the time the client uses them.
@@ -140,7 +145,7 @@ The limitations above come from enforcement running on a device the user control
 
 On devices, use enforcement as one of several layers:
 
-- **Use the client's own managed settings.** Some clients can be locked down directly, and those controls don't depend on reading configuration files. For example, Claude Code can be given a [managed MCP configuration](https://code.claude.com/docs/en/managed-mcp) that users can't override, and Obot Sentry respects it. Deliver these settings through your MDM.
+- **Use the client's own managed settings.** Some clients can be locked down directly, and those controls don't depend on reading configuration files. For example, Claude Code can be given a [managed MCP configuration](https://code.claude.com/docs/en/managed-mcp) that users can't override, and Obot Sentry respects it. Because Obot Sentry's Claude Code hooks are in managed settings, you can also set `allowManagedHooksOnly` so that Claude Code ignores hooks the user adds, without turning off Obot Sentry's. Deliver these settings through your MDM, and set `managedSourcesBehavior` as described in [Fail-closed behavior and client support](#fail-closed-behavior) if you deliver them as an MDM policy.
 - **Send remote MCP traffic through Obot.** A remote MCP server reached through an Obot gateway is governed by gateway access controls, filters, and audit logs on the server side, where the user can't change them. Network egress controls that block direct connections to remote MCP servers close the path around the gateway.
-- **Manage the device with your MDM.** Keep the client settings that enforcement depends on in place, such as Kiro's hook and workspace trust settings, and keep the machine-level hook files for Codex and Cursor writable only by administrators.
+- **Manage the device with your MDM.** Keep the client settings that enforcement depends on in place, such as Kiro's hook and workspace trust settings, and keep the machine-level hook files for Claude Code, Codex, and Cursor writable only by administrators.
 - **Review enforcement decisions.** Repeated blocks show which servers people need. A device that keeps submitting scans but no longer reports enforcement decisions may have lost its hooks.
