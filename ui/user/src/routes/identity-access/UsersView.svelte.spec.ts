@@ -228,7 +228,7 @@ describe('UsersView', () => {
 		5000
 	);
 
-	it.each([Role.ADMIN, Role.OWNER])('hides the add-on for elevated role %s', async (role) => {
+	it.each([Role.ADMIN, Role.OWNER])('disables the add-on for elevated role %s', async (role) => {
 		const user = orgUser({
 			id: '61',
 			email: 'elevated@example.com',
@@ -238,9 +238,9 @@ describe('UsersView', () => {
 		await renderUsersView([user], [Group.ADMIN, Group.OWNER]);
 		await openRowActions(user.email);
 		await page.getByRole('button', { name: 'Update Role' }).click();
-		await expect
-			.element(page.getByRole('dialog').getByRole('checkbox', { name: /^Read-Only Admin/ }))
-			.not.toBeInTheDocument();
+		const checkbox = page.getByRole('dialog').getByRole('checkbox', { name: /^Read-Only Admin/ });
+		await expect.element(checkbox).toBeVisible();
+		await expect.element(checkbox).toBeDisabled();
 	});
 
 	it('drops Read-Only Admin when promoting a user to Admin', async () => {
@@ -252,9 +252,10 @@ describe('UsersView', () => {
 		await page.getByRole('button', { name: 'Update Role' }).click();
 		const dialog = page.getByRole('dialog');
 		(dialog.getByRole('radio', { name: /^Admin / }).element() as HTMLInputElement).click();
-		await expect
-			.element(dialog.getByRole('checkbox', { name: /^Read-Only Admin/ }))
-			.not.toBeInTheDocument();
+		const checkbox = dialog.getByRole('checkbox', { name: /^Read-Only Admin/ });
+		await expect.element(checkbox).toBeVisible();
+		await expect.element(checkbox).toBeDisabled();
+		await expect.element(checkbox).not.toBeChecked();
 		(dialog.getByRole('button', { name: 'Update', exact: true }).element() as HTMLElement).click();
 		await vi.waitFor(() =>
 			expect(setRole).toHaveBeenCalledWith(user.id, Role.ADMIN | Role.AUDITOR)
@@ -279,14 +280,18 @@ describe('UsersView', () => {
 			await openRowActions(user.email);
 			await page.getByRole('button', { name: 'Update Role' }).click();
 			const dialog = page.getByRole('dialog');
-			(dialog.getByRole('radio', { name: /^Standard User/ }).element() as HTMLInputElement).click();
 			const checkbox = dialog.getByRole('checkbox', { name: /^Read-Only Admin/ });
+			await expect.element(checkbox).toBeVisible();
+			await expect.element(checkbox).toBeDisabled();
+			const checkboxNode = checkbox.element() as HTMLInputElement;
+			(dialog.getByRole('radio', { name: /^Standard User/ }).element() as HTMLInputElement).click();
 			await vi.waitFor(() => expect(assignments).toHaveBeenCalledOnce());
 			if (groupRole === Role.ADMIN) {
-				await expect.element(checkbox).not.toBeInTheDocument();
+				await expect.element(checkbox).toBeDisabled();
 			} else {
-				await expect.element(checkbox).toBeVisible();
-				(checkbox.element() as HTMLInputElement).click();
+				await expect.element(checkbox).toBeEnabled();
+				expect(checkbox.element()).toBe(checkboxNode);
+				checkboxNode.click();
 			}
 			(
 				dialog.getByRole('button', { name: 'Update', exact: true }).element() as HTMLElement

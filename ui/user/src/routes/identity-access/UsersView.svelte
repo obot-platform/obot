@@ -737,6 +737,7 @@
 	title={m.identity_access_users_update_role_title({ name: `${updatingRole?.name}` })}
 >
 	{#if updatingRole}
+		{@const readOnlyAdminAvailable = canAssignReadOnlyAdmin(updatingRole)}
 		{@const roleDescriptionMap = userRoleOptions.reduce(
 			(acc, role) => {
 				acc[role.id] = role.description;
@@ -772,15 +773,24 @@
 				</p>
 			{/if}
 
-			{#if canAssignReadOnlyAdmin(updatingRole)}
-				<label class="mt-4 flex gap-4">
-					<input type="checkbox" bind:checked={updatingRole.readOnlyAdmin} />
-					<span class="flex flex-col">
-						<span class="font-semibold">{m.core_role_admin_readonly()}</span>
-						<span class="text-muted-content">{m.core_role_admin_readonly_description()}</span>
-					</span>
-				</label>
-			{/if}
+			<label
+				class="mt-4 flex gap-4"
+				class:cursor-not-allowed={!readOnlyAdminAvailable}
+				class:opacity-50={!readOnlyAdminAvailable}
+			>
+				<input
+					type="checkbox"
+					checked={readOnlyAdminAvailable && updatingRole.readOnlyAdmin}
+					disabled={!readOnlyAdminAvailable}
+					onchange={(event) => {
+						if (updatingRole) updatingRole.readOnlyAdmin = event.currentTarget.checked;
+					}}
+				/>
+				<span class="flex flex-col">
+					<span class="font-semibold">{m.core_role_admin_readonly()}</span>
+					<span class="text-muted-content">{m.core_role_admin_readonly_description()}</span>
+				</span>
+			</label>
 
 			{#if profile.current.groups.includes(Group.OWNER)}
 				<label class="mt-4 flex gap-4">
