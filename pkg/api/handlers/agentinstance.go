@@ -60,7 +60,7 @@ func agentSessions(attempts []v1.AgentInstance) []v1.AgentInstance {
 }
 
 func (h *ClaudeSessionHandler) List(req api.Context) error {
-	all := req.UserIsAdmin() && req.URL.Query().Get("all") == "true"
+	all := req.UserCanReadAsAdmin() && req.URL.Query().Get("all") == "true"
 
 	var options []kclient.ListOption
 	if !all {

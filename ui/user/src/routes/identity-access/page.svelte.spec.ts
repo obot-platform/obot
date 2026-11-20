@@ -2,7 +2,7 @@ import { replaceState } from '$app/navigation';
 import { page as appPage } from '$app/state';
 import { CommonAuthProviderIds, LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 import * as navigation from '$lib/navigation';
-import { Group } from '$lib/services';
+import { AdminService, Group, Role } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
 import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -181,7 +181,9 @@ async function renderIdentityAccessPage({
 	groups,
 	apiKeys = [],
 	users = [],
-	currentAuthProvider
+	currentAuthProvider,
+	groupRoleAssignments = [],
+	orgGroups = []
 }: {
 	authProviders?: AuthProvider[];
 	authEnabled?: boolean;
@@ -192,6 +194,8 @@ async function renderIdentityAccessPage({
 	apiKeys?: APIKey[];
 	users?: PageData['users'];
 	currentAuthProvider?: string;
+	groupRoleAssignments?: PageData['groupRoleAssignments'];
+	orgGroups?: PageData['groups'];
 } = {}) {
 	const profile = createMockProfile(groups);
 	profile.currentAuthProvider = currentAuthProvider;
@@ -209,8 +213,8 @@ async function renderIdentityAccessPage({
 
 	const data = await preparePageData<PageData>({
 		users,
-		groups: [],
-		groupRoleAssignments: [],
+		groups: orgGroups,
+		groupRoleAssignments,
 		defaultUsersRole: undefined,
 		authProviders,
 		authEnabled,
@@ -382,6 +386,33 @@ describe('Identity & Access Page', () => {
 		}
 	);
 
+	it('adds Read-Only Admin to an existing IdP group role', async () => {
+		const group = { id: 'idp/reviewers', name: 'Security reviewers' };
+		const role = Role.POWERUSER_PLUS | Role.AUDITOR;
+		const updateRole = vi
+			.spyOn(AdminService, 'updateGroupRoleAssignment')
+			.mockImplementation(async (_groupName, assignment) => assignment);
+		await renderIdentityAccessPage({
+			view: 'groups',
+			groups: [Group.ADMIN],
+			orgGroups: [group],
+			groupRoleAssignments: [{ groupName: group.id, role }]
+		});
+
+		await page.getByRole('row').filter({ hasText: group.name }).getByRole('button').click();
+		await page.getByRole('button', { name: 'Update Role', exact: true }).click();
+		const dialog = page.getByRole('dialog');
+		await dialog.getByRole('checkbox', { name: /^Read-Only Admin/ }).click();
+		await dialog.getByRole('button', { name: 'Update', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(updateRole).toHaveBeenCalledWith(
+				group.id,
+				expect.objectContaining({ role: role | Role.ADMIN_READONLY })
+			)
+		);
+	});
+
 	describe('local bootstrap setup', () => {
 		const localConfigured: AuthProvider = {
 			...googleProvider,
@@ -501,16 +532,55 @@ describe('Identity & Access Page', () => {
 			await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
 		});
 
-		it('hides create for readonly admins', async () => {
+		it('allows readonly admins to create personal agent identities', async () => {
 			await renderIdentityAccessPage({
 				view: 'agents',
-				groups: [Group.AUDITOR],
+				groups: [Group.ADMIN_READONLY],
 				apiKeys: [apiKey]
 			});
 
 			await expect
 				.element(page.getByRole('button', { name: 'Create Agent Identity', exact: true }))
-				.not.toBeInTheDocument();
+				.toBeVisible();
+		});
+	});
+
+	describe('auth provider credentials', () => {
+		it.each([
+			{ name: 'an admin', groups: [Group.ADMIN_READONLY, Group.ADMIN], reveals: true },
+			{
+				name: 'a read-only admin with auditor',
+				groups: [Group.ADMIN_READONLY, Group.AUDITOR],
+				reveals: true
+			},
+			{ name: 'an auditor', groups: [Group.USER, Group.AUDITOR], reveals: true },
+			{ name: 'a read-only admin', groups: [Group.ADMIN_READONLY], reveals: false }
+		])('are revealed when $name opens a provider: $reveals', async ({ name, groups, reveals }) => {
+			// A provider of its own, so that a reveal still in flight from another case is not counted.
+			const provider: AuthProvider = {
+				...googleConfigured,
+				id: `${googleConfigured.id}-${name.replaceAll(' ', '-')}`
+			};
+			let revealed = 0;
+			worker.use(
+				http.post(`/api/auth-providers/${provider.id}/reveal`, () => {
+					revealed++;
+					return HttpResponse.json({});
+				})
+			);
+			await renderIdentityAccessPage({ authProviders: [provider], groups });
+
+			await providerCard('Google')
+				.getByRole('button', { name: /^(View|Modify)$/ })
+				.click();
+			await expect.element(page.getByRole('dialog')).toBeVisible();
+			if (reveals) {
+				await expect.poll(() => revealed).toBe(1);
+			} else {
+				// The reveal starts as the dialog opens, so give it time to have been sent.
+				await new Promise((resolve) => setTimeout(resolve, 500));
+				expect(revealed).toBe(0);
+			}
 		});
 	});
 

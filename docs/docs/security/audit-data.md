@@ -14,7 +14,7 @@ Audit records, device inventories, and product analytics have different purposes
 
 MCP audit logs, LLM audit logs, and device scans have separate retention settings in [Server Configuration](../configuration/server-configuration.md). Their documented defaults are 90 days; setting the corresponding retention value to zero disables its automatic cleanup. Export records before expiration when longer retention is required.
 
-Admin and Owner can view audit metadata; sensitive gateway request/response payloads require the Auditor add-on role. Export permissions follow the same distinction. Device scan access and captured-file behavior are documented separately—do not assume every collected field has identical restrictions.
+Admins, Owners, and users with Read-Only Admin can view organization-wide audit metadata. The Auditor add-on grants sensitive gateway request and response payloads. Users can also view MCP payloads for their own servers. Read-Only Admin grants inventory visibility, with captured file contents limited to scans the user submitted unless another role grants access.
 
 Captured configuration files can contain sensitive content even when structured scan fields omit secret values. Field encryption does not protect exported objects or all metadata; configure destination storage permissions and encryption separately.
 

@@ -9,7 +9,7 @@ import (
 )
 
 func (a *Authorizer) checkSkill(req *http.Request, resources *Resources, u User) (bool, error) {
-	if resources.SkillID == "" || u.IsAdmin || u.IsAuditor {
+	if resources.SkillID == "" || u.CanViewAdmin() {
 		return true, nil
 	}
 

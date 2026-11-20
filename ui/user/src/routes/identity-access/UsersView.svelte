@@ -98,11 +98,13 @@
 				? (disabledReasonLabels[user.disabledReason] ?? user.disabledReason)
 				: undefined,
 			assignedRole: user.role,
+			effectiveRoleId: user.effectiveRole,
 			name: getUserDisplayName(user),
 			role: getUserRoleLabel(user.role).split(','),
 			effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
-			roleId: user.role & ~Role.AUDITOR,
+			roleId: user.role & ~(Role.AUDITOR | Role.ADMIN_READONLY),
 			auditor: Boolean(user.role & Role.AUDITOR),
+			readOnlyAdmin: Boolean(user.role & Role.ADMIN_READONLY),
 			// Only an Owner can enable a user with any of these roles, from their own role or a group.
 			privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0,
 			claudeTag: isClaudeTagUser(user)
@@ -127,11 +129,13 @@
 			status: m.identity_access_users_status_created(),
 			disabledReasonLabel: undefined as string | undefined,
 			assignedRole: 0,
+			effectiveRoleId: 0,
 			name: '',
 			role: [] as string[],
 			effectiveRole: [] as string[],
 			roleId: Role.BASIC,
 			auditor: false,
+			readOnlyAdmin: false,
 			privileged: false,
 			claudeTag: false,
 			managementSource: undefined as OrgUser['managementSource'],
@@ -364,8 +368,12 @@
 		}
 	}
 
-	function composeRole(roleId: number, auditor: boolean): number {
-		return auditor ? roleId | Role.AUDITOR : roleId;
+	function composeRole(user: TableItem): number {
+		return (
+			user.roleId |
+			(user.auditor ? Role.AUDITOR : 0) |
+			(user.readOnlyAdmin ? Role.ADMIN_READONLY : 0)
+		);
 	}
 
 	function getUserDisplayName(user: OrgUser): string {
@@ -399,6 +407,7 @@
 	}, 100);
 
 	const duration = PAGE_TRANSITION_DURATION;
+	// Auditor adds administrative visibility when the user has one of these base roles and no Read-Only Admin grant.
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 
 	const hasValidLicense = $derived(Boolean(version.current.enterprise));
@@ -728,12 +737,30 @@
 				</label>
 			{/each}
 
+			{#if (updatingRole.effectiveRoleId & (Role.POWERUSER | Role.POWERUSER_PLUS | Role.ADMIN | Role.OWNER)) !== 0 && (updatingRole.assignedRole & ~(Role.AUDITOR | Role.ADMIN_READONLY)) !== updatingRole.roleId && updatingRole.roleId === Role.BASIC}
+				<p role="alert" class="notification-warning text-sm">
+					{m.identity_access_users_workspace_downgrade_warning()}
+				</p>
+			{/if}
+
+			<label class="mt-4 flex gap-4">
+				<input type="checkbox" bind:checked={updatingRole.readOnlyAdmin} />
+				<span class="flex flex-col">
+					<span class="font-semibold">{m.core_role_admin_readonly()}</span>
+					<span class="text-muted-content">
+						{updatingRole.roleId & (Role.ADMIN | Role.OWNER)
+							? m.core_role_admin_readonly_redundant()
+							: m.core_role_admin_readonly_description()}
+					</span>
+				</span>
+			</label>
+
 			{#if profile.current.groups.includes(Group.OWNER)}
 				<label class="mt-4 flex gap-4">
 					<input type="checkbox" bind:checked={updatingRole.auditor} />
 					<span class="flex flex-col">
 						<p class="w-28 shrink-0 font-semibold">{m.core_role_auditor()}</p>
-						{#if auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
+						{#if !updatingRole.readOnlyAdmin && auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
 							<p class="text-muted-content">
 								{m.identity_access_users_auditor_readonly_description()}
 							</p>
@@ -771,10 +798,7 @@
 					}
 
 					if (!updatingRole.orgUserId) return;
-					updateUserRole(
-						updatingRole.orgUserId,
-						composeRole(updatingRole.roleId, updatingRole.auditor)
-					);
+					updateUserRole(updatingRole.orgUserId, composeRole(updatingRole));
 				}}
 				disabled={loading}
 			>
@@ -795,7 +819,7 @@
 		if (!confirmHandoffToUser?.orgUserId) return;
 		const ok = await updateUserRole(
 			confirmHandoffToUser.orgUserId,
-			composeRole(confirmHandoffToUser.roleId, confirmHandoffToUser.auditor),
+			composeRole(confirmHandoffToUser),
 			false
 		);
 		if (!ok) {
@@ -839,7 +863,7 @@
 		if (!confirmAuditorAdditionToUser?.orgUserId) return;
 		await updateUserRole(
 			confirmAuditorAdditionToUser.orgUserId,
-			composeRole(confirmAuditorAdditionToUser.roleId, true)
+			composeRole(confirmAuditorAdditionToUser)
 		);
 		confirmAuditorAdditionToUser = undefined;
 	}}
@@ -851,7 +875,7 @@
 	{#snippet note()}
 		<div class="flex flex-col gap-4">
 			<p class="text-left">
-				{#if confirmAuditorAdditionToUser && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
+				{#if confirmAuditorAdditionToUser && !confirmAuditorAdditionToUser.readOnlyAdmin && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
 					{m.identity_access_users_auditor_note_standard()}
 				{:else}
 					{m.identity_access_users_auditor_note()}

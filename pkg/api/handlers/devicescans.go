@@ -27,12 +27,9 @@ func NewDeviceScansHandler() *DeviceScansHandler {
 	return nil
 }
 
-// userIsDeviceScanReader reports whether the caller is
-// allowed to read device scans without being clamped to their own
-// SubmittedBy. Admin, owner, and auditor see all scans; everyone
-// else sees only scans they submitted.
+// userIsDeviceScanReader reports whether the caller may view organization-wide scan inventory.
 func userIsDeviceScanReader(req api.Context) bool {
-	return req.UserIsAdmin() || req.UserIsAuditor()
+	return req.UserCanViewAdmin()
 }
 
 // Submit handles POST /api/devices/scans. ID and ReceivedAt are
@@ -92,10 +89,7 @@ func (*DeviceScansHandler) List(req api.Context) error {
 	})
 }
 
-// Get handles GET /api/devices/scans/{scan_id}. Returns the scan
-// envelope plus all child rows (MCP servers, skills, plugins, files).
-// For non-privileged callers, scans submitted by another user return
-// NotFound.
+// Get handles GET /api/devices/scans/{scan_id} and returns scan inventory and captured files.
 func (*DeviceScansHandler) Get(req api.Context) error {
 	id, err := parseDeviceScanID(req.PathValue("scan_id"))
 	if err != nil {
@@ -108,7 +102,14 @@ func (*DeviceScansHandler) Get(req api.Context) error {
 		}
 		return err
 	}
-	return req.Write(gtypes.ConvertDeviceScan(*scan))
+	result := gtypes.ConvertDeviceScan(*scan)
+	// Captured files may contain credentials that structured inventory omits.
+	if scan.SubmittedBy != req.User.GetUID() && !req.UserIsAdmin() && !req.UserIsAuditor() {
+		for i := range result.Files {
+			result.Files[i].Content = ""
+		}
+	}
+	return req.Write(result)
 }
 
 // Delete handles DELETE /api/devices/scans/{scan_id}. Idempotent:

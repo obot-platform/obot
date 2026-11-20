@@ -44,6 +44,7 @@
 	let selectedGroup = $state<OrgGroup | undefined>();
 	let draftRoleId = $state(0);
 	let draftHaveAuditorPrivilege = $state(false);
+	let draftHaveReadOnlyAdmin = $state(false);
 
 	let isSmallScreen = $derived(responsive.isMobile);
 
@@ -51,6 +52,7 @@
 		selectedGroup = undefined;
 		draftRoleId = 0;
 		draftHaveAuditorPrivilege = false;
+		draftHaveReadOnlyAdmin = false;
 	}
 
 	$effect(() => {
@@ -71,11 +73,13 @@
 		const existingAssignment = groupRoleMap[group.id];
 		if (existingAssignment) {
 			const role = existingAssignment.role || 0;
-			draftRoleId = role & ~Role.AUDITOR;
+			draftRoleId = role & ~(Role.AUDITOR | Role.ADMIN_READONLY);
 			draftHaveAuditorPrivilege = hasAuditorFlag(role);
+			draftHaveReadOnlyAdmin = Boolean(role & Role.ADMIN_READONLY);
 		} else {
 			draftRoleId = 0;
 			draftHaveAuditorPrivilege = false;
+			draftHaveReadOnlyAdmin = false;
 		}
 	}
 
@@ -86,7 +90,7 @@
 	function handleConfirm() {
 		if (!selectedGroup) return;
 
-		let role = draftRoleId;
+		let role = draftRoleId | (draftHaveReadOnlyAdmin ? Role.ADMIN_READONLY : 0);
 		if (draftHaveAuditorPrivilege) {
 			role = addAuditorFlag(role);
 		}
@@ -105,7 +109,7 @@
 			: false;
 
 		// Auditor changed - show auditor confirmation only if they didn't have it before
-		if (draftHaveAuditorPrivilege && !hadAuditorBefore && draftRoleId !== 0) {
+		if (draftHaveAuditorPrivilege && !hadAuditorBefore) {
 			onAuditorConfirm(result);
 		} else if (draftRoleId === Role.OWNER) {
 			// Changing to owner role - show owner confirmation
@@ -153,6 +157,7 @@
 			<GroupRoleForm
 				bind:roleId={draftRoleId}
 				bind:hasAuditorPrivilege={draftHaveAuditorPrivilege}
+				bind:hasReadOnlyAdmin={draftHaveReadOnlyAdmin}
 			/>
 		{:else}
 			<div class="text-muted-content flex h-full items-center justify-center py-12 text-sm">
@@ -229,7 +234,9 @@
 			<button
 				class="btn btn-primary"
 				onclick={handleConfirm}
-				disabled={loading || !selectedGroup || draftRoleId === 0}
+				disabled={loading ||
+					!selectedGroup ||
+					(draftRoleId === 0 && !draftHaveReadOnlyAdmin && !draftHaveAuditorPrivilege)}
 			>
 				{#if loading}
 					<Loading class="size-4" />

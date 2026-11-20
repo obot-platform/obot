@@ -31,7 +31,7 @@ func (*VMCPInstanceHandler) List(req api.Context) error {
 	var (
 		list       v1.VMCPInstanceList
 		fields     = kclient.MatchingFields{}
-		privileged = req.UserIsAdmin() || req.UserIsAuditor()
+		privileged = req.UserCanViewAdmin()
 	)
 	if !privileged {
 		fields["spec.userID"] = req.User.GetUID()

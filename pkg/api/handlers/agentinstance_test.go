@@ -36,6 +36,18 @@ func TestClaudeSessionsAllParameter(t *testing.T) {
 			count:  0,
 		},
 		{
+			name:   "admin read-only all",
+			groups: []string{types.GroupAdminReadonly, types.GroupBasic},
+			query:  "?all=true",
+			count:  1,
+		},
+		{
+			name:   "auditor all ignored",
+			groups: []string{types.GroupAuditor, types.GroupBasic},
+			query:  "?all=true",
+			count:  0,
+		},
+		{
 			name:   "user all ignored",
 			groups: []string{types.GroupBasic},
 			query:  "?all=true",

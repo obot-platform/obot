@@ -66,8 +66,10 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 		return types2.NewErrBadRequest("role is required")
 	}
 
-	// Validate that the requester is authorized to assign this role
-	if err := s.validateRoleForUser(apiContext, req.Role); err != nil {
+	if !apiContext.UserIsOwner() && req.Role&(types2.RoleOwner|types2.RoleAuditor) != 0 {
+		return types2.NewErrHTTP(http.StatusForbidden, client.ErrGroupRoleAssignmentOwnerRequired.Error())
+	}
+	if err := validateGroupRole(req.Role); err != nil {
 		return err
 	}
 
@@ -118,16 +120,18 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 		return types2.NewErrBadRequest("role is required")
 	}
 
-	// Validate that the requester is authorized to assign this role
-	if err := s.validateRoleForUser(apiContext, req.Role); err != nil {
+	if err := validateGroupRole(req.Role); err != nil {
 		return err
 	}
 
 	updated, err := apiContext.GatewayClient.UpdateGroupRoleAssignment(
-		apiContext.Context(), groupName, req.Role, req.Description)
+		apiContext.Context(), groupName, req.Role, req.Description, apiContext.UserIsOwner())
 	if err != nil {
 		if errors.Is(err, client.ErrGroupRoleAssignmentNotFound) {
 			return types2.NewErrNotFound("group role assignment %s not found", groupName)
+		}
+		if errors.Is(err, client.ErrGroupRoleAssignmentOwnerRequired) {
+			return types2.NewErrHTTP(http.StatusForbidden, client.ErrGroupRoleAssignmentOwnerRequired.Error())
 		}
 		return fmt.Errorf("failed to update group role assignment: %v", err)
 	}
@@ -149,9 +153,12 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, "groupName path parameter is required")
 	}
 
-	if err := apiContext.GatewayClient.DeleteGroupRoleAssignment(apiContext.Context(), groupName); err != nil {
+	if err := apiContext.GatewayClient.DeleteGroupRoleAssignment(apiContext.Context(), groupName, apiContext.UserIsOwner()); err != nil {
 		if errors.Is(err, client.ErrGroupRoleAssignmentNotFound) {
 			return types2.NewErrNotFound("group role assignment %s not found", groupName)
+		}
+		if errors.Is(err, client.ErrGroupRoleAssignmentOwnerRequired) {
+			return types2.NewErrHTTP(http.StatusForbidden, client.ErrGroupRoleAssignmentOwnerRequired.Error())
 		}
 		return fmt.Errorf("failed to delete group role assignment: %v", err)
 	}
@@ -183,29 +190,10 @@ func (s *Server) triggerReconciliationForGroup(apiContext api.Context, groupName
 	return nil
 }
 
-// validateRoleForUser checks if the requester is authorized to assign the given role
-func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) error {
-	// Extract base role and add-on role flags
+func validateGroupRole(role types2.Role) error {
 	baseRole := role.ExtractBaseRole()
-	hasAuditor := role.HasAuditorRole()
 
-	// If role includes Owner, only Owners can assign it
-	if baseRole == types2.RoleOwner {
-		if !apiContext.UserIsOwner() {
-			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "owner_role_requires_owner")
-			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the owner role to groups")
-		}
-	}
-
-	// If role includes Auditor (even by itself), only Owners can assign it
-	if hasAuditor {
-		if !apiContext.UserIsOwner() {
-			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "auditor_role_requires_owner")
-			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the auditor role to groups")
-		}
-	}
-
-	// Validate base role is one of the allowed values (or zero if only Auditor)
+	// Validate base role is one of the allowed values (or zero for add-on-only mappings)
 	if baseRole != 0 {
 		validBaseRoles := []types2.Role{
 			types2.RoleOwner,

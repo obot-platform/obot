@@ -1,5 +1,6 @@
-import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
-import { preparePageData } from '../../../tests/helpers/pageData';
+import { Group } from '$lib/services';
+import { createMCPCatalogEntry, createMCPCatalogServer } from '../../../tests/helpers/mcp';
+import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import McpServerEntryForm from './McpServerEntryForm.svelte';
 import { HttpResponse, http } from 'msw';
@@ -164,4 +165,71 @@ it('keeps local login mounted and avoids a preview loop after a consumed attempt
 	expect(page.getByLabelText('Authentication command').element()).toBe(command);
 	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
 	await vi.waitFor(() => expect(calls).toBe(3));
+});
+
+it('shows read-only admins the tool preview instead of connecting for live tools', async () => {
+	await preparePageData({
+		profile: createMockProfile([Group.ADMIN_READONLY, Group.USER])
+	});
+	const server = createMCPCatalogServer({
+		id: 'ms1shared',
+		name: 'Shared Server',
+		userID: 'another-user',
+		serverUserType: 'multiUser',
+		manifest: {
+			toolPreview: [{ id: 'lookup', name: 'lookup', description: 'Look something up' }]
+		}
+	});
+	const liveTools = vi.fn();
+	worker.use(
+		http.get('*/api/all-mcps/servers/:id/tools', () => {
+			liveTools();
+			return HttpResponse.json([]);
+		}),
+		http.get('*/api/mcp-catalogs/default/servers/ms1shared/instances', () =>
+			HttpResponse.json({ items: [] })
+		)
+	);
+
+	render(McpServerEntryForm, {
+		entry: server,
+		id: 'default',
+		entity: 'catalog',
+		readonly: true,
+		isDialogView: true
+	});
+	await page.getByRole('button', { name: 'Tools', exact: true }).click();
+	await expect.element(page.getByText('lookup', { exact: true }).first()).toBeVisible();
+	expect(liveTools).not.toHaveBeenCalled();
+});
+
+it('still shows read-only admins live tools for their own deployment', async () => {
+	const profile = createMockProfile([Group.ADMIN_READONLY, Group.USER]);
+	await preparePageData({ profile });
+	const entry = createMCPCatalogEntry({ id: 'own-entry', name: 'Own Entry' });
+	const ownDeployment = createMCPCatalogServer({
+		id: 'ms1own',
+		name: 'Own Deployment',
+		userID: profile.id,
+		catalogEntryID: entry.id
+	});
+	const liveTools = vi.fn();
+	worker.use(
+		http.get('*/api/all-mcps/servers/:id/tools', ({ params }) => {
+			liveTools(params.id);
+			return HttpResponse.json([{ id: 'live-tool', name: 'live-tool', description: '' }]);
+		})
+	);
+
+	render(McpServerEntryForm, {
+		entry,
+		server: ownDeployment,
+		id: 'default',
+		entity: 'catalog',
+		readonly: true,
+		isDialogView: true
+	});
+	await page.getByRole('button', { name: 'Tools', exact: true }).click();
+	await expect.element(page.getByText('live-tool', { exact: true }).first()).toBeVisible();
+	expect(liveTools).toHaveBeenCalledWith('ms1own');
 });

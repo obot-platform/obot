@@ -15,8 +15,15 @@ import (
 	"gorm.io/gorm"
 )
 
-func claudeOrganization(req api.Context) (string, error) {
-	if !req.UserIsAdmin() {
+// canUseClaudeOrganization reports whether the user may use a Claude organization's accounts: admins always, and admin
+// read-only users when readOnly is set, which callers set only for reads.
+func canUseClaudeOrganization(req api.Context, readOnly bool) bool {
+	return req.UserIsAdmin() || (readOnly && req.UserCanReadAsAdmin())
+}
+
+// claudeOrganization returns the organization named in the path, if a Claude environment is configured for it.
+func claudeOrganization(req api.Context, readOnly bool) (string, error) {
+	if !canUseClaudeOrganization(req, readOnly) {
 		return "", types.NewErrHTTP(http.StatusForbidden, "Administrator access required")
 	}
 	organization := req.PathValue("organization")
@@ -33,7 +40,7 @@ func claudeOrganization(req api.Context) (string, error) {
 }
 
 func (h *ClaudeRunnerHandler) OrganizationAccounts(req api.Context) error {
-	organization, err := claudeOrganization(req)
+	organization, err := claudeOrganization(req, true)
 	if err != nil {
 		return err
 	}
@@ -45,7 +52,7 @@ func (h *ClaudeRunnerHandler) OrganizationAccounts(req api.Context) error {
 }
 
 func (h *ClaudeRunnerHandler) SaveOrganizationAccounts(req api.Context) error {
-	organization, err := claudeOrganization(req)
+	organization, err := claudeOrganization(req, false)
 	if err != nil {
 		return err
 	}

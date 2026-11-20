@@ -97,3 +97,35 @@ it('reviews email matches, preserves saved choices on reimport, and submits manu
 			'Each Obot user can map to only one Claude account per organization. Resolve the duplicate selections before submitting.'
 		);
 });
+
+it('shows saved mappings without allowing readonly changes', async () => {
+	worker.use(
+		http.get('*/api/claude-organizations/org/accounts', () =>
+			HttpResponse.json({
+				items: [
+					{
+						organizationID: 'org',
+						account: 'user_test',
+						uuid: '',
+						displayName: 'Alice',
+						email: 'alice@example.com',
+						userID: '1'
+					}
+				]
+			})
+		),
+		http.get('*/api/users', () =>
+			HttpResponse.json({ items: [{ id: '1', displayName: 'Alice', email: 'alice@example.com' }] })
+		)
+	);
+	render(ClaudeAccountMappings, {
+		organization: 'org',
+		environments: [],
+		onsaved: vi.fn(),
+		readonly: true
+	});
+	await expect.element(page.getByText('Alice', { exact: true }).first()).toBeVisible();
+	await expect.element(page.getByRole('combobox').first()).toHaveAttribute('tabindex', '-1');
+	await expect.element(page.getByLabelText('Organization members JSON')).not.toBeInTheDocument();
+	await expect.element(page.getByRole('button', { name: 'Submit mappings' })).toBeDisabled();
+});
