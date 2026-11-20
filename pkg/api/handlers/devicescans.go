@@ -104,7 +104,7 @@ func (*DeviceScansHandler) Get(req api.Context) error {
 	}
 	result := gtypes.ConvertDeviceScan(*scan)
 	// Captured files may contain credentials that structured inventory omits.
-	if scan.SubmittedBy != req.User.GetUID() && !req.UserIsAdmin() && !req.UserIsAuditor() {
+	if scan.SubmittedBy != req.User.GetUID() && req.UserIsReadonlyAdmin() && !req.UserIsAuditor() {
 		for i := range result.Files {
 			result.Files[i].Content = ""
 		}

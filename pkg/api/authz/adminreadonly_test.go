@@ -172,12 +172,12 @@ func TestAdminReadonlyGroups(t *testing.T) {
 		{
 			name: "owner",
 			role: types.RoleOwner,
-			want: false,
+			want: true,
 		},
 		{
 			name: "admin",
 			role: types.RoleAdmin,
-			want: false,
+			want: true,
 		},
 		{
 			name: "admin read-only",

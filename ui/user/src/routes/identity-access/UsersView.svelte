@@ -368,11 +368,15 @@
 		}
 	}
 
+	function canAssignReadOnlyAdmin(user: TableItem): boolean {
+		return ((user.roleId | user.effectiveRoleId) & (Role.ADMIN | Role.OWNER)) === 0;
+	}
+
 	function composeRole(user: TableItem): number {
 		return (
 			user.roleId |
 			(user.auditor ? Role.AUDITOR : 0) |
-			(user.readOnlyAdmin ? Role.ADMIN_READONLY : 0)
+			(user.readOnlyAdmin && canAssignReadOnlyAdmin(user) ? Role.ADMIN_READONLY : 0)
 		);
 	}
 
@@ -743,17 +747,15 @@
 				</p>
 			{/if}
 
-			<label class="mt-4 flex gap-4">
-				<input type="checkbox" bind:checked={updatingRole.readOnlyAdmin} />
-				<span class="flex flex-col">
-					<span class="font-semibold">{m.core_role_admin_readonly()}</span>
-					<span class="text-muted-content">
-						{updatingRole.roleId & (Role.ADMIN | Role.OWNER)
-							? m.core_role_admin_readonly_redundant()
-							: m.core_role_admin_readonly_description()}
+			{#if canAssignReadOnlyAdmin(updatingRole)}
+				<label class="mt-4 flex gap-4">
+					<input type="checkbox" bind:checked={updatingRole.readOnlyAdmin} />
+					<span class="flex flex-col">
+						<span class="font-semibold">{m.core_role_admin_readonly()}</span>
+						<span class="text-muted-content">{m.core_role_admin_readonly_description()}</span>
 					</span>
-				</span>
-			</label>
+				</label>
+			{/if}
 
 			{#if profile.current.groups.includes(Group.OWNER)}
 				<label class="mt-4 flex gap-4">

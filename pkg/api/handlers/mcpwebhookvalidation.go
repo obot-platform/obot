@@ -437,14 +437,7 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support log retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
-	serverConfig, readOnly, err := systemServerConfigForInspection(req, systemServer)
-	if err != nil {
-		return err
-	}
-
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: readOnly,
-	})
+	logs, err := systemServerLogs(req, m.mcpSessionManager, systemServer)
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {
 			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
@@ -472,20 +465,16 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support details retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
-	serverConfig, readOnly, err := systemServerConfigForInspection(req, systemServer)
-	if err != nil {
-		return err
-	}
-
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: readOnly,
-	})
+	details, err := systemServerDetails(req, m.mcpSessionManager, systemServer)
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {
 			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
 		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
+		}
+		if _, ok := errors.AsType[*types.ErrHTTP](err); ok {
+			return err
 		}
 		return fmt.Errorf("failed to get server details: %w", err)
 	}

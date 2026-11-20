@@ -157,7 +157,6 @@
 	"core_role_admin": "Admin",
 	"core_role_admin_description": "Every user is a full admin. Use caution when selecting this option.",
 	"core_role_admin_readonly": "Read-Only Admin",
-	"core_role_admin_readonly_redundant": "Admins and Owners already have this access.",
 	"core_role_admin_readonly_description": "Can view all admin configuration but cannot change anything.",
 	"core_role_auditor": "Auditor",
 	"core_role_owner": "Owner",

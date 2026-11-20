@@ -18,9 +18,11 @@ Security reviewers need to inspect administrative configuration and audit metada
 
 ## Decision
 
-Read-Only Admin is an independent role bit (256), represented by the `admin-readonly` authorization group. Admins and Owners can grant it directly or through an identity-provider group mapping. Effective role resolution keeps the highest base role and unions the add-on bits from all sources. An add-on-only mapping supplies no base role. Standard is the fallback when no source grants a base role.
+Read-Only Admin is an independent role bit (256). The `admin-readonly` authorization group is shared by add-on holders, Admins, and Owners. Admins and Owners can grant the add-on directly or through an identity-provider group mapping to users who lack a higher base role.
 
-The add-on grants administrative inspection through an explicit allowlist of safe reads. Inspection respects secret masking and avoids starting stopped workloads. Audit views expose metadata, and existing permissions govern personal MCP payload access. Auditor grants sensitive audit access and exports independently of this add-on.
+Effective role resolution keeps the highest base role and combines add-ons from active grants. Promotion to Admin or Owner clears any direct Read-Only Admin grant, including when the promotion comes from group membership. The effective role suppresses overlapping Read-Only Admin group grants while the user is elevated. Those mappings remain available to other members and can confer Read-Only Admin again after demotion. An add-on-only mapping supplies no base role. Standard is the fallback when no source grants a base role.
+
+The add-on grants administrative inspection through an explicit allowlist of safe reads. Inspection respects secret masking. Passive details and logs look up a workload by name. Launch-capable inspection requires a separate session manager method and a launch configuration. Audit views expose metadata, and existing permissions govern personal MCP payload access. Auditor grants sensitive audit access and exports independently of this add-on.
 
 ## Rationale
 

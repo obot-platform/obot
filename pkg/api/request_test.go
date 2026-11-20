@@ -10,6 +10,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/obot-platform/obot/apiclient/types"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestBodyOversizedLeavesRemainderUnread(t *testing.T) {
@@ -171,6 +172,52 @@ func TestBodyLimitsAndEncoding(t *testing.T) {
 
 			if consumed := len(tt.body) - body.Len(); tt.wantUnread && consumed != 0 {
 				t.Fatalf("Body() consumed %d bytes, want 0", consumed)
+			}
+		})
+	}
+}
+
+func TestAdministrativeReadPermissions(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		role    types.Role
+		canRead bool
+		canView bool
+		isAddOn bool
+	}{
+		{
+			name: "standard",
+			role: types.RoleBasic,
+		},
+		{
+			name:    "auditor",
+			role:    types.RoleBasic | types.RoleAuditor,
+			canView: true,
+		},
+		{
+			name:    "read-only admin",
+			role:    types.RoleBasic | types.RoleAdminReadonly,
+			canRead: true,
+			canView: true,
+			isAddOn: true,
+		},
+		{
+			name:    "admin",
+			role:    types.RoleAdmin,
+			canRead: true,
+			canView: true,
+		},
+		{
+			name:    "owner",
+			role:    types.RoleOwner,
+			canRead: true,
+			canView: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := Context{User: &user.DefaultInfo{Groups: tt.role.Groups()}}
+			if req.UserCanReadAsAdmin() != tt.canRead || req.UserCanViewAdmin() != tt.canView || req.UserIsReadonlyAdmin() != tt.isAddOn {
+				t.Fatalf("unexpected read permissions for role %d", tt.role)
 			}
 		})
 	}

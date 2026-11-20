@@ -413,6 +413,35 @@ describe('Identity & Access Page', () => {
 		);
 	});
 
+	it('drops Read-Only Admin when a group mapping is changed to Admin', async () => {
+		const group = { id: 'idp/reviewers', name: 'Security reviewers' };
+		const updateRole = vi
+			.spyOn(AdminService, 'updateGroupRoleAssignment')
+			.mockImplementation(async (_groupName, assignment) => assignment);
+		await renderIdentityAccessPage({
+			view: 'groups',
+			groups: [Group.ADMIN, Group.ADMIN_READONLY],
+			orgGroups: [group],
+			groupRoleAssignments: [{ groupName: group.id, role: Role.ADMIN_READONLY }]
+		});
+
+		await page.getByRole('row').filter({ hasText: group.name }).getByRole('button').click();
+		await page.getByRole('button', { name: 'Update Role', exact: true }).click();
+		const dialog = page.getByRole('dialog');
+		await dialog.getByRole('radio', { name: /^Admin / }).click();
+		await expect
+			.element(dialog.getByRole('checkbox', { name: /^Read-Only Admin/ }))
+			.not.toBeInTheDocument();
+		await dialog.getByRole('button', { name: 'Update', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(updateRole).toHaveBeenCalledWith(
+				group.id,
+				expect.objectContaining({ role: Role.ADMIN })
+			)
+		);
+	});
+
 	describe('local bootstrap setup', () => {
 		const localConfigured: AuthProvider = {
 			...googleProvider,

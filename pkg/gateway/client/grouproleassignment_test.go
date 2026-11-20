@@ -1,9 +1,12 @@
 package client
 
 import (
+	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -33,7 +36,7 @@ func TestNormalizeToHighestRole(t *testing.T) {
 		{
 			name:     "Admin and AdminReadonly combined keeps Admin",
 			combined: types2.RoleAdmin | types2.RoleAdminReadonly,
-			expected: types2.RoleAdminReadonly | types2.RoleAdmin,
+			expected: types2.RoleAdmin,
 		},
 		{
 			name:     "AdminReadonly preserves PowerUserPlus",
@@ -160,7 +163,7 @@ func TestResolveEffectiveRoleAdminReadonlyPreservesBaseRole(t *testing.T) {
 			name:   "admin in the group",
 			user:   types.User{ID: 4, Role: types2.RoleAdmin},
 			groups: []string{"test:readers"},
-			want:   types2.RoleAdmin | types2.RoleAdminReadonly,
+			want:   types2.RoleAdmin,
 		},
 		{
 			name:   "power user plus outside the group",
@@ -230,4 +233,105 @@ func TestAdminCanChangeReadOnlyAdminWithoutChangingAuditorGrant(t *testing.T) {
 	_, err = c.UpdateGroupRoleAssignment(ctx, group, both, "", false)
 	require.ErrorIs(t, err, ErrGroupRoleAssignmentOwnerRequired)
 	require.NoError(t, c.DeleteGroupRoleAssignment(ctx, group, false))
+}
+
+func TestReadonlyAdminDirectGrantClearedOnPromotion(t *testing.T) {
+	for _, via := range []string{"direct", "owner handoff", "mapping create", "mapping update", "IdP membership", "SCIM membership"} {
+		t.Run(via, func(t *testing.T) {
+			c := newTestClient(t)
+			ctx := t.Context()
+			db := c.db.WithContext(ctx)
+			u := &types.User{
+				Username: "viewer",
+				Email:    "viewer@example.com",
+				Role:     types2.RoleBasic | types2.RoleAuditor | types2.RoleAdminReadonly,
+			}
+			require.NoError(t, db.Create(u).Error)
+			group := types.Group{
+				ID:   "test:admins",
+				Name: "Administrators",
+			}
+			require.NoError(t, db.Create(&group).Error)
+
+			switch via {
+			case "direct":
+				_, err := c.UpdateUser(ctx, true, &types.User{
+					Role: types2.RoleAdmin | types2.RoleAuditor | types2.RoleAdminReadonly,
+				}, strconv.FormatUint(uint64(u.ID), 10))
+				require.NoError(t, err)
+			case "owner handoff":
+				_, err := c.UpdateUser(ctx, true, &types.User{
+					Role: u.Role.SwitchBaseRole(types2.RoleOwner),
+				}, strconv.FormatUint(uint64(u.ID), 10))
+				require.NoError(t, err)
+			case "mapping create", "mapping update":
+				require.NoError(t, db.Create(&types.GroupMemberships{
+					GroupID: group.ID,
+					UserID:  u.ID,
+				}).Error)
+				role := types2.RoleAdmin
+				if via == "mapping update" {
+					role = types2.RolePowerUserPlus
+				}
+				_, err := c.CreateGroupRoleAssignment(ctx, group.ID, role, "")
+				require.NoError(t, err)
+				if via == "mapping update" {
+					_, err := c.UpdateGroupRoleAssignment(ctx, group.ID, types2.RoleAdmin, "", true)
+					require.NoError(t, err)
+				}
+			case "IdP membership", "SCIM membership":
+				_, err := c.CreateGroupRoleAssignment(ctx, group.ID, types2.RoleAdmin, "")
+				require.NoError(t, err)
+				require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+					if via == "SCIM membership" {
+						return writeGroupMembershipChangesTx(tx, group.ID, map[uint]bool{u.ID: false})
+					}
+					_, _, err := c.ensureGroupMemberships(ctx, tx, &types.Identity{
+						UserID:             u.ID,
+						AuthProviderGroups: []types.Group{group},
+					})
+					return err
+				}))
+			}
+			id := strconv.FormatUint(uint64(u.ID), 10)
+			stored, err := c.UserByID(ctx, id)
+			require.NoError(t, err)
+			require.True(t, stored.Role.HasRole(types2.RoleAuditor))
+			require.False(t, stored.Role.HasRole(types2.RoleAdminReadonly))
+			groupIDs, err := c.ListGroupIDsForUser(ctx, u.ID)
+			require.NoError(t, err)
+			role, err := c.ResolveUserEffectiveRole(ctx, stored, groupIDs)
+			require.NoError(t, err)
+			require.True(t, role.HasRole(types2.RoleAdmin))
+			require.False(t, role.HasRole(types2.RoleAdminReadonly))
+
+			_, err = c.UpdateUser(ctx, true, &types.User{
+				Role: types2.RoleBasic | types2.RoleAuditor | types2.RoleAdminReadonly,
+			}, id)
+			var httpErr *types2.ErrHTTP
+			require.ErrorAs(t, err, &httpErr)
+			require.Equal(t, http.StatusBadRequest, httpErr.Code)
+
+			if len(groupIDs) > 0 {
+				require.NoError(t, c.DeleteGroupRoleAssignment(ctx, group.ID, true))
+				role, err = c.ResolveUserEffectiveRole(ctx, stored, groupIDs)
+				require.NoError(t, err)
+				require.Equal(t, types2.RoleBasic|types2.RoleAuditor, role)
+
+				const reviewers = "test:reviewers"
+				_, err = c.CreateGroupRoleAssignment(ctx, reviewers, types2.RoleAdminReadonly, "")
+				require.NoError(t, err)
+				_, err = c.CreateGroupRoleAssignment(ctx, group.ID, types2.RoleAdmin, "")
+				require.NoError(t, err)
+				overlapping := append(groupIDs, reviewers)
+				role, err = c.ResolveUserEffectiveRole(ctx, stored, overlapping)
+				require.NoError(t, err)
+				require.Equal(t, types2.RoleAdmin|types2.RoleAuditor, role)
+				require.NoError(t, c.DeleteGroupRoleAssignment(ctx, group.ID, true))
+				role, err = c.ResolveUserEffectiveRole(ctx, stored, overlapping)
+				require.NoError(t, err)
+				require.Equal(t, types2.RoleBasic|types2.RoleAuditor|types2.RoleAdminReadonly, role)
+			}
+		})
+	}
 }

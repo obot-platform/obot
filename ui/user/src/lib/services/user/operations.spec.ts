@@ -326,13 +326,13 @@ describe('getProfile role helpers', () => {
 	it.each([
 		{
 			name: 'an owner',
-			groups: [Group.OWNER, Group.ADMIN],
+			groups: [Group.OWNER, Group.ADMIN, Group.ADMIN_READONLY],
 			adminAccess: true,
 			readonly: false
 		},
 		{
 			name: 'an admin',
-			groups: [Group.ADMIN],
+			groups: [Group.ADMIN, Group.ADMIN_READONLY],
 			adminAccess: true,
 			readonly: false
 		},
@@ -353,12 +353,6 @@ describe('getProfile role helpers', () => {
 			groups: [Group.USER, Group.AUDITOR],
 			adminAccess: true,
 			readonly: true
-		},
-		{
-			name: 'an admin from an older server',
-			groups: [Group.ADMIN],
-			adminAccess: true,
-			readonly: false
 		},
 		{
 			name: 'a power user plus',

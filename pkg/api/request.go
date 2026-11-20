@@ -212,16 +212,20 @@ func (r *Context) UserIsAuditor() bool {
 	return slices.Contains(r.User.GetGroups(), types.GroupAuditor)
 }
 
-// UserCanReadAsAdmin reports whether the user may read everything an admin can: owners, admins and admin read-only
-// users. Unlike UserCanViewAdmin it excludes auditors, whose access is only what their own rules grant.
+// UserIsReadonlyAdmin identifies holders of the add-on. Admins and Owners inherit the same read group.
+func (r *Context) UserIsReadonlyAdmin() bool {
+	return r.UserCanReadAsAdmin() && !r.UserIsAdmin()
+}
+
+// UserCanReadAsAdmin checks the read group shared by Read-Only Admin, Admin and Owner.
 func (r *Context) UserCanReadAsAdmin() bool {
-	return r.UserIsAdmin() || slices.Contains(r.User.GetGroups(), types.GroupAdminReadonly)
+	return slices.Contains(r.User.GetGroups(), types.GroupAdminReadonly)
 }
 
 // UserCanViewAdmin reports whether the user may read the admin area: owners, admins, admin read-only users and
 // auditors. It grants no change; check UserIsAdmin for that.
 func (r *Context) UserCanViewAdmin() bool {
-	return r.UserIsAdmin() || r.UserIsAuditor() || slices.Contains(r.User.GetGroups(), types.GroupAdminReadonly)
+	return r.UserCanReadAsAdmin() || r.UserIsAuditor()
 }
 
 func (r *Context) UserIsPowerUser() bool {
