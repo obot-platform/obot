@@ -298,6 +298,7 @@
 	"vmcps_return_to_designer": "デザイナーに戻る",
 	"vmcps_rough_tool_estimate": "これは利用可能なツール数のおおよその値です。正確な数は異なる場合があります。",
 	"vmcps_save_changes": "変更を保存",
+	"vmcps_sensitive_value_configured": "設定済み（非表示）",
 	"vmcps_search_categories": "カテゴリを検索...",
 	"vmcps_search_creators": "作成者を検索...",
 	"vmcps_search_mcp_servers": "MCP サーバーを検索...",

@@ -298,6 +298,7 @@
 	"vmcps_return_to_designer": "Return to Designer",
 	"vmcps_rough_tool_estimate": "This is a rough approximation of the number of tools available. The exact number may vary.",
 	"vmcps_save_changes": "Save changes",
+	"vmcps_sensitive_value_configured": "Configured (hidden)",
 	"vmcps_search_categories": "Search categories...",
 	"vmcps_search_creators": "Search creators...",
 	"vmcps_search_mcp_servers": "Search MCP servers...",

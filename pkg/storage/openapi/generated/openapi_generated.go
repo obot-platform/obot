@@ -18705,6 +18705,25 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref common.Re
 							Format: "",
 						},
 					},
+					"configuredFixedFields": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfiguredFixedFields lists keys with stored fixed values.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"connectionSnapshot": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ConnectionSnapshot is an outdated snapshot that migrated connections retain when the component itself is current. Updating the vMCP releases it.",
@@ -28528,6 +28547,25 @@ func schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"configuredFixedFields": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfiguredFixedFields is populated by the readiness controller alongside the configuration check.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 					"connectionSnapshot": {

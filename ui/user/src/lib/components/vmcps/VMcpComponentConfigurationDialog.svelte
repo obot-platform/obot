@@ -23,7 +23,7 @@
 		type VMCPConfigurationPolicyType
 	} from '$lib/services';
 	import { isKubernetesRuntimeBackend } from '$lib/services/user/mcp';
-	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
+	import { catalogConfigurationFields, hasSensitiveCatalogValue } from '$lib/services/vmcps/utils';
 	import { errors, profile, version } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 
@@ -44,6 +44,7 @@
 		field: MCPConfig;
 		policy?: VMCPConfigurationPolicyType;
 		input: SecretBindingInput;
+		hasSensitiveValue: boolean;
 	}
 
 	const POLICY_OPTIONS: { id: VMCPConfigurationPolicyType; label: string }[] = [
@@ -87,6 +88,7 @@
 
 	const canSelectSecretBindings = $derived(
 		isShared &&
+			!readonly &&
 			isKubernetesRuntimeBackend(version.current.engine) &&
 			!version.current.hideK8sDetails &&
 			Boolean(profile.current.isAdmin?.())
@@ -110,6 +112,7 @@
 		target: MCPCatalogEntry,
 		options?: {
 			configuration?: VMCPConfigurationPolicy[];
+			configuredFixedFields?: string[];
 			forceSingleUser?: boolean;
 			submitLabel?: LocalizedString;
 			errorMessage?: LocalizedString;
@@ -120,19 +123,28 @@
 		entry = target;
 		isShared = options?.isShared ?? false;
 		const existing = new Map((options?.configuration ?? []).map((policy) => [policy.key, policy]));
+		const configuredFixedFields = new Set(options?.configuredFixedFields);
 		const fields = catalogConfigurationFields(target);
 		drafts = fields
-			.filter((field) => !isPresuppliedCatalogField(field))
+			.filter(
+				(field) =>
+					!isPresuppliedCatalogField(field) || (readonly && hasSensitiveCatalogValue(field))
+			)
 			.toSorted((a, b) => Number(Boolean(b.required)) - Number(Boolean(a.required)))
 			.map((field) => {
 				const policy = existing.get(field.key);
 				const secretBinding = fixedSecretBinding(policy);
+				const catalogValue = readonly && hasSensitiveCatalogValue(field);
 				return {
 					field,
-					policy: initialPolicy(field, policy),
+					policy: catalogValue ? 'fixed' : initialPolicy(field, policy),
+					hasSensitiveValue: Boolean(
+						field.sensitive &&
+						(catalogValue || policy?.value || configuredFixedFields.has(field.key))
+					),
 					input: {
 						...field,
-						value: secretBinding ? '' : (policy?.value ?? ''),
+						value: secretBinding || (readonly && field.sensitive) ? '' : (policy?.value ?? ''),
 						secretBinding,
 						secretBindingSource: secretBinding ? 'secret' : 'value'
 					}
@@ -348,6 +360,8 @@
 							.input.secretBinding.key}
 					</p>
 				{/if}
+			{:else if readonly && draft.hasSensitiveValue}
+				<p class="text-sm text-muted-content">{m.vmcps_sensitive_value_configured()}</p>
 			{:else if draft.field.options?.length}
 				<Select
 					id={`fixed-${draft.field.key}`}
@@ -367,7 +381,8 @@
 					bind:value={draft.input.value}
 					textarea={isFileField(draft.field)}
 					growable
-					disabled={saving}
+					hideReveal={readonly}
+					disabled={saving || readonly}
 					{readonly}
 				/>
 			{:else if isFileField(draft.field)}
@@ -375,8 +390,7 @@
 					id={`fixed-${draft.field.key}`}
 					bind:value={draft.input.value}
 					rows="8"
-					disabled={saving}
-					{readonly}
+					disabled={saving || readonly}
 					class={twMerge(
 						'text-input-filled h-32 min-h-32 resize-y overflow-auto whitespace-pre-wrap',
 						highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
@@ -386,8 +400,7 @@
 					type="text"
 					id={`fixed-${draft.field.key}`}
 					bind:value={draft.input.value}
-					disabled={saving}
-					{readonly}
+					disabled={saving || readonly}
 					class={twMerge(
 						'text-input-filled',
 						highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'

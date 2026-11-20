@@ -70,6 +70,9 @@ type VMCPComponentStatus struct {
 	Error                     string `json:"error,omitempty"`
 	SourceMissing             bool   `json:"sourceMissing,omitempty"`
 	NeedsUpdate               bool   `json:"needsUpdate,omitempty"`
+	// ConfiguredFixedFields is populated by the readiness controller alongside the configuration check.
+	// +listType=set
+	ConfiguredFixedFields []string `json:"configuredFixedFields,omitempty"`
 	// ConnectionSnapshot is an outdated snapshot that migrated connections retain when the
 	// component itself is current. Updating the vMCP releases it.
 	ConnectionSnapshot *types.MCPServerCatalogEntrySnapshot `json:"connectionSnapshot,omitempty"`
