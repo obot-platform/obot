@@ -14,7 +14,7 @@
 		type SkillRepository,
 		type Skill
 	} from '$lib/services';
-	import { errors, mcpServersAndEntries } from '$lib/stores';
+	import { notifications, mcpServersAndEntries } from '$lib/stores';
 	import { resolve } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import {
@@ -181,7 +181,7 @@
 			}
 		} catch (error) {
 			loadedResourceSections.delete(section);
-			errors.append(error);
+			notifications.add(error);
 		} finally {
 			loadingResources[section] = false;
 		}

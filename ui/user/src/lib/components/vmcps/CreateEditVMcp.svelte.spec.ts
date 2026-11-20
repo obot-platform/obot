@@ -1,6 +1,6 @@
 import { Group, type VMCPManifest } from '$lib/services';
 import { catalogEntryToVMCPComponent } from '$lib/services/vmcps/utils';
-import { errors } from '$lib/stores';
+import { notifications } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
@@ -70,7 +70,7 @@ const overPlan =
 
 async function createFailing(status: number, body: string) {
 	worker.use(http.post('/api/vmcps', () => new HttpResponse(body, { status })));
-	errors.items = [];
+	notifications.items = [];
 	const result = await render(CreateEditVMcp);
 	result.component.openCreate();
 	await page.getByRole('textbox', { name: 'Name' }).fill('Search');
@@ -90,7 +90,7 @@ it('shows why a create failed in the dialog instead of a toast', async () => {
 		.toHaveAttribute('href', '/admin/platform?view=license');
 	// The dialog stays open, so the form can be fixed and sent again.
 	await expect.element(page.getByRole('button', { name: 'Create', exact: true })).toBeVisible();
-	expect(errors.items).toHaveLength(0);
+	expect(notifications.items).toHaveLength(0);
 });
 
 it("doesn't offer the plan to users who can't view it", async () => {

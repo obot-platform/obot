@@ -10,8 +10,7 @@
 		type ClientConfig,
 		type GatewayStatus
 	} from '$lib/services/llm-gateway/gateway';
-	import { profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { profile, notifications } from '$lib/stores';
 	import { onMount } from 'svelte';
 
 	type FullConfig = {
@@ -46,7 +45,7 @@
 		try {
 			// The framework settings are Obot's, so only the client config is sent back.
 			await doPut('/llm-gateway/admin/config', { client_config: config.client_config });
-			success.add(m.models_settings_saved());
+			notifications.add(m.models_settings_saved(), 'success');
 			await load();
 		} finally {
 			saving = false;

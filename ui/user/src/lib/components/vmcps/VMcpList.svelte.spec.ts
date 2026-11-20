@@ -1,6 +1,6 @@
 import { UserService } from '$lib/services';
 import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
-import { errors, vmcpInstances } from '$lib/stores';
+import { notifications, vmcpInstances } from '$lib/stores';
 import { setUrlParamAndUpdateUrl } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
@@ -76,7 +76,7 @@ describe('VMcpList.svelte', () => {
 			http.get('/api/vmcps/vmcp-beta', () => HttpResponse.json(beta))
 		);
 		const getVMCP = vi.spyOn(UserService, 'getVMCP');
-		errors.items = [];
+		notifications.items = [];
 		try {
 			await preparePageData();
 			vmcpInstances.current = { items: [], loading: false };
@@ -107,7 +107,7 @@ describe('VMcpList.svelte', () => {
 			await expect.element(dialog.getByText('Beta vMCP', { exact: true })).toBeVisible();
 			releaseAlpha();
 			await expect.element(dialog.getByText('Alpha vMCP', { exact: true })).not.toBeInTheDocument();
-			expect(errors.items.map((item) => item.message)).not.toContain('Failed to load vMCP.');
+			expect(notifications.items.map((item) => item.message)).not.toContain('Failed to load vMCP.');
 		} finally {
 			releaseAlpha();
 			getVMCP.mockRestore();
@@ -118,7 +118,7 @@ describe('VMcpList.svelte', () => {
 describe.each(['grid', 'table'] as const)('VMcpList %s reauthentication', (variant) => {
 	afterEach(() => {
 		vi.restoreAllMocks();
-		errors.items = [];
+		notifications.items = [];
 	});
 	async function renderConnectedList(connected = true) {
 		await preparePageData();
@@ -253,7 +253,7 @@ describe.each(['grid', 'table'] as const)('VMcpList %s reauthentication', (varia
 		await page.getByRole('button', { name: 'Actions for Mail vMCP', exact: true }).click();
 		await page.getByRole('button', { name: 'Reauthenticate', exact: true }).click();
 		await vi.waitFor(() =>
-			expect(errors.items.map((item) => item.message)).toContain('Failed to load vMCP.')
+			expect(notifications.items.map((item) => item.message)).toContain('Failed to load vMCP.')
 		);
 		expect(clearOAuth).not.toHaveBeenCalled();
 	});

@@ -1,7 +1,7 @@
 import { AdminService, type MCPCatalogEntry } from '$lib/services';
 import type { OpenAPIDestinationValidation } from '$lib/services/openapi';
 import * as openAPIService from '$lib/services/openapi';
-import { errors } from '$lib/stores';
+import { notifications } from '$lib/stores';
 import { createMCPCatalogEntryResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import CatalogServerForm from './CatalogServerForm.svelte';
@@ -52,7 +52,7 @@ async function renderForm(update = false, onCancel = vi.fn(), onSubmit = vi.fn()
 afterEach(() => {
 	vi.restoreAllMocks();
 	vi.clearAllMocks();
-	errors.items = [];
+	notifications.items = [];
 });
 
 it.each(['HTTP failure', 'network failure'])(
@@ -75,15 +75,15 @@ it.each(['HTTP failure', 'network failure'])(
 		);
 		const { save } = await renderForm();
 		await save.click();
-		await vi.waitFor(() => expect(errors.items).toHaveLength(1));
+		await vi.waitFor(() => expect(notifications.items).toHaveLength(1));
 		if (failure === 'HTTP failure')
-			expect(errors.items[0].message).toContain('Schema source is unavailable');
+			expect(notifications.items[0].message).toContain('Schema source is unavailable');
 		await expect.element(save).toBeEnabled();
 		expect(saved).not.toHaveBeenCalled();
 		fail = false;
 		await save.click();
 		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
-		expect(errors.items).toHaveLength(1);
+		expect(notifications.items).toHaveLength(1);
 	}
 );
 
@@ -138,6 +138,6 @@ it.each([
 		expect(saved).not.toHaveBeenCalled();
 		expect(mutation).not.toHaveBeenCalled();
 		expect(onSubmit).not.toHaveBeenCalled();
-		expect(errors.items).toHaveLength(0);
+		expect(notifications.items).toHaveLength(0);
 	}
 );

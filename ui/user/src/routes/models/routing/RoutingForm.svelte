@@ -17,7 +17,7 @@
 		type RoutingRule
 	} from '$lib/services/llm-gateway/gateway';
 	import { providerLabel } from '$lib/services/llm-gateway/providers';
-	import { success } from '$lib/stores/success';
+	import { notifications } from '$lib/stores';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -183,7 +183,7 @@
 			const saved = id
 				? await updateRoutingRule(id, body, { dontLogErrors: true })
 				: await createRoutingRule(body, { dontLogErrors: true });
-			success.add(m.models_routing_saved());
+			notifications.add(m.models_routing_saved(), 'success');
 			done?.(saved);
 		} catch (e) {
 			error = errorMessage(e);

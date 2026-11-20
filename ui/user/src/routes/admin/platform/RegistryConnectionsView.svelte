@@ -12,8 +12,7 @@
 		type ImagePullSecretType
 	} from '$lib/services';
 	import { canTest } from '$lib/services/admin/utils';
-	import { errors, profile } from '$lib/stores/index.js';
-	import { success } from '$lib/stores/success';
+	import { notifications, profile } from '$lib/stores/index.js';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
 	import CapabilityBanner from './CapabilityBanner.svelte';
@@ -360,7 +359,7 @@
 						);
 					} catch (error) {
 						failedCreates.push(draft);
-						errors.append(
+						notifications.add(
 							error instanceof Error ? error.message : m.platform_settings_registry_save_failed()
 						);
 					}
@@ -377,7 +376,7 @@
 							);
 						} catch (error) {
 							failedEdits[id] = edit;
-							errors.append(
+							notifications.add(
 								error instanceof Error ? error.message : m.platform_settings_registry_save_failed()
 							);
 						}
@@ -388,7 +387,7 @@
 						deletedIds.push(id);
 					} catch (error) {
 						failedDeletes.push(id);
-						errors.append(
+						notifications.add(
 							error instanceof Error ? error.message : m.platform_settings_registry_delete_failed()
 						);
 					}
@@ -411,7 +410,7 @@
 				Object.keys(failedEdits).length === 0 &&
 				failedDeletes.length === 0;
 			if (succeeded) {
-				success.add('Registry connections updated successfully.');
+				notifications.add('Registry connections updated successfully.', 'success');
 			}
 			return succeeded;
 		} finally {

@@ -1,5 +1,5 @@
 import { goto } from '$app/navigation';
-import { errors, mcpServersAndEntries } from '$lib/stores';
+import { notifications, mcpServersAndEntries } from '$lib/stores';
 import { createMCPCatalogServer } from '../../../tests/helpers/mcp';
 import { worker } from '../../../tests/mocks/worker';
 import DeploymentsView from './DeploymentsView.svelte';
@@ -99,7 +99,7 @@ it.each(['View vMCP', 'View vMCP Deployment'])('shows one error when %s fails', 
 			HttpResponse.json({ error: 'Unavailable' }, { status: 500 })
 		)
 	);
-	errors.items = [];
+	notifications.items = [];
 	vi.mocked(goto).mockClear();
 	render(DeploymentsView, {
 		servers: [
@@ -116,10 +116,10 @@ it.each(['View vMCP', 'View vMCP Deployment'])('shows one error when %s fails', 
 	await page.getByRole('button', { name: 'Row actions' }).click();
 	await page.getByRole('button', { name: action, exact: true }).click();
 	await vi.waitFor(() => {
-		expect(errors.items.map((error) => error.message)).toEqual([
+		expect(notifications.items.map((error) => error.message)).toEqual([
 			action === 'View vMCP' ? 'Failed to open vMCP.' : 'Failed to open vMCP deployment.'
 		]);
 	});
 	expect(goto).not.toHaveBeenCalled();
-	errors.items = [];
+	notifications.items = [];
 });

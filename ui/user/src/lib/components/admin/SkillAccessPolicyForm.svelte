@@ -11,7 +11,7 @@
 		type SkillRepository,
 		type Skill
 	} from '$lib/services';
-	import { errors } from '$lib/stores';
+	import { notifications } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import {
 		convertSubjectsToTableData,
@@ -90,7 +90,7 @@
 			skills = await AdminService.listAllSkills();
 			skillRepositories = await AdminService.listSkillRepositories();
 		} catch (error) {
-			errors.append(`Failed to load skills or skill repositories: ${error}`);
+			notifications.add(`Failed to load skills or skill repositories: ${error}`);
 		} finally {
 			loadingSkills = false;
 		}

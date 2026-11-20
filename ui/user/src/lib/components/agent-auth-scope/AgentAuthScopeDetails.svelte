@@ -9,7 +9,7 @@
 		getMCPDisplayName,
 		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
-	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
+	import { notifications, mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { resolve } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
@@ -34,7 +34,7 @@
 	onMount(() => {
 		UserService.listVMCPs({ minimal: true })
 			.then((items) => (vmcps = items))
-			.catch(() => errors.append(m.identity_access_agents_failed_to_load_vmcps()));
+			.catch(() => notifications.add(m.identity_access_agents_failed_to_load_vmcps()));
 	});
 
 	let mcpServers = $derived(

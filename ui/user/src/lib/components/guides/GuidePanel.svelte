@@ -10,7 +10,7 @@
 		type GuideDialog,
 		type GuideListener
 	} from '$lib/services/guides';
-	import { darkMode, errors, guide, mcpServersAndEntries } from '$lib/stores';
+	import { darkMode, notifications, guide, mcpServersAndEntries } from '$lib/stores';
 	import CopyField from '../CopyField.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -474,7 +474,7 @@
 			const action = await resolveAction(button.action);
 			if (!isCurrentGuideSession(sessionGeneration)) return;
 			if (!action) {
-				errors.append(
+				notifications.add(
 					`Failed to resolve guide action (guide=${guide.selectedGuide?.id ?? 'unknown'}, step=${stepIndex})`
 				);
 				return;

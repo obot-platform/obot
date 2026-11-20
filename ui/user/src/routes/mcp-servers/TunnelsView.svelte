@@ -8,8 +8,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { m } from '$lib/i18n';
 	import { AdminService, type MCPTunnel, type TunnelConnection } from '$lib/services';
-	import { mcpTunnelConnections, profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { mcpTunnelConnections, profile, notifications } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Cable, Plus, Trash2 } from '@lucide/svelte';
@@ -159,7 +158,7 @@
 			await AdminService.deleteMCPTunnel(tunnelToDelete.id);
 			localTunnels = localTunnels.filter((tunnel) => tunnel.id !== tunnelToDelete?.id);
 			mcpTunnels = localTunnels;
-			success.add(m.mcps_tunnels_tunnel_deleted());
+			notifications.add(m.mcps_tunnels_tunnel_deleted(), 'success');
 			tunnelToDelete = undefined;
 		} finally {
 			deleting = false;

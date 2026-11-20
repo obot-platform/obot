@@ -9,7 +9,7 @@ import type {
 	SCIMSetupUser,
 	SCIMSetupWarning
 } from '$lib/services/admin/types';
-import errors from '$lib/stores/errors.svelte';
+import { notifications } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { worker } from '../../tests/mocks/worker';
 import ScimView from './ScimView.svelte';
@@ -1438,7 +1438,7 @@ describe('ScimView', () => {
 	});
 
 	it('shows a failed token action inline rather than as a notification', async () => {
-		errors.items = [];
+		notifications.items = [];
 		worker.use(
 			http.post(`*/api/scim-connections/${connectionID}/rotate-token`, () =>
 				HttpResponse.json({ error: 'the token could not be issued' }, { status: 500 })
@@ -1452,7 +1452,7 @@ describe('ScimView', () => {
 		await expect
 			.element(page.getByRole('alert').filter({ hasText: /could not be issued/ }))
 			.toBeVisible();
-		expect(errors.items).toHaveLength(0);
+		expect(notifications.items).toHaveLength(0);
 	});
 
 	it('returns to the last page when the page shown has emptied', async () => {

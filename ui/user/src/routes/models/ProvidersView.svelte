@@ -24,9 +24,8 @@
 		providerIconClass,
 		providerLabel
 	} from '$lib/services/llm-gateway/providers';
-	import { profile } from '$lib/stores';
+	import { profile, notifications } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { success } from '$lib/stores/success';
 	import { replaceState } from '$lib/url';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -232,7 +231,7 @@
 		if (removing) {
 			const name = providerLabel(removing);
 			await deleteProvider(removing);
-			success.add(m.models_providers_removed({ name }));
+			notifications.add(m.models_providers_removed({ name }), 'success');
 		}
 		removing = undefined;
 		await load();
@@ -247,7 +246,7 @@
 	existingKeyNames={allKeyNames}
 	onCreated={async (name) => {
 		adminConfigStore.setModelProviderConfigured(true);
-		success.add(m.models_providers_added({ name: providerLabel(name) }));
+		notifications.add(m.models_providers_added({ name: providerLabel(name) }), 'success');
 		await openProvider(name);
 	}}
 />

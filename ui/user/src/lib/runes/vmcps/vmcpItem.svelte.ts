@@ -8,8 +8,7 @@ import {
 	vmcpNeedsAdminConfiguration,
 	vmcpNeedsUpdate
 } from '$lib/services/vmcps/utils';
-import { errors, profile, vmcpInstances } from '$lib/stores';
-import { success } from '$lib/stores/success';
+import { notifications, profile, vmcpInstances } from '$lib/stores';
 import { hasAccessWithinSubjects } from '$lib/subjectResolver';
 import { poll } from '$lib/utils';
 import { SvelteSet } from 'svelte/reactivity';
@@ -89,7 +88,7 @@ async function disconnectInstance(instanceID: string) {
 		await UserService.deleteVMCPInstance(instanceID);
 		vmcpInstances.remove(instanceID);
 	} catch {
-		errors.append(m.vmcps_failed_to_disconnect());
+		notifications.add(m.vmcps_failed_to_disconnect());
 	} finally {
 		vmcpActionProgress.disconnectingIds.delete(instanceID);
 	}
@@ -150,11 +149,11 @@ export async function updateVMcp(
 		);
 		if (isCancelled?.() || !updated || vmcpNeedsUpdate(updated)) return;
 		onUpdated?.(updated);
-		success.add(m.vmcps_updated_named({ name }));
+		notifications.add(m.vmcps_updated_named({ name }), 'success');
 	} catch (err) {
 		// One toast that says why, like the plan not having room for the update.
 		if (!isCancelled?.()) {
-			errors.append(httpErrorReason(err) ?? m.vmcps_failed_to_update());
+			notifications.add(httpErrorReason(err) ?? m.vmcps_failed_to_update());
 		}
 	} finally {
 		vmcpActionProgress.updatingIds.delete(vmcp.id);

@@ -10,8 +10,7 @@
 	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
 	import { isDeprecatedMCPServer, isMultiUserCatalogEntry } from '$lib/services/user/mcp';
-	import { profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { profile, notifications } from '$lib/stores';
 	import { isConnectorsNavigation } from '../../utils';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -68,8 +67,9 @@
 			}}
 			onConnect={({ entry, server }) => {
 				if (isMultiUserCatalogEntry(entry) && server) {
-					success.add(
-						m.mcps_server_created({ name: String(server.alias || server.manifest.name) })
+					notifications.add(
+						m.mcps_server_created({ name: String(server.alias || server.manifest.name) }),
+						'success'
 					);
 				}
 			}}

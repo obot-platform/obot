@@ -57,9 +57,8 @@
 	import {
 		accessibleModels,
 		defaultModelAliases as defaultModelAliasesStore,
-		errors
+		notifications
 	} from '$lib/stores';
-	import { success } from '$lib/stores/success';
 	import {
 		convertSubjectsToTableData,
 		resolveSubjectFromGroup,
@@ -399,7 +398,7 @@
 			if (failed.length && creating) {
 				// The profile exists now, so move to its page; the form remounts there and
 				// drops unsaved items, so report what failed in a toast instead.
-				errors.append(new Error([m.models_profile_create_partial(), ...failed].join('\n')));
+				notifications.add(new Error([m.models_profile_create_partial(), ...failed].join('\n')));
 				await goto(profileUrl(id), { replaceState: true });
 				return;
 			}
@@ -409,7 +408,7 @@
 				failures = failed;
 				return;
 			}
-			success.add(m.models_profile_saved());
+			notifications.add(m.models_profile_saved(), 'success');
 			if (creating) {
 				await goto(profileUrl(id), { replaceState: true });
 			} else if (initial) {

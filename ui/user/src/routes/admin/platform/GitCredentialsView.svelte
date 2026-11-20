@@ -6,8 +6,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { m } from '$lib/i18n';
 	import { AdminService, type GitCredential, type GitCredentialManifest } from '$lib/services';
-	import { errors, profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { notifications, profile } from '$lib/stores';
 	import { Pencil, Trash2, TriangleAlert, X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -284,7 +283,7 @@
 						);
 					} catch (error) {
 						failedCreates.push(draft);
-						errors.append(
+						notifications.add(
 							error instanceof Error
 								? error.message
 								: m.platform_settings_git_credentials_save_failed()
@@ -306,7 +305,7 @@
 							);
 						} catch (error) {
 							failedEdits[id] = edit;
-							errors.append(
+							notifications.add(
 								error instanceof Error
 									? error.message
 									: m.platform_settings_git_credentials_save_failed()
@@ -318,7 +317,9 @@
 						await AdminService.deleteGitCredential(id, { dontLogErrors: true });
 						deletedIds.push(id);
 					} catch (error) {
-						errors.append(m.platform_settings_git_credentials_delete_failed({ error: `${error}` }));
+						notifications.add(
+							m.platform_settings_git_credentials_delete_failed({ error: `${error}` })
+						);
 						if (conflictStatus(error)) {
 							const current = baseline.find((credential) => credential.id === id);
 							if (current) {
@@ -359,7 +360,7 @@
 				Object.keys(failedEdits).length === 0 &&
 				failedDeletes.length === 0;
 			if (succeeded && Object.keys(conflicted).length === 0) {
-				success.add('Git credentials updated successfully.');
+				notifications.add('Git credentials updated successfully.', 'success');
 			}
 			return succeeded;
 		} finally {

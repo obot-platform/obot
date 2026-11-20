@@ -7,8 +7,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { AdminService, type MCPTunnel, type TunnelConnection } from '$lib/services';
-	import { profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { profile, notifications } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -98,7 +97,7 @@
 		deleting = true;
 		try {
 			await AdminService.deleteMCPTunnel(mcpTunnel.id);
-			success.add(m.mcps_tunnels_tunnel_deleted());
+			notifications.add(m.mcps_tunnels_tunnel_deleted(), 'success');
 			goto('/mcp-servers?view=tunnels');
 		} finally {
 			deleting = false;
@@ -120,7 +119,7 @@
 					readonly={isReadonly}
 					onUpdate={(updated) => {
 						mcpTunnel = updated;
-						success.add(m.mcps_tunnels_tunnel_updated());
+						notifications.add(m.mcps_tunnels_tunnel_updated(), 'success');
 					}}
 					onDelete={() => {
 						showDeleteConfirm = true;

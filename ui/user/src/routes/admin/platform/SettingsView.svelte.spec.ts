@@ -5,9 +5,8 @@ import {
 	type ImagePullSecret,
 	type ModelProxySettings
 } from '$lib/services';
-import { errors, productTelemetryConsent, profile } from '$lib/stores';
+import { notifications, productTelemetryConsent, profile } from '$lib/stores';
 import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
-import { success } from '$lib/stores/success';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import SettingsView from './SettingsView.svelte';
@@ -108,7 +107,7 @@ describe('Platform settings view', () => {
 		[true, false]
 	] as const)('saves a product analytics change from %s to %s', async (initial, selected) => {
 		const update = vi.fn();
-		const successNotification = vi.spyOn(success, 'add');
+		const successNotification = vi.spyOn(notifications, 'add');
 		worker.use(
 			http.put('/api/product-telemetry-consent', async ({ request }) => {
 				update(await request.json());
@@ -130,7 +129,8 @@ describe('Platform settings view', () => {
 			expect(update).toHaveBeenCalledWith({ consent: selected });
 			expect(productTelemetryConsent.consent).toBe(selected);
 			expect(successNotification).toHaveBeenCalledWith(
-				'Product analytics preference updated successfully.'
+				'Product analytics preference updated successfully.',
+				'success'
 			);
 		});
 		await expect.element(radio).toBeChecked();
@@ -170,7 +170,7 @@ describe('Platform settings view', () => {
 		[true, false]
 	] as const)('saves a model proxy change from %s to %s', async (initial, selected) => {
 		const update = vi.fn();
-		const successNotification = vi.spyOn(success, 'add');
+		const successNotification = vi.spyOn(notifications, 'add');
 		worker.use(
 			http.put('/api/model-proxy', async ({ request }) => {
 				update(await request.json());
@@ -188,7 +188,8 @@ describe('Platform settings view', () => {
 			expect(update).toHaveBeenCalledWith({ enabled: selected });
 			expect(invalidate).toHaveBeenCalledWith('model-proxy:usage');
 			expect(successNotification).toHaveBeenCalledWith(
-				'Model proxy settings updated successfully.'
+				'Model proxy settings updated successfully.',
+				'success'
 			);
 		});
 		await expect.element(save).toBeDisabled();
@@ -197,7 +198,7 @@ describe('Platform settings view', () => {
 
 	it('creates a git credential from the dialog', async () => {
 		const create = vi.fn();
-		const successNotification = vi.spyOn(success, 'add');
+		const successNotification = vi.spyOn(notifications, 'add');
 		worker.use(
 			http.post('/api/git-credentials', async ({ request }) => {
 				create(await request.json());
@@ -254,7 +255,10 @@ describe('Platform settings view', () => {
 				host: 'github.com',
 				token: 'ghp_token'
 			});
-			expect(successNotification).toHaveBeenCalledWith('Git credentials updated successfully.');
+			expect(successNotification).toHaveBeenCalledWith(
+				'Git credentials updated successfully.',
+				'success'
+			);
 		});
 		await expect.element(pageSave).toBeDisabled();
 		successNotification.mockRestore();
@@ -262,7 +266,7 @@ describe('Platform settings view', () => {
 
 	it('stages an image pull secret in the dialog and saves it with the shared button', async () => {
 		const create = vi.fn();
-		const successNotification = vi.spyOn(success, 'add');
+		const successNotification = vi.spyOn(notifications, 'add');
 		worker.use(
 			http.post('/api/image-pull-secrets', async ({ request }) => {
 				const body = await request.json();
@@ -318,7 +322,8 @@ describe('Platform settings view', () => {
 				}
 			});
 			expect(successNotification).toHaveBeenCalledWith(
-				'Registry connections updated successfully.'
+				'Registry connections updated successfully.',
+				'success'
 			);
 		});
 		await expect.element(save).toBeDisabled();
@@ -552,7 +557,7 @@ describe('Platform settings view', () => {
 	});
 
 	it('keeps a git credential when delete conflicts', async () => {
-		const append = vi.spyOn(errors, 'append');
+		const append = vi.spyOn(notifications, 'add');
 		worker.use(
 			http.delete('/api/git-credentials/git-1', () =>
 				HttpResponse.json({ message: 'in use' }, { status: 409 })

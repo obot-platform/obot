@@ -17,7 +17,7 @@
 		SkillAccessPolicy,
 		SkillRepository
 	} from '$lib/services/admin/types';
-	import { errors, profile } from '$lib/stores';
+	import { notifications, profile } from '$lib/stores';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -231,7 +231,7 @@
 					if (err instanceof HttpError && err.statusCode === 402) {
 						showLicenseError = true;
 					} else {
-						errors.append(m.skills_sync_failed({ error: String(err) }));
+						notifications.add(m.skills_sync_failed({ error: String(err) }));
 					}
 					clearSyncInterval(id);
 					syncing.delete(id);
@@ -246,7 +246,7 @@
 			await AdminService.refreshSkillRepository(id);
 			pollTillSyncComplete(id);
 		} catch (err) {
-			errors.append(m.skills_refresh_failed({ error: String(err) }));
+			notifications.add(m.skills_refresh_failed({ error: String(err) }));
 			syncing.delete(id);
 		}
 	}
@@ -422,7 +422,7 @@
 			if (error instanceof HttpError && error.statusCode === 402) {
 				showLicenseError = true;
 			} else {
-				errors.append(m.skills_delete_sources_failed({ error: String(error) }));
+				notifications.add(m.skills_delete_sources_failed({ error: String(error) }));
 			}
 		} finally {
 			deletingSources = undefined;

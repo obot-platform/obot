@@ -11,7 +11,7 @@
 		type OrgUser,
 		type TokenUsage
 	} from '$lib/services';
-	import { errors, responsive } from '$lib/stores';
+	import { notifications, responsive } from '$lib/stores';
 	import {
 		DEFAULT_TOKEN_GROUP_BY,
 		DEFAULT_TOKEN_TYPE,
@@ -116,7 +116,7 @@
 			if (externalModels.length === 0) fetchedModels = modelsList;
 		} catch (error) {
 			if ((error as Error)?.name === 'AbortError') return;
-			errors.append(error);
+			notifications.add(error);
 		} finally {
 			if (!signal.aborted) fetchLoading = false;
 		}
