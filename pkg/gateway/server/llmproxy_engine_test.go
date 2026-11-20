@@ -429,8 +429,8 @@ func TestServedModelChange(t *testing.T) {
 	}
 	served := func(provider, model string) http.Header {
 		h := http.Header{}
-		h.Set(headerServedProvider, provider)
-		h.Set(headerServedModel, model)
+		h.Set(HeaderServedProvider, provider)
+		h.Set(HeaderServedModel, model)
 		return h
 	}
 

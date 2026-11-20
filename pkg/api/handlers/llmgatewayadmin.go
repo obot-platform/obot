@@ -17,6 +17,14 @@ const (
 	gatewayAdminPrefix = "/api/llm-gateway/admin/"
 )
 
+// RegisterProviderTesterRoutes adds the provider test chat behind the same
+// admin checks as the other gateway administration routes.
+func (h *LLMGatewayHandler) RegisterProviderTesterRoutes(mux *server.Server, tester *LLMProviderTesterHandler) {
+	mux = mux.WithMiddleware(h.adminHandler)
+	mux.HandleFunc("POST /api/llm-gateway/admin/providers/{provider}/tester/chat", tester.Chat)
+	mux.HandleFunc("POST /api/llm-gateway/admin/providers/{provider}/tester/chat/{$}", tester.Chat)
+}
+
 // RegisterAdminRoutes adds gateway administration handlers to Obot's API mux.
 func (h *LLMGatewayHandler) RegisterAdminRoutes(mux *server.Server) {
 	mux = mux.WithMiddleware(h.adminHandler)

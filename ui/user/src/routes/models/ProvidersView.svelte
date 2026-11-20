@@ -6,6 +6,7 @@
 	import AddProviderDialog from '$lib/components/llm-gateway/AddProviderDialog.svelte';
 	import ConfigureProviderDialog from '$lib/components/llm-gateway/ConfigureProviderDialog.svelte';
 	import GatewayStatusBanner from '$lib/components/llm-gateway/GatewayStatusBanner.svelte';
+	import ProviderTestDialog from '$lib/components/llm-gateway/ProviderTestDialog.svelte';
 	import { m } from '$lib/i18n';
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import {
@@ -47,6 +48,7 @@
 	let loading = $state(true);
 	let addDialog = $state<ReturnType<typeof AddProviderDialog>>();
 	let configureDialog = $state<ReturnType<typeof ConfigureProviderDialog>>();
+	let testDialog = $state<ReturnType<typeof ProviderTestDialog>>();
 	let openingProvider = $state<string>();
 	let openRequest = 0;
 	let removing = $state<string>();
@@ -185,6 +187,7 @@
 						configureLoading={openingProvider === p.name}
 						onConfigure={() => openProvider(p.name)}
 						onDeconfigure={() => (removing = p.name)}
+						onTest={() => testDialog?.open(p.name)}
 					>
 						{#snippet configuredActions()}
 							<span class="text-muted-content mr-2 flex items-center gap-2 text-xs">
@@ -224,6 +227,8 @@
 		</div>
 	{/if}
 </div>
+
+<ProviderTestDialog bind:this={testDialog} />
 
 <Confirm
 	show={!!removing}
