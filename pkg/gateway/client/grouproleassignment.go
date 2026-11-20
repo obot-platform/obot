@@ -11,9 +11,13 @@ import (
 	"gorm.io/gorm"
 )
 
+const ownerManagedGroupRoles = types2.RoleOwner | types2.RoleAuditor
+
 var (
 	// ErrGroupRoleAssignmentNotFound is returned when a group role assignment is not found.
 	ErrGroupRoleAssignmentNotFound = errors.New("group role assignment not found")
+	// ErrGroupRoleAssignmentOwnerRequired protects Owner and Auditor grants.
+	ErrGroupRoleAssignmentOwnerRequired = errors.New("only owners can change owner or auditor group grants")
 )
 
 // ListGroupRoleAssignments returns all group role assignments from the database.
@@ -53,7 +57,7 @@ func (c *Client) CreateGroupRoleAssignment(ctx context.Context, groupName string
 }
 
 // UpdateGroupRoleAssignment updates an existing group role assignment.
-func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string, role types2.Role, description string) (*types.GroupRoleAssignment, error) {
+func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string, role types2.Role, description string, isOwner bool) (*types.GroupRoleAssignment, error) {
 	var assignment types.GroupRoleAssignment
 
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -61,10 +65,22 @@ func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string
 			return err
 		}
 
+		update := tx.Model(&assignment)
+		// Match the requested privileged bits at write time so a concurrent Owner update
+		// cannot be overwritten by an Admin changing a different grant.
+		if !isOwner {
+			update = update.Where("role & ? = ?", ownerManagedGroupRoles, role&ownerManagedGroupRoles)
+		}
+		result := update.Updates(map[string]any{"role": role, "description": description})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrGroupRoleAssignmentOwnerRequired
+		}
 		assignment.Role = role
 		assignment.Description = description
-
-		return tx.Save(&assignment).Error
+		return nil
 	})
 
 	if err != nil {
@@ -78,13 +94,20 @@ func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string
 }
 
 // DeleteGroupRoleAssignment deletes a group role assignment by group name.
-func (c *Client) DeleteGroupRoleAssignment(ctx context.Context, groupName string) error {
-	result := c.db.WithContext(ctx).Where("group_name = ?", groupName).Delete(&types.GroupRoleAssignment{})
+func (c *Client) DeleteGroupRoleAssignment(ctx context.Context, groupName string, isOwner bool) error {
+	query := c.db.WithContext(ctx).Where("group_name = ?", groupName)
+	if !isOwner {
+		query = query.Where("role & ? = 0", ownerManagedGroupRoles)
+	}
+	result := query.Delete(&types.GroupRoleAssignment{})
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete group role assignment: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("%w: %s", ErrGroupRoleAssignmentNotFound, groupName)
+		if _, err := c.GetGroupRoleAssignment(ctx, groupName); err != nil {
+			return err
+		}
+		return ErrGroupRoleAssignmentOwnerRequired
 	}
 
 	return nil
@@ -138,9 +161,6 @@ func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User,
 // normalizeToHighestRole takes a combined role bitmap and returns only the highest
 // base role (Owner > Admin > PowerUserPlus > PowerUser > Basic) plus add-on bits if present.
 func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
-	// Check if add-on bits are set
-	hasAuditor := combinedRole.HasAuditorRole()
-
 	// Find the highest base role in descending order of privilege
 	var highestRole types2.Role
 	if combinedRole.HasRole(types2.RoleOwner) {
@@ -155,12 +175,7 @@ func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
 		highestRole = types2.RoleBasic
 	}
 
-	// Add the add-on bit back if it was present
-	if hasAuditor {
-		highestRole = highestRole | types2.RoleAuditor
-	}
-
-	return highestRole
+	return highestRole | combinedRole.AddOnRoles()
 }
 
 // GetUsersInGroup returns all users who are members of the given group.

@@ -8,9 +8,10 @@ import (
 type User struct {
 	kuser.Info
 
-	IsAdmin   bool
-	IsAuditor bool
-	IsOwner   bool
+	IsAdmin         bool
+	IsAdminReadonly bool
+	IsAuditor       bool
+	IsOwner         bool
 }
 
 func newUser(user kuser.Info) User {
@@ -22,6 +23,8 @@ func newUser(user kuser.Info) User {
 		switch group {
 		case types.GroupAdmin:
 			u.IsAdmin = true
+		case types.GroupAdminReadonly:
+			u.IsAdminReadonly = true
 		case types.GroupAuditor:
 			u.IsAuditor = true
 		case types.GroupOwner:
@@ -30,6 +33,11 @@ func newUser(user kuser.Info) User {
 	}
 
 	return u
+}
+
+// CanViewAdmin reports whether the user may read the admin area: owners, admins, admin read-only users and auditors.
+func (u User) CanViewAdmin() bool {
+	return u.IsAdmin || u.IsAdminReadonly || u.IsAuditor
 }
 
 func (a *Authorizer) checkUser(user User, userID string) bool {

@@ -19,7 +19,7 @@
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
-	import { AdminService, UserService } from '$lib/services';
+	import { AdminService, Group, UserService } from '$lib/services';
 	import type {
 		AuthProvider,
 		ProviderParameter,
@@ -166,6 +166,9 @@
 	// first provider on a fresh install stays the plain form.
 	let isOwner = $derived(!!profile.current.isOwner?.());
 	let isReadonly = $derived(!!profile.current.isAdminReadonly?.());
+	let canRevealCredentials = $derived(
+		!isReadonly || profile.current.groups.includes(Group.AUDITOR)
+	);
 	// Replacing the provider everyone signs in with is an owner operation, so an administrator is
 	// not offered the switch at all rather than being stopped partway through it.
 	function switchNeedsOwner(provider: AuthProvider) {
@@ -657,22 +660,26 @@
 		clearResidualGroupData();
 		configuringAuthProvider = authProvider;
 		configuringAuthProviderStored = false;
-		try {
-			configuringAuthProviderValues = await AdminService.revealAuthProvider(authProvider.id);
-			configuringAuthProviderStored = true;
-		} catch (err) {
-			// A 404 means no configuration is stored. Any other error leaves the stored configuration
-			// unknown, so the form is not opened: it would show another provider's values, and, for a
-			// provider whose choice of SCIM the configuration does not hold, offer the wrong choice.
-			if (!(err instanceof HttpError) || err.statusCode !== 404) {
-				errors.append(err);
-				configuringAuthProvider = undefined;
-				return;
+		if (!canRevealCredentials) {
+			configuringAuthProviderValues = {};
+		} else {
+			try {
+				configuringAuthProviderValues = await AdminService.revealAuthProvider(authProvider.id);
+				configuringAuthProviderStored = true;
+			} catch (err) {
+				// A 404 means no configuration is stored. Any other error leaves the stored configuration
+				// unknown, so the form is not opened: it would show another provider's values, and, for a
+				// provider whose choice of SCIM the configuration does not hold, offer the wrong choice.
+				if (!(err instanceof HttpError) || err.statusCode !== 404) {
+					errors.append(err);
+					configuringAuthProvider = undefined;
+					return;
+				}
+				// No configuration is stored, so the allowed email domains start at their default.
+				configuringAuthProviderValues = {
+					OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+				};
 			}
-			// No configuration is stored, so the allowed email domains start at their default.
-			configuringAuthProviderValues = {
-				OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
-			};
 		}
 
 		// A staged Local provider is past the settings this dialog edits, so resuming goes to the

@@ -10,6 +10,7 @@ package types
 //   - RolePowerUser (128): Standard power user with workspace
 //
 // Orthogonal roles:
+//   - RoleAdminReadonly (256): Can inspect administrative configuration and audit metadata
 //   - RoleAuditor (32): Can view audit logs and sensitive data (can be combined with any base role)
 //
 // Examples of combined roles:
@@ -25,11 +26,13 @@ const (
 	RoleAuditor
 	RolePowerUserPlus
 	RolePowerUser
+	RoleAdminReadonly
 
 	RoleUnknown Role = 0
 
 	GroupOwner         = "owner"
 	GroupAdmin         = "admin"
+	GroupAdminReadonly = "admin-readonly"
 	GroupAuditor       = "auditor"
 	GroupPowerUserPlus = "power-user-plus"
 	GroupPowerUser     = "power-user"
@@ -136,12 +139,26 @@ func (u Role) IsExactBaseRole(role Role) bool {
 }
 
 func (u Role) SwitchBaseRole(role Role) Role {
-	return role | (u & RoleAuditor)
+	return role | u.AddOnRoles()
+}
+
+// IsValid reports whether the role contains exactly one base role and optional add-ons.
+func (u Role) IsValid() bool {
+	switch u.ExtractBaseRole() {
+	case RoleOwner, RoleAdmin, RolePowerUserPlus, RolePowerUser, RoleBasic:
+		return true
+	}
+	return false
 }
 
 // ExtractBaseRole removes orthogonal role flags to get the base role
 func (u Role) ExtractBaseRole() Role {
-	return u &^ RoleAuditor
+	return u &^ (RoleAuditor | RoleAdminReadonly)
+}
+
+// AddOnRoles returns the explicit add-ons independent of the base role.
+func (u Role) AddOnRoles() Role {
+	return u & (RoleAuditor | RoleAdminReadonly)
 }
 
 // HasAuditorRole checks if the Auditor flag is set in the role
@@ -164,6 +181,9 @@ func (u Role) groups(onlyRoleGroups bool) []string {
 	}
 	if u.HasRole(RoleAdmin) {
 		groups = append(groups, GroupAdmin)
+	}
+	if u.HasRole(RoleAdminReadonly) {
+		groups = append(groups, GroupAdminReadonly)
 	}
 	if u.HasRole(RolePowerUserPlus) {
 		groups = append(groups, GroupPowerUserPlus)

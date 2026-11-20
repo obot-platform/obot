@@ -1,6 +1,8 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
-import type { MCPCatalogEntry } from '$lib/services';
+import { Group, type MCPCatalogEntry } from '$lib/services';
+import { profile } from '$lib/stores';
 import { createMCPCatalogServer } from '../../../tests/helpers/mcp';
+import { createMockProfile } from '../../../tests/helpers/pageData';
 import { createMCPCatalogEntryResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import CatalogServerForm from './CatalogServerForm.svelte';
@@ -240,6 +242,55 @@ describe('CatalogServerForm.svelte', () => {
 				static: true
 			});
 		});
+
+		it.each([
+			{ name: 'an admin', groups: [Group.ADMIN_READONLY, Group.ADMIN], reveals: true },
+			{ name: 'a read-only admin', groups: [Group.ADMIN_READONLY], reveals: false }
+		])(
+			'reveals stored values for a read-only form opened by $name: $reveals',
+			async ({ groups, reveals }) => {
+				profile.initialize(createMockProfile(groups));
+				const entry: MCPCatalogEntry = structuredClone(createMCPCatalogEntryResponse);
+				// An entry of its own, so that a reveal still in flight from another test is not counted.
+				entry.id = `${entry.id}-${reveals ? 'admin' : 'readonly'}`;
+				// Only entries with stored static values are revealed.
+				entry.manifest.config = [
+					{
+						key: 'API_TOKEN',
+						name: '',
+						description: '',
+						required: true,
+						sensitive: false,
+						value: '',
+						static: true,
+						usage: 'env'
+					}
+				];
+				let revealed = 0;
+				worker.use(
+					http.post(`/api/mcp-catalogs/${catalogID}/entries/${entry.id}/reveal`, () => {
+						revealed++;
+						return HttpResponse.json({});
+					})
+				);
+
+				await render(CatalogServerForm, {
+					id: catalogID,
+					entity: 'catalog',
+					entry,
+					readonly: true
+				});
+
+				if (reveals) {
+					await expect.poll(() => revealed).toBeGreaterThan(0);
+				} else {
+					// The reveal starts as the form mounts, so give it time to have been sent.
+					await new Promise((resolve) => setTimeout(resolve, 500));
+					expect(revealed).toBe(0);
+				}
+				profile.initialize(createMockProfile());
+			}
+		);
 
 		it('edits and submits every configuration usage without legacy fields', async () => {
 			const entry: MCPCatalogEntry = structuredClone(createMCPCatalogEntryResponse);

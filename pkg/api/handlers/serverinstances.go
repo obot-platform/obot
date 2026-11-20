@@ -23,7 +23,7 @@ func (h *ServerInstancesHandler) ListServerInstances(req api.Context) error {
 		instances v1.MCPServerInstanceList
 		err       error
 	)
-	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
+	if req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true" {
 		err = req.List(&instances)
 	} else {
 		err = req.List(&instances, kclient.MatchingFields{

@@ -75,7 +75,7 @@
 			<Plus class="size-4" />
 			{m.identity_access_add_assignment()}
 		</button>
-	{:else if view === 'agents' && !showCreateAgent && !isAdminReadonly}
+	{:else if view === 'agents' && !showCreateAgent}
 		<button
 			class="btn btn-primary flex items-center gap-2 text-sm"
 			onclick={() => agentsView?.showCreateForm()}

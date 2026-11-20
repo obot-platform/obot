@@ -56,7 +56,8 @@ func (h *ClaudeRunnerHandler) Config(req api.Context) error {
 	mappings := []gt.ClaudeOrganizationAccount{}
 	seen := map[string]bool{}
 	for _, environment := range environments {
-		if !req.UserIsAdmin() {
+		// Admins and admin read-only users see every environment as configured; others only the ones they may use.
+		if !req.UserCanReadAsAdmin() {
 			resolved, err := clauderunner.ResolveEnvironment(req.User, &environment)
 			if clauderunner.AccessDenied(err) {
 				continue

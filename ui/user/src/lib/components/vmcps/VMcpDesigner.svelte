@@ -140,7 +140,16 @@
 		profile.current.id === selectedVMcp?.userID ||
 			(!selectedVMcp?.userID && profile.current.hasAdminAccess?.())
 	);
-	let canAccessTester = $derived(Boolean(selectedVMcp?.id && (isOwner || !selectedVMcp?.userID)));
+	// The inspector can start a connection. Administrative inspection alone only grants the designer and profiles.
+	let canAccessTester = $derived(
+		Boolean(
+			selectedVMcp?.id &&
+			(isOwner || !selectedVMcp.userID) &&
+			(profile.current.isAdmin?.() ||
+				!profile.current.groups.includes(Group.ADMIN_READONLY) ||
+				selectedVMcp.userID === profile.current.id)
+		)
+	);
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
 	let hasEntries = $derived(mcpServersAndEntries.current.entries.length > 0);
 	let canEdit = $derived(
@@ -215,7 +224,7 @@
 	$effect(() => {
 		const inspectorID = page.url.searchParams.get('inspector');
 		const vmcp = selectedVMcp;
-		if (!inspectorID || vmcp?.id !== inspectorID) return;
+		if (!canAccessTester || !inspectorID || vmcp?.id !== inspectorID) return;
 
 		untrack(() =>
 			vmcpActions?.openConnect(vmcp, undefined, {

@@ -14,7 +14,9 @@
 	let { groupAssignment = $bindable(), loading = false, onsuccess, oncancel }: Props = $props();
 
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
-	const roleId = $derived(groupAssignment ? groupAssignment.assignment.role & ~Role.AUDITOR : 0);
+	const roleId = $derived(
+		groupAssignment ? groupAssignment.assignment.role & ~(Role.AUDITOR | Role.ADMIN_READONLY) : 0
+	);
 </script>
 
 <Confirm
@@ -32,7 +34,7 @@
 	{#snippet note()}
 		<div class="my-4 flex flex-col gap-4 text-center">
 			<p>
-				{#if auditorReadonlyAdminRoles.includes(roleId)}
+				{#if !((groupAssignment?.assignment.role ?? 0) & Role.ADMIN_READONLY) && auditorReadonlyAdminRoles.includes(roleId)}
 					{m.identity_access_groups_auditor_note_readonly()}
 				{:else}
 					{m.identity_access_groups_auditor_note()}

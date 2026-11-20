@@ -27,6 +27,7 @@ import (
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -401,9 +402,14 @@ func (r *recordingMCPServerTrigger) Trigger(_ context.Context, _ schema.GroupVer
 
 func newVMCPActionSessionManager(t *testing.T, objects ...kclient.Object) (*mcp.SessionManager, kclient.WithWatch, *gatewayclient.Client) {
 	t.Helper()
+	return newVMCPActionSessionManagerWithScheme(t, storagescheme.Scheme, objects...)
+}
+
+func newVMCPActionSessionManagerWithScheme(t *testing.T, scheme *runtime.Scheme, objects ...kclient.Object) (*mcp.SessionManager, kclient.WithWatch, *gatewayclient.Client) {
+	t.Helper()
 
 	storageClient := &vmcpActionInitialEventsClient{WithWatch: clientfake.NewClientBuilder().
-		WithScheme(storagescheme.Scheme).
+		WithScheme(scheme).
 		WithStatusSubresource(&v1.MCPServerInstance{}).
 		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServer).Spec.VMCPID} }).

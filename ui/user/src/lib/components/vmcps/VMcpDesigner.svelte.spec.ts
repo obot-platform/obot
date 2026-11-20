@@ -2441,11 +2441,11 @@ describe('VMcpDesigner.svelte', () => {
 			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
 		});
 
-		it('opens profiles as readonly for a readonly admin', async () => {
+		it('opens profiles as readonly for Read-Only Admin', async () => {
 			(appPage.url as URL).searchParams.set('view', 'profiles');
-			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.AUDITOR] });
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.ADMIN_READONLY] });
 
-			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
+			await expectViewTabs(['Designer', 'Profiles']);
 			await expect
 				.element(page.getByRole('button', { name: 'Create profile', exact: true }))
 				.not.toBeInTheDocument();
@@ -2458,6 +2458,13 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByRole('button', { name: 'Save changes' }))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByRole('button', { name: /^Delete / })).not.toBeInTheDocument();
+		});
+		it('keeps the inspector available on a Read-Only Admin user’s personal vMCP', async () => {
+			await renderDesigner([componentEntry], personalVMcp(), {
+				groups: [Group.ADMIN_READONLY]
+			});
+
+			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
 		});
 	});
 

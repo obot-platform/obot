@@ -278,6 +278,9 @@ func roleDetail(role types.Role) string {
 	case types.RoleBasic:
 		names = append(names, "Basic User")
 	}
+	if role.HasRole(types.RoleAdminReadonly) {
+		names = append(names, "Read-Only Admin")
+	}
 	if role.HasAuditorRole() {
 		names = append(names, "Auditor")
 	}
