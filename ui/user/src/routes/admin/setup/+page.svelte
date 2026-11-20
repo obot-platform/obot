@@ -4,9 +4,11 @@
 	import LocalAuthInitialUserForm from '$lib/components/admin/LocalAuthInitialUserForm.svelte';
 	import OwnerSetupPrompt from '$lib/components/admin/OwnerSetupPrompt.svelte';
 	import SetupSplashContent from '$lib/components/admin/SetupSplashContent.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
+	import { clearSeenTimestamp } from '$lib/localstate';
+	import { navigateTo } from '$lib/navigation';
 	import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
 	import { errors, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -108,22 +110,27 @@
 		}
 	}
 
-	async function handleOwnerCreated(userCount: number, email?: string) {
-		if (userCount <= 0) return;
-		if (email) {
-			localUsers = [
-				{
-					id: 'created',
-					email,
-					created: new Date().toISOString(),
-					requirePasswordChange: false
+	async function handleSubmitOwner(email: string, password: string): Promise<string | undefined> {
+		try {
+			const { redirect } = await AdminService.createLocalOwner(email, password);
+			clearSeenTimestamp(SEEN_SPLASH_DIALOG_KEY);
+			navigateTo(redirect || '/admin');
+			return undefined;
+		} catch (err) {
+			const { status, message } = parseErrorContent(err);
+			// fallback is user created but conflict received, show sign in step
+			if (status === 409) {
+				try {
+					localUsers = await AdminService.listLocalAuthUsers();
+				} catch (listErr) {
+					errors.append(listErr);
 				}
-			];
-		} else {
-			localUsers = await AdminService.listLocalAuthUsers();
+				step = 'signin';
+				await prepareSignIn();
+				return undefined;
+			}
+			return message || m.identity_access_auth_providers_local_auth_initial_user_create_failed();
 		}
-		step = 'signin';
-		await prepareSignIn();
 	}
 </script>
 
@@ -155,7 +162,7 @@
 						<LocalAuthInitialUserForm
 							provider={localProvider}
 							onConfigure={handleLocalAuthConfigure}
-							onCreated={handleOwnerCreated}
+							onSubmitOwner={handleSubmitOwner}
 						/>
 					</div>
 				{:else}

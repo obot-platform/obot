@@ -3,11 +3,13 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,13 +24,13 @@ import (
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/localauth"
-	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -39,14 +41,27 @@ type localSetupProviderGetter struct {
 	name string
 }
 
+type roleChangeStorage struct {
+	kclient.WithWatch
+	failRoleChanges atomic.Bool
+}
+
 type localSetupFixture struct {
+	db        *gorm.DB
 	gateway   *gateway.Client
-	storage   storage.Client
+	storage   *roleChangeStorage
 	provider  *localauth.Provider
 	handler   *LocalAuthHandler
 	setup     *setup.Handler
 	bootstrap *bootstrap.Bootstrap
 	getter    *localSetupProviderGetter
+}
+
+func (s *roleChangeStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
+	if _, ok := obj.(*v1.UserRoleChange); ok && s.failRoleChanges.Load() {
+		return errors.New("storage unavailable")
+	}
+	return s.WithWatch.Create(ctx, obj, opts...)
 }
 
 func (g *localSetupProviderGetter) GetConfiguredAuthProvider(context.Context) (string, error) {
@@ -62,13 +77,13 @@ func newLocalSetupFixture(t *testing.T) *localSetupFixture {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
 
-	storageClient := newFakeStorage(t, &v1.UserDefaultRoleSetting{
+	storageClient := &roleChangeStorage{WithWatch: newFakeStorage(t, &v1.UserDefaultRoleSetting{
 		Name:      system.DefaultRoleSettingName,
 		Namespace: system.DefaultNamespace,
 		Spec: v1.UserDefaultRoleSettingSpec{
 			Role: apitypes.RoleBasic,
 		},
-	})
+	})}
 	c := gateway.New(t.Context(), db, storageClient, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = c.Close() })
 
@@ -86,11 +101,12 @@ func newLocalSetupFixture(t *testing.T) *localSetupFixture {
 	require.NoError(t, err)
 
 	return &localSetupFixture{
+		db:        services.DB.DB,
 		gateway:   c,
 		storage:   storageClient,
 		provider:  provider,
 		handler:   NewLocalAuthHandler(provider),
-		setup:     setup.NewHandler("https://obot.example.com", boot, getter),
+		setup:     setup.NewHandler("https://obot.example.com", boot, getter, provider),
 		bootstrap: boot,
 		getter:    getter,
 	}
