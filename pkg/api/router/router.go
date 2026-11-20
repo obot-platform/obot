@@ -571,6 +571,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// Auth providers
 	mux.HandleFunc("GET /api/auth-providers", authProviders.List)
 	mux.HandleFunc("GET /api/auth-providers/{id}", authProviders.ByID)
+	mux.HandleFunc("GET /api/auth-providers/{id}/configuration", authProviders.Configuration)
 	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/deconfigure", authProviders.Deconfigure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/stage", authProviders.Stage)
