@@ -13,8 +13,7 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// BillingStatus is what a billed environment's subscription grants, and for admins and auditors, the subscription
-// itself and what the environment uses of it.
+// BillingStatus describes a billed environment's entitlements, subscription, and usage.
 type BillingStatus struct {
 	Entitlements apitypes.Entitlements `json:"entitlements"`
 	// Subscription leaves out its entitlements, which are the ones above.
@@ -49,8 +48,7 @@ func (h *BillingHandler) Get(req api.Context) error {
 		Entitlements: subscription.Entitlements(),
 		Syncing:      subscription.Annotations[v1.SubscriptionSyncAnnotation] == "true",
 	}
-	// Only admins and auditors see the usage, the subscription and why a sync failed.
-	if req.UserIsAdmin() || req.UserIsAuditor() {
+	if req.UserCanViewAdmin() {
 		used, err := license.Usage(req.Context(), req.GatewayClient, req.Storage)
 		if err != nil {
 			return err
@@ -66,6 +64,9 @@ func (h *BillingHandler) Get(req api.Context) error {
 				SelfService:       stored.SelfService,
 			}
 		}
+	}
+	// Raw sync errors can include a billing provider's response or request URL.
+	if req.UserIsAdmin() || req.UserIsAuditor() {
 		status.SyncError = subscription.Status.SyncError
 	}
 	return req.Write(status)
