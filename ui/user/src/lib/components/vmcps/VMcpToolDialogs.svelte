@@ -6,8 +6,9 @@
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import { m } from '$lib/i18n';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
-	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
+	import { Group, UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
 	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
@@ -61,6 +62,7 @@
 			}
 		} else if (
 			readonly &&
+			profile.current.groups.includes(Group.ADMIN_READONLY) &&
 			vmcp &&
 			componentId &&
 			configuration?.some((policy) => policy.policy === 'fixed' && !policy.secretBinding)

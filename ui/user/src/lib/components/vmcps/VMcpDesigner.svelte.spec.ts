@@ -2298,7 +2298,10 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(details.getByRole('button', { name: 'Save' })).not.toBeInTheDocument();
 		});
 
-		it('lets a Read-Only Admin view component configuration policies without revealing values', async () => {
+		it.each([
+			{ role: 'Read-Only Admin', group: Group.ADMIN_READONLY, canReadPresence: true },
+			{ role: 'Auditor', group: Group.AUDITOR, canReadPresence: false }
+		])('shows component configuration policies to $role', async ({ group, canReadPresence }) => {
 			const entry: MCPCatalogEntry = {
 				...componentEntry,
 				manifest: {
@@ -2357,7 +2360,7 @@ describe('VMcpDesigner.svelte', () => {
 				)
 			);
 			const reveal = vi.spyOn(UserService, 'revealVMCP');
-			await renderDesigner([entry], vmcp, { groups: [Group.USER, Group.ADMIN_READONLY] });
+			await renderDesigner([entry], vmcp, { groups: [Group.USER, group] });
 
 			await componentBlock().click();
 			await expect
@@ -2376,15 +2379,21 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(policy).toHaveValue('fixed');
 			expect(
 				configuration.getByText('Configured (hidden)', { exact: true }).elements()
-			).toHaveLength(3);
-			await expect.element(configuration.getByCSS('#fixed-REGION')).not.toBeInTheDocument();
+			).toHaveLength(canReadPresence ? 3 : 1);
+			const region = configuration.getByCSS('#fixed-REGION');
+			if (canReadPresence) {
+				await expect.element(region).not.toBeInTheDocument();
+			} else {
+				await expect.element(region).toBeDisabled();
+				await expect.element(region).toHaveValue('');
+			}
 			await expect
 				.element(configuration.getByRole('button', { name: 'Reveal' }))
 				.not.toBeInTheDocument();
 			await expect
 				.element(configuration.getByRole('button', { name: 'Save' }))
 				.not.toBeInTheDocument();
-			expect(presence).toHaveBeenCalledOnce();
+			expect(presence).toHaveBeenCalledTimes(canReadPresence ? 1 : 0);
 			expect(reveal).not.toHaveBeenCalled();
 		});
 

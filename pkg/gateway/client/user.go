@@ -400,11 +400,7 @@ func (c *Client) updateUser(ctx context.Context, actingUserCanChangeRole bool, u
 		// Only admins can change user roles.
 		if actingUserCanChangeRole {
 			if updatedUser.Role > 0 {
-				role := updatedUser.Role
-				// A promotion may carry the user's existing grant. Drop it while saving the new base role.
-				if existingUser.Role.HasRole(types2.RoleAdminReadonly) && !existingUser.Role.HasRole(types2.RoleAdmin) {
-					role = role.WithoutRedundantReadonlyAdmin()
-				}
+				role := updatedUser.Role.WithoutRedundantReadonlyAdmin()
 				if role != existingUser.Role && !role.IsValidUserRole() {
 					return types2.NewErrBadRequest("role must be one base role with compatible add-ons")
 				}
@@ -465,7 +461,7 @@ func (c *Client) updateUser(ctx context.Context, actingUserCanChangeRole bool, u
 					}
 				}
 
-				existingUser.Role = role.WithoutRedundantReadonlyAdmin()
+				existingUser.Role = role
 			}
 		}
 
