@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +30,72 @@ import (
 
 type failProviderChangeCreateStorage struct {
 	kclient.WithWatch
+}
+
+func TestAuthProviderConfigurationReturnsOnlyVisibleNonSensitiveValues(t *testing.T) {
+	provider := &v1.AuthProvider{
+		Name:      "test-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	provider.Spec.RequiredConfigurationParameters = []clienttypes.ProviderConfigurationParameter{
+		{Name: "ISSUER"},
+		{Name: "CLIENT_ID"},
+		{
+			Name:      "CLIENT_SECRET",
+			Sensitive: true,
+		},
+	}
+	provider.Spec.OptionalConfigurationParameters = []clienttypes.ProviderConfigurationParameter{
+		{Name: "ALLOWED_DOMAINS"},
+		{
+			Name:   "INTERNAL_SETTING",
+			Hidden: true,
+		},
+		{Name: "CLIENT_SECRET"},
+		{Name: CookieSecretEnvVar},
+	}
+	gateway, _ := newHandlerTestGatewayWithDB(t)
+	storage := newAuthProviderTestStorage(provider)
+	handler := new(AuthProviderHandler)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/auth-providers/"+provider.Name+"/configuration", nil)
+	request.SetPathValue("id", provider.Name)
+	recorder := httptest.NewRecorder()
+	req := api.Context{
+		Request:        request,
+		ResponseWriter: recorder,
+		Storage:        storage,
+		GatewayClient:  gateway,
+	}
+	var httpErr *clienttypes.ErrHTTP
+	require.ErrorAs(t, handler.Configuration(req), &httpErr)
+	require.Equal(t, http.StatusNotFound, httpErr.Code)
+
+	require.NoError(t, gateway.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: provider.Name,
+		Name:    provider.Name,
+		Secrets: map[string]string{
+			"ISSUER":           "https://login.example.test",
+			"CLIENT_ID":        "client-id",
+			"ALLOWED_DOMAINS":  "example.test",
+			"CLIENT_SECRET":    "client-secret",
+			"INTERNAL_SETTING": "hidden-value",
+			"UNDECLARED_KEY":   "unknown-value",
+			CookieSecretEnvVar: "cookie-secret",
+		},
+	}))
+
+	recorder = httptest.NewRecorder()
+	req.ResponseWriter = recorder
+	require.NoError(t, handler.Configuration(req))
+	require.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+	var values map[string]string
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &values))
+	require.Equal(t, map[string]string{
+		"ISSUER":          "https://login.example.test",
+		"CLIENT_ID":       "client-id",
+		"ALLOWED_DOMAINS": "example.test",
+	}, values)
 }
 
 func (f *failProviderChangeCreateStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {

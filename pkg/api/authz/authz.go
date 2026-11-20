@@ -258,6 +258,7 @@ var (
 		"GET /api/llm-audit-logs/filter-options/",
 		"GET /api/mcp-stats",
 		"GET /api/mcp-stats/",
+		"GET /api/auth-providers/{id}/configuration",
 		"GET /api/auth-providers/{id}/residual-group-data",
 		"GET /api/scim-connections",
 		"GET /api/scim-connections/",

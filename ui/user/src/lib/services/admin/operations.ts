@@ -364,6 +364,14 @@ export async function configureAuthProvider(
 	await doPost(`/auth-providers/${authProviderID}/configure`, envs, opts);
 }
 
+export async function getAuthProviderConfiguration(
+	authProviderID: string
+): Promise<Record<string, string>> {
+	return (await doGet(`/auth-providers/${encodeURIComponent(authProviderID)}/configuration`, {
+		dontLogErrors: true
+	})) as Record<string, string>;
+}
+
 export async function revealAuthProvider(
 	authProviderID: string,
 	opts?: { fetch?: Fetcher }

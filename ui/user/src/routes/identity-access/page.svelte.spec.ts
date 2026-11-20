@@ -584,33 +584,52 @@ describe('Identity & Access Page', () => {
 			},
 			{ name: 'an auditor', groups: [Group.USER, Group.AUDITOR], reveals: true },
 			{ name: 'a read-only admin', groups: [Group.ADMIN_READONLY], reveals: false }
-		])('are revealed when $name opens a provider: $reveals', async ({ name, groups, reveals }) => {
-			// A provider of its own, so that a reveal still in flight from another case is not counted.
-			const provider: AuthProvider = {
-				...googleConfigured,
-				id: `${googleConfigured.id}-${name.replaceAll(' ', '-')}`
-			};
-			let revealed = 0;
-			worker.use(
-				http.post(`/api/auth-providers/${provider.id}/reveal`, () => {
-					revealed++;
-					return HttpResponse.json({});
-				})
-			);
-			await renderIdentityAccessPage({ authProviders: [provider], groups });
+		])(
+			'loads the appropriate saved configuration when $name opens a provider',
+			async ({ name, groups, reveals }) => {
+				// Give each case its own provider so its requests can be counted independently.
+				const provider: AuthProvider = {
+					...googleConfigured,
+					id: `${googleConfigured.id}-${name.replaceAll(' ', '-')}`
+				};
+				let revealed = 0;
+				let configurationReads = 0;
+				worker.use(
+					http.post(`/api/auth-providers/${provider.id}/reveal`, () => {
+						revealed++;
+						return HttpResponse.json({});
+					}),
+					http.get(`/api/auth-providers/${provider.id}/configuration`, () => {
+						configurationReads++;
+						return HttpResponse.json({
+							OBOT_GOOGLE_AUTH_PROVIDER_CLIENT_ID: 'saved-client-id',
+							OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: 'example.test'
+						});
+					})
+				);
+				await renderIdentityAccessPage({ authProviders: [provider], groups });
 
-			await providerCard('Google')
-				.getByRole('button', { name: /^(View|Modify)$/ })
-				.click();
-			await expect.element(page.getByRole('dialog')).toBeVisible();
-			if (reveals) {
-				await expect.poll(() => revealed).toBe(1);
-			} else {
-				// The reveal starts as the dialog opens, so give it time to have been sent.
-				await new Promise((resolve) => setTimeout(resolve, 500));
-				expect(revealed).toBe(0);
+				await providerCard('Google')
+					.getByRole('button', { name: /^(View|Modify)$/ })
+					.click();
+				const dialog = page.getByRole('dialog');
+				await expect.element(dialog).toBeVisible();
+				if (reveals) {
+					expect(revealed).toBe(1);
+					expect(configurationReads).toBe(0);
+				} else {
+					expect(configurationReads).toBe(1);
+					expect(revealed).toBe(0);
+					const clientID = dialog.getByLabelText('Client ID', { exact: true });
+					await expect.element(clientID).toHaveValue('saved-client-id');
+					await expect.element(clientID).toBeDisabled();
+					await expect.element(dialog.getByText('example.test', { exact: true })).toBeVisible();
+					await expect
+						.element(dialog.getByLabelText('Client Secret', { exact: true }))
+						.toHaveValue('');
+				}
 			}
-		});
+		);
 	});
 
 	describe('auth providers tab', () => {
