@@ -243,7 +243,7 @@ func TestHasRole(t *testing.T) {
 	}
 }
 
-func TestIsValid(t *testing.T) {
+func TestIsValidUserRole(t *testing.T) {
 	tests := []struct {
 		name string
 		role Role
@@ -308,8 +308,8 @@ func TestIsValid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.role.IsValid(); got != tt.want {
-				t.Errorf("Role(%d).IsValid() = %v, want %v", tt.role, got, tt.want)
+			if got := tt.role.IsValidUserRole(); got != tt.want {
+				t.Errorf("Role(%d).IsValidUserRole() = %v, want %v", tt.role, got, tt.want)
 			}
 		})
 	}
