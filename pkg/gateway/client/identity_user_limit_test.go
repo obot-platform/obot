@@ -14,6 +14,8 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -379,4 +381,47 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitConcurrently(t *testing.T) {
 	if got := countIdentityUserLimitTestIdentities(t, c); got != maximum {
 		t.Fatalf("identities = %d, want %d", got, maximum)
 	}
+}
+
+func TestFirstSignInDefaultRole(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		saved apitypes.Role
+		want  apitypes.Role
+	}{
+		{
+			name:  "Admin with Auditor",
+			saved: apitypes.RoleAdmin | apitypes.RoleAuditor,
+			want:  apitypes.RoleAdmin | apitypes.RoleAuditor,
+		},
+		{
+			name:  "multiple bases",
+			saved: apitypes.RoleAdmin | apitypes.RoleBasic,
+			want:  apitypes.RoleBasic,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newIdentityUserLimitTestClient(t)
+			ctx := t.Context()
+			key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}
+			var setting v1.UserDefaultRoleSetting
+			require.NoError(t, c.storageClient.Get(ctx, key, &setting))
+			setting.Spec.Role = tc.saved
+			require.NoError(t, c.storageClient.Update(ctx, &setting))
+
+			id := &gatewaytypes.Identity{ProviderUsername: "example", ProviderUserID: "example"}
+			u, err := c.EnsureIdentity(ctx, id, "", UserLimit{Unlimited: true})
+			require.NoError(t, err)
+			require.Equal(t, tc.want, u.Role)
+		})
+	}
+}
+
+func TestEnsureIdentityRejectsInvalidExplicitRole(t *testing.T) {
+	c := newIdentityUserLimitTestClient(t)
+	id := &gatewaytypes.Identity{ProviderUsername: "example", ProviderUserID: "example"}
+	_, err := c.EnsureIdentityWithRole(t.Context(), id, "", apitypes.RoleAuditor, UserLimit{Unlimited: true})
+	require.ErrorContains(t, err, "invalid explicit user role")
+	require.Zero(t, countIdentityUserLimitTestUsers(t, c, false))
+	require.Zero(t, countIdentityUserLimitTestIdentities(t, c))
 }

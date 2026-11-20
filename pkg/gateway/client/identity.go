@@ -139,6 +139,10 @@ func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezon
 // EnsureIdentityWithRole ensures the given identity exists in the database with the at least the given role, and returns the user associated with it.
 // If the user already exists with a superset of the given role, it will not be updated.
 func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (*types.User, error) {
+	// RoleUnknown defers assignment until after sign-in creates the account.
+	if role != types2.RoleUnknown && !role.IsValidUserRole() {
+		return nil, fmt.Errorf("invalid explicit user role %d", role)
+	}
 	var ensured ensuredIdentity
 
 	// A first sign-in may claim an identity that SCIM created by the group lookup ID, which the auth provider is asked
@@ -188,6 +192,8 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 		if err != nil {
 			return nil, err
 		}
+
+		user.Role = provisionedDefaultRole(user.Role, "first sign-in")
 
 		if user, err = c.UpdateUser(ctx, true, user, fmt.Sprintf("%d", user.ID)); err != nil {
 			return nil, err
@@ -1173,6 +1179,14 @@ func (c *Client) getDefaultRole(ctx context.Context) (types2.Role, error) {
 	}
 
 	return defaultRole.Spec.Role, nil
+}
+
+func provisionedDefaultRole(role types2.Role, source string) types2.Role {
+	if role.IsValidUserRole() {
+		return role
+	}
+	slog.Warn("Unsupported default user role, assigning Standard", "role", role, "source", source)
+	return types2.RoleBasic
 }
 
 // identityEncryptedColumns returns the columns that encryptIdentity writes, with identity's values, for an update that

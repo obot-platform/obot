@@ -116,6 +116,12 @@ const (
 
 type UserList List[User]
 
+// IsValidUserRole reports whether the role has exactly one base and only supported add-ons.
+func (u Role) IsValidUserRole() bool {
+	_, ok := roleMap[u.ExtractBaseRole()]
+	return ok
+}
+
 func (u Role) HasRole(role Role) bool {
 	for _, r := range roleMap {
 		if r, ok := roleMap[u&r]; ok && r&role == role {
