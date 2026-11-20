@@ -286,7 +286,15 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 					}
 					var orgUserID string
 					if target.provider != "" {
-						orgUserID = f.identity(t, localUser.Email, target.provider, target.role).User.GetUID()
+						role := target.role
+						if role == apitypes.RoleAuditor {
+							// Seed a legacy auditor-only account to exercise its existing protections.
+							orgUserID = f.identity(t, localUser.Email, target.provider, apitypes.RoleBasic).User.GetUID()
+							_, err := f.gateway.UpdateUser(t.Context(), true, &gwtypes.User{Role: role}, orgUserID)
+							require.NoError(t, err)
+						} else {
+							orgUserID = f.identity(t, localUser.Email, target.provider, role).User.GetUID()
+						}
 					}
 					sessionID := hash.String("target-session")
 					require.NoError(t, f.gateway.CreateLocalAuthSession(t.Context(), sessionID, localUser.ID, time.Now().Add(time.Hour)))
