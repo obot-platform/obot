@@ -184,7 +184,7 @@ func TestListAuditLogAPIKeyFilterOptionsReturnsStructuredOptions(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=mcp_call", &user.DefaultInfo{
-		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		UID: "1", Groups: types.RoleAdmin.Groups(),
 	}, recorder)
 	ctx.SetPathValue("filter", "api_key_id")
 	if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err != nil {
@@ -222,7 +222,7 @@ func TestListAuditLogAPIKeyFilterOptionsIncludesLocalAgentKeysForMixedSources(t 
 
 	recorder := httptest.NewRecorder()
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=mcp_call,local_agent_tool_call", &user.DefaultInfo{
-		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		UID: "1", Groups: types.RoleAdmin.Groups(),
 	}, recorder)
 	ctx.SetPathValue("filter", "api_key_id")
 
@@ -487,7 +487,7 @@ func TestListAuditLogsRejectsSourceTypeQuery(t *testing.T) {
 	handler := NewAuditLogHandler(gatewayClient)
 	ctx := newAuditLogListContext(t, gatewayClient, "source_type=mcp", &user.DefaultInfo{
 		UID:    "1",
-		Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		Groups: types.RoleAdmin.Groups(),
 	})
 	err := handler.ListAuditLogs(ctx)
 	var errHTTP *types.ErrHTTP
@@ -504,7 +504,7 @@ func TestListAuditLogsLocalAgentAdminSeesMetadataNoPayload(t *testing.T) {
 	rec := httptest.NewRecorder()
 	adminCtx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=local_agent_tool_call", &user.DefaultInfo{
 		UID:    "1",
-		Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		Groups: types.RoleAdmin.Groups(),
 	}, rec)
 
 	if err := handler.ListAuditLogs(adminCtx); err != nil {
@@ -550,7 +550,7 @@ func TestListAuditLogsAdminGetsOneMixedPage(t *testing.T) {
 	rec := httptest.NewRecorder()
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient,
 		"event_type=mcp_call,local_agent_tool_call", &user.DefaultInfo{
-			UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+			UID: "1", Groups: types.RoleAdmin.Groups(),
 		}, rec)
 	if err := NewAuditLogHandler(gatewayClient).ListAuditLogs(ctx); err != nil {
 		t.Fatal(err)
@@ -599,7 +599,7 @@ func TestListAuditLogsDefaultsToAllAuthorizedSources(t *testing.T) {
 	rec := httptest.NewRecorder()
 	// No event_type in the query string: the handler must default to all authorized sources.
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "", &user.DefaultInfo{
-		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		UID: "1", Groups: types.RoleAdmin.Groups(),
 	}, rec)
 	if err := NewAuditLogHandler(gatewayClient).ListAuditLogs(ctx); err != nil {
 		t.Fatal(err)

@@ -45,7 +45,7 @@ Connect to approved MCP servers and use models granted through access policies.
 
 This add-on grants read access to administrative configuration, including catalog entries, vMCPs, profiles, access policies, users, groups, and role assignments. It also grants access to organization-wide audit metadata. Viewing server details or logs leaves stopped servers stopped, and administrative credentials remain masked.
 
-Admins and Owners can grant Read-Only Admin directly or through an identity-provider group. The add-on preserves the user's existing base role and personal capabilities, including any Power User workspace. Admins and Owners already have this inspection access. Combine Read-Only Admin with Auditor to inspect sensitive audit payloads and exports.
+Admins and Owners can grant Read-Only Admin directly or through an identity-provider group. The add-on preserves the user's existing base role and personal capabilities, including any Power User workspace. Admins and Owners inherit this access, and promotion to either role removes a direct Read-Only Admin grant. Combine Read-Only Admin with Auditor to inspect sensitive audit payloads and exports.
 
 ### Auditor {#user-roles-auditor}
 
@@ -99,7 +99,7 @@ Configure the default role for new users on the **Identity & Access > Roles** pa
 
 ### Roles from Groups {#user-roles-roles-from-groups}
 
-Assign a base role, an add-on, or both to an identity-provider group on **Identity & Access > Groups**. Obot chooses the highest base role across direct and group assignments in this order: Owner, Admin, Power User+, Power User, and Standard User. A user gets Read-Only Admin or Auditor if any active assignment grants that add-on. Removing the last source revokes the add-on.
+Assign a base role, an add-on, or both to an identity-provider group on **Identity & Access > Groups**. Obot chooses the highest base role across direct and group assignments in this order: Owner, Admin, Power User+, Power User, and Standard User. An active assignment can grant Auditor or Read-Only Admin. Obot ignores Read-Only Admin mappings for users who are currently Admins or Owners. Removing the last source revokes the add-on.
 
 ### Pre-Assigning Roles {#user-roles-pre-assigning-roles}
 

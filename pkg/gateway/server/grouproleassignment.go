@@ -191,6 +191,9 @@ func (s *Server) triggerReconciliationForGroup(apiContext api.Context, groupName
 }
 
 func validateGroupRole(role types2.Role) error {
+	if role != role.WithoutRedundantReadonlyAdmin() {
+		return types2.NewErrBadRequest("Admin and Owner already inherit Read-Only Admin access")
+	}
 	baseRole := role.ExtractBaseRole()
 
 	// Validate base role is one of the allowed values (or zero for add-on-only mappings)

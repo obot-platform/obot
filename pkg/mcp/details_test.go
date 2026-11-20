@@ -86,17 +86,24 @@ func TestServerInspectionDeployment(t *testing.T) {
 				backend := &inspectionBackend{running: tc.running, lookupErr: tc.lookupErr}
 				manager := &SessionManager{backend: backend}
 				config := ServerConfig{MCPServerName: "server", Runtime: types.RuntimeContainerized}
-				opts := ServerInspectionOptions{ReadOnly: tc.readOnly}
 				var err error
 				if operation == "details" {
 					var details types.MCPServerDetails
-					details, err = manager.GetServerDetails(t.Context(), config, opts)
+					if tc.readOnly {
+						details, err = manager.GetRunningServerDetails(t.Context(), config.MCPServerName)
+					} else {
+						details, err = manager.GetOrStartServerDetails(t.Context(), config)
+					}
 					if tc.wantErr == nil {
 						require.True(t, details.IsAvailable)
 					}
 				} else {
 					var logs io.ReadCloser
-					logs, err = manager.StreamServerLogs(t.Context(), config, opts)
+					if tc.readOnly {
+						logs, err = manager.StreamRunningServerLogs(t.Context(), config.MCPServerName)
+					} else {
+						logs, err = manager.StartServerIfNeededAndStreamLogs(t.Context(), config)
+					}
 					if tc.wantErr == nil {
 						require.NoError(t, err)
 						data, readErr := io.ReadAll(logs)

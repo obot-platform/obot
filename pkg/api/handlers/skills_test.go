@@ -450,20 +450,20 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 	})
 
 	t.Run("admin without all=true sees only in-scope skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.GroupAdmin), "")
+		ids := listSkills(t, testUserWithRole("user1", types.RoleAdmin.RoleGroups()...), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
 	})
 	t.Run("admin with all=true sees all skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.GroupAdmin), "?all=true")
+		ids := listSkills(t, testUserWithRole("user1", types.RoleAdmin.RoleGroups()...), "?all=true")
 		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
 	})
 
 	t.Run("owner without all=true sees only in-scope skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.GroupOwner, types.GroupAdmin), "")
+		ids := listSkills(t, testUserWithRole("user1", types.RoleOwner.RoleGroups()...), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
 	})
 	t.Run("owner with all=true sees all skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.GroupOwner, types.GroupAdmin), "?all=true")
+		ids := listSkills(t, testUserWithRole("user1", types.RoleOwner.RoleGroups()...), "?all=true")
 		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
 	})
 

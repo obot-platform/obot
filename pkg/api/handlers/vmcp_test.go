@@ -911,7 +911,7 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 		User: &user.DefaultInfo{
 			Name:   "admin",
 			UID:    "admin",
-			Groups: []string{types.GroupAPI, types.GroupAdmin},
+			Groups: types.RoleAdmin.Groups(),
 		},
 	})
 	if err != nil {
@@ -1058,7 +1058,7 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 			name: "administrator sees the full definition",
 			user: &user.DefaultInfo{
 				UID:    "1",
-				Groups: []string{types.GroupAPI, types.GroupAdmin},
+				Groups: types.RoleAdmin.Groups(),
 			},
 			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
 			wantProfiles:   []string{"user", "team", "other"},
@@ -2252,7 +2252,7 @@ func TestVMCPHandlerListMinimal(t *testing.T) {
 	admin := &user.DefaultInfo{
 		Name:   "admin",
 		UID:    "admin",
-		Groups: []string{types.GroupAPI, types.GroupAdmin},
+		Groups: types.RoleAdmin.Groups(),
 	}
 
 	for _, tc := range []struct {

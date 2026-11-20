@@ -105,10 +105,10 @@ func TestGroups(t *testing.T) {
 			nil,
 		},
 		{
-			name:           "Admin has no explicit read-only add-on",
+			name:           "Admin inherits the administrative read group",
 			role:           RoleAdmin,
-			expectContains: []string{GroupAdmin, GroupBasic},
-			expectMissing:  []string{GroupOwner, GroupAuditor, GroupAdminReadonly},
+			expectContains: []string{GroupAdmin, GroupBasic, GroupAdminReadonly},
+			expectMissing:  []string{GroupOwner, GroupAuditor},
 		},
 		{
 			name:           "Admin read-only gets only basic privileges besides its own group",
@@ -297,7 +297,7 @@ func TestIsValid(t *testing.T) {
 		{
 			name: "admin with explicit read-only add-on",
 			role: RoleAdmin | RoleAdminReadonly,
-			want: true,
+			want: false,
 		},
 		{
 			name: "unknown bit",

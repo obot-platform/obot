@@ -90,7 +90,11 @@
 	function handleConfirm() {
 		if (!selectedGroup) return;
 
-		let role = draftRoleId | (draftHaveReadOnlyAdmin ? Role.ADMIN_READONLY : 0);
+		let role =
+			draftRoleId |
+			(draftHaveReadOnlyAdmin && !(draftRoleId & (Role.ADMIN | Role.OWNER))
+				? Role.ADMIN_READONLY
+				: 0);
 		if (draftHaveAuditorPrivilege) {
 			role = addAuditorFlag(role);
 		}

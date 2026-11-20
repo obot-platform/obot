@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -749,49 +750,34 @@ func validateServerScope(req api.Context, server v1.MCPServer) error {
 	return nil
 }
 
-// inspectsAsReader reports whether the caller may inspect servers in the admin area without managing them: admin
-// read-only users and auditors. Their inspection must not change anything, such as deploying a stopped server.
-func inspectsAsReader(req api.Context) bool {
-	return req.UserCanViewAdmin() && !req.UserIsAdmin()
-}
-
-// serverForInspection resolves the MCP server whose details or logs are requested, and reports whether the inspection
-// must be read-only. Admins, and users inspecting their own server, resolve it as an action, which may deploy it.
-// Admin read-only users and auditors inspecting a server they don't own read it as stored instead: resolving it as an
-// action refreshes its last request time, which keeps it from idling, and resolves a vMCP ID to the caller's
-// connection to that vMCP, creating the connection if there is none. A connection to a multi-user server is inspected
-// through the server it connects to, so whose connection it is doesn't matter: a reader's own connection to a shared
-// server does not let them start it.
-func (m *MCPHandler) serverForInspection(req api.Context) (v1.MCPServer, mcp.ServerConfig, bool, error) {
+// storedServerForInspection resolves the existing deployment without creating or refreshing a connection.
+func storedServerForInspection(req api.Context) (v1.MCPServer, error) {
 	id := req.PathValue("mcp_server_id")
-	if inspectsAsReader(req) {
-		serverName := id
-		if system.IsMCPServerInstanceID(id) {
-			var instance v1.MCPServerInstance
-			if err := req.Get(&instance, id); err != nil {
-				return v1.MCPServer{}, mcp.ServerConfig{}, false, err
-			}
-			serverName = instance.Spec.MCPServerName
+	if system.IsMCPServerInstanceID(id) {
+		var instance v1.MCPServerInstance
+		if err := req.Get(&instance, id); err != nil {
+			return v1.MCPServer{}, err
 		}
-
-		var server v1.MCPServer
-		if err := req.Get(&server, serverName); err != nil {
-			return v1.MCPServer{}, mcp.ServerConfig{}, false, err
-		}
-		if !server.Spec.IsOwnedBy(req.User.GetUID()) {
-			// Read-only inspection uses only the server's name; the runtime is checked by the caller.
-			return server, mcp.ServerConfig{
-				MCPServerName: server.Name,
-				Runtime:       server.Spec.Manifest.Runtime,
-				UserID:        server.Spec.UserID,
-			}, true, nil
-		}
-		// The caller's own server, possibly reached through a connection to it.
-		id = server.Name
+		id = instance.Spec.MCPServerName
 	}
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), id, req.User)
-	return server, serverConfig, false, err
+	var server v1.MCPServer
+	err := req.Get(&server, id)
+	return server, err
+}
+
+func (m *MCPHandler) launchConfigForInspection(req api.Context, server v1.MCPServer) (mcp.ServerConfig, error) {
+	id := req.PathValue("mcp_server_id")
+	if req.UserCanViewAdmin() && !req.UserIsAdmin() {
+		// An administrative reader reaches their own deployment even when the route names an instance.
+		id = server.Name
+	}
+	resolved, config, err := m.mcpSessionManager.ServerForAction(req.Context(), id, req.User)
+	if err != nil {
+		return mcp.ServerConfig{}, err
+	}
+	config.UserID = resolved.Spec.UserID
+	return config, nil
 }
 
 // mcpActionID lets MCPServer and vMCP routes share action handlers without sharing authorization.
@@ -1438,7 +1424,7 @@ func (m *MCPHandler) vmcpComponentOAuthTargets(req api.Context, vmcpID, catalogI
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	server, serverConfig, readOnly, err := m.serverForInspection(req)
+	server, err := storedServerForInspection(req)
 	if err != nil {
 		return err
 	}
@@ -1478,12 +1464,16 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		}
 	}
 
-	// Use the user ID from the server rather than from the request.
-	serverConfig.UserID = server.Spec.UserID
-
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: readOnly,
-	})
+	var details types.MCPServerDetails
+	if !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()) {
+		details, err = m.mcpSessionManager.GetRunningServerDetails(req.Context(), server.Name)
+	} else {
+		config, configErr := m.launchConfigForInspection(req, server)
+		if configErr != nil {
+			return configErr
+		}
+		details, err = m.mcpSessionManager.GetOrStartServerDetails(req.Context(), config)
+	}
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {
 			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
@@ -1849,7 +1839,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	server, serverConfig, readOnly, err := m.serverForInspection(req)
+	server, err := storedServerForInspection(req)
 	if err != nil {
 		return err
 	}
@@ -1858,8 +1848,8 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		return err
 	}
 
-	if serverConfig.Runtime == types.RuntimeRemote || serverConfig.Runtime == types.RuntimeVMCP {
-		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support log retrieval", server.Name, serverConfig.Runtime)
+	if runtime := server.Spec.Manifest.Runtime; runtime == types.RuntimeRemote || runtime == types.RuntimeVMCP {
+		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support log retrieval", server.Name, runtime)
 	}
 
 	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
@@ -1889,12 +1879,16 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		}
 	}
 
-	// Use the user ID from the server rather than from the request.
-	serverConfig.UserID = server.Spec.UserID
-
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: readOnly,
-	})
+	var logs io.ReadCloser
+	if !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()) {
+		logs, err = m.mcpSessionManager.StreamRunningServerLogs(req.Context(), server.Name)
+	} else {
+		config, configErr := m.launchConfigForInspection(req, server)
+		if configErr != nil {
+			return configErr
+		}
+		logs, err = m.mcpSessionManager.StartServerIfNeededAndStreamLogs(req.Context(), config)
+	}
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {
 			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")

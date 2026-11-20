@@ -285,3 +285,26 @@ func inspectionScheme(t *testing.T) *runtime.Scheme {
 	require.NoError(t, corev1.AddToScheme(scheme))
 	return scheme
 }
+
+func TestPassiveSystemInspectionRejectsDisabledServers(t *testing.T) {
+	server := v1.SystemMCPServer{
+		Spec: v1.SystemMCPServerSpec{
+			Manifest: types.SystemMCPServerManifest{
+				Enabled: new(false),
+			},
+		},
+	}
+
+	req := api.Context{
+		User: &kuser.DefaultInfo{Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()},
+	}
+	// Inspection must check enabled state before touching the backend or credential store.
+	_, detailsErr := systemServerDetails(req, nil, server)
+	_, logsErr := systemServerLogs(req, nil, server)
+	for _, err := range []error{detailsErr, logsErr} {
+		httpErr, ok := errors.AsType[*types.ErrHTTP](err)
+		require.True(t, ok)
+		require.Equal(t, http.StatusBadRequest, httpErr.Code)
+		require.Equal(t, "system MCP server is not enabled", httpErr.Message)
+	}
+}

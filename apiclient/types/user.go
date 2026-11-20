@@ -139,11 +139,22 @@ func (u Role) IsExactBaseRole(role Role) bool {
 }
 
 func (u Role) SwitchBaseRole(role Role) Role {
-	return role | u.AddOnRoles()
+	return (role | u.AddOnRoles()).WithoutRedundantReadonlyAdmin()
+}
+
+// WithoutRedundantReadonlyAdmin removes the explicit grant when the base role already provides the access.
+func (u Role) WithoutRedundantReadonlyAdmin() Role {
+	if u.HasRole(RoleAdmin) {
+		return u &^ RoleAdminReadonly
+	}
+	return u
 }
 
 // IsValid reports whether the role contains exactly one base role and optional add-ons.
 func (u Role) IsValid() bool {
+	if u != u.WithoutRedundantReadonlyAdmin() {
+		return false
+	}
 	switch u.ExtractBaseRole() {
 	case RoleOwner, RoleAdmin, RolePowerUserPlus, RolePowerUser, RoleBasic:
 		return true
@@ -182,7 +193,7 @@ func (u Role) groups(onlyRoleGroups bool) []string {
 	if u.HasRole(RoleAdmin) {
 		groups = append(groups, GroupAdmin)
 	}
-	if u.HasRole(RoleAdminReadonly) {
+	if u.HasRole(RoleAdmin) || u.HasRole(RoleAdminReadonly) {
 		groups = append(groups, GroupAdminReadonly)
 	}
 	if u.HasRole(RolePowerUserPlus) {

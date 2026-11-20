@@ -396,6 +396,28 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 		// Only admins can change user roles.
 		if actingUserCanChangeRole {
 			if updatedUser.Role > 0 {
+				role := updatedUser.Role
+				// A promotion may carry the user's existing grant. Drop it while saving the new base role.
+				if existingUser.Role.HasRole(types2.RoleAdminReadonly) && !existingUser.Role.HasRole(types2.RoleAdmin) {
+					role = role.WithoutRedundantReadonlyAdmin()
+				}
+				if role != existingUser.Role && !role.IsValid() {
+					return types2.NewErrBadRequest("role must be one base role with compatible add-ons")
+				}
+				if role.HasRole(types2.RoleAdminReadonly) {
+					if existingUser.Role.HasRole(types2.RoleAdmin) {
+						return types2.NewErrBadRequest("Admin and Owner already inherit Read-Only Admin access")
+					}
+					elevated := elevatedGroupMembers(tx).Where("group_memberships.user_id = ?", existingUser.ID)
+					var count int64
+					if err := elevated.Count(&count).Error; err != nil {
+						return err
+					}
+					if count > 0 {
+						return types2.NewErrBadRequest("Admin and Owner already inherit Read-Only Admin access")
+					}
+				}
+
 				// Check if we're removing the Owner role
 				removingOwner := existingUser.Role.HasRole(types2.RoleOwner) && !updatedUser.Role.HasRole(types2.RoleOwner)
 				// Check if we're removing the Admin role
@@ -435,7 +457,7 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 					}
 				}
 
-				existingUser.Role = updatedUser.Role
+				existingUser.Role = role.WithoutRedundantReadonlyAdmin()
 			}
 		}
 

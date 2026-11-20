@@ -184,3 +184,13 @@ func TestCreateGroupRoleAssignmentRefusesADuplicate(t *testing.T) {
 		t.Fatalf("a duplicate createGroupRoleAssignment() = %v, want a conflict", err)
 	}
 }
+
+func TestRejectReadOnlyAdminWithElevatedGroupRole(t *testing.T) {
+	for _, base := range []types2.Role{types2.RoleAdmin, types2.RoleOwner} {
+		err := validateGroupRole(base | types2.RoleAdminReadonly)
+		var httpErr *types2.ErrHTTP
+		if !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest {
+			t.Fatalf("expected bad request for base role %d with Read-Only Admin, got %v", base, err)
+		}
+	}
+}

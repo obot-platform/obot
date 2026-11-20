@@ -50,6 +50,7 @@
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 
 	function handleRoleChange() {
+		if (roleId & (Role.ADMIN | Role.OWNER)) hasReadOnlyAdmin = false;
 		onRoleChange?.(roleId);
 	}
 
@@ -93,15 +94,13 @@
 		{@render roleUi(role)}
 	{/each}
 
-	{#if canAssignAdmin}
+	{#if canAssignAdmin && !(roleId & (Role.ADMIN | Role.OWNER))}
 		<label class="border-base-400 flex cursor-pointer gap-4 rounded-lg border p-3">
 			<input type="checkbox" bind:checked={hasReadOnlyAdmin} />
 			<span class="flex flex-col">
 				<span class="font-semibold">{m.core_role_admin_readonly()}</span>
 				<span class="text-muted-content text-xs">
-					{roleId & (Role.ADMIN | Role.OWNER)
-						? m.core_role_admin_readonly_redundant()
-						: m.core_role_admin_readonly_description()}
+					{m.core_role_admin_readonly_description()}
 				</span>
 			</span>
 		</label>
