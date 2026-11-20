@@ -16,7 +16,6 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
-	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -100,7 +99,7 @@ func TestNativeJudgeDoesNotInheritOutputGuardrails(t *testing.T) {
 				guardrails: []gatewaytypes.Guardrail{guardrail("judge", JudgeType, map[string]any{"definition": "Allow this answer"})},
 				policies:   []gatewaytypes.GuardrailPolicy{outputPolicy},
 			}
-			guardrails := New(policyStore, messagepolicy.NewHelper(storage, gw))
+			guardrails := New(policyStore, NewJudge(storage, gw))
 			input, output := guardrails.Plugins()
 			dir := t.TempDir()
 			modeldatatest.Write(t, dir)

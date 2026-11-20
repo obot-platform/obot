@@ -9,7 +9,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/messagepolicy"
 )
 
 const (
@@ -20,7 +19,7 @@ const (
 
 type judgeChecker struct {
 	definition string
-	judge      *messagepolicy.Helper
+	judge      *Judge
 }
 
 func init() {
@@ -43,14 +42,12 @@ func (c *judgeChecker) Check(ctx context.Context, in CheckInput) (Result, error)
 	}
 
 	var (
-		target    string
-		direction types.PolicyDirection
-		history   = conversation(in.History)
+		target  string
+		history = in.History
 	)
 	switch {
 	case in.Stage == StageInput && in.Target == gatewaytypes.GuardrailTargetLLM:
 		// Judge the latest user message, in the context of the rest of the conversation.
-		direction = types.PolicyDirectionUserMessage
 		last := -1
 		for i, s := range slices.Backward(in.Segments) {
 			if s.Role == RoleUser {
@@ -61,18 +58,17 @@ func (c *judgeChecker) Check(ctx context.Context, in CheckInput) (Result, error)
 		if last < 0 {
 			return Result{}, nil
 		}
-		history = append(history, conversation(in.Segments[:last])...)
+		// Limit capacity so appending cannot overwrite the caller's history backing array.
+		history = append(slices.Clip(history), in.Segments[:last]...)
 		target = in.Segments[last].Text
 	default:
 		// Model tool calls, and MCP tool calls and their results.
-		direction = types.PolicyDirectionToolCalls
 		var parts []string
 		for _, s := range in.Segments {
 			switch s.Role {
 			case RoleToolCall:
 				parts = append(parts, fmt.Sprintf("[called tool %q with args: %s]", s.Name, s.Text))
 			case RoleToolResult:
-				direction = types.PolicyDirectionUserMessage
 				parts = append(parts, fmt.Sprintf("[tool %q returned: %s]", s.Name, s.Text))
 			}
 		}
@@ -86,40 +82,39 @@ func (c *judgeChecker) Check(ctx context.Context, in CheckInput) (Result, error)
 		return Result{}, nil
 	}
 
-	violations := c.judge.EvaluateMessage(ctx, []messagepolicy.ApplicablePolicy{{
-		ID: "guardrail",
-		Manifest: types.MessagePolicyManifest{
-			DisplayName: "guardrail",
-			Definition:  c.definition,
-			Direction:   direction,
-		},
-	}}, history, target, direction)
-
-	var result Result
-	for _, v := range violations {
-		if v.Failed {
-			// Let the policy's fail-closed setting decide, as for any other checker error.
-			return Result{}, errors.New("the policy could not be evaluated: the judge model is unavailable or failed")
-		}
-		result.Findings = append(result.Findings, Finding{Category: "policy", Message: "Violates the policy", Explanation: v.Explanation})
+	verdict, err := c.judge.evaluateMessage(ctx, types.MessagePolicyManifest{
+		DisplayName: "guardrail",
+		Definition:  c.definition,
+	}, conversation(history), target)
+	if err != nil {
+		// Let the policy's fail-closed setting decide, as for any other checker error.
+		return Result{}, errors.New("the policy could not be evaluated: the judge model is unavailable or failed")
 	}
-	return result, nil
+	if verdict.Compliant {
+		return Result{}, nil
+	}
+
+	return Result{Findings: []Finding{{Category: "policy", Message: "Violates the policy", Explanation: verdict.Explanation}}}, nil
 }
 
-func conversation(segments []Segment) []messagepolicy.ConversationMessage {
-	out := make([]messagepolicy.ConversationMessage, 0, len(segments))
+// conversation formats judge history in order, excluding system and unknown roles.
+// Tool arguments give context, but tool results are redacted from history.
+func conversation(segments []Segment) string {
+	var parts []string
 	for _, s := range segments {
 		switch s.Role {
+		case RoleUser:
+			parts = append(parts, fmt.Sprintf("User: %s", s.Text))
+		case RoleAssistant:
+			if s.Text != "" {
+				parts = append(parts, fmt.Sprintf("Assistant: %s", s.Text))
+			}
 		case RoleToolCall:
-			out = append(out, messagepolicy.ConversationMessage{
-				Role:      "assistant",
-				ToolCalls: []messagepolicy.ToolCallInfo{{Name: s.Name, Arguments: s.Text}},
-			})
+			parts = append(parts, fmt.Sprintf("Assistant: [called tool %q with args: %s]", s.Name, s.Text))
 		case RoleToolResult:
-			out = append(out, messagepolicy.ConversationMessage{Role: "tool", Content: s.Text})
-		default:
-			out = append(out, messagepolicy.ConversationMessage{Role: s.Role, Content: s.Text})
+			parts = append(parts, "Tool: [tool output redacted]")
 		}
 	}
-	return out
+
+	return strings.Join(parts, "\n")
 }
