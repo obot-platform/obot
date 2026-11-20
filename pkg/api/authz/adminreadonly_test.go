@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -233,11 +234,31 @@ func TestVMCPConfigurationPresenceRequiresAdminRead(t *testing.T) {
 		}}},
 	}
 	authorizer := newVMCPTestAuthorizer(vmcp)
-	for _, role := range []types.Role{types.RoleBasic, types.RoleBasic | types.RoleAdminReadonly, types.RoleBasic | types.RoleAuditor, types.RoleAdmin, types.RoleOwner} {
+	for _, role := range []types.Role{types.RoleBasic, types.RoleBasic | types.RoleAdminReadonly, types.RoleBasic | types.RoleAuditor, types.RoleBasic | types.RoleAuditor | types.RoleAdminReadonly, types.RoleAdmin, types.RoleOwner} {
 		req := httptest.NewRequest(http.MethodGet, "/api/vmcps/vmcp-shared/components/component/configuration-presence", nil)
 		caller := &user.DefaultInfo{UID: "member", Groups: role.Groups()}
-		if got, want := authorizer.Authorize(req, caller), role != types.RoleBasic; got != want {
+		if got, want := authorizer.Authorize(req, caller), slices.Contains(caller.Groups, types.GroupAdminReadonly); got != want {
 			t.Errorf("configuration presence access for role %v = %v, want %v", role, got, want)
+		}
+	}
+}
+
+func TestAuditorVMCPReads(t *testing.T) {
+	authorizer := newVMCPTestAuthorizer()
+	auditor := &user.DefaultInfo{UID: "1", Groups: (types.RoleBasic | types.RoleAuditor).Groups()}
+	for _, path := range []string{
+		"/api/vmcps",
+		"/api/vmcps/vmcp-shared",
+		"/api/vmcps/vmcp-shared/oauth-url",
+		"/api/vmcps/vmcp-shared/oauth-status",
+		"/api/vmcps/vmcp-shared/tools",
+		"/api/vmcps/vmcp-shared/resources",
+		"/api/vmcps/vmcp-shared/resources/test",
+		"/api/vmcps/vmcp-shared/prompts",
+		"/api/vmcps/vmcp-shared/prompts/test",
+	} {
+		if !authorizer.Authorize(httptest.NewRequest(http.MethodGet, path, nil), auditor) {
+			t.Errorf("Auditor should retain GET %s", path)
 		}
 	}
 }

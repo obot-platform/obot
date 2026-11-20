@@ -261,6 +261,28 @@ func TestReadonlyAdminDirectGrantOnDemotion(t *testing.T) {
 	require.Equal(t, role, updated.Role)
 }
 
+func TestUserUpdateStripsRedundantReadonlyAdminGrant(t *testing.T) {
+	for _, role := range []types2.Role{types2.RoleAdmin, types2.RoleOwner} {
+		t.Run(strconv.Itoa(int(role)), func(t *testing.T) {
+			c := newTestClient(t)
+			ctx := t.Context()
+			u := &types.User{
+				Username: "elevated",
+				Email:    "elevated@example.com",
+				Role:     role,
+			}
+			require.NoError(t, c.db.WithContext(ctx).Create(u).Error)
+			id := strconv.FormatUint(uint64(u.ID), 10)
+			updated, err := c.UpdateUser(ctx, true, &types.User{Role: role | types2.RoleAdminReadonly}, id)
+			require.NoError(t, err)
+			require.Equal(t, role, updated.Role)
+			stored, err := c.UserByID(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, role, stored.Role)
+		})
+	}
+}
+
 func TestReadonlyAdminDirectGrantClearedOnPromotion(t *testing.T) {
 	for _, via := range []string{"direct", "direct owner", "mapping create", "mapping update", "IdP membership", "SCIM membership"} {
 		t.Run(via, func(t *testing.T) {

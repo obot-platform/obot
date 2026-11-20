@@ -920,6 +920,8 @@ func writeGroupMembershipChangesTx(tx *gorm.DB, groupID string, changes map[uint
 		for _, membership := range memberships {
 			userIDs = append(userIDs, membership.UserID)
 		}
+		// Serialize membership additions with role changes so an elevated group grant and the removal
+		// of a redundant direct Read-Only Admin grant take effect together.
 		if err := lockMembershipAddsForRoles(tx, []string{groupID}, userIDs); err != nil {
 			return err
 		}

@@ -19,7 +19,8 @@ func canSeeSensitiveConfig(req api.Context) bool {
 	return req.UserIsAdmin() || req.UserIsAuditor()
 }
 
-// redactSensitiveConfig returns a copy of config with the set values of its sensitive fields masked.
+// redactSensitiveConfig masks set sensitive values. Like the legacy field helpers below, it clones the slice
+// before changing any elements because the manifest and response can share the same backing array.
 func redactSensitiveConfig(config []types.MCPConfig) []types.MCPConfig {
 	if !slices.ContainsFunc(config, func(field types.MCPConfig) bool { return field.Sensitive && field.Value != "" }) {
 		return config

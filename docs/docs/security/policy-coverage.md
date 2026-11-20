@@ -43,7 +43,7 @@ Connect to approved MCP servers and use models granted through access policies.
 
 ### Read-Only Admin {#user-roles-admin-read-only}
 
-This add-on grants read access to administrative configuration, including catalog entries, vMCPs, profiles, access policies, users, groups, and role assignments. It also grants access to organization-wide audit metadata. Viewing server details or logs leaves stopped servers stopped, and administrative credentials remain masked.
+Read-Only Admins can see everything Admins can see, with sensitive configuration values and secrets masked. This includes administrative configuration and organization-wide audit metadata.
 
 Admins and Owners can grant Read-Only Admin directly or through an identity-provider group. The add-on preserves the user's existing base role and personal capabilities, including any Power User workspace. Admins and Owners inherit this access, and promotion to either role removes a direct Read-Only Admin grant. Combine Read-Only Admin with Auditor to inspect sensitive audit payloads and exports.
 
@@ -51,7 +51,7 @@ Admins and Owners can grant Read-Only Admin directly or through an identity-prov
 
 Auditor is an add-on that grants sensitive audit access across the platform, including MCP request and response bodies. Users can view payloads for their own MCP servers through their existing permissions. Auditor can be combined with any base role and with Read-Only Admin.
 
-On a Standard User, Power User, or Power User+, Auditor also grants read-only access to the admin area. Viewing the details or logs of a server they don't own, including system servers and webhook validations, never starts it. To let someone view configuration without seeing sensitive data, assign [Read-Only Admin](./policy-coverage.md#user-roles-admin-read-only) instead.
+Auditors also have read access to administrative areas including users, groups, MCP catalogs, and billing. Assign [Read-Only Admin](#user-roles-admin-read-only) when someone needs to inspect administrative configuration with sensitive values masked.
 
 ## Role Comparison {#user-roles-role-comparison}
 

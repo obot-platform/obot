@@ -124,6 +124,7 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 		return err
 	}
 
+	// The client checks changes to Owner and Auditor grants against the current assignment under the group lock.
 	updated, err := apiContext.GatewayClient.UpdateGroupRoleAssignment(
 		apiContext.Context(), groupName, req.Role, req.Description, apiContext.UserIsOwner())
 	if err != nil {
