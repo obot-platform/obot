@@ -261,6 +261,41 @@ describe('UsersView', () => {
 		);
 	});
 
+	it.each([Role.POWERUSER, Role.ADMIN])(
+		'allows the add-on on demotion only when group role %s is below Admin',
+		async (groupRole) => {
+			const user = orgUser({
+				id: '63',
+				email: 'demote@example.com',
+				role: Role.ADMIN,
+				effectiveRole: Role.ADMIN,
+				authProviderGroups: ['test:operators']
+			});
+			const assignments = vi
+				.spyOn(AdminService, 'listGroupRoleAssignments')
+				.mockResolvedValue([{ groupName: 'test:operators', role: groupRole }]);
+			const setRole = vi.spyOn(AdminService, 'updateUserRole').mockResolvedValue();
+			await renderUsersView([user]);
+			await openRowActions(user.email);
+			await page.getByRole('button', { name: 'Update Role' }).click();
+			const dialog = page.getByRole('dialog');
+			(dialog.getByRole('radio', { name: /^Standard User/ }).element() as HTMLInputElement).click();
+			const checkbox = dialog.getByRole('checkbox', { name: /^Read-Only Admin/ });
+			await vi.waitFor(() => expect(assignments).toHaveBeenCalledOnce());
+			if (groupRole === Role.ADMIN) {
+				await expect.element(checkbox).not.toBeInTheDocument();
+			} else {
+				await expect.element(checkbox).toBeVisible();
+				(checkbox.element() as HTMLInputElement).click();
+			}
+			(
+				dialog.getByRole('button', { name: 'Update', exact: true }).element() as HTMLElement
+			).click();
+			const expected = groupRole === Role.ADMIN ? Role.BASIC : Role.BASIC | Role.ADMIN_READONLY;
+			await vi.waitFor(() => expect(setRole).toHaveBeenCalledWith(user.id, expected));
+		}
+	);
+
 	it('keeps the Auditor flag when an Owner assigns Read-Only Admin', async () => {
 		const setRole = vi.spyOn(AdminService, 'updateUserRole').mockResolvedValue();
 		const auditor = orgUser({
