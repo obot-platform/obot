@@ -155,9 +155,6 @@ func vmcpForUser(req api.Context, vmcp v1.VMCP) v1.VMCP {
 		_, ok := visible[status.Name]
 		return !ok
 	})
-	for i := range vmcp.Status.Components {
-		vmcp.Status.Components[i].ConfiguredFixedFields = nil
-	}
 	vmcp.Status.Ready = len(vmcp.Status.Components) == len(manifest.Components) && !slices.ContainsFunc(vmcp.Status.Components, func(status v1.VMCPComponentStatus) bool {
 		return !status.Ready
 	})
@@ -437,17 +434,55 @@ func (*VMCPHandler) Reveal(req api.Context) error {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
 
-	credential, err := req.GatewayClient.RevealCredential(req.Context(),
-		[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)},
-		vmcpconfig.StaticConfigurationCredentialName(&vmcp),
-	)
+	secrets, err := readVMCPStaticConfiguration(req, &vmcp)
 	if err != nil {
-		if _, ok := errors.AsType[gclient.CredentialNotFoundError](err); !ok {
-			return fmt.Errorf("failed to reveal VMCP configuration: %w", err)
-		}
+		return fmt.Errorf("failed to reveal VMCP configuration: %w", err)
 	}
 
-	return req.Write(vmcpConfiguration(vmcp.Spec.Manifest.Components, credential.Secrets, types.VMCPConfigurationPolicyFixed))
+	return req.Write(vmcpConfiguration(vmcp.Spec.Manifest.Components, secrets, types.VMCPConfigurationPolicyFixed))
+}
+
+func (*VMCPHandler) ConfigurationPresence(req api.Context) error {
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
+		return fmt.Errorf("failed to get VMCP: %w", err)
+	}
+
+	componentID := req.PathValue("component_id")
+	index := slices.IndexFunc(vmcp.Spec.Manifest.Components, func(component types.VMCPComponent) bool {
+		return component.ID == componentID
+	})
+	if index < 0 {
+		return types.NewErrNotFound("VMCP component %q not found", componentID)
+	}
+
+	secrets, err := readVMCPStaticConfiguration(req, &vmcp)
+	if err != nil {
+		return fmt.Errorf("failed to check VMCP configuration presence: %w", err)
+	}
+
+	// Only list keys from the current component's fixed policies. The credential may still
+	// contain values for a policy or component that was removed.
+	presence := types.VMCPConfigurationPresence{ConfiguredFields: []string{}}
+	for _, policy := range vmcp.Spec.Manifest.Components[index].Configuration {
+		if policy.Policy == types.VMCPConfigurationPolicyFixed && policy.SecretBinding == nil &&
+			secrets[vmcpconfig.ConfigurationKey(componentID, policy.Key)] != "" {
+			presence.ConfiguredFields = append(presence.ConfiguredFields, policy.Key)
+		}
+	}
+	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
+	return req.Write(presence)
+}
+
+func readVMCPStaticConfiguration(req api.Context, vmcp *v1.VMCP) (map[string]string, error) {
+	credential, err := req.GatewayClient.RevealCredential(req.Context(),
+		[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)},
+		vmcpconfig.StaticConfigurationCredentialName(vmcp),
+	)
+	if _, ok := errors.AsType[gclient.CredentialNotFoundError](err); ok {
+		return nil, nil
+	}
+	return credential.Secrets, err
 }
 
 func (*VMCPHandler) Deconfigure(req api.Context) error {
@@ -665,13 +700,12 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 	componentStatuses := make([]types.VMCPComponentStatus, 0, len(vmcp.Status.Components))
 	for _, status := range vmcp.Status.Components {
 		componentStatuses = append(componentStatuses, types.VMCPComponentStatus{
-			Name:                  status.Name,
-			Ready:                 status.Ready,
-			Error:                 status.Error,
-			SourceMissing:         status.SourceMissing,
-			NeedsUpdate:           status.NeedsUpdate,
-			ConfiguredFixedFields: status.ConfiguredFixedFields,
-			ConnectionSnapshot:    status.ConnectionSnapshot,
+			Name:               status.Name,
+			Ready:              status.Ready,
+			Error:              status.Error,
+			SourceMissing:      status.SourceMissing,
+			NeedsUpdate:        status.NeedsUpdate,
+			ConnectionSnapshot: status.ConnectionSnapshot,
 		})
 	}
 	return types.VMCP{

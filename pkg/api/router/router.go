@@ -218,6 +218,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("PUT /api/vmcps/{vmcp_id}", vmcps.Update)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/trigger-update", vmcps.TriggerUpdate)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/reveal", vmcps.Reveal)
+	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/components/{component_id}/configuration-presence", vmcps.ConfigurationPresence)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/deconfigure", vmcps.Deconfigure)
 	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}", vmcps.Delete)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews", mcpCatalogs.GenerateVMCPComponentToolPreviews)

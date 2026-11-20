@@ -979,7 +979,7 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 		Status: v1.VMCPStatus{
 			Ready: false,
 			Components: []v1.VMCPComponentStatus{
-				{Name: "Gmail", Ready: true, ConfiguredFixedFields: []string{"TOKEN"}},
+				{Name: "Gmail", Ready: true},
 				{Name: "Outlook", Error: "static OAuth credentials are not configured"},
 				{Name: "Drive", Ready: true},
 			},
@@ -1005,14 +1005,13 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		user            *user.DefaultInfo
-		wantComponents  []string
-		wantProfiles    []string
-		wantStatuses    []string
-		wantTools       map[string][]types.ToolOverride
-		wantReady       bool
-		wantFixedFields []string
+		name           string
+		user           *user.DefaultInfo
+		wantComponents []string
+		wantProfiles   []string
+		wantStatuses   []string
+		wantTools      map[string][]types.ToolOverride
+		wantReady      bool
 	}{
 		{
 			name: "non-admin sees only their components and profiles",
@@ -1061,12 +1060,11 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 				UID:    "1",
 				Groups: types.RoleAdmin.Groups(),
 			},
-			wantComponents:  []string{"gmail", "outlook", "drive", "calendar", "tasks"},
-			wantProfiles:    []string{"user", "team", "other"},
-			wantStatuses:    []string{"Gmail", "Outlook", "Drive"},
-			wantTools:       allTools,
-			wantReady:       false,
-			wantFixedFields: []string{"TOKEN"},
+			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
+			wantProfiles:   []string{"user", "team", "other"},
+			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
+			wantTools:      allTools,
+			wantReady:      false,
 		},
 		{
 			name: "auditor sees the full definition",
@@ -1074,12 +1072,11 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 				UID:    "3",
 				Groups: []string{types.GroupAPI, types.GroupAuditor},
 			},
-			wantComponents:  []string{"gmail", "outlook", "drive", "calendar", "tasks"},
-			wantProfiles:    []string{"user", "team", "other"},
-			wantStatuses:    []string{"Gmail", "Outlook", "Drive"},
-			wantTools:       allTools,
-			wantReady:       false,
-			wantFixedFields: []string{"TOKEN"},
+			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
+			wantProfiles:   []string{"user", "team", "other"},
+			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
+			wantTools:      allTools,
+			wantReady:      false,
 		},
 		{
 			name: "read-only administrator sees the full definition",
@@ -1087,12 +1084,11 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 				UID:    "3",
 				Groups: []string{types.GroupAPI, types.GroupAdminReadonly},
 			},
-			wantComponents:  []string{"gmail", "outlook", "drive", "calendar", "tasks"},
-			wantProfiles:    []string{"user", "team", "other"},
-			wantStatuses:    []string{"Gmail", "Outlook", "Drive"},
-			wantTools:       allTools,
-			wantReady:       false,
-			wantFixedFields: []string{"TOKEN"},
+			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
+			wantProfiles:   []string{"user", "team", "other"},
+			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
+			wantTools:      allTools,
+			wantReady:      false,
 		},
 	}
 	for _, tt := range tests {
@@ -1109,9 +1105,6 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 				}
 				if got.Status.Ready != tt.wantReady {
 					t.Fatalf("ready = %v, want %v", got.Status.Ready, tt.wantReady)
-				}
-				if fields := got.Status.Components[0].ConfiguredFixedFields; !slices.Equal(fields, tt.wantFixedFields) {
-					t.Fatalf("configured fixed fields = %v, want %v", fields, tt.wantFixedFields)
 				}
 			}
 
