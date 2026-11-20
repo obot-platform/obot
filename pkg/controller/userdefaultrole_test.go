@@ -20,17 +20,25 @@ func TestRepairDefaultUserRoleSetting(t *testing.T) {
 	var setting v1.UserDefaultRoleSetting
 	require.NoError(t, store.Get(ctx, key, &setting))
 	require.Equal(t, types.RoleBasic, setting.Spec.Role)
-	for _, role := range []types.Role{types.RoleAdmin | types.RoleAuditor, types.RoleOwner, types.RoleAuditor, 1, 10} {
+	for role, want := range map[types.Role]types.Role{
+		types.RoleAdmin | types.RoleAuditor: types.RoleAdmin | types.RoleAuditor,
+		types.RoleOwner:                     types.RoleOwner,
+		types.RoleAuditor:                   types.RoleBasic,
+		types.RoleAdmin | types.RoleBasic:   types.RoleBasic,
+		1:                                   types.RoleAdmin,
+		2:                                   types.RolePowerUserPlus,
+		3:                                   types.RolePowerUser,
+		10:                                  types.RoleBasic,
+	} {
 		setting.Spec.Role = role
 		require.NoError(t, store.Update(ctx, &setting))
 		version := setting.ResourceVersion
 		require.NoError(t, repairDefaultUserRoleSetting(ctx, store))
 		require.NoError(t, store.Get(ctx, key, &setting))
-		if role.IsValidUserRole() {
-			require.Equal(t, role, setting.Spec.Role)
+		require.Equal(t, want, setting.Spec.Role, "saved role %d", role)
+		if role == want {
 			require.Equal(t, version, setting.ResourceVersion)
 		} else {
-			require.Equal(t, types.RoleBasic, setting.Spec.Role)
 			require.NotEqual(t, version, setting.ResourceVersion)
 		}
 		version = setting.ResourceVersion

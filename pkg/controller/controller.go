@@ -370,11 +370,21 @@ func repairDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 		if previous.IsValidUserRole() {
 			return nil
 		}
-		setting.Spec.Role = types.RoleBasic
+		// Preserve the configured role on direct upgrades from the pre-bitflag encoding.
+		switch previous {
+		case 1:
+			setting.Spec.Role = types.RoleAdmin
+		case 2:
+			setting.Spec.Role = types.RolePowerUserPlus
+		case 3:
+			setting.Spec.Role = types.RolePowerUser
+		default:
+			setting.Spec.Role = types.RoleBasic
+		}
 		if err := client.Update(ctx, &setting); err != nil {
 			return err
 		}
-		slog.Info("Reset unsupported default user role to Standard", "previousRole", previous)
+		slog.Info("Repaired saved default user role", "previousRole", previous, "role", setting.Spec.Role)
 		return nil
 	})
 }
