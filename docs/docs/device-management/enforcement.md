@@ -122,7 +122,7 @@ For an identified, blocked MCP call, an administrator can add an allow rule dire
 Enforcement depends on files and settings that the user can change on their own device. A user who means to use an unapproved MCP server can do so in ways that include:
 
 - **Removing the hooks.** Kiro hooks are installed in the user's home directory, so the user can edit or delete them until Obot Sentry's next hourly hook installation puts them back. Claude Code, Codex, and Cursor hooks are installed in machine-level files, so they are only as protected as those files' permissions. Use your MDM to check that the hook files are in place and to report devices where they're missing as out of compliance.
-- **Shadowing an allowed server.** A client can load MCP configuration from places Obot Sentry doesn't read, such as Claude Code's `--mcp-config` flag. A user can define a server there under the same name as an allowed one. Obot Sentry then checks the allowed server while the client runs the other. For Claude Code, a [managed MCP configuration](https://code.claude.com/docs/en/managed-mcp) closes this gap by stopping Claude Code from loading any server that isn't in it, including servers passed with `--mcp-config`. Other clients may have similar controls. Check each client you allow, and treat one without them as a gap.
+- **Shadowing an allowed server.** A client can load MCP configuration from places Obot Sentry doesn't read, such as Claude Code's `--mcp-config` flag. A user can define a server there under the same name as an allowed one. Obot Sentry then checks the allowed server while the client runs the other. For Claude Code, a [managed MCP configuration](https://code.claude.com/docs/en/managed-mcp) closes this gap by stopping Claude Code from loading any server that isn't in it, including servers passed with `--mcp-config`. For Codex, Cursor, and Kiro, apply the [managed deployment controls](#managed-deployment-for-local-clients) below and verify that a server with an approved name and an unapproved identity cannot run.
 - **Replacing the package runner.** Obot Sentry treats a configuration entry that changes `PATH` or other package-resolution settings as unidentifiable and blocks it. It can't see which `npx` or `uvx` the user's own shell finds first, so a different executable earlier on the user's `PATH` can run anything under an allowed package name.
 - **Changing configuration around the check.** Anything that runs as the user, including the user's own hooks, can change a client's configuration files between the time Obot Sentry reads them and the time the client uses them.
 
@@ -149,3 +149,54 @@ On devices, use enforcement as one of several layers:
 - **Send remote MCP traffic through Obot.** A remote MCP server reached through an Obot gateway is governed by gateway access controls, filters, and audit logs on the server side, where the user can't change them. Network egress controls that block direct connections to remote MCP servers close the path around the gateway.
 - **Manage the device with your MDM.** Keep the client settings that enforcement depends on in place, such as Kiro's hook and workspace trust settings, and keep the machine-level hook files for Claude Code, Codex, and Cursor writable only by administrators.
 - **Review enforcement decisions.** Repeated blocks show which servers people need. A device that keeps submitting scans but no longer reports enforcement decisions may have lost its hooks.
+
+## Managed deployment for local clients {#managed-deployment-for-local-clients}
+
+Use client policy to restrict which MCP servers load, Obot Sentry to check and audit tool calls, and MDM to protect the installation. Start with [Codex](#codex-managed-deployment), [Cursor](#cursor-managed-deployment), or [Kiro](#kiro-managed-deployment).
+
+These recommendations are based on the linked vendor documentation; this is not a verified reference deployment. Validate the combination on the client and Obot Sentry versions and operating systems you deploy using [the rollout checks](#verify-managed-deployment). A client without an applicable managed policy remains a gap, even when its hooks are installed.
+
+### Codex {#codex-managed-deployment}
+
+Deploy `requirements.toml` through MDM, with an `mcp_servers` allowlist that matches both the configured name and server identity. For example, approve one Obot vMCP by its exact connection URL:
+
+```toml
+[features]
+hooks = true
+
+[mcp_servers.obot]
+identity = { url = "https://obot.example.com/mcp-connect/your-vmcp-id" }
+```
+
+This restricts servers; it does not configure the connection. Configure the same name and URL in the client's MCP settings. An omitted `mcp_servers` table imposes no restriction; an empty table disables all MCP servers. Prefer remote vMCP URLs: a string `identity.command` checks only the executable, not its arguments or environment.
+
+System requirements live at `/etc/codex/requirements.toml` on macOS and Linux, and `%ProgramData%\OpenAI\Codex\requirements.toml` on Windows. macOS MDM can also deliver `com.openai.codex:requirements_toml_base64`. Protect files and parent directories from user writes, and review precedence if cloud policy or legacy managed configuration is also present. See OpenAI's [managed configuration](https://learn.chatgpt.com/docs/enterprise/managed-configuration).
+
+Codex loads system hooks from `/etc/codex/hooks.json` or `%ProgramData%\OpenAI\Codex\hooks.json`. Keep Sentry's hooks there and preserve them when delivering other policy. Managed hooks cannot be disabled in the user hook browser; `[features].hooks = true` prevents disabling the feature. See [Codex hooks](https://learn.chatgpt.com/docs/hooks).
+
+### Cursor {#cursor-managed-deployment}
+
+On an Enterprise plan, configure the team's **MCP Configuration** in the dashboard. Add URL entries for the Obot vMCPs users may access, and apply the policy to **Local** agents. Review group restrictions too. Approving a server does not install its configuration on devices. See Cursor's [model and integration management](https://cursor.com/docs/enterprise/model-and-integration-management).
+
+Use URL identity restrictions rather than trusting a server's display name. A user-editable `~/.cursor/permissions.json` is an auto-run approval list, not a substitute for the team's server policy; its entries match `server:tool` names. See the [permissions reference](https://cursor.com/docs/reference/permissions).
+
+Protect Sentry's machine-level `hooks.json`: `/Library/Application Support/Cursor/hooks.json` on macOS, `C:\ProgramData\Cursor\hooks.json` on Windows, or `/etc/cursor/hooks.json` on Linux/WSL. Preserve installed hooks when deploying changes. Cursor runs matching hooks from multiple sources, and a deny wins. For security hooks, check `failClosed`: its default is `false`, so hook crashes and timeouts can allow actions. See [Cursor hooks](https://cursor.com/docs/hooks). Test Sentry's installed configuration rather than assuming every hook failure blocks a call.
+
+### Kiro {#kiro-managed-deployment}
+
+For enterprise users, configure **Settings > Shared settings** in the Kiro console. Turn MCP off if it is not needed, or set **MCP Registry URL** to an HTTPS JSON allowlist containing only approved servers. Use Kiro's documented registry schema and remote Obot vMCP endpoints. Account-level profiles override organization-level profiles, so review both.
+
+Registry server URLs and package identities are read-only, but users can override environment variables and HTTP headers. Prefer remote servers to reduce dependence on local package runners. Governance covers IAM Identity Center and API-key authentication; Builder ID and social sign-in are outside organization MCP controls. Treat those sign-in paths as a gap unless your deployment prevents their use. See [Kiro MCP governance](https://kiro.dev/docs/enterprise/governance/mcp/).
+
+Keep Sentry's hooks installed and monitor them with MDM. The registry does not remove the [Kiro hook limitations](#fail-closed-behavior): untrusted or folderless IDE windows and CLI v2 sessions have no Sentry enforcement or audit coverage. Disabling workspace trust trades away repository protection and is user-reversible; it is not a managed MCP policy.
+
+### Verify before rollout {#verify-managed-deployment}
+
+On each operating system, test as a standard user and record the client version, Sentry version, policy delivery source, and result:
+
+1. Enroll the device following the downloaded package's `INSTRUCTIONS.md`, enable enforcement, and configure an approved vMCP. Confirm a real tool call succeeds and appears in **Enforcement Decisions** with the expected identity.
+2. Add an unapproved server through user, project, plugin, and session configuration wherever supported. Confirm the client prevents it from running. Repeat using the approved server's name with a different URL or command; inspect the destination server's logs as well as Obot's decision.
+3. Confirm a Sentry rule still blocks a disallowed tool on an otherwise approved server. Test with Obot unavailable, and check hook failure behavior separately from a policy denial.
+4. Restart the client and repeat after policy refresh and an MDM update. Check that Sentry's hooks survive and that standard users cannot replace the protected files or their parent directories. Include Kiro's trust and CLI engine cases.
+
+Report missing hooks or unexpected policy sources as device compliance failures. If a client, account type, or configuration source does not enforce the policy, retain the [network and hosting controls](#strengthen-enforcement) and document the remaining gap before approving that deployment.
