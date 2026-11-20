@@ -78,9 +78,9 @@ export function vmcpIsUpdating(vmcpId: string) {
 	return vmcpActionProgress.updatingIds.has(vmcpId);
 }
 
-export function vmcpIsDisconnecting(vmcpId: string, instanceIds: string[]) {
+export function vmcpIsDisconnecting(instanceIds: string[]) {
 	const ids = vmcpActionProgress.disconnectingIds;
-	return ids.has(vmcpId) || instanceIds.some((instanceId) => ids.has(instanceId));
+	return instanceIds.some((instanceId) => ids.has(instanceId));
 }
 
 async function disconnectInstance(instanceID: string) {
@@ -100,13 +100,11 @@ export async function resetVMcpConnection(
 	toggle: (open?: boolean) => void,
 	openSelectInstance?: OpenSelectInstance
 ) {
-	const { myInstances, connected } = vmcpItemContext(vmcp);
-	if (openSelectInstance && connected && myInstances.length > 0) {
-		if (myInstances.length === 1) {
-			await disconnectInstance(myInstances[0].id);
-			toggle(false);
-			return;
-		}
+	const { myInstances } = vmcpItemContext(vmcp);
+	if (myInstances.length === 1) {
+		await disconnectInstance(myInstances[0].id);
+		toggle(false);
+	} else if (myInstances.length > 1 && openSelectInstance) {
 		openSelectInstance(
 			myInstances,
 			(instance) => {
@@ -114,18 +112,6 @@ export async function resetVMcpConnection(
 			},
 			m.vmcps_select_connection_to_disconnect()
 		);
-		toggle(false);
-		return;
-	}
-
-	if (!startAction(vmcpActionProgress.disconnectingIds, vmcp.id)) {
-		toggle(false);
-		return;
-	}
-	try {
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-	} finally {
-		vmcpActionProgress.disconnectingIds.delete(vmcp.id);
 		toggle(false);
 	}
 }

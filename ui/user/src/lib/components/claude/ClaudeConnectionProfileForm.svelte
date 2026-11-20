@@ -33,6 +33,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	let {
+		readonly = false,
 		environment,
 		profiles,
 		profile,
@@ -41,6 +42,7 @@
 		onClose,
 		onSaved
 	}: {
+		readonly?: boolean;
 		environment: ClaudeEnvironment;
 		profiles: EnvironmentProfile[];
 		profile: EnvironmentProfile;
@@ -383,6 +385,7 @@
 	}
 
 	async function commitProfile() {
+		if (readonly) return;
 		if (saving) return false;
 		const name = draft.name.trim();
 		if (!name) {
@@ -458,7 +461,7 @@
 				{m.hosted_agents_profile_description()}
 			</p>
 		</div>
-		{#if editingName}
+		{#if editingName && !readonly}
 			<IconButton
 				variant="danger"
 				disabled={saving}
@@ -469,66 +472,237 @@
 			</IconButton>
 		{/if}
 	</header>
-	<div class="divider my-0"></div>
-	{#if error}<p role="alert" class="text-error text-sm">{error}</p>{/if}
-	<fieldset disabled={saving} class="space-y-3">
-		<label class="flex min-w-0 flex-col gap-1 text-sm font-light">
-			{m.hosted_agents_profile_name()}
-			<input class="text-input-filled w-full" required bind:value={draft.name} />
-		</label>
+	<fieldset disabled={readonly} class="contents">
+		<div class="divider my-0"></div>
+		{#if error}<p role="alert" class="text-error text-sm">{error}</p>{/if}
+		<fieldset disabled={saving || readonly} class="space-y-3">
+			<label class="flex min-w-0 flex-col gap-1 text-sm font-light">
+				{m.hosted_agents_profile_name()}
+				<input class="text-input-filled w-full" required bind:value={draft.name} />
+			</label>
+
+			<section>
+				<div class="divider text-sm font-semibold mt-5 mb-3">{m.vmcps()}</div>
+				<div class="flex items-center gap-2 shrink-0">
+					<Select
+						id="profile-vmcps"
+						options={vmcpOptions}
+						bind:query={vmcpQuery}
+						bind:selected={vmcpSelection}
+						searchInDropdown
+						placeholder={m.hosted_agents_select_vmcps()}
+						searchPlaceholder={m.hosted_agents_search_vmcps()}
+						classes={{ root: 'w-full' }}
+						onSelect={(option) => addVmcp(String(option.id))}
+						disabled={saving || readonly}
+					/>
+					<IconButton
+						tooltip={{ text: m.hosted_agents_import_vmcps() }}
+						disabled={saving || readonly}
+						onclick={openImportProfiles}
+						variant="primary"
+					>
+						<Import class="size-4" />
+					</IconButton>
+				</div>
+				{#if draft.mcpServerIDs === null || draft.mcpServerIDs.length === 0}
+					<div class="text-muted-content pb-4 pt-3 text-center text-xs font-light italic">
+						{m.hosted_agents_profile_no_vmcps()}
+					</div>
+				{:else if draft.mcpServerIDs}
+					<div class="mt-2 flex flex-col">
+						{#each draft.mcpServerIDs as id, index (id)}
+							{@const server = servers.find((item) => item.id === id)}
+							<div
+								class="flex items-center justify-between p-2"
+								out:fly={{ x: 100, duration: 100 }}
+							>
+								<div class="flex min-w-0 items-center gap-2">
+									<VMcpIcon
+										class="size-8"
+										components={server ? resolveVMcpComponents(server) : []}
+									/>
+									<span class="truncate text-sm font-light">{server?.displayName || id}</span>
+								</div>
+								<IconButton
+									class="size-8"
+									tooltip={{
+										text: m.hosted_agents_profile_remove_subject({
+											name: server?.displayName || id
+										})
+									}}
+									disabled={saving || readonly}
+									onclick={() => removeVmcp(id)}
+									variant="danger"
+								>
+									<X class="size-4" />
+								</IconButton>
+							</div>
+							{#if index < draft.mcpServerIDs.length - 1}
+								<div class="divider my-0 px-2 before:h-px after:h-px"></div>
+							{/if}
+						{/each}
+					</div>
+				{/if}
+			</section>
+
+			<fieldset class="space-y-4">
+				<div class="divider text-sm font-semibold mb-3">{m.hosted_agents_profile_egress()}</div>
+				<div class="notification-info">
+					<p class="text-muted-content text-xs font-light">
+						{m.hosted_agents_required_egress_help()}
+					</p>
+					<p class="text-muted-content mt-2 text-xs font-light">
+						{m.hosted_agents_profile_egress_help()}
+					</p>
+				</div>
+				<label
+					for="allow-claude-mcp"
+					class="flex items-center justify-between gap-4 rounded-lg border border-base-300 p-4 dark:border-base-400"
+				>
+					<div>
+						<p class="text-sm font-semibold">{m.hosted_agents_allow_claude_mcp()}</p>
+						<p class="text-muted-content text-xs leading-tight font-light">
+							{m.hosted_agents_allow_claude_mcp_help()}
+						</p>
+					</div>
+					<input
+						id="allow-claude-mcp"
+						type="checkbox"
+						class="toggle toggle-sm shrink-0"
+						bind:checked={draft.allowClaudeMCP}
+						disabled={saving || readonly}
+						aria-label={m.hosted_agents_allow_claude_mcp()}
+					/>
+				</label>
+				<label
+					for="allow-all-egress"
+					class="flex items-center justify-between gap-4 rounded-lg border border-base-300 p-4 dark:border-base-400"
+				>
+					<div>
+						<p class="text-sm font-semibold">{m.hosted_agents_allow_all_egress()}</p>
+						<p class="text-muted-content text-xs leading-tight font-light">
+							{m.hosted_agents_allow_all_egress_help()}
+						</p>
+					</div>
+					<input
+						id="allow-all-egress"
+						type="checkbox"
+						class="toggle toggle-sm shrink-0"
+						bind:checked={draft.allowAllEgress}
+						disabled={saving || readonly}
+						aria-label={m.hosted_agents_allow_all_egress()}
+					/>
+				</label>
+				{#if !draft.allowAllEgress}
+					<div class="rounded-lg border border-base-300 p-4 dark:border-base-400">
+						<EgressHosts
+							classes={{ header: 'text-sm font-semibold' }}
+							label={m.hosted_agents_profile_egress_hosts()}
+							bind:hosts={
+								() => draft.egressHosts ?? [],
+								(hosts) => {
+									draft.egressHosts = hosts;
+								}
+							}
+						/>
+					</div>
+				{/if}
+			</fieldset>
+			<EgressSecrets
+				classes={{
+					header: 'text-sm font-semibold',
+					root: 'bg-transparent border-base-300 dark:border-base-400 p-4'
+				}}
+				bind:secrets={
+					() => draft.egressSecrets ?? [],
+					(secrets) => {
+						draft.egressSecrets = secrets;
+					}
+				}
+			/>
+		</fieldset>
 
 		<section>
-			<div class="divider text-sm font-semibold mt-5 mb-3">{m.vmcps()}</div>
-			<div class="flex items-center gap-2 shrink-0">
-				<Select
-					id="profile-vmcps"
-					options={vmcpOptions}
-					bind:query={vmcpQuery}
-					bind:selected={vmcpSelection}
-					searchInDropdown
-					placeholder={m.hosted_agents_select_vmcps()}
-					searchPlaceholder={m.hosted_agents_search_vmcps()}
-					classes={{ root: 'w-full' }}
-					onSelect={(option) => addVmcp(String(option.id))}
-					disabled={saving}
-				/>
-				<IconButton
-					tooltip={{ text: m.hosted_agents_import_vmcps() }}
-					disabled={saving}
-					onclick={openImportProfiles}
-					variant="primary"
-				>
-					<Import class="size-4" />
-				</IconButton>
+			<div class="divider my-3 text-sm font-semibold">
+				{m.hosted_agents_profile_identities()}
 			</div>
-			{#if draft.mcpServerIDs === null || draft.mcpServerIDs.length === 0}
+			<div class="mb-4">
+				<p class="text-muted-content text-sm font-light">
+					{m.hosted_agents_profile_identities_description()}
+				</p>
+			</div>
+			<Select
+				id="environment-profile-subjects"
+				options={subjectOptions}
+				bind:query={subjectQuery}
+				bind:selected={subjectSelection}
+				searchInDropdown
+				placeholder={m.hosted_agents_profile_add_subject()}
+				searchPlaceholder={m.hosted_agents_profile_search_subject()}
+				class="bg-base-200 shadow-inner!"
+				classes={{ root: 'w-full' }}
+				onSelect={(option) => addSubject(option.subject)}
+				disabled={saving || readonly}
+			/>
+			{#if draft.subjects.length === 0}
 				<div class="text-muted-content pb-4 pt-3 text-center text-xs font-light italic">
-					{m.hosted_agents_profile_no_vmcps()}
+					{m.hosted_agents_profile_no_identities()}
 				</div>
-			{:else if draft.mcpServerIDs}
+			{:else}
 				<div class="mt-2 flex flex-col">
-					{#each draft.mcpServerIDs as id, index (id)}
-						{@const server = servers.find((item) => item.id === id)}
+					{#each draft.subjects as subject, index (`${subject.type}:${subject.id}`)}
+						{@const display = subjectDisplay(subject)}
 						<div class="flex items-center justify-between p-2" out:fly={{ x: 100, duration: 100 }}>
-							<div class="flex min-w-0 items-center gap-2">
-								<VMcpIcon class="size-8" components={server ? resolveVMcpComponents(server) : []} />
-								<span class="truncate text-sm font-light">{server?.displayName || id}</span>
+							<div class="flex items-center gap-2">
+								{#if display.group}
+									<div
+										class="bg-base-300 dark:bg-base-200 flex size-8 items-center justify-center rounded-full text-[8px] font-medium text-white"
+									>
+										<UsersRound class="size-4" />
+									</div>
+								{:else if display.iconURL}
+									<img
+										src={display.iconURL}
+										alt=""
+										class="size-4 rounded-full object-cover"
+										referrerpolicy="no-referrer"
+									/>
+								{:else}
+									<div
+										class="bg-base-300 dark:bg-base-200 flex size-8 items-center justify-center rounded-full text-sm font-medium text-white"
+									>
+										{userInitials(display.name)}
+									</div>
+								{/if}
+								<div class="flex flex-col">
+									<SubjectName
+										class="text-sm font-light"
+										name={display.name}
+										disabled={display.disabled}
+									/>
+									<span class="text-muted-content text-xs">
+										{display.group
+											? m.core_col_group()
+											: display.role
+												? getUserRoleLabel(display.role)
+												: m.core_col_user()}
+									</span>
+								</div>
 							</div>
 							<IconButton
 								class="size-8"
 								tooltip={{
-									text: m.hosted_agents_profile_remove_subject({
-										name: server?.displayName || id
-									})
+									text: m.hosted_agents_profile_remove_subject({ name: display.name })
 								}}
-								disabled={saving}
-								onclick={() => removeVmcp(id)}
+								disabled={saving || readonly}
+								onclick={() => removeSubject(subject)}
 								variant="danger"
 							>
 								<X class="size-4" />
 							</IconButton>
 						</div>
-						{#if index < draft.mcpServerIDs.length - 1}
+						{#if index < draft.subjects.length - 1}
 							<div class="divider my-0 px-2 before:h-px after:h-px"></div>
 						{/if}
 					{/each}
@@ -536,186 +710,22 @@
 			{/if}
 		</section>
 
-		<fieldset class="space-y-4">
-			<div class="divider text-sm font-semibold mb-3">{m.hosted_agents_profile_egress()}</div>
-			<div class="notification-info">
-				<p class="text-muted-content text-xs font-light">
-					{m.hosted_agents_required_egress_help()}
-				</p>
-				<p class="text-muted-content mt-2 text-xs font-light">
-					{m.hosted_agents_profile_egress_help()}
-				</p>
+		<div class="divider my-0"></div>
+		<details>
+			<summary class="cursor-pointer text-sm font-semibold">
+				{m.hosted_agents_profile_actor_overrides()}
+			</summary>
+			<div class="mt-3 space-y-3">
+				<p class="text-muted-content text-xs">{m.hosted_agents_profile_actor_help()}</p>
+				<ActorResources bind:resources={draft.resources} inherit />
 			</div>
-			<label
-				for="allow-claude-mcp"
-				class="flex items-center justify-between gap-4 rounded-lg border border-base-300 p-4 dark:border-base-400"
-			>
-				<div>
-					<p class="text-sm font-semibold">{m.hosted_agents_allow_claude_mcp()}</p>
-					<p class="text-muted-content text-xs leading-tight font-light">
-						{m.hosted_agents_allow_claude_mcp_help()}
-					</p>
-				</div>
-				<input
-					id="allow-claude-mcp"
-					type="checkbox"
-					class="toggle toggle-sm shrink-0"
-					bind:checked={draft.allowClaudeMCP}
-					disabled={saving}
-					aria-label={m.hosted_agents_allow_claude_mcp()}
-				/>
-			</label>
-			<label
-				for="allow-all-egress"
-				class="flex items-center justify-between gap-4 rounded-lg border border-base-300 p-4 dark:border-base-400"
-			>
-				<div>
-					<p class="text-sm font-semibold">{m.hosted_agents_allow_all_egress()}</p>
-					<p class="text-muted-content text-xs leading-tight font-light">
-						{m.hosted_agents_allow_all_egress_help()}
-					</p>
-				</div>
-				<input
-					id="allow-all-egress"
-					type="checkbox"
-					class="toggle toggle-sm shrink-0"
-					bind:checked={draft.allowAllEgress}
-					disabled={saving}
-					aria-label={m.hosted_agents_allow_all_egress()}
-				/>
-			</label>
-			{#if !draft.allowAllEgress}
-				<div class="rounded-lg border border-base-300 p-4 dark:border-base-400">
-					<EgressHosts
-						classes={{ header: 'text-sm font-semibold' }}
-						label={m.hosted_agents_profile_egress_hosts()}
-						bind:hosts={
-							() => draft.egressHosts ?? [],
-							(hosts) => {
-								draft.egressHosts = hosts;
-							}
-						}
-					/>
-				</div>
-			{/if}
-		</fieldset>
-		<EgressSecrets
-			classes={{
-				header: 'text-sm font-semibold',
-				root: 'bg-transparent border-base-300 dark:border-base-400 p-4'
-			}}
-			bind:secrets={
-				() => draft.egressSecrets ?? [],
-				(secrets) => {
-					draft.egressSecrets = secrets;
-				}
-			}
-		/>
+		</details>
 	</fieldset>
-
-	<section>
-		<div class="divider my-3 text-sm font-semibold">
-			{m.hosted_agents_profile_identities()}
-		</div>
-		<div class="mb-4">
-			<p class="text-muted-content text-sm font-light">
-				{m.hosted_agents_profile_identities_description()}
-			</p>
-		</div>
-		<Select
-			id="environment-profile-subjects"
-			options={subjectOptions}
-			bind:query={subjectQuery}
-			bind:selected={subjectSelection}
-			searchInDropdown
-			placeholder={m.hosted_agents_profile_add_subject()}
-			searchPlaceholder={m.hosted_agents_profile_search_subject()}
-			class="bg-base-200 shadow-inner!"
-			classes={{ root: 'w-full' }}
-			onSelect={(option) => addSubject(option.subject)}
-			disabled={saving}
-		/>
-		{#if draft.subjects.length === 0}
-			<div class="text-muted-content pb-4 pt-3 text-center text-xs font-light italic">
-				{m.hosted_agents_profile_no_identities()}
-			</div>
-		{:else}
-			<div class="mt-2 flex flex-col">
-				{#each draft.subjects as subject, index (`${subject.type}:${subject.id}`)}
-					{@const display = subjectDisplay(subject)}
-					<div class="flex items-center justify-between p-2" out:fly={{ x: 100, duration: 100 }}>
-						<div class="flex items-center gap-2">
-							{#if display.group}
-								<div
-									class="bg-base-300 dark:bg-base-200 flex size-8 items-center justify-center rounded-full text-[8px] font-medium text-white"
-								>
-									<UsersRound class="size-4" />
-								</div>
-							{:else if display.iconURL}
-								<img
-									src={display.iconURL}
-									alt=""
-									class="size-4 rounded-full object-cover"
-									referrerpolicy="no-referrer"
-								/>
-							{:else}
-								<div
-									class="bg-base-300 dark:bg-base-200 flex size-8 items-center justify-center rounded-full text-sm font-medium text-white"
-								>
-									{userInitials(display.name)}
-								</div>
-							{/if}
-							<div class="flex flex-col">
-								<SubjectName
-									class="text-sm font-light"
-									name={display.name}
-									disabled={display.disabled}
-								/>
-								<span class="text-muted-content text-xs">
-									{display.group
-										? m.core_col_group()
-										: display.role
-											? getUserRoleLabel(display.role)
-											: m.core_col_user()}
-								</span>
-							</div>
-						</div>
-						<IconButton
-							class="size-8"
-							tooltip={{
-								text: m.hosted_agents_profile_remove_subject({ name: display.name })
-							}}
-							disabled={saving}
-							onclick={() => removeSubject(subject)}
-							variant="danger"
-						>
-							<X class="size-4" />
-						</IconButton>
-					</div>
-					{#if index < draft.subjects.length - 1}
-						<div class="divider my-0 px-2 before:h-px after:h-px"></div>
-					{/if}
-				{/each}
-			</div>
-		{/if}
-	</section>
-
-	<div class="divider my-0"></div>
-	<details>
-		<summary class="cursor-pointer text-sm font-semibold">
-			{m.hosted_agents_profile_actor_overrides()}
-		</summary>
-		<div class="mt-3 space-y-3">
-			<p class="text-muted-content text-xs">{m.hosted_agents_profile_actor_help()}</p>
-			<ActorResources bind:resources={draft.resources} inherit />
-		</div>
-	</details>
-
 	<div class="flex justify-end gap-2">
 		<button class="btn btn-ghost" type="button" disabled={saving} onclick={onClose}>
 			{m.common_cancel()}
 		</button>
-		<button class="btn btn-primary" type="submit" disabled={saving}>
+		<button class="btn btn-primary" hidden={readonly} type="submit" disabled={saving}>
 			{saving ? m.hosted_agents_map_saving() : environment.id ? m.core_save() : m.common_apply()}
 		</button>
 	</div>

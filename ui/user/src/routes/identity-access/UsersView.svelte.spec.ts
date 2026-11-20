@@ -1,6 +1,6 @@
 import { page as appPage } from '$app/state';
 import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
-import { Group, Role, type LocalAuthUser, type OrgUser } from '$lib/services';
+import { AdminService, Group, Role, type LocalAuthUser, type OrgUser } from '$lib/services';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { worker } from '../../tests/mocks/worker';
 import UsersView from './UsersView.svelte';
@@ -175,6 +175,196 @@ describe('UsersView', () => {
 
 		await openRowActions(activeUser.email);
 		await expect.element(page.getByRole('button', { name: 'Update Role' })).toBeEnabled();
+	});
+
+	it('lets an admin assign the Read-Only Admin role', async () => {
+		const setRole = vi.spyOn(AdminService, 'updateUserRole').mockResolvedValue();
+		await renderUsersView([activeUser]);
+
+		await openRowActions(activeUser.email);
+		await page.getByRole('button', { name: 'Update Role' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect
+			.element(dialog.getByText('Can view all admin configuration but cannot change anything.'))
+			.toBeVisible();
+		// The dialog renders below the test viewport, so use its controls directly.
+		(
+			dialog.getByRole('checkbox', { name: /^Read-Only Admin/ }).element() as HTMLInputElement
+		).click();
+		await expect.element(dialog.getByRole('checkbox', { name: /^Read-Only Admin/ })).toBeChecked();
+		(dialog.getByRole('button', { name: 'Update', exact: true }).element() as HTMLElement).click();
+
+		await vi.waitFor(() =>
+			expect(setRole).toHaveBeenCalledWith('1', Role.BASIC | Role.ADMIN_READONLY)
+		);
+	}, 5000);
+
+	it.each([Role.POWERUSER, Role.POWERUSER_PLUS])(
+		'keeps base role %s when granting read-only access',
+		async (role) => {
+			const user = orgUser({
+				id: '50',
+				email: 'power@example.com',
+				role,
+				effectiveRole: role,
+				groups: [Group.POWERUSER]
+			});
+			const setRole = vi.spyOn(AdminService, 'updateUserRole').mockResolvedValue();
+			await renderUsersView([user]);
+			await openRowActions(user.email);
+			await page.getByRole('button', { name: 'Update Role' }).click();
+			const dialog = page.getByRole('dialog');
+			// The dialog can extend beyond the test viewport; activate the radio directly.
+			(
+				dialog.getByRole('checkbox', { name: /^Read-Only Admin/ }).element() as HTMLInputElement
+			).click();
+			(
+				dialog.getByRole('button', { name: 'Update', exact: true }).element() as HTMLElement
+			).click();
+			await vi.waitFor(() =>
+				expect(setRole).toHaveBeenCalledWith(user.id, role | Role.ADMIN_READONLY)
+			);
+		},
+		5000
+	);
+
+	it.each([Role.ADMIN, Role.OWNER])('disables the add-on for elevated role %s', async (role) => {
+		const user = orgUser({
+			id: '61',
+			email: 'elevated@example.com',
+			role: Role.BASIC,
+			effectiveRole: role
+		});
+		await renderUsersView([user], [Group.ADMIN, Group.OWNER]);
+		await openRowActions(user.email);
+		await page.getByRole('button', { name: 'Update Role' }).click();
+		const checkbox = page.getByRole('dialog').getByRole('checkbox', { name: /^Read-Only Admin/ });
+		await expect.element(checkbox).toBeVisible();
+		await expect.element(checkbox).toBeDisabled();
+	});
+
+	it('drops Read-Only Admin when promoting a user to Admin', async () => {
+		const role = Role.BASIC | Role.ADMIN_READONLY | Role.AUDITOR;
+		const user = orgUser({ id: '62', email: 'promoted@example.com', role, effectiveRole: role });
+		const setRole = vi.spyOn(AdminService, 'updateUserRole').mockResolvedValue();
+		await renderUsersView([user], [Group.ADMIN, Group.OWNER]);
+		await openRowActions(user.email);
+		await page.getByRole('button', { name: 'Update Role' }).click();
+		const dialog = page.getByRole('dialog');
+		(dialog.getByRole('radio', { name: /^Admin / }).element() as HTMLInputElement).click();
+		const checkbox = dialog.getByRole('checkbox', { name: /^Read-Only Admin/ });
+		await expect.element(checkbox).toBeVisible();
+		await expect.element(checkbox).toBeDisabled();
+		await expect.element(checkbox).not.toBeChecked();
+		(dialog.getByRole('button', { name: 'Update', exact: true }).element() as HTMLElement).click();
+		await vi.waitFor(() =>
+			expect(setRole).toHaveBeenCalledWith(user.id, Role.ADMIN | Role.AUDITOR)
+		);
+	});
+
+	it.each([Role.POWERUSER, Role.ADMIN])(
+		'allows the add-on on demotion only when group role %s is below Admin',
+		async (groupRole) => {
+			const user = orgUser({
+				id: '63',
+				email: 'demote@example.com',
+				role: Role.ADMIN,
+				effectiveRole: Role.ADMIN,
+				authProviderGroups: ['test:operators']
+			});
+			const assignments = vi
+				.spyOn(AdminService, 'listGroupRoleAssignments')
+				.mockResolvedValue([{ groupName: 'test:operators', role: groupRole }]);
+			const setRole = vi.spyOn(AdminService, 'updateUserRole').mockResolvedValue();
+			await renderUsersView([user]);
+			await openRowActions(user.email);
+			await page.getByRole('button', { name: 'Update Role' }).click();
+			const dialog = page.getByRole('dialog');
+			const checkbox = dialog.getByRole('checkbox', { name: /^Read-Only Admin/ });
+			await expect.element(checkbox).toBeVisible();
+			await expect.element(checkbox).toBeDisabled();
+			const checkboxNode = checkbox.element() as HTMLInputElement;
+			(dialog.getByRole('radio', { name: /^Standard User/ }).element() as HTMLInputElement).click();
+			await vi.waitFor(() => expect(assignments).toHaveBeenCalledOnce());
+			if (groupRole === Role.ADMIN) {
+				await expect.element(checkbox).toBeDisabled();
+			} else {
+				await expect.element(checkbox).toBeEnabled();
+				expect(checkbox.element()).toBe(checkboxNode);
+				checkboxNode.click();
+			}
+			(
+				dialog.getByRole('button', { name: 'Update', exact: true }).element() as HTMLElement
+			).click();
+			const expected = groupRole === Role.ADMIN ? Role.BASIC : Role.BASIC | Role.ADMIN_READONLY;
+			await vi.waitFor(() => expect(setRole).toHaveBeenCalledWith(user.id, expected));
+		}
+	);
+
+	it('keeps the Auditor flag when an Owner assigns Read-Only Admin', async () => {
+		const setRole = vi.spyOn(AdminService, 'updateUserRole').mockResolvedValue();
+		const auditor = orgUser({
+			id: '30',
+			email: 'auditor@example.com',
+			role: Role.BASIC | Role.AUDITOR,
+			effectiveRole: Role.BASIC | Role.AUDITOR,
+			groups: [Group.USER, Group.AUDITOR]
+		});
+		await renderUsersView([auditor], [Group.OWNER, Group.ADMIN]);
+
+		await openRowActions(auditor.email);
+		await page.getByRole('button', { name: 'Update Role' }).click();
+		const dialog = page.getByRole('dialog');
+		// The dialog renders below the test viewport, so use its controls directly.
+		(
+			dialog.getByRole('checkbox', { name: /^Read-Only Admin/ }).element() as HTMLInputElement
+		).click();
+		await expect.element(dialog.getByRole('checkbox', { name: /^Auditor/ })).toBeChecked();
+		(dialog.getByRole('button', { name: 'Update', exact: true }).element() as HTMLElement).click();
+
+		await vi.waitFor(() =>
+			expect(setRole).toHaveBeenCalledWith('30', Role.BASIC | Role.ADMIN_READONLY | Role.AUDITOR)
+		);
+	}, 5000);
+
+	it('labels Read-Only Admin users, with Auditor when combined', async () => {
+		const readonlyUser = orgUser({
+			id: '40',
+			email: 'readonly@example.com',
+			role: Role.BASIC | Role.ADMIN_READONLY,
+			effectiveRole: Role.BASIC | Role.ADMIN_READONLY
+		});
+		const readonlyAuditor = orgUser({
+			id: '41',
+			email: 'readonly-auditor@example.com',
+			role: Role.BASIC | Role.ADMIN_READONLY | Role.AUDITOR,
+			effectiveRole: Role.BASIC | Role.ADMIN_READONLY | Role.AUDITOR
+		});
+		await renderUsersView([readonlyUser, readonlyAuditor]);
+
+		await expect
+			.element(
+				userRow(readonlyUser.email)
+					.getByRole('cell', { name: 'Standard User, Read-Only Admin', exact: true })
+					.first()
+			)
+			.toBeVisible();
+		await expect
+			.element(
+				userRow(readonlyAuditor.email)
+					.getByRole('cell', { name: 'Standard User, Read-Only Admin, Auditor', exact: true })
+					.first()
+			)
+			.toBeVisible();
+	});
+
+	it('hides role and delete actions from an Read-Only Admin user', async () => {
+		await renderUsersView([activeUser], [Group.ADMIN_READONLY]);
+
+		await openRowActions(activeUser.email);
+		await expect.element(page.getByRole('button', { name: 'View Access Policies' })).toBeEnabled();
+		await expect.element(page.getByRole('button', { name: 'Update Role' })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Delete User' })).not.toBeInTheDocument();
 	});
 
 	it('searches users when some users have no email', async () => {

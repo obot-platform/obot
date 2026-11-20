@@ -51,27 +51,31 @@
 
 	let vmcpDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedVMcp = $state<VMCP>();
+	let viewing = $state(false);
 
 	let confirmDeleteVMcp = $state<VMCP>();
 	let deletingVMcp = $state(false);
 
 	const editing = $derived(Boolean(selectedVMcp));
-	const readonly = $derived(isCatalogSyncedVMcp(selectedVMcp));
+	const readonly = $derived(viewing || isCatalogSyncedVMcp(selectedVMcp));
 	const toolCounts = $derived(
 		getToolCounts(resolveVMcpComponents({ components: creatingComponents }))
 	);
 	const dialogTitle = $derived(
 		confirmToolSearch
 			? m.vmcps_tool_search_prompt_title()
-			: editing
-				? m.vmcps_edit_details()
-				: m.vmcps_create_vmcp()
+			: viewing
+				? m.vmcps_view_details()
+				: editing
+					? m.vmcps_edit_details()
+					: m.vmcps_create_vmcp()
 	);
 
 	function resetForm() {
 		form = initVMcp();
 		creatingComponents = [];
 		selectedVMcp = undefined;
+		viewing = false;
 		showRequired = {};
 		confirmToolSearch = false;
 		failure = undefined;
@@ -126,7 +130,7 @@
 	}
 
 	async function handleSubmit() {
-		if (saving || !validateForm()) return;
+		if (readonly || saving || !validateForm()) return;
 		if (selectedVMcp) {
 			await updateVMcp(selectedVMcp);
 			return;
@@ -220,6 +224,7 @@
 	export function openCreate(components: VMCPComponent[] = []) {
 		if (saving) return;
 		selectedVMcp = undefined;
+		viewing = false;
 		creatingComponents = components;
 		form = initVMcp();
 		confirmToolSearch = false;
@@ -238,9 +243,18 @@
 	}
 
 	export function openEdit(vmcp: VMCP) {
+		openDetails(vmcp, false);
+	}
+
+	export function openView(vmcp: VMCP) {
+		openDetails(vmcp, true);
+	}
+
+	function openDetails(vmcp: VMCP, view: boolean) {
 		if (saving) return;
 		creatingComponents = [];
 		selectedVMcp = vmcp;
+		viewing = view;
 		confirmToolSearch = false;
 		form = {
 			displayName: vmcp.displayName ?? '',
@@ -416,6 +430,12 @@
 						{:else}
 							{editing ? m.core_save() : m.vmcps_create()}
 						{/if}
+					</button>
+				</div>
+			{:else if viewing}
+				<div class="flex justify-end mt-4">
+					<button class="btn btn-ghost rounded-full" onclick={closeDialog}>
+						{m.core_close()}
 					</button>
 				</div>
 			{/if}

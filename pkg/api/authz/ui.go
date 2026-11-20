@@ -24,9 +24,9 @@ func (a *Authorizer) checkUI(req *http.Request, user User) bool {
 		return true
 	}
 
-	// For /admin/ subroutes, if user has auditor or admin group
+	// For /admin/ subroutes, if user may view the admin area
 	if rest, ok := strings.CutPrefix(req.URL.Path, "/admin/"); ok && rest != "" {
-		return user.IsAdmin || user.IsAuditor
+		return user.CanViewAdmin()
 	}
 
 	// Did not hit any above conditions, so allow access.

@@ -311,10 +311,10 @@ func parseAuditLogEventTypes(query url.Values) ([]types.AuditLogSourceType, erro
 }
 
 // defaultAuditLogSources returns the source selection to use when the caller did not specify an
-// event_type: every source the caller is authorized to read. Admins and auditors may read both MCP
-// and local-agent logs; everyone else is limited to MCP logs.
+// event_type: every source the caller is authorized to read. Administrative viewers may read both MCP and local-agent logs.
+// Other users are limited to MCP logs.
 func defaultAuditLogSources(req api.Context) []types.AuditLogSourceType {
-	if req.UserIsAdmin() || req.UserIsAuditor() {
+	if req.UserCanViewAdmin() {
 		return []types.AuditLogSourceType{
 			types.AuditLogSourceTypeMCP,
 			types.AuditLogSourceTypeLocalAgentToolCall,
@@ -324,7 +324,7 @@ func defaultAuditLogSources(req api.Context) []types.AuditLogSourceType {
 }
 
 func authorizeAuditLogSources(req api.Context, sources []types.AuditLogSourceType) error {
-	if slices.Contains(sources, types.AuditLogSourceTypeLocalAgentToolCall) && !req.UserIsAdmin() && !req.UserIsAuditor() {
+	if slices.Contains(sources, types.AuditLogSourceTypeLocalAgentToolCall) && !req.UserCanViewAdmin() {
 		return types.NewErrForbidden("you do not have access to local agent tool call audit logs")
 	}
 	return nil
@@ -363,8 +363,8 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	}
 
 	// Apply scope filtering based on user role. Non-privileged callers are limited to MCP logs
-	// for their own servers; local-agent visibility is restricted to admins and auditors above.
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+	// for their own servers or workspace.
+	if !req.UserCanViewAdmin() {
 		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
 		if err != nil {
 			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
@@ -438,9 +438,8 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 
 	var canAccessFullPayload bool
 	if log.SourceType == types.AuditLogSourceTypeLocalAgentToolCall {
-		// Local-agent logs are visible only to admins and auditors. The MCP own-server/workspace
-		// scoping does not apply, so normal users (including power users) cannot view them.
-		if !req.UserIsAdmin() && !req.UserIsAuditor() {
+		// Local-agent logs have no MCP server ownership or workspace scope.
+		if !req.UserCanViewAdmin() {
 			return types.NewErrForbidden("you do not have access to this audit log")
 		}
 		// Only auditors may see the encrypted payload fields.
@@ -462,9 +461,8 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 				isInWorkspace = mcp.PowerUserWorkspaceID == workspaceID
 			}
 
-			// Admins can see all logs.
-			// For non-admins, it needs to be in the workspace or be their own server to be viewable.
-			if !req.UserIsAdmin() && !isOwnServer && !isInWorkspace {
+			// Without administrative visibility, the log must be from the caller’s server or workspace.
+			if !req.UserCanViewAdmin() && !isOwnServer && !isInWorkspace {
 				return types.NewErrForbidden("you do not have access to this audit log")
 			}
 
@@ -512,7 +510,7 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 
 	if filter == "event_type" {
 		options := []string{string(types.AuditLogEventTypeMCPCall)}
-		if req.UserIsAdmin() || req.UserIsAuditor() {
+		if req.UserCanViewAdmin() {
 			options = append(options, string(types.AuditLogEventTypeLocalAgentToolCall))
 		}
 		return req.Write(map[string]any{"options": options})
@@ -524,7 +522,7 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	}
 
 	// Apply scope filtering based on user role
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+	if !req.UserCanViewAdmin() {
 		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
 		if err != nil {
 			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
@@ -622,7 +620,7 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 	}
 
 	// Apply scope filtering based on user role (same logic as audit logs)
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+	if !req.UserCanViewAdmin() {
 		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
 		if err != nil {
 			return fmt.Errorf("failed to get own server MCPIDs: %w", err)

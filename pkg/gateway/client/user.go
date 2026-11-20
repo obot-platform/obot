@@ -371,6 +371,10 @@ func (c *Client) deleteUserTx(ctx context.Context, tx *gorm.DB, existingUser *ty
 }
 
 func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string) (*types.User, error) {
+	return c.updateUser(ctx, actingUserCanChangeRole, updatedUser, userID, false)
+}
+
+func (c *Client) updateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string, applyingDefaultRole bool) (*types.User, error) {
 	existingUser := new(types.User)
 	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := refuseClaudeTagUserMutation(tx, userID); err != nil {
@@ -396,6 +400,28 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 		// Only admins can change user roles.
 		if actingUserCanChangeRole {
 			if updatedUser.Role > 0 {
+				role := updatedUser.Role.WithoutRedundantReadonlyAdmin()
+				if role != existingUser.Role && !role.IsValidUserRole() {
+					return types2.NewErrBadRequest("role must be one base role with compatible add-ons")
+				}
+				if role.HasRole(types2.RoleAdminReadonly) {
+					// The proposed direct role already passed validation. A group grant can
+					// still make Read-Only Admin redundant after a direct demotion.
+					elevated := elevatedGroupMembers(tx).Where("group_memberships.user_id = ?", existingUser.ID)
+					var count int64
+					if err := elevated.Count(&count).Error; err != nil {
+						return err
+					}
+					if count > 0 {
+						if !applyingDefaultRole {
+							return types2.NewErrBadRequest("Admin and Owner already inherit Read-Only Admin access")
+						}
+						// First sign-in can already have elevated group memberships. Apply the default
+						// base role while letting those memberships supply admin read access.
+						role &^= types2.RoleAdminReadonly
+					}
+				}
+
 				// Check if we're removing the Owner role
 				removingOwner := existingUser.Role.HasRole(types2.RoleOwner) && !updatedUser.Role.HasRole(types2.RoleOwner)
 				// Check if we're removing the Admin role
@@ -435,7 +461,7 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 					}
 				}
 
-				existingUser.Role = updatedUser.Role
+				existingUser.Role = role
 			}
 		}
 

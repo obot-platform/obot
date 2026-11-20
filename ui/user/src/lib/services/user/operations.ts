@@ -69,6 +69,7 @@ import {
 	type VMCPInstance,
 	type VMCPManifest,
 	type VMCPConfiguration,
+	type VMCPConfigurationPresence,
 	type Skill
 } from './types';
 
@@ -149,6 +150,15 @@ export async function revealVMCP(
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<VMCPConfiguration> {
 	return (await doPost(`/vmcps/${id}/reveal`, {}, opts)) as VMCPConfiguration;
+}
+
+export async function getVMCPComponentConfigurationPresence(
+	id: string,
+	componentId: string
+): Promise<VMCPConfigurationPresence> {
+	return (await doGet(
+		`/vmcps/${id}/components/${encodeURIComponent(componentId)}/configuration-presence`
+	)) as VMCPConfigurationPresence;
 }
 
 export async function updateVMCP(
@@ -860,10 +870,10 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 		return obj.groups.includes(Group.ADMIN);
 	};
 	obj.hasAdminAccess = () => {
-		return obj.groups.includes(Group.ADMIN) || obj.groups.includes(Group.AUDITOR);
+		return obj.groups.includes(Group.ADMIN_READONLY) || obj.groups.includes(Group.AUDITOR);
 	};
 	obj.isAdminReadonly = () => {
-		return !obj.groups.includes(Group.ADMIN) && obj.groups.includes(Group.AUDITOR);
+		return !obj.groups.includes(Group.ADMIN) && !!obj.hasAdminAccess?.();
 	};
 	obj.isOwner = () => {
 		return obj.groups.includes(Group.OWNER);

@@ -34,7 +34,7 @@ func TestListEntriesFromAllSourcesMinimal(t *testing.T) {
 		User: &kuser.DefaultInfo{
 			Name:   "admin",
 			UID:    "admin",
-			Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
+			Groups: types.RoleAdmin.Groups(),
 		},
 	})
 	require.NoError(t, err)
@@ -108,7 +108,7 @@ func TestListEntriesFromAllSourcesFullByDefault(t *testing.T) {
 		User: &kuser.DefaultInfo{
 			Name:   "admin",
 			UID:    "admin",
-			Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
+			Groups: types.RoleAdmin.Groups(),
 		},
 	})
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestListCatalogEntriesMinimal(t *testing.T) {
 		User: &kuser.DefaultInfo{
 			Name:   "admin",
 			UID:    "admin",
-			Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
+			Groups: types.RoleAdmin.Groups(),
 		},
 	})
 	require.NoError(t, err)

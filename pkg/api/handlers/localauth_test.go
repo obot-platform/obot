@@ -41,6 +41,7 @@ type localSetupProviderGetter struct {
 
 type localSetupFixture struct {
 	gateway   *gateway.Client
+	db        *gorm.DB
 	storage   storage.Client
 	provider  *localauth.Provider
 	handler   *LocalAuthHandler
@@ -87,6 +88,7 @@ func newLocalSetupFixture(t *testing.T) *localSetupFixture {
 
 	return &localSetupFixture{
 		gateway:   c,
+		db:        services.DB.DB,
 		storage:   storageClient,
 		provider:  provider,
 		handler:   NewLocalAuthHandler(provider),
@@ -286,7 +288,15 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 					}
 					var orgUserID string
 					if target.provider != "" {
-						orgUserID = f.identity(t, localUser.Email, target.provider, target.role).User.GetUID()
+						role := target.role
+						if role == apitypes.RoleAuditor {
+							// Write a legacy auditor-only fixture directly because role updates reject it.
+							orgUserID = f.identity(t, localUser.Email, target.provider, apitypes.RoleBasic).User.GetUID()
+							require.NoError(t, f.db.WithContext(t.Context()).Model(&gwtypes.User{}).
+								Where("id = ?", orgUserID).Update("role", role).Error)
+						} else {
+							orgUserID = f.identity(t, localUser.Email, target.provider, role).User.GetUID()
+						}
 					}
 					sessionID := hash.String("target-session")
 					require.NoError(t, f.gateway.CreateLocalAuthSession(t.Context(), sessionID, localUser.ID, time.Now().Add(time.Hour)))

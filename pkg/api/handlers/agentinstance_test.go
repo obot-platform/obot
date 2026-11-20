@@ -26,13 +26,25 @@ func TestClaudeSessionsAllParameter(t *testing.T) {
 	}{
 		{
 			name:   "admin all",
-			groups: []string{types.GroupAdmin},
+			groups: types.RoleAdmin.Groups(),
 			query:  "?all=true",
 			count:  1,
 		},
 		{
 			name:   "admin personal",
-			groups: []string{types.GroupAdmin},
+			groups: types.RoleAdmin.Groups(),
+			count:  0,
+		},
+		{
+			name:   "admin read-only all",
+			groups: []string{types.GroupAdminReadonly, types.GroupBasic},
+			query:  "?all=true",
+			count:  1,
+		},
+		{
+			name:   "auditor all ignored",
+			groups: []string{types.GroupAuditor, types.GroupBasic},
+			query:  "?all=true",
 			count:  0,
 		},
 		{
@@ -107,7 +119,7 @@ func TestSuspendLatestClaudeExecution(t *testing.T) {
 		Request:        request,
 		ResponseWriter: response,
 		Storage:        storage,
-		User:           &kuser.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+		User:           &kuser.DefaultInfo{UID: "admin", Groups: types.RoleAdmin.Groups()},
 	}
 	handler := &ClaudeSessionHandler{}
 	require.NoError(t, handler.suspend(req))

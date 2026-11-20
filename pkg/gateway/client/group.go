@@ -935,8 +935,18 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 
 	// Insert new memberships
 	if len(toInsert) > 0 {
+		addedGroups := make([]string, 0, len(toInsert))
+		for _, membership := range toInsert {
+			addedGroups = append(addedGroups, membership.GroupID)
+		}
+		if err := lockMembershipAddsForRoles(tx, addedGroups, []uint{identity.UserID}); err != nil {
+			return false, false, err
+		}
 		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&toInsert).Error; err != nil {
 			return false, false, fmt.Errorf("failed to create group memberships: %w", err)
+		}
+		if err := clearReadonlyAdminForElevatedUsers(tx, []uint{identity.UserID}); err != nil {
+			return false, false, err
 		}
 	}
 

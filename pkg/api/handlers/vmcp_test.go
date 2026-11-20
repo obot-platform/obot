@@ -911,7 +911,7 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 		User: &user.DefaultInfo{
 			Name:   "admin",
 			UID:    "admin",
-			Groups: []string{types.GroupAPI, types.GroupAdmin},
+			Groups: types.RoleAdmin.Groups(),
 		},
 	})
 	if err != nil {
@@ -1058,7 +1058,7 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 			name: "administrator sees the full definition",
 			user: &user.DefaultInfo{
 				UID:    "1",
-				Groups: []string{types.GroupAPI, types.GroupAdmin},
+				Groups: types.RoleAdmin.Groups(),
 			},
 			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
 			wantProfiles:   []string{"user", "team", "other"},
@@ -1071,6 +1071,18 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 			user: &user.DefaultInfo{
 				UID:    "3",
 				Groups: []string{types.GroupAPI, types.GroupAuditor},
+			},
+			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
+			wantProfiles:   []string{"user", "team", "other"},
+			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
+			wantTools:      allTools,
+			wantReady:      false,
+		},
+		{
+			name: "read-only administrator sees the full definition",
+			user: &user.DefaultInfo{
+				UID:    "3",
+				Groups: []string{types.GroupAPI, types.GroupAdminReadonly},
 			},
 			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
 			wantProfiles:   []string{"user", "team", "other"},
@@ -1097,7 +1109,7 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 			}
 
 			listURL := "/api/vmcps"
-			if slices.Contains(tt.user.Groups, types.GroupAuditor) {
+			if slices.Contains(tt.user.Groups, types.GroupAuditor) || slices.Contains(tt.user.Groups, types.GroupAdminReadonly) {
 				listURL += "?all=true"
 			}
 			recorder := httptest.NewRecorder()
@@ -2252,7 +2264,7 @@ func TestVMCPHandlerListMinimal(t *testing.T) {
 	admin := &user.DefaultInfo{
 		Name:   "admin",
 		UID:    "admin",
-		Groups: []string{types.GroupAPI, types.GroupAdmin},
+		Groups: types.RoleAdmin.Groups(),
 	}
 
 	for _, tc := range []struct {

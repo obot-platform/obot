@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -1321,5 +1322,48 @@ func TestNormalizeSCIMUserProfileLeavesItsArgumentAlone(t *testing.T) {
 	normalizeSCIMUserProfile(profile)
 	if profile.EnterpriseUser.Manager == nil {
 		t.Fatal("normalizeSCIMUserProfile() changed the profile it was given")
+	}
+}
+
+func TestSCIMProvisioningDefaultRole(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	existing, err := c.EnsureIdentityWithRole(t.Context(), signInIdentity("00u-existing", "existing@example.com"), "", apitypes.RolePowerUser|apitypes.RoleAuditor, UserLimit{Unlimited: true})
+	require.NoError(t, err)
+	conn, _ := createTestSCIMConnection(t, c, false)
+	for _, tc := range []struct {
+		nativeID string
+		role     apitypes.Role
+		want     apitypes.Role
+	}{
+		{
+			nativeID: "00u-combo",
+			role:     apitypes.RoleAdmin | apitypes.RoleAuditor,
+			want:     apitypes.RoleAdmin | apitypes.RoleAuditor,
+		},
+		{
+			nativeID: "00u-existing",
+			role:     apitypes.RoleAdmin,
+			want:     existing.Role,
+		},
+		{
+			nativeID: "00u-invalid",
+			role:     apitypes.RoleAuditor,
+			want:     apitypes.RoleBasic,
+		},
+	} {
+		provisioned, err := c.CreateSCIMUser(t.Context(), conn, SCIMUserInput{
+			UserName:   tc.nativeID + "@example.com",
+			ExternalID: tc.nativeID,
+		}, SCIMUserCreateOptions{
+			UserLimit:   UserLimit{Unlimited: true},
+			DefaultRole: tc.role,
+		})
+		require.NoError(t, err)
+		user, err := c.UserByID(t.Context(), strconv.FormatUint(uint64(provisioned.UserID), 10))
+		require.NoError(t, err)
+		require.Equal(t, tc.want, user.Role)
+		if tc.nativeID == "00u-existing" {
+			require.Equal(t, existing.ID, user.ID)
+		}
 	}
 }

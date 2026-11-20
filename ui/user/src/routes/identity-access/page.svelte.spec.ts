@@ -2,7 +2,7 @@ import { replaceState } from '$app/navigation';
 import { page as appPage } from '$app/state';
 import { CommonAuthProviderIds, LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 import * as navigation from '$lib/navigation';
-import { Group } from '$lib/services';
+import { AdminService, Group, Role } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
 import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -181,7 +181,9 @@ async function renderIdentityAccessPage({
 	groups,
 	apiKeys = [],
 	users = [],
-	currentAuthProvider
+	currentAuthProvider,
+	groupRoleAssignments = [],
+	orgGroups = []
 }: {
 	authProviders?: AuthProvider[];
 	authEnabled?: boolean;
@@ -192,6 +194,8 @@ async function renderIdentityAccessPage({
 	apiKeys?: APIKey[];
 	users?: PageData['users'];
 	currentAuthProvider?: string;
+	groupRoleAssignments?: PageData['groupRoleAssignments'];
+	orgGroups?: PageData['groups'];
 } = {}) {
 	const profile = createMockProfile(groups);
 	profile.currentAuthProvider = currentAuthProvider;
@@ -209,8 +213,8 @@ async function renderIdentityAccessPage({
 
 	const data = await preparePageData<PageData>({
 		users,
-		groups: [],
-		groupRoleAssignments: [],
+		groups: orgGroups,
+		groupRoleAssignments,
 		defaultUsersRole: undefined,
 		authProviders,
 		authEnabled,
@@ -382,6 +386,62 @@ describe('Identity & Access Page', () => {
 		}
 	);
 
+	it('adds Read-Only Admin to an existing IdP group role', async () => {
+		const group = { id: 'idp/reviewers', name: 'Security reviewers' };
+		const role = Role.POWERUSER_PLUS | Role.AUDITOR;
+		const updateRole = vi
+			.spyOn(AdminService, 'updateGroupRoleAssignment')
+			.mockImplementation(async (_groupName, assignment) => assignment);
+		await renderIdentityAccessPage({
+			view: 'groups',
+			groups: [Group.ADMIN],
+			orgGroups: [group],
+			groupRoleAssignments: [{ groupName: group.id, role }]
+		});
+
+		await page.getByRole('row').filter({ hasText: group.name }).getByRole('button').click();
+		await page.getByRole('button', { name: 'Update Role', exact: true }).click();
+		const dialog = page.getByRole('dialog');
+		await dialog.getByRole('checkbox', { name: /^Read-Only Admin/ }).click();
+		await dialog.getByRole('button', { name: 'Update', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(updateRole).toHaveBeenCalledWith(
+				group.id,
+				expect.objectContaining({ role: role | Role.ADMIN_READONLY })
+			)
+		);
+	});
+
+	it('drops Read-Only Admin when a group mapping is changed to Admin', async () => {
+		const group = { id: 'idp/reviewers', name: 'Security reviewers' };
+		const updateRole = vi
+			.spyOn(AdminService, 'updateGroupRoleAssignment')
+			.mockImplementation(async (_groupName, assignment) => assignment);
+		await renderIdentityAccessPage({
+			view: 'groups',
+			groups: [Group.ADMIN, Group.ADMIN_READONLY],
+			orgGroups: [group],
+			groupRoleAssignments: [{ groupName: group.id, role: Role.ADMIN_READONLY }]
+		});
+
+		await page.getByRole('row').filter({ hasText: group.name }).getByRole('button').click();
+		await page.getByRole('button', { name: 'Update Role', exact: true }).click();
+		const dialog = page.getByRole('dialog');
+		await dialog.getByRole('radio', { name: /^Admin / }).click();
+		await expect
+			.element(dialog.getByRole('checkbox', { name: /^Read-Only Admin/ }))
+			.not.toBeInTheDocument();
+		await dialog.getByRole('button', { name: 'Update', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(updateRole).toHaveBeenCalledWith(
+				group.id,
+				expect.objectContaining({ role: Role.ADMIN })
+			)
+		);
+	});
+
 	describe('local bootstrap setup', () => {
 		const localConfigured: AuthProvider = {
 			...googleProvider,
@@ -501,17 +561,75 @@ describe('Identity & Access Page', () => {
 			await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
 		});
 
-		it('hides create for readonly admins', async () => {
+		it('allows readonly admins to create personal agent identities', async () => {
 			await renderIdentityAccessPage({
 				view: 'agents',
-				groups: [Group.AUDITOR],
+				groups: [Group.ADMIN_READONLY],
 				apiKeys: [apiKey]
 			});
 
 			await expect
 				.element(page.getByRole('button', { name: 'Create Agent Identity', exact: true }))
-				.not.toBeInTheDocument();
+				.toBeVisible();
 		});
+	});
+
+	describe('auth provider credentials', () => {
+		it.each([
+			{ name: 'an admin', groups: [Group.ADMIN_READONLY, Group.ADMIN], reveals: true },
+			{
+				name: 'a read-only admin with auditor',
+				groups: [Group.ADMIN_READONLY, Group.AUDITOR],
+				reveals: true
+			},
+			{ name: 'an auditor', groups: [Group.USER, Group.AUDITOR], reveals: true },
+			{ name: 'a read-only admin', groups: [Group.ADMIN_READONLY], reveals: false }
+		])(
+			'loads the appropriate saved configuration when $name opens a provider',
+			async ({ name, groups, reveals }) => {
+				// Give each case its own provider so its requests can be counted independently.
+				const provider: AuthProvider = {
+					...googleConfigured,
+					id: `${googleConfigured.id}-${name.replaceAll(' ', '-')}`
+				};
+				let revealed = 0;
+				let configurationReads = 0;
+				worker.use(
+					http.post(`/api/auth-providers/${provider.id}/reveal`, () => {
+						revealed++;
+						return HttpResponse.json({});
+					}),
+					http.get(`/api/auth-providers/${provider.id}/configuration`, () => {
+						configurationReads++;
+						return HttpResponse.json({
+							OBOT_GOOGLE_AUTH_PROVIDER_CLIENT_ID: 'saved-client-id',
+							OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: 'example.test'
+						});
+					})
+				);
+				await renderIdentityAccessPage({ authProviders: [provider], groups });
+
+				await providerCard('Google')
+					.getByRole('button', { name: /^(View|Modify)$/ })
+					.click();
+				const dialog = page.getByRole('dialog');
+				await expect.element(dialog).toBeVisible();
+				if (reveals) {
+					expect(revealed).toBe(1);
+					expect(configurationReads).toBe(0);
+				} else {
+					expect(configurationReads).toBe(1);
+					expect(revealed).toBe(0);
+					const clientID = dialog.getByLabelText('Client ID', { exact: true });
+					await expect.element(clientID).toHaveValue('saved-client-id');
+					await expect.element(clientID).toBeDisabled();
+					await expect.element(dialog.getByText('example.test', { exact: true })).toBeVisible();
+					await expect
+						.element(dialog.getByLabelText('Client Secret', { exact: true }))
+						.toHaveValue('');
+				}
+			}
+		);
 	});
 
 	describe('auth providers tab', () => {

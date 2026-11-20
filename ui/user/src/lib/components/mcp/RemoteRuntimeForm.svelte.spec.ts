@@ -135,3 +135,18 @@ it('preserves localhost callback settings when hiding server configuration', asy
 		.toBeChecked();
 	await expect.element(page.getByLabelText('Callback path')).toHaveValue('/custom');
 });
+
+it('hides read-only catalog configuration and preserves its values', async () => {
+	const config = reactive({
+		fixedURL: 'https://example.com/mcp',
+		localhostCallbackEnabled: true,
+		localhostCallbackPath: '/custom'
+	});
+	await render(RemoteRuntimeForm, { variant: 'catalog', readonly: true, config });
+
+	await page.getByRole('button', { name: 'Hide Advanced Configuration', exact: true }).click();
+	await expect.element(page.getByLabelText('Callback path')).not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Advanced Configuration', exact: true }).click();
+	await expect.element(page.getByLabelText('Callback path')).toHaveValue('/custom');
+	await expect.element(page.getByLabelText('Callback path')).toBeDisabled();
+});

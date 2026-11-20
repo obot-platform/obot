@@ -236,6 +236,12 @@ type VMCPConfiguration struct {
 	Components map[string]map[string]string `json:"components"`
 }
 
+// VMCPConfigurationPresence lists fields with stored fixed values for one component.
+type VMCPConfigurationPresence struct {
+	// +listType=set
+	ConfiguredFields []string `json:"configuredFields"`
+}
+
 type VMCPInstanceManifest struct {
 	VMCPID string `json:"vmcpID"`
 	// Nil follows the current grant; an empty map explicitly selects no tools.

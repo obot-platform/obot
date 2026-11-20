@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
 	import {
+		Group,
 		type AppNotification,
 		type GitCredential,
 		type ImagePullSecret,
@@ -62,8 +63,11 @@
 	let saving = $state(false);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	// Admin Read-Only users see the setting without changing it.
 	let canManageRegistryDiscovery = $derived(
-		profile.current.isAdmin?.() || profile.current.isOwner?.()
+		profile.current.isAdmin?.() ||
+			profile.current.isOwner?.() ||
+			profile.current.groups.includes(Group.ADMIN_READONLY)
 	);
 	let isDirty = $derived(
 		registryDiscoveryDirty ||

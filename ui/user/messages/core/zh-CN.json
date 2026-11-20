@@ -156,6 +156,8 @@
 	"core_revoked": "已撤销",
 	"core_role_admin": "管理员",
 	"core_role_admin_description": "每位用户都将成为完全管理员。选择此选项时请谨慎。",
+	"core_role_admin_readonly": "只读管理员",
+	"core_role_admin_readonly_description": "可以查看所有管理配置，但无法进行任何更改。",
 	"core_role_auditor": "审计员",
 	"core_role_owner": "所有者",
 	"core_role_power_user": "高级用户",

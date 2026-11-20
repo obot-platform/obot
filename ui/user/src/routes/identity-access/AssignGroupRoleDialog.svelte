@@ -20,7 +20,7 @@
 
 	// Helper functions to work with roles
 	function getRoleId(role: number): number {
-		return role & ~Role.AUDITOR;
+		return role & ~(Role.AUDITOR | Role.ADMIN_READONLY);
 	}
 
 	function hasAuditorFlag(role: number): boolean {
@@ -45,6 +45,7 @@
 
 	let draftRoleId = $state(0);
 	let draftHaveAuditorPrivilege = $state(false);
+	let draftHaveReadOnlyAdmin = $state(false);
 
 	const hasRoleChanged = $derived(
 		draftRoleId !== getRoleId(groupAssignment ? groupAssignment.assignment.role : 0)
@@ -56,7 +57,12 @@
 	);
 
 	// Check if any changes were made
-	const hasChanges = $derived(hasRoleChanged || hasAuditorChanged);
+	const hasChanges = $derived(
+		hasRoleChanged ||
+			hasAuditorChanged ||
+			Boolean((groupAssignment?.assignment.role ?? 0) & Role.ADMIN_READONLY) !==
+				draftHaveReadOnlyAdmin
+	);
 
 	$effect(() => {
 		if (groupAssignment) {
@@ -64,6 +70,7 @@
 			const role = groupAssignment.assignment.role || 0;
 			draftRoleId = getRoleId(role);
 			draftHaveAuditorPrivilege = hasAuditorFlag(role);
+			draftHaveReadOnlyAdmin = Boolean(role & Role.ADMIN_READONLY);
 		}
 	});
 
@@ -82,7 +89,11 @@
 	function handleConfirm() {
 		if (!groupAssignment) return;
 
-		let role = draftRoleId;
+		let role =
+			draftRoleId |
+			(draftHaveReadOnlyAdmin && !(draftRoleId & (Role.ADMIN | Role.OWNER))
+				? Role.ADMIN_READONLY
+				: 0);
 		if (draftHaveAuditorPrivilege) {
 			role = addAuditorFlag(role);
 		}
@@ -95,7 +106,7 @@
 		};
 
 		const currentRoleId = getRoleId(groupAssignment.assignment.role || 0);
-		if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
+		if (hasAuditorChanged && draftHaveAuditorPrivilege) {
 			// Auditor changed - show auditor confirmation
 			onAuditorConfirm(result);
 		} else if (draftRoleId === Role.OWNER && currentRoleId !== Role.OWNER) {
@@ -151,6 +162,7 @@
 			<GroupRoleForm
 				bind:roleId={draftRoleId}
 				bind:hasAuditorPrivilege={draftHaveAuditorPrivilege}
+				bind:hasReadOnlyAdmin={draftHaveReadOnlyAdmin}
 			/>
 		</div>
 

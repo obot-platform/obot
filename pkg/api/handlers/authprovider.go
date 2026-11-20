@@ -123,7 +123,7 @@ func servedAuthProviderParameters(req api.Context, authProvider v1.AuthProvider,
 
 // seesSCIM reports whether the requester may learn how an auth provider is set up for SCIM.
 func seesSCIM(req api.Context) bool {
-	return req.UserIsAdmin() || req.UserIsAuditor()
+	return req.UserCanViewAdmin()
 }
 
 // setSCIMStatus reports how the provider supports SCIM and the state of its SCIM connection. Auth providers are
@@ -635,6 +635,42 @@ func (ap *AuthProviderHandler) Activate(req api.Context) error {
 
 	auth.ClearAuthProviderVerifyCookie(req.ResponseWriter)
 	return nil
+}
+
+func (*AuthProviderHandler) Configuration(req api.Context) error {
+	var authProvider v1.AuthProvider
+	if err := req.Get(&authProvider, req.PathValue("id")); err != nil {
+		return err
+	}
+
+	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
+	stored, err := scimsetup.StoredConfiguration(req.Context(), req.GatewayClient, authProvider)
+	if err != nil {
+		return err
+	}
+	if stored == nil {
+		return types.NewErrNotFound("%s", apiMessage(req, "provider_credential_not_found", "provider", fmt.Sprintf("%q", authProvider.Name)))
+	}
+
+	// Stored credentials can include internal and legacy keys. Only declared visible fields
+	// are eligible, and a restrictive declaration takes precedence if a key appears twice.
+	declared := make(map[string]bool)
+	for _, parameters := range [][]types.ProviderConfigurationParameter{
+		authProvider.Spec.RequiredConfigurationParameters,
+		authProvider.Spec.OptionalConfigurationParameters,
+	} {
+		for _, parameter := range parameters {
+			declared[parameter.Name] = declared[parameter.Name] ||
+				parameter.Sensitive || parameter.Hidden || parameter.Name == CookieSecretEnvVar
+		}
+	}
+	values := make(map[string]string)
+	for name, restricted := range declared {
+		if value, ok := stored[name]; ok && !restricted {
+			values[name] = value
+		}
+	}
+	return req.Write(values)
 }
 
 func (ap *AuthProviderHandler) Reveal(req api.Context) error {

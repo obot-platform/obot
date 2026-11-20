@@ -6,8 +6,9 @@
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import { m } from '$lib/i18n';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
-	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
+	import { Group, UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
 	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
@@ -41,16 +42,17 @@
 	);
 
 	async function openConfigureDialog() {
-		if (!flow.configuringEntry) return;
+		const entry = flow.configuringEntry;
+		if (!entry) return;
 
-		let configuration = flow.configuringComponent?.configuration;
-		const vmcpId = flow.modifyingVMcp?.id;
-		const componentId = flow.configuringComponent
-			? vmcpComponentId(flow.configuringComponent)
-			: undefined;
-		if (vmcpId && componentId) {
+		const vmcp = flow.modifyingVMcp;
+		const component = flow.configuringComponent;
+		let configuration = component?.configuration;
+		let configuredFields: string[] | undefined;
+		const componentId = component && vmcpComponentId(component);
+		if (vmcp && componentId && flow.canRevealComponentConfiguration()) {
 			try {
-				const revealed = await UserService.revealVMCP(vmcpId, { dontLogErrors: true });
+				const revealed = await UserService.revealVMCP(vmcp.id, { dontLogErrors: true });
 				configuration = configurationWithRevealedValues(
 					configuration,
 					revealed.components[componentId]
@@ -58,12 +60,29 @@
 			} catch {
 				// Continue without revealed values when configuration is unavailable.
 			}
+		} else if (
+			readonly &&
+			profile.current.groups.includes(Group.ADMIN_READONLY) &&
+			vmcp &&
+			componentId &&
+			configuration?.some((policy) => policy.policy === 'fixed' && !policy.secretBinding)
+		) {
+			try {
+				({ configuredFields } = await UserService.getVMCPComponentConfigurationPresence(
+					vmcp.id,
+					componentId
+				));
+			} catch {
+				// The service reports the error. The stored policies are still available to inspect.
+			}
 		}
 
-		configurationDialog?.open(flow.configuringEntry, {
+		if (flow.dialog !== 'configure' || flow.configuringEntry !== entry) return;
+		configurationDialog?.open(entry, {
 			configuration,
-			isShared: Boolean(flow.modifyingVMcp && !flow.modifyingVMcp.userID),
-			forceSingleUser: flow.configuringComponent?.forceSingleUser,
+			configuredFixedFields: configuredFields,
+			isShared: Boolean(vmcp && !vmcp.userID),
+			forceSingleUser: component?.forceSingleUser,
 			submitLabel: flow.postCreateConfiguration ? m.core_next() : m.core_save(),
 			errorMessage: m.vmcps_failed_to_update_configuration(),
 			hideCancel: flow.postCreateConfiguration
@@ -359,7 +378,7 @@
 		>
 			{readonly ? m.vmcps_view_tools() : m.vmcps_modify_tools()}
 		</button>
-		{#if flow.canSeeComponentConfiguration}
+		{#if flow.canSeeComponentConfiguration(Boolean(readonly))}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
 				{readonly ? m.vmcps_view_configuration() : m.vmcps_change_configuration()}
 			</button>

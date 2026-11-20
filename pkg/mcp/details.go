@@ -13,48 +13,39 @@ var (
 	ErrServerNotRunning = errors.New("mcp server is not running")
 )
 
-// GetServerDetails will get the details of a specific MCP server based on its configuration, if the backend supports it.
-// If the backend does not support the operation, it will return an [ErrNotSupportedByBackend] error.
-func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig ServerConfig) (types.MCPServerDetails, error) {
-	// Try to get details first - only deploy if server doesn't exist
-	// This prevents unnecessary redeployments that would update K8s settings and clear the NeedsK8sUpdate flag
-	details, err := sm.backend.getServerDetails(ctx, serverConfig.MCPServerName)
-	if err == nil {
-		return details, nil
-	}
-
-	// Only deploy if server is not running - for any other error, return it
-	if !errors.Is(err, ErrServerNotRunning) {
-		return types.MCPServerDetails{}, err
-	}
-
-	// Server not running - deploy it
-	if err := sm.deployServer(ctx, serverConfig); err != nil {
-		return types.MCPServerDetails{}, err
-	}
-
-	return sm.backend.getServerDetails(ctx, serverConfig.MCPServerName)
+// GetRunningServerDetails inspects an existing deployment using its server name.
+func (sm *SessionManager) GetRunningServerDetails(ctx context.Context, serverName string) (types.MCPServerDetails, error) {
+	return sm.backend.getServerDetails(ctx, serverName)
 }
 
-// StreamServerLogs will stream the logs of a specific MCP server based on its configuration, if the backend supports it.
-// If the backend does not support the operation, it will return an [ErrNotSupportedByBackend] error.
-func (sm *SessionManager) StreamServerLogs(ctx context.Context, serverConfig ServerConfig) (io.ReadCloser, error) {
-	// Check if server exists first - only deploy if it doesn't
-	// This prevents unnecessary redeployments that would update K8s settings and clear the NeedsK8sUpdate flag
-	_, err := sm.backend.getServerDetails(ctx, serverConfig.MCPServerName)
-	if err == nil {
-		return sm.backend.streamServerLogs(ctx, serverConfig.MCPServerName)
+// StreamRunningServerLogs opens logs for an existing deployment using its server name.
+func (sm *SessionManager) StreamRunningServerLogs(ctx context.Context, serverName string) (io.ReadCloser, error) {
+	if _, err := sm.GetRunningServerDetails(ctx, serverName); err != nil {
+		return nil, err
 	}
+	return sm.backend.streamServerLogs(ctx, serverName)
+}
 
-	// Only deploy if server is not running - for any other error, return it
+// GetOrStartServerDetails deploys a stopped server before returning its details.
+func (sm *SessionManager) GetOrStartServerDetails(ctx context.Context, config ServerConfig) (types.MCPServerDetails, error) {
+	details, err := sm.GetRunningServerDetails(ctx, config.MCPServerName)
 	if !errors.Is(err, ErrServerNotRunning) {
+		return details, err
+	}
+	if err := sm.deployServer(ctx, config); err != nil {
+		return types.MCPServerDetails{}, err
+	}
+	return sm.GetRunningServerDetails(ctx, config.MCPServerName)
+}
+
+// StartServerIfNeededAndStreamLogs deploys a stopped server before streaming its logs.
+func (sm *SessionManager) StartServerIfNeededAndStreamLogs(ctx context.Context, config ServerConfig) (io.ReadCloser, error) {
+	_, err := sm.GetRunningServerDetails(ctx, config.MCPServerName)
+	if errors.Is(err, ErrServerNotRunning) {
+		err = sm.deployServer(ctx, config)
+	}
+	if err != nil {
 		return nil, err
 	}
-
-	// Server not running - deploy it
-	if err := sm.deployServer(ctx, serverConfig); err != nil {
-		return nil, err
-	}
-
-	return sm.backend.streamServerLogs(ctx, serverConfig.MCPServerName)
+	return sm.backend.streamServerLogs(ctx, config.MCPServerName)
 }

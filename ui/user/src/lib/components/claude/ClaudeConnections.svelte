@@ -2,6 +2,7 @@
 	import CopyField from '$lib/components/CopyField.svelte';
 	import { m } from '$lib/i18n';
 	import {
+		Group,
 		UserService,
 		type ClaudeSession,
 		type ClaudeConfig,
@@ -22,7 +23,9 @@
 	let statsError = $state(false);
 	let refreshingStats = false;
 	let error = $state('');
-	const admin = $derived(profile.current.isAdmin?.() ?? false);
+	const admin = $derived(
+		!!profile.current.isAdmin?.() || profile.current.groups.includes(Group.ADMIN_READONLY)
+	);
 
 	const stats = $derived.by(() => {
 		const result: Record<string, { total: number; active: number; lastUsed?: string }> = {};

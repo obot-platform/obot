@@ -24,24 +24,32 @@ func TestAuthProviderRouteAuthorization(t *testing.T) {
 	}
 
 	users := []struct {
-		name         string
-		info         user.Info
-		canMutate    bool
-		canOwnerOnly bool
-		canReveal    bool
+		name                 string
+		info                 user.Info
+		canMutate            bool
+		canOwnerOnly         bool
+		canReveal            bool
+		canReadConfiguration bool
 	}{
 		{
-			name:         "owner",
-			info:         &user.DefaultInfo{Name: "owner", Groups: types.RoleOwner.Groups()},
-			canMutate:    true,
-			canOwnerOnly: true,
-			canReveal:    true,
+			name:                 "owner",
+			info:                 &user.DefaultInfo{Name: "owner", Groups: types.RoleOwner.Groups()},
+			canMutate:            true,
+			canOwnerOnly:         true,
+			canReveal:            true,
+			canReadConfiguration: true,
 		},
 		{
-			name:      "administrator",
-			info:      &user.DefaultInfo{Name: "admin", Groups: types.RoleAdmin.Groups()},
-			canMutate: true,
-			canReveal: true,
+			name:                 "administrator",
+			info:                 &user.DefaultInfo{Name: "admin", Groups: types.RoleAdmin.Groups()},
+			canMutate:            true,
+			canReveal:            true,
+			canReadConfiguration: true,
+		},
+		{
+			name:                 "read-only administrator",
+			info:                 &user.DefaultInfo{Name: "readonly", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()},
+			canReadConfiguration: true,
 		},
 		{
 			name:      "auditor",
@@ -51,6 +59,10 @@ func TestAuthProviderRouteAuthorization(t *testing.T) {
 		{
 			name: "basic user",
 			info: &user.DefaultInfo{Name: "basic", Groups: types.RoleBasic.Groups()},
+		},
+		{
+			name: "unauthenticated user",
+			info: &user.DefaultInfo{Groups: []string{UnauthenticatedGroup}},
 		},
 	}
 
@@ -78,6 +90,11 @@ func TestAuthProviderRouteAuthorization(t *testing.T) {
 			req = httptest.NewRequest(http.MethodPost, "/api/auth-providers/google-auth-provider/reveal", nil)
 			if got := authorizer.Authorize(req, u.info); got != u.canReveal {
 				t.Errorf("POST reveal = %v, want %v", got, u.canReveal)
+			}
+
+			req = httptest.NewRequest(http.MethodGet, "/api/auth-providers/google-auth-provider/configuration", nil)
+			if got := authorizer.Authorize(req, u.info); got != u.canReadConfiguration {
+				t.Errorf("GET configuration = %v, want %v", got, u.canReadConfiguration)
 			}
 		})
 	}

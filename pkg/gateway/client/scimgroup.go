@@ -915,10 +915,22 @@ func writeGroupMembershipChangesTx(tx *gorm.DB, groupID string, changes map[uint
 			return fmt.Errorf("failed to remove members of group %s: %w", groupID, err)
 		}
 	}
-	for batch := range slices.Chunk(memberships, scimMemberBatchSize) {
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&batch).Error; err != nil {
-			return fmt.Errorf("failed to add members to group %s: %w", groupID, err)
+	if len(memberships) > 0 {
+		userIDs := make([]uint, 0, len(memberships))
+		for _, membership := range memberships {
+			userIDs = append(userIDs, membership.UserID)
 		}
+		// Serialize membership additions with role changes so an elevated group grant and the removal
+		// of a redundant direct Read-Only Admin grant take effect together.
+		if err := lockMembershipAddsForRoles(tx, []string{groupID}, userIDs); err != nil {
+			return err
+		}
+		for batch := range slices.Chunk(memberships, scimMemberBatchSize) {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&batch).Error; err != nil {
+				return fmt.Errorf("failed to add members to group %s: %w", groupID, err)
+			}
+		}
+		return clearReadonlyAdminForElevatedUsers(tx, userIDs)
 	}
 	return nil
 }

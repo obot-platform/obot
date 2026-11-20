@@ -342,6 +342,11 @@ export function hasVMcpComponentConfiguration(entry: {
 	return editable || entry.manifest.runtime !== 'remote';
 }
 
+export function hasSensitiveCatalogValue(field: MCPConfig): boolean {
+	// Current catalog entries expose the static marker, while legacy snapshots can carry a redacted value.
+	return field.sensitive && Boolean(field.static || field.value);
+}
+
 export function catalogConfigurationFields(entry: {
 	manifest: MCPCatalogEntry['manifest'];
 }): MCPConfig[] {

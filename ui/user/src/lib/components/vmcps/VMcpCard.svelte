@@ -16,7 +16,7 @@
 	import VMcpCatalogSyncedIndicator from './VMcpCatalogSyncedIndicator.svelte';
 	import VMcpMenuActions from './VMcpMenuActions.svelte';
 	import VMcpStatusBadge from './VMcpStatusBadge.svelte';
-	import { Pencil } from '@lucide/svelte';
+	import { Eye, Pencil } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -29,6 +29,7 @@
 		selected?: boolean;
 		selecting?: boolean;
 		onEditDetails?: () => void;
+		onViewDetails?: () => void;
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		hideTest?: boolean;
 		onDelete?: () => void;
@@ -52,6 +53,7 @@
 		selected = false,
 		selecting = false,
 		onEditDetails,
+		onViewDetails,
 		onConnect,
 		hideTest,
 		onDelete,
@@ -127,6 +129,17 @@
 						<button class="menu-button" onclick={onEditDetails}>
 							<Pencil class="size-4" />
 							{m.vmcps_edit_details()}
+						</button>
+					{:else if onViewDetails}
+						<button
+							class="menu-button"
+							onclick={() => {
+								toggle(false);
+								onViewDetails?.();
+							}}
+						>
+							<Eye class="size-4" />
+							{m.vmcps_view_details()}
 						</button>
 					{/if}
 					<VMcpMenuActions

@@ -643,7 +643,8 @@
 										</IconButton>
 									{/if}
 									<IconButton
-										disabled={!!deleting || !!suspending || !!session.metadata.deletionTimestamp}
+										disabled={actionsDisabled(session) ||
+											(all && !profile.current.isAdmin?.() && !canOpenClaude(session))}
 										onclick={() => (pendingDelete = session)}
 										class="btn-sm text-error hover:text-error-content hover:bg-error"
 										tooltip={{ text: m.hosted_agents_sessions_delete() }}
@@ -837,7 +838,8 @@
 						{/if}
 						<button
 							class="menu-button-destructive"
-							disabled={actionsDisabled(session)}
+							disabled={actionsDisabled(session) ||
+								(all && !profile.current.isAdmin?.() && !canOpenClaude(session))}
 							onclick={(e) => {
 								e.stopPropagation();
 								pendingDelete = session;

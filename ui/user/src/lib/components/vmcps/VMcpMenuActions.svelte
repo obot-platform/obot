@@ -56,12 +56,10 @@
 
 	let destroyed = false;
 	let ctx = $derived(vmcpItemContext(vmcp));
-	let disconnecting = $derived(
-		vmcpIsDisconnecting(
-			vmcp.id,
-			ctx.myInstances.map((instance) => instance.id)
-		)
+	let canReset = $derived(
+		ctx.myInstances.length === 1 || (ctx.myInstances.length > 1 && Boolean(openSelectInstance))
 	);
+	let disconnecting = $derived(vmcpIsDisconnecting(ctx.myInstances.map((instance) => instance.id)));
 	let updating = $derived(vmcpIsUpdating(vmcp.id));
 	let canEditInstanceConfiguration = $derived(
 		Boolean(openEditInstanceConfiguration) && ctx.canEditInstanceConfiguration
@@ -99,21 +97,23 @@
 	});
 </script>
 
-<button
-	class="menu-button"
-	disabled={disconnecting}
-	onclick={(e) => {
-		e.stopPropagation();
-		void resetVMcpConnection(vmcp, toggle, openSelectInstance);
-	}}
->
-	{#if disconnecting}
-		<Loading class="size-4" />
-	{:else}
-		<Power class="size-4" />
-	{/if}
-	{m.core_reset_page()}
-</button>
+{#if canReset}
+	<button
+		class="menu-button"
+		disabled={disconnecting}
+		onclick={(e) => {
+			e.stopPropagation();
+			void resetVMcpConnection(vmcp, toggle, openSelectInstance);
+		}}
+	>
+		{#if disconnecting}
+			<Loading class="size-4" />
+		{:else}
+			<Power class="size-4" />
+		{/if}
+		{m.core_reset_page()}
+	</button>
+{/if}
 {#if openUpdateConfirm && ctx.needsUpdate && ctx.canUpdate}
 	<button
 		class="menu-button-primary"
