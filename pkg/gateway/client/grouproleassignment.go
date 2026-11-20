@@ -13,7 +13,9 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const ownerManagedGroupRoles = types2.RoleOwner | types2.RoleAuditor
+const (
+	ownerManagedGroupRoles = types2.RoleOwner | types2.RoleAuditor
+)
 
 var (
 	// ErrGroupRoleAssignmentNotFound is returned when a group role assignment is not found.
