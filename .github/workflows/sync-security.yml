@@ -1,0 +1,84 @@
+name: Sync Security Main
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    # The definition lives upstream so exact mirroring cannot remove it.
+    # workflow-checks.yml tests the script on pull requests.
+    if: >-
+      github.repository == 'obot-platform/obot-security' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: sync-security-main
+      cancel-in-progress: false
+    # Configure this environment to allow only main before installing secrets.
+    environment: security-main-sync
+    steps:
+      - name: Check out the public sync script
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: obot-platform/obot
+          ref: main
+          persist-credentials: false
+          sparse-checkout: tools/sync-main.sh
+          sparse-checkout-cone-mode: false
+      - name: Create a token scoped to the private mirror
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.SECURITY_SYNC_APP_ID }}
+          private-key: ${{ secrets.SECURITY_SYNC_APP_PRIVATE_KEY }}
+          owner: obot-platform
+          repositories: obot-security
+          permission-contents: write
+          permission-workflows: write
+      - name: Mirror upstream main and verify the result
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Read the ephemeral token through gh; never persist it in Git config.
+          GIT_CONFIG_COUNT: '2'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.https://github.com.helper
+          GIT_CONFIG_VALUE_1: '!gh auth git-credential'
+        run: >-
+          bash tools/sync-main.sh
+          https://github.com/obot-platform/obot.git
+          https://github.com/obot-platform/obot-security.git
+
+  report-failure:
+    # GitHub emails scheduled-run failures only to whoever last changed the cron
+    # line, so record each failure where the mirror's watchers will see it.
+    needs: sync
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the sync failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUNBOOK_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/.github/SECURITY_SYNC.md
+        run: |
+          title='Security main sync failed'
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [[ -n "$number" ]]; then
+            gh issue comment "$number" --body "The sync failed again: $RUN_URL"
+          else
+            gh issue create --title "$title" --body "The sync of \`main\` from \`obot-platform/obot\` failed: $RUN_URL
+
+          Follow the failure handling in $RUNBOOK_URL. Close this issue after a run succeeds."
+          fi

@@ -1,0 +1,27 @@
+name: Workflow Checks
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - tools/check-workflow-guards.py
+      - tools/sync-main.sh
+      - tools/test-sync-main.py
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Require repository guards outside pull requests
+        run: python3 tools/check-workflow-guards.py
+      - name: Test main mirroring with local repositories
+        run: python3 tools/test-sync-main.py
+      - name: Check shell script
+        run: shellcheck tools/sync-main.sh

@@ -12,6 +12,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'obot-platform/obot'
     runs-on: depot-ubuntu-22.04
 
     steps:
