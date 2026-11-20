@@ -48,7 +48,7 @@
 		const componentId = flow.configuringComponent
 			? vmcpComponentId(flow.configuringComponent)
 			: undefined;
-		if (vmcpId && componentId) {
+		if (vmcpId && componentId && flow.canRevealComponentConfiguration()) {
 			try {
 				const revealed = await UserService.revealVMCP(vmcpId, { dontLogErrors: true });
 				configuration = configurationWithRevealedValues(
