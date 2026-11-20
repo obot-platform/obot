@@ -22,6 +22,7 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { CREATE_VMCP_DROP_ID, createEntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
+	import { vmcpItemContext } from '$lib/runes/vmcps/vmcpItem.svelte';
 	import {
 		claimCreationHintForVMcp,
 		claimToolSetupForVMcp,
@@ -140,14 +141,16 @@
 		profile.current.id === selectedVMcp?.userID ||
 			(!selectedVMcp?.userID && profile.current.hasAdminAccess?.())
 	);
-	// The inspector can start a connection. Administrative inspection alone only grants the designer and profiles.
+	// The Inspector can start a connection. For Read-Only Admins viewing a shared vMCP, require the
+	// same profile grant that enables Connect on the vMCP card.
 	let canAccessTester = $derived(
 		Boolean(
 			selectedVMcp?.id &&
 			(isOwner || !selectedVMcp.userID) &&
 			(profile.current.isAdmin?.() ||
 				!profile.current.groups.includes(Group.ADMIN_READONLY) ||
-				selectedVMcp.userID === profile.current.id)
+				selectedVMcp.userID === profile.current.id ||
+				vmcpItemContext(selectedVMcp).canConnect)
 		)
 	);
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
