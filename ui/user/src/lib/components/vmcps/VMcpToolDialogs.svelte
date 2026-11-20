@@ -7,11 +7,7 @@
 	import { m } from '$lib/i18n';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
-	import {
-		configurationWithRevealedValues,
-		vmcpComponentId,
-		vmcpComponentStatus
-	} from '$lib/services/vmcps/utils';
+	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
 	import { goto } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
@@ -45,11 +41,13 @@
 	);
 
 	async function openConfigureDialog() {
-		if (!flow.configuringEntry) return;
+		const entry = flow.configuringEntry;
+		if (!entry) return;
 
 		const vmcp = flow.modifyingVMcp;
 		const component = flow.configuringComponent;
 		let configuration = component?.configuration;
+		let configuredFields: string[] | undefined;
 		const componentId = component && vmcpComponentId(component);
 		if (vmcp && componentId && flow.canRevealComponentConfiguration()) {
 			try {
@@ -61,14 +59,28 @@
 			} catch {
 				// Continue without revealed values when configuration is unavailable.
 			}
+		} else if (
+			readonly &&
+			vmcp &&
+			componentId &&
+			configuration?.some((policy) => policy.policy === 'fixed' && !policy.secretBinding)
+		) {
+			try {
+				({ configuredFields } = await UserService.getVMCPComponentConfigurationPresence(
+					vmcp.id,
+					componentId
+				));
+			} catch {
+				// The service reports the error. The stored policies are still available to inspect.
+			}
 		}
 
-		configurationDialog?.open(flow.configuringEntry, {
+		if (flow.dialog !== 'configure' || flow.configuringEntry !== entry) return;
+		configurationDialog?.open(entry, {
 			configuration,
-			configuredFixedFields:
-				vmcp && component ? vmcpComponentStatus(vmcp, component)?.configuredFixedFields : undefined,
-			isShared: Boolean(flow.modifyingVMcp && !flow.modifyingVMcp.userID),
-			forceSingleUser: flow.configuringComponent?.forceSingleUser,
+			configuredFixedFields: configuredFields,
+			isShared: Boolean(vmcp && !vmcp.userID),
+			forceSingleUser: component?.forceSingleUser,
 			submitLabel: flow.postCreateConfiguration ? m.core_next() : m.core_save(),
 			errorMessage: m.vmcps_failed_to_update_configuration(),
 			hideCancel: flow.postCreateConfiguration

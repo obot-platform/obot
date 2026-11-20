@@ -201,9 +201,6 @@ type VMCPComponentStatus struct {
 	Error         string `json:"error,omitempty"`
 	SourceMissing bool   `json:"sourceMissing,omitempty"`
 	NeedsUpdate   bool   `json:"needsUpdate,omitempty"`
-	// ConfiguredFixedFields lists keys with stored fixed values.
-	// +listType=set
-	ConfiguredFixedFields []string `json:"configuredFixedFields,omitempty"`
 	// ConnectionSnapshot is an outdated snapshot that migrated connections retain when the
 	// component itself is current. Updating the vMCP releases it.
 	ConnectionSnapshot *MCPServerCatalogEntrySnapshot `json:"connectionSnapshot,omitempty"`
@@ -237,6 +234,12 @@ type VMCPInstance struct {
 // VMCPConfiguration groups configuration values by VMCP component ID.
 type VMCPConfiguration struct {
 	Components map[string]map[string]string `json:"components"`
+}
+
+// VMCPConfigurationPresence lists fields with stored fixed values for one component.
+type VMCPConfigurationPresence struct {
+	// +listType=set
+	ConfiguredFields []string `json:"configuredFields"`
 }
 
 type VMCPInstanceManifest struct {

@@ -224,6 +224,24 @@ func TestAdminReadonlyGroups(t *testing.T) {
 	}
 }
 
+func TestVMCPConfigurationPresenceRequiresAdminRead(t *testing.T) {
+	// Even members who can use this shared vMCP cannot inspect its stored configuration.
+	vmcp := &v1.VMCP{
+		ObjectMeta: objectMetaForAuthzTest("vmcp-shared"),
+		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{
+			{Name: "members", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "member"}}},
+		}}},
+	}
+	authorizer := newVMCPTestAuthorizer(vmcp)
+	for _, role := range []types.Role{types.RoleBasic, types.RoleBasic | types.RoleAdminReadonly, types.RoleBasic | types.RoleAuditor, types.RoleAdmin, types.RoleOwner} {
+		req := httptest.NewRequest(http.MethodGet, "/api/vmcps/vmcp-shared/components/component/configuration-presence", nil)
+		caller := &user.DefaultInfo{UID: "member", Groups: role.Groups()}
+		if got, want := authorizer.Authorize(req, caller), role != types.RoleBasic; got != want {
+			t.Errorf("configuration presence access for role %v = %v, want %v", role, got, want)
+		}
+	}
+}
+
 // TestAdminReadonlyConnectionReadsFollowUserAccess checks that GETs which resolve a connection are not granted to the
 // admin read-only group: they fall back to the access the user has as a user.
 func TestAdminReadonlyConnectionReadsFollowUserAccess(t *testing.T) {

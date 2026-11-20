@@ -2322,21 +2322,40 @@ describe('VMcpDesigner.svelte', () => {
 							static: true,
 							value: '',
 							usage: 'env'
+						},
+						{
+							key: 'REGION',
+							name: 'Region',
+							description: 'Deployment region',
+							required: true,
+							sensitive: false,
+							value: '',
+							usage: 'env'
 						}
 					]
 				}
 			};
 			const vmcp = {
 				...orgVMcp(),
-				status: {
-					components: [{ name: 'GitHub', configuredFixedFields: ['API_TOKEN'] }]
-				},
 				components: [
 					createVMCPComponent(entry, {
-						configuration: [{ key: 'API_TOKEN', policy: 'fixed' }]
+						configuration: [
+							{ key: 'API_TOKEN', policy: 'fixed' },
+							{ key: 'REGION', policy: 'fixed' }
+						]
 					})
 				]
 			} satisfies VMCP;
+			const presence = vi.fn();
+			worker.use(
+				http.get(
+					`/api/vmcps/${vmcp.id}/components/${vmcp.components[0].id}/configuration-presence`,
+					() => {
+						presence();
+						return HttpResponse.json({ configuredFields: ['API_TOKEN', 'REGION'] });
+					}
+				)
+			);
 			const reveal = vi.spyOn(UserService, 'revealVMCP');
 			await renderDesigner([entry], vmcp, { groups: [Group.USER, Group.ADMIN_READONLY] });
 
@@ -2357,13 +2376,15 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(policy).toHaveValue('fixed');
 			expect(
 				configuration.getByText('Configured (hidden)', { exact: true }).elements()
-			).toHaveLength(2);
+			).toHaveLength(3);
+			await expect.element(configuration.getByCSS('#fixed-REGION')).not.toBeInTheDocument();
 			await expect
 				.element(configuration.getByRole('button', { name: 'Reveal' }))
 				.not.toBeInTheDocument();
 			await expect
 				.element(configuration.getByRole('button', { name: 'Save' }))
 				.not.toBeInTheDocument();
+			expect(presence).toHaveBeenCalledOnce();
 			expect(reveal).not.toHaveBeenCalled();
 		});
 
