@@ -2569,7 +2569,7 @@ describe('VMcpDesigner.svelte', () => {
 			(appPage.url as URL).searchParams.set('view', 'profiles');
 			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.ADMIN_READONLY] });
 
-			await expectViewTabs(['Designer', 'Profiles']);
+			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
 			await expect
 				.element(page.getByRole('button', { name: 'Create profile', exact: true }))
 				.not.toBeInTheDocument();
@@ -2811,6 +2811,39 @@ describe('VMcpDesigner.svelte', () => {
 			await expectViewTabs(['Designer', 'Inspector']);
 			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
 		});
+
+		it.each([
+			{ subjectId: getProfileResponse.id, canConnect: true },
+			{ subjectId: 'another-user', canConnect: false }
+		])(
+			'requires a profile grant for a Read-Only Admin to use the shared vMCP Inspector ($canConnect)',
+			async ({ subjectId, canConnect }) => {
+				const vmcp = orgVMcp();
+				vmcp.profiles = [
+					{
+						name: 'Engineering',
+						subjects: [{ type: 'user', id: subjectId }],
+						vmcpPermissions: { allowAllComponents: true }
+					}
+				];
+				(appPage.url as URL).searchParams.set('view', 'inspector');
+				await renderDesigner([componentEntry], vmcp, {
+					groups: [Group.USER, Group.ADMIN_READONLY]
+				});
+
+				const startSession = page.getByRole('button', { name: 'Start Session' });
+				const graph = page.getByCSS('[data-vmcp-canvas]');
+				if (canConnect) {
+					await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
+					await expect.element(startSession).toBeVisible();
+					await expect.element(graph).not.toBeInTheDocument();
+				} else {
+					await expectViewTabs(['Designer', 'Profiles']);
+					await expect.element(startSession).not.toBeInTheDocument();
+					await expect.element(graph).toBeInTheDocument();
+				}
+			}
+		);
 
 		it('stays on the graph when a viewer asks for inspector', async () => {
 			(appPage.url as URL).searchParams.set('view', 'inspector');
