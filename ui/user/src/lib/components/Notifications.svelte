@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { navigating } from '$app/state';
 	import { notificationPopover } from '$lib/actions/notificationPopover';
 	import { m } from '$lib/i18n';
 	import { notifications, profile } from '$lib/stores';
@@ -8,13 +7,6 @@
 	import { fade } from 'svelte/transition';
 
 	let copied = $state<Record<number, boolean>>({});
-
-	$effect(() => {
-		if (navigating) {
-			notifications.items = [];
-			copied = {};
-		}
-	});
 </script>
 
 <div

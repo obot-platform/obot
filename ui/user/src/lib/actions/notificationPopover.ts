@@ -2,16 +2,16 @@ import type { Action } from 'svelte/action';
 
 /**
  * Modal dialogs stay above popovers, so a visible toast is moved into the topmost
- * modal. Listening starts only while a toast is visible: a `toggle` listener for
- * dialog open/close, plus direct-child observers on that dialog's ancestors in
- * case the dialog is removed. Nothing is observed while the stack is empty.
+ * modal. Listening starts only while a toast is visible: an observer for the dialog
+ * `open` attribute, plus direct-child observers on that dialog's ancestors in case
+ * the dialog is removed.
  */
 const hosts: HTMLElement[] = [];
 const openHosts = new Set<HTMLElement>();
 const homes = new WeakMap<HTMLElement, ParentNode>();
 const modalStack: HTMLDialogElement[] = [];
 const dialogParentObservers = new Map<HTMLDialogElement, MutationObserver>();
-let stopToggle: (() => void) | undefined;
+let stopOpenWatch: (() => void) | undefined;
 
 function topModal() {
 	for (let i = modalStack.length - 1; i >= 0; i--) {
@@ -101,18 +101,26 @@ function startListening() {
 	for (const dialog of document.querySelectorAll('dialog[open]')) {
 		if (dialog instanceof HTMLDialogElement) noteDialog(dialog);
 	}
-	const onToggle = (event: Event) => {
-		if (!(event.target instanceof HTMLDialogElement)) return;
-		noteDialog(event.target);
-		place();
-	};
-	document.addEventListener('toggle', onToggle, true);
-	stopToggle = () => document.removeEventListener('toggle', onToggle, true);
+	const observer = new MutationObserver((mutations) => {
+		let changed = false;
+		for (const mutation of mutations) {
+			if (!(mutation.target instanceof HTMLDialogElement)) continue;
+			noteDialog(mutation.target);
+			changed = true;
+		}
+		if (changed) place();
+	});
+	observer.observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ['open'],
+		subtree: true
+	});
+	stopOpenWatch = () => observer.disconnect();
 }
 
 function stopListening() {
-	stopToggle?.();
-	stopToggle = undefined;
+	stopOpenWatch?.();
+	stopOpenWatch = undefined;
 	for (const observer of dialogParentObservers.values()) observer.disconnect();
 	dialogParentObservers.clear();
 	modalStack.length = 0;
@@ -120,10 +128,10 @@ function stopListening() {
 
 function syncListening() {
 	if (openHosts.size > 0) {
-		if (!stopToggle) startListening();
+		if (!stopOpenWatch) startListening();
 		return;
 	}
-	if (stopToggle || dialogParentObservers.size > 0) stopListening();
+	if (stopOpenWatch || dialogParentObservers.size > 0) stopListening();
 }
 
 function setOpen(node: HTMLElement, open: boolean) {
