@@ -177,7 +177,7 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 
 func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map[string]map[string]string, models []v1.Model, allowPrivateNetwork bool) (llmcoreclient.Provider, error) {
 	cfg := llmcoreclient.Config{
-		Providers:     map[schemas.ModelProvider]schemas.ProviderConfig{},
+		Providers:     map[schemas.ModelProvider]llmcoreclient.ProviderConfig{},
 		Keys:          map[schemas.ModelProvider][]schemas.Key{},
 		AzureAccounts: map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{},
 	}
@@ -272,7 +272,8 @@ func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map
 		}
 	}
 	name := schemas.ModelProvider(family)
-	provider := llmcoreclient.Provider{Config: cfg.Providers[name], Keys: cfg.Keys[name], AzureAccounts: cfg.AzureAccounts[name]}
+	provider := llmcoreclient.Provider{Keys: cfg.Keys[name], AzureAccounts: cfg.AzureAccounts[name]}
+	provider.SetConfig(cfg.Providers[name], true)
 	return provider, nil
 }
 

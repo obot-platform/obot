@@ -58,7 +58,7 @@ func TestAzureDiscoveryEffectiveProxy(t *testing.T) {
 
 			key := azureTestKey("key")
 			account := azureTestProvider(key).AzureAccounts[key.ID]
-			proxy := llmcore.ProviderProxy(schemas.ProviderConfig{ProxyConfig: tc.provider}, json.RawMessage(tc.global))
+			proxy := llmcore.ProviderProxy(schemas.Azure, schemas.ProviderConfig{ProxyConfig: tc.provider}, json.RawMessage(tc.global))
 			discovery := azureDiscovery{}
 			entry, err := discovery.keyClient(schemas.Azure, key, account, proxy)
 			require.NoError(t, err)

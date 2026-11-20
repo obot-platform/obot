@@ -35,10 +35,31 @@ type AzureDiscoverySnapshot struct {
 
 // Provider is one atomic configuration aggregate: provider settings and its keys.
 type Provider struct {
-	AzureAccounts    map[string]AzureAccount           `json:",omitempty"`
-	AzureDiscoveries map[string]AzureDiscoverySnapshot `json:",omitempty"`
-	Config           schemas.ProviderConfig
-	Keys             []schemas.Key
+	// Nil identifies unmigrated aggregates; false also records an explicit revocation
+	// that a delayed migration on another replica must preserve.
+	SubscriptionPassthrough *bool                             `json:"subscription_passthrough,omitempty"`
+	AzureAccounts           map[string]AzureAccount           `json:",omitempty"`
+	AzureDiscoveries        map[string]AzureDiscoverySnapshot `json:",omitempty"`
+	Config                  schemas.ProviderConfig
+	Keys                    []schemas.Key
+}
+
+// RuntimeConfig returns the effective provider settings used by the engine.
+func (p Provider) RuntimeConfig() ProviderConfig {
+	return ProviderConfig{
+		ProviderConfig:          p.Config,
+		SubscriptionPassthrough: p.SubscriptionPassthrough != nil && *p.SubscriptionPassthrough,
+	}
+}
+
+// SetConfig preserves unmigrated metadata on unrelated edits; an explicit
+// subscription edit records its value so a delayed migration cannot overwrite it.
+// New aggregates pass subscriptionChanged=true to record their initial value.
+func (p *Provider) SetConfig(config ProviderConfig, subscriptionChanged bool) {
+	p.Config = config.ProviderConfig
+	if p.SubscriptionPassthrough != nil || subscriptionChanged {
+		p.SubscriptionPassthrough = new(config.SubscriptionPassthrough)
+	}
 }
 
 func (a AzureAccount) ResourceID() string {
@@ -95,6 +116,9 @@ func (s *Client) CreateProvider(ctx context.Context, name string, provider Provi
 	}
 	if err := validateKeys(provider.Keys); err != nil {
 		return err
+	}
+	if provider.SubscriptionPassthrough == nil {
+		provider.SubscriptionPassthrough = new(false)
 	}
 	payload, err := s.encode(ctx, providerConfigID(name), provider)
 	if err != nil {

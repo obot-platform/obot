@@ -193,7 +193,7 @@ func TestRoutingValidationAcceptsBooleanExpressions(t *testing.T) {
 
 func TestRuleLegacyFallbackAfterUnregister(t *testing.T) {
 	a := &account{}
-	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{"local-rule": {}}})
+	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{"local-rule": {}}})
 	logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 	store, err := rules.NewLocalStore(t.Context(), logger, nil)
 	require.NoError(t, err)
@@ -212,7 +212,7 @@ func TestRuleLegacyFallbackAfterUnregister(t *testing.T) {
 
 func TestRuleFallbackParsingSnapshotAndNamespaces(t *testing.T) {
 	a := &account{}
-	configured := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{"local-rule": {}}}
+	configured := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{"local-rule": {}}}
 	a.config.Store(configured)
 	logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 	store, err := rules.NewLocalStore(t.Context(), logger, nil)

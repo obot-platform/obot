@@ -103,7 +103,7 @@ type trackerDialectBackend interface {
 // modelResolvingBackend is implemented by backends with an additional way to resolve a
 // model reference that the standard lookup did not find. A nil model means no match.
 type modelResolvingBackend interface {
-	resolveModel(l *llmProviderProxy, user kuser.Info, reference string) (*v1.Model, error)
+	resolveModel(l *llmProviderProxy, req api.Context, reference string) (*v1.Model, error)
 }
 
 // extraModelAuthorizingBackend is implemented by backends whose requests can name models
@@ -290,23 +290,30 @@ func servedModelChange(header http.Header, requested string, resolve func(string
 // {"data": [{"id": ...}, ...]} envelope, so the same filtering applies to both
 // passthroughs. Surviving entries are kept as their exact upstream bytes — no
 // map[string]any round-trip that would reorder object keys or reformat numbers.
-// The body is copied up front and restored, so any failure (or an unrecognized
-// payload) just forwards the original response untouched.
+// Ordinary API lists retain unrecognized payloads. Restricted Codex catalogs
+// must be filterable so an unexpected upstream shape cannot expose ungranted models.
 func filterModelListResponse(resp *http.Response, allowedTargetModels map[string]bool, allowAllModels bool) error {
 	if resp.StatusCode != http.StatusOK || allowAllModels {
 		return nil
 	}
 
-	// copyBody restores resp.Body, so every early return below forwards the
-	// original response unchanged; we only swap in the filtered body once it's
-	// fully built.
+	// Keep the original body intact until filtering succeeds.
 	body, err := copyBody(&resp.Body)
 	if err != nil {
 		return err
 	}
 
-	// Only rewrite a recognized {"data": [...]} list envelope.
-	data := gjson.GetBytes(body, "data")
+	// Codex catalog entries use models/slug; ordinary API lists use data/id.
+	list, id, prefix := "data", "id", ""
+	codex := resp.Request != nil && llmtypes.IsChatGPTSubscription(resp.Request.Header)
+	if codex {
+		// Native slugs belong only to OpenAI; a same-named foreign grant is insufficient.
+		list, id, prefix = "models", "slug", "openai/"
+	}
+	data := gjson.GetBytes(body, list)
+	if codex && (!gjson.ValidBytes(body) || !data.IsArray()) {
+		return errors.New("invalid Codex model catalog: expected a models array")
+	}
 	if !data.IsArray() {
 		return nil
 	}
@@ -314,19 +321,25 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 	// Keep each allowed entry exactly as the provider encoded it (its raw bytes).
 	var kept []string
 	data.ForEach(func(_, entry gjson.Result) bool {
-		if allowedTargetModels[entry.Get("id").String()] {
+		if allowedTargetModels[prefix+entry.Get(id).String()] {
 			kept = append(kept, entry.Raw)
 		}
 		return true
 	})
 
-	out, err := sjson.SetRawBytes(body, "data", []byte("["+strings.Join(kept, ",")+"]"))
+	out, err := sjson.SetRawBytes(body, list, []byte("["+strings.Join(kept, ",")+"]"))
 	if err != nil {
+		// Restricted Codex catalogs must never fall back to an unfiltered body.
+		if codex {
+			return err
+		}
 		return nil
 	}
-	out, err = rewriteAnthropicListCursors(out)
-	if err != nil {
-		return nil
+	if !codex {
+		out, err = rewriteAnthropicListCursors(out)
+		if err != nil {
+			return nil
+		}
 	}
 
 	resp.Body = io.NopCloser(bytes.NewReader(out))
@@ -499,7 +512,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		} else {
 			model, err = l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
 			if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
-				if fallback, fallbackErr := resolver.resolveModel(l, req.User, targetModel); fallbackErr == nil && fallback != nil {
+				if fallback, fallbackErr := resolver.resolveModel(l, req, targetModel); fallbackErr == nil && fallback != nil {
 					model, err = fallback, nil
 				}
 			}

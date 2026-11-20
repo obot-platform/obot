@@ -21,26 +21,26 @@ type LLMAuditLog struct {
 	// ServedProvider and ServedModel are the provider and model that served the request, which
 	// routing rules and fallbacks can make differ from TargetModel. ProviderKey names the
 	// gateway key it was served with, and Fallback is true when a fallback served it.
-	// ClaudeSubscription is true when the caller's Claude subscription paid for it instead,
+	// Subscription is true when the caller's subscription paid for it instead,
 	// with no gateway key.
-	ServedProvider     string          `json:"servedProvider,omitempty"`
-	ServedModel        string          `json:"servedModel,omitempty"`
-	ProviderKey        string          `json:"providerKey,omitempty"`
-	Fallback           bool            `json:"fallback,omitempty"`
-	ClaudeSubscription bool            `json:"claudeSubscription,omitempty"`
-	ReasoningEffort    string          `json:"reasoningEffort"`
-	RequestPath        string          `json:"requestPath"`
-	RequestMethod      string          `json:"requestMethod"`
-	RequestHeaders     json.RawMessage `json:"requestHeaders,omitempty"`
-	RequestBody        json.RawMessage `json:"requestBody,omitempty"`
-	ResponseHeaders    json.RawMessage `json:"responseHeaders,omitempty"`
-	ResponseBody       json.RawMessage `json:"responseBody,omitempty"`
-	ResponseID         string          `json:"responseID"`
-	ResponseStatus     int             `json:"responseStatus"`
-	Outcome            string          `json:"outcome"`
-	Error              string          `json:"error,omitempty"`
-	InputTokens        int             `json:"inputTokens"`
-	OutputTokens       int             `json:"outputTokens"`
+	ServedProvider  string          `json:"servedProvider,omitempty"`
+	ServedModel     string          `json:"servedModel,omitempty"`
+	ProviderKey     string          `json:"providerKey,omitempty"`
+	Fallback        bool            `json:"fallback,omitempty"`
+	Subscription    bool            `json:"subscription,omitempty"`
+	ReasoningEffort string          `json:"reasoningEffort"`
+	RequestPath     string          `json:"requestPath"`
+	RequestMethod   string          `json:"requestMethod"`
+	RequestHeaders  json.RawMessage `json:"requestHeaders,omitempty"`
+	RequestBody     json.RawMessage `json:"requestBody,omitempty"`
+	ResponseHeaders json.RawMessage `json:"responseHeaders,omitempty"`
+	ResponseBody    json.RawMessage `json:"responseBody,omitempty"`
+	ResponseID      string          `json:"responseID"`
+	ResponseStatus  int             `json:"responseStatus"`
+	Outcome         string          `json:"outcome"`
+	Error           string          `json:"error,omitempty"`
+	InputTokens     int             `json:"inputTokens"`
+	OutputTokens    int             `json:"outputTokens"`
 	// CacheReadTokens and CacheWriteTokens are the input tokens read from and written to the
 	// provider's prompt cache, and ReasoningTokens the output tokens spent reasoning; each is
 	// part of InputTokens or OutputTokens.

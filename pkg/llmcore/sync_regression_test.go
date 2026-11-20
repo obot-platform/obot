@@ -69,6 +69,29 @@ func TestPartialSyncDoesNotRestartUpdatedProviders(t *testing.T) {
 	require.Equal(t, 1, log.count("openai"))
 }
 
+func TestSubscriptionSettingSyncDoesNotRestartProvider(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{}))
+	log := &providerUpdateLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn), attempts: map[string]int{}}
+	e, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: log})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
+
+	for _, allowed := range []bool{true, false} {
+		require.NoError(t, store.MutateProvider(t.Context(), "openai", func(provider *llmcoreclient.Provider) error {
+			provider.SubscriptionPassthrough = new(allowed)
+			return nil
+		}))
+		changed, err := e.Sync(t.Context())
+		require.NoError(t, err)
+		require.True(t, changed)
+		require.Zero(t, log.count("openai"), "the subscription flag is not Bifrost runtime configuration")
+		changed, err = e.Sync(t.Context())
+		require.NoError(t, err)
+		require.False(t, changed, "the applied snapshot must include the new flag")
+	}
+}
+
 func (plaintextCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
 	return data, nil
 }

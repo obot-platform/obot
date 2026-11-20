@@ -90,14 +90,14 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 		// Retry edits against the latest aggregate. A concurrent creator wins intact;
 		// reload it and upsert only the named environment key rather than replacing it.
 		update := func(provider *llmcoreclient.Provider) error {
-			cfg := llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{schemas.ModelProvider(p.provider): provider.Config}, Keys: map[schemas.ModelProvider][]schemas.Key{schemas.ModelProvider(p.provider): provider.Keys}}
+			cfg := llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{schemas.ModelProvider(p.provider): provider.RuntimeConfig()}, Keys: map[schemas.ModelProvider][]schemas.Key{schemas.ModelProvider(p.provider): provider.Keys}}
 			id, method := "", http.MethodPost
 			if i := slices.IndexFunc(provider.Keys, func(k schemas.Key) bool { return k.Name == keyName }); i >= 0 {
 				id = provider.Keys[i].ID
 				method = http.MethodPut
 			}
 			body, _ := json.Marshal(key)
-			if _, err := updateKey(&cfg, schemas.ModelProvider(p.provider), provider.Config, id, method, body); err != nil {
+			if _, err := updateKey(&cfg, schemas.ModelProvider(p.provider), cfg.Providers[schemas.ModelProvider(p.provider)], id, method, body); err != nil {
 				return err
 			}
 			provider.Keys = cfg.Keys[schemas.ModelProvider(p.provider)]

@@ -23,15 +23,16 @@ export async function getStatus(opts?: Opts): Promise<GatewayStatus> {
 	return (await doGet('/llm-gateway/status', opts)) as GatewayStatus;
 }
 
-// Settings Obot enforces itself, rather than the engine's configuration.
-export type LLMGatewaySettings = { subscriptionPassthrough: boolean };
+// Read-only subscription availability for connection setup.
+export type SubscriptionPassthroughSettings = {
+	subscriptionPassthrough: boolean;
+	chatgptSubscriptionPassthrough?: boolean;
+};
 
-export async function getSettings(opts?: Opts): Promise<LLMGatewaySettings> {
-	return (await doGet('/llm-gateway/settings', opts)) as LLMGatewaySettings;
-}
-
-export async function updateSettings(settings: LLMGatewaySettings): Promise<LLMGatewaySettings> {
-	return (await doPut('/llm-gateway/settings', settings)) as LLMGatewaySettings;
+export async function getSubscriptionPassthroughSettings(
+	opts?: Opts
+): Promise<SubscriptionPassthroughSettings> {
+	return (await doGet('/llm-gateway/settings', opts)) as SubscriptionPassthroughSettings;
 }
 
 export async function syncModels(opts?: Opts): Promise<void> {
@@ -170,6 +171,7 @@ export interface CustomProviderConfig {
 }
 
 export interface Provider {
+	subscription_passthrough?: boolean;
 	name: string;
 	network_config: NetworkConfig;
 	concurrency_and_buffer_size: ConcurrencyAndBufferSize;

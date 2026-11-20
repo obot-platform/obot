@@ -18,7 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
@@ -90,7 +89,7 @@ func newAdminTestServer(t *testing.T, handler *LLMGatewayHandler, storage kclien
 func callAdminRequest(t *testing.T, handler *LLMGatewayHandler, storage kclient.WithWatch, request *http.Request) (*httptest.ResponseRecorder, error) {
 	t.Helper()
 	response := httptest.NewRecorder()
-	newAdminTestServer(t, handler, storage, nil).ServeHTTP(response, request)
+	newAdminTestServer(t, handler, storage, newHandlerTestGateway(t)).ServeHTTP(response, request)
 	if response.Code >= http.StatusBadRequest {
 		return response, types.NewErrHTTP(response.Code, response.Body.String())
 	}
@@ -393,10 +392,13 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 	storage := newFakeStorage(t, llmengine.ModelProviderResource())
 	h, store := newAdminTestHandler(t, storage)
 	gateway := newHandlerTestGateway(t)
-	require.NoError(t, gateway.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{SubscriptionPassthrough: true}))
-	for _, provider := range []string{"azure", "anthropic"} {
+	for _, provider := range []string{"azure", "anthropic", "openai"} {
 		_, err := h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"`+provider+`"}`))
 		require.NoError(t, err)
+		if provider != "azure" {
+			_, err = h.engine.UpdateProvider(t.Context(), provider, json.RawMessage(`{"subscription_passthrough":true}`), false)
+			require.NoError(t, err)
+		}
 	}
 	mux := newAdminTestServer(t, h, storage, gateway)
 	before, err := store.Load(t.Context())
@@ -424,7 +426,12 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 		{
 			method: http.MethodPut,
 			path:   "providers/anthropic",
-			body:   `{"proxy_config":{"skip_tls_verify":true}}`,
+			body:   `{"network_config":{"insecure_skip_verify":true}}`,
+		},
+		{
+			method: http.MethodPut,
+			path:   "providers/openai",
+			body:   `{"network_config":{"insecure_skip_verify":true}}`,
 		},
 		{
 			method: http.MethodPut,
@@ -447,15 +454,24 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 		})
 	}
 
-	// Subscription settings must follow a committed provider deletion even after disconnect.
+	// Provider deletion revokes only its own subscription setting, even after disconnect.
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	response := httptest.NewRecorder()
 	mux.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, gatewayAdminPrefix+"providers/anthropic", nil).WithContext(ctx))
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	settings, err := gateway.GetLLMGatewaySettings(t.Context())
+	claude, err := h.engine.SubscriptionPassthrough(t.Context(), "anthropic")
 	require.NoError(t, err)
-	require.False(t, settings.SubscriptionPassthrough)
+	require.False(t, claude)
+	chatgpt, err := h.engine.SubscriptionPassthrough(t.Context(), "openai")
+	require.NoError(t, err)
+	require.True(t, chatgpt)
+	response = httptest.NewRecorder()
+	mux.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, gatewayAdminPrefix+"providers/openai", nil))
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	chatgpt, err = h.engine.SubscriptionPassthrough(t.Context(), "openai")
+	require.NoError(t, err)
+	require.False(t, chatgpt)
 	_, err = store.GetProvider(t.Context(), "anthropic")
 	require.True(t, apierrors.IsNotFound(err))
 }
@@ -523,4 +539,70 @@ func TestGatewayAdminAzureRefreshReturnsPending(t *testing.T) {
 	after, err := store.Load(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, before.Config, after.Config, "the caller queues work without fetching or publishing discovery")
+}
+
+func TestGatewaySettingsWhileEngineUnavailable(t *testing.T) {
+	for _, failed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("failed=%t", failed), func(t *testing.T) {
+			storage := newFakeStorage(t)
+			h := &LLMGatewayHandler{engine: llmengine.New()}
+			if failed {
+				h.engine.Fail(errors.New("startup failed"))
+			}
+			mux := newAdminTestServer(t, h, storage, newHandlerTestGateway(t))
+			mux.HandleFunc("GET /api/llm-gateway/settings", h.GetSubscriptionPassthroughSettings)
+			response := httptest.NewRecorder()
+			mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/llm-gateway/settings", nil))
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.JSONEq(t, `{"subscriptionPassthrough":false,"chatgptSubscriptionPassthrough":false}`, response.Body.String())
+			_, err := h.engine.SubscriptionPassthrough(t.Context(), "anthropic")
+			require.True(t, apierrors.IsServiceUnavailable(err), "inference admission must remain unavailable")
+		})
+	}
+}
+
+func TestGatewaySettingsDerivedFromProviders(t *testing.T) {
+	storage := newFakeStorage(t)
+	h, store := newAdminTestHandler(t, storage)
+	gateway := newHandlerTestGateway(t)
+	// A retained legacy property cannot enable an absent or disabled provider.
+	_, err := gateway.SetProperty(t.Context(), "llm-gateway-settings", `{"subscriptionPassthrough":true}`)
+	require.NoError(t, err)
+	mux := newAdminTestServer(t, h, storage, gateway)
+	mux.HandleFunc("GET /api/llm-gateway/settings", h.GetSubscriptionPassthroughSettings)
+	read := func(want string) {
+		t.Helper()
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/llm-gateway/settings", nil))
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		require.JSONEq(t, want, response.Body.String(), "the summary contains no admin configuration")
+	}
+	read(`{"subscriptionPassthrough":false,"chatgptSubscriptionPassthrough":false}`)
+	_, err = h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"anthropic","subscription_passthrough":true}`))
+	require.NoError(t, err)
+	_, err = h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"openai"}`))
+	require.NoError(t, err)
+	read(`{"subscriptionPassthrough":true,"chatgptSubscriptionPassthrough":false}`)
+	_, err = h.engine.UpdateProvider(t.Context(), "openai", json.RawMessage(`{"subscription_passthrough":true}`), false)
+	require.NoError(t, err)
+	read(`{"subscriptionPassthrough":true,"chatgptSubscriptionPassthrough":true}`)
+	require.NoError(t, store.DeleteProvider(t.Context(), "anthropic"))
+	read(`{"subscriptionPassthrough":false,"chatgptSubscriptionPassthrough":true}`)
+	_, err = h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"anthropic"}`))
+	require.NoError(t, err)
+	read(`{"subscriptionPassthrough":false,"chatgptSubscriptionPassthrough":true}`)
+
+	// Quarantined provider metadata must not appear enabled in connection setup.
+	var rows v1.LLMGatewayProviderList
+	require.NoError(t, storage.List(t.Context(), &rows))
+	for i := range rows.Items {
+		if rows.Items[i].Spec.ID == "openai" {
+			rows.Items[i].Spec.Payload = "unreadable"
+			require.NoError(t, storage.Update(t.Context(), &rows.Items[i]))
+		}
+	}
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/llm-gateway/settings", nil))
+	require.GreaterOrEqual(t, response.Code, http.StatusInternalServerError)
+	require.NotContains(t, response.Body.String(), `"chatgptSubscriptionPassthrough":true`)
 }
