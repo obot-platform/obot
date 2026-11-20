@@ -783,7 +783,7 @@
 		>
 			<button
 				type="button"
-				class="btn btn-ghost text-sm"
+				class="btn btn-secondary text-sm"
 				disabled={saving}
 				onclick={() => goto(PROFILES_URL)}
 			>

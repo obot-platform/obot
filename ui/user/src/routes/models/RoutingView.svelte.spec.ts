@@ -161,6 +161,7 @@ describe('Models routing tab', () => {
 			],
 			fallbacks: [{ provider: 'anthropic', model: 'claude-haiku-4-5' }]
 		});
+		await vi.waitFor(() => expect(appPage.url.pathname).toBe('/models/routing/new'));
 	});
 
 	it('does not allow saving when target weights do not add up to 1', async () => {
@@ -223,6 +224,7 @@ describe('Models routing tab', () => {
 			{ provider: 'openai', model: 'gpt-4o', weight: 0.5, ttft_timeout_ms: 2500 },
 			{ provider: 'openai', model: null, weight: 0.5 }
 		]);
+		await vi.waitFor(() => expect(appPage.url.pathname).toBe('/models/routing/new'));
 	});
 
 	it('does not allow saving a time to first token timeout above the gateway limit', async () => {

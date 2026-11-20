@@ -159,7 +159,6 @@ describe('ConfigureProviderDialog', () => {
 		await renderProviderPage();
 
 		await page.getByRole('button', { name: 'Edit key' }).click();
-		await expect.element(page.getByRole('dialog', { name: 'OpenAI', exact: true })).toBeVisible();
 		const dialog = page.getByRole('dialog', { name: 'Edit Key' });
 		await expect.element(dialog.getByLabelText('Name')).toHaveValue('openai-key-1');
 		await dialog.getByLabelText('Blocked models').fill('o1-pro');
@@ -176,6 +175,22 @@ describe('ConfigureProviderDialog', () => {
 			// The redacted value the API returned is sent back unchanged.
 			value: { value: 'sk-***' }
 		});
+		await expect.element(page.getByRole('dialog', { name: 'OpenAI', exact: true })).toBeVisible();
+	});
+
+	it('returns to the provider after cancelling Edit Key', async () => {
+		mockProvider();
+		const { onClosed } = await renderProviderPage();
+
+		await page.getByRole('button', { name: 'Edit key' }).click();
+		await page
+			.getByRole('dialog', { name: 'Edit Key' })
+			.getByRole('button', { name: 'Cancel' })
+			.click();
+
+		await expect.element(page.getByRole('dialog', { name: 'OpenAI', exact: true })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		expect(onClosed).not.toHaveBeenCalled();
 	});
 
 	it('disables a key from its row toggle', async () => {

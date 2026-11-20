@@ -152,6 +152,7 @@
 	"models_providers_optional": "선택 사항",
 	"models_providers_key_weight": "부하 분산 가중치",
 	"models_providers_key_weight_help": "트래픽은 가중치에 따라 공급자의 키 간에 분산됩니다.",
+	"models_providers_key_enable": "키 사용",
 	"models_providers_desc_openai": "GPT, o 시리즈, 임베딩, 이미지 및 오디오 모델.",
 	"models_providers_desc_anthropic": "Claude 모델.",
 	"models_providers_desc_gemini": "Google AI Studio API를 통한 Gemini 모델.",
