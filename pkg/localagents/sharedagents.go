@@ -29,7 +29,7 @@ func (a SharedAgents) DisplayName() string {
 	return sharedAgentsDisplayName
 }
 
-func (a SharedAgents) InstallBootstrap(ctx context.Context, home string) (InstallResult, error) {
+func (a SharedAgents) InstallBootstrap(ctx context.Context, home string, admin bool) (InstallResult, error) {
 	if err := ctx.Err(); err != nil {
 		return InstallResult{}, err
 	}
@@ -38,7 +38,9 @@ func (a SharedAgents) InstallBootstrap(ctx context.Context, home string) (Instal
 		return InstallResult{}, err
 	}
 
-	rendered, err := assets.RenderAgentSkills(assets.SharedAgentsTemplateData())
+	data := assets.SharedAgentsTemplateData()
+	data.Admin = admin
+	rendered, err := assets.RenderAgentSkills(data)
 	if err != nil {
 		return InstallResult{}, err
 	}

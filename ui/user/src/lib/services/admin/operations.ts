@@ -41,6 +41,7 @@ import type {
 	ModelAccessPolicy,
 	ModelAccessPolicyManifest,
 	RegistrySettings,
+	ToolListRequest,
 	ModelProxySettings,
 	ModelProxySettingsUpdateManifest,
 	ModelProxyUsage,
@@ -1214,6 +1215,27 @@ export async function generateMcpCompositeComponentToolPreviews(
 		dontLogErrors: true
 	});
 	return resp as MCPCatalogEntry;
+}
+
+// Tool list requests
+
+export async function getToolListRequest(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ToolListRequest> {
+	return (await doGet(`/tool-list-requests/${id}`, opts)) as ToolListRequest;
+}
+
+export async function completeToolListRequest(
+	id: string,
+	tools: ToolListRequest['tools'],
+	error?: string
+): Promise<void> {
+	await doPost(`/tool-list-requests/${id}/complete`, { tools: tools ?? [], error });
+}
+
+export async function cancelToolListRequest(id: string): Promise<void> {
+	await doPost(`/tool-list-requests/${id}/cancel`, {});
 }
 
 export async function getMcpCatalogToolPreviewsOauth(

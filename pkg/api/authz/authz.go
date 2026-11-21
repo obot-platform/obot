@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,6 +39,9 @@ var (
 
 	adminAndOwnerRules = []string{
 		"/api/registry-settings",
+		// Tool list requests are answered from the entry's Tools tab; the handler refuses API keys.
+		"POST /api/tool-list-requests/{request_id}/complete",
+		"POST /api/tool-list-requests/{request_id}/cancel",
 		"/api/claude-organizations/",
 		"/api/claude-environments",
 		"/api/claude-environments/",
@@ -298,6 +302,8 @@ var (
 			"POST /oauth/token",
 			"GET  /oauth/jwks.json",
 			"GET  /oauth/client-metadata.json",
+			// The catalog file schema, so editors and CI can fetch it without credentials.
+			"GET " + system.CatalogItemSchemaPath,
 			// Pending UI login state is a short-lived, opaque capability.
 			"GET  /oauth/mcp/login/{state}",
 
@@ -389,6 +395,10 @@ var (
 		types.GroupAuthenticated: {
 			"GET /oauth/userinfo",
 			"GET /api/me",
+			// The obot CLI starts and polls tool list requests with its default scopes; the handler
+			// requires an admin or owner who made the request.
+			"POST /api/tool-list-requests",
+			"GET /api/tool-list-requests/{request_id}",
 			"POST /api/local-auth/change-password",
 		},
 

@@ -1,6 +1,7 @@
 import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
+import CatalogEntryRequestForm from './CatalogEntryRequestForm.svelte';
 import McpServerEntryForm from './McpServerEntryForm.svelte';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -164,4 +165,323 @@ it('keeps local login mounted and avoids a preview loop after a consumed attempt
 	expect(page.getByLabelText('Authentication command').element()).toBe(command);
 	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
 	await vi.waitFor(() => expect(calls).toBe(3));
+});
+
+describe('tool list requests from the obot CLI', () => {
+	const entry = () =>
+		createMCPCatalogEntry({
+			id: 'default-everything',
+			name: 'Everything',
+			runtime: 'remote',
+			sourceURL: 'https://github.com/example/catalog',
+			manifest: { remoteConfig: { fixedURL: 'https://mcp.example' } }
+		});
+	const request = {
+		id: 'tlr1',
+		entryID: 'default-everything',
+		entryName: 'Everything',
+		catalogID: 'default',
+		status: 'pending' as const,
+		url: 'http://localhost/mcp-servers/c/default-everything?view=tools&toolListRequest=tlr1'
+	};
+
+	it('lists the tools without saving them, shows them, and returns them to the CLI', async () => {
+		await preparePageData();
+		const previews = vi.fn();
+		const completed = vi.fn();
+		worker.use(
+			http.post(
+				'/api/mcp-catalogs/default/entries/default-everything/generate-tool-previews',
+				({ request }) => {
+					previews(new URL(request.url).searchParams.get('dryRun'));
+					return HttpResponse.json({
+						...entry(),
+						manifest: {
+							...entry().manifest,
+							toolPreview: [{ id: 'echo', name: 'echo', description: 'Echoes its input' }]
+						}
+					});
+				}
+			),
+			http.post('/api/tool-list-requests/tlr1/complete', async ({ request }) => {
+				completed(await request.json());
+				return new HttpResponse(null, { status: 200 });
+			})
+		);
+		render(McpServerEntryForm, {
+			entry: entry(),
+			id: 'default',
+			entity: 'catalog',
+			type: 'remote',
+			readonly: true,
+			isDialogView: true,
+			toolListRequestID: 'tlr1',
+			toolListRequest: request
+		});
+		await page.getByRole('button', { name: 'Tools', exact: true }).click();
+		await expect
+			.element(page.getByText('Your coding agent asked Obot to list the tools of Everything.'))
+			.toBeVisible();
+		expect(previews).not.toHaveBeenCalled();
+
+		await page.getByRole('button', { name: 'Launch and list tools' }).click();
+		await expect.element(page.getByText(/Listed 1 tools/)).toBeVisible();
+		await expect.element(page.getByText('echo', { exact: true }).first()).toBeVisible();
+		// A git-synced entry can't be saved, so the tools are listed without saving them.
+		expect(previews).toHaveBeenCalledWith('true');
+		expect(completed).toHaveBeenCalledWith({
+			tools: [{ id: 'echo', name: 'echo', description: 'Echoes its input' }]
+		});
+	});
+
+	it.each([true, false])(
+		'keeps an in-flight result on its confirmed request (success=%s)',
+		async (success) => {
+			await preparePageData();
+			const started = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
+			const completed = vi.fn();
+			worker.use(
+				http.post(
+					'/api/mcp-catalogs/default/entries/default-everything/generate-tool-previews',
+					async () => {
+						started.resolve();
+						await release.promise;
+						return success ? HttpResponse.json(entry()) : new HttpResponse(null, { status: 500 });
+					}
+				),
+				http.post('/api/tool-list-requests/:id/complete', ({ params }) => {
+					completed(params.id);
+					return new HttpResponse(null, { status: 200 });
+				})
+			);
+			const props = {
+				entry: entry(),
+				id: 'default',
+				entity: 'catalog' as const,
+				type: 'remote' as const,
+				isDialogView: true,
+				toolListRequestID: request.id,
+				toolListRequest: request
+			};
+			const form = await render(CatalogEntryRequestForm, props);
+			await page.getByRole('button', { name: 'Tools', exact: true }).click();
+			await page.getByRole('button', { name: 'Launch and list tools' }).click();
+			try {
+				await started.promise;
+				await form.rerender({
+					...props,
+					toolListRequestID: 'tlr2',
+					toolListRequest: { ...request, id: 'tlr2' }
+				});
+			} finally {
+				release.resolve();
+			}
+			await vi.waitFor(() => expect(completed.mock.calls).toEqual([['tlr1']]));
+			await page.getByRole('button', { name: 'Tools', exact: true }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Launch and list tools' }))
+				.toBeEnabled();
+		}
+	);
+
+	it('tells the CLI when the user declines', async () => {
+		await preparePageData();
+		const cancelled = vi.fn();
+		worker.use(
+			http.post('/api/tool-list-requests/tlr1/cancel', () => {
+				cancelled();
+				return new HttpResponse(null, { status: 200 });
+			})
+		);
+		render(McpServerEntryForm, {
+			entry: entry(),
+			id: 'default',
+			entity: 'catalog',
+			type: 'remote',
+			readonly: true,
+			isDialogView: true,
+			toolListRequestID: 'tlr1',
+			toolListRequest: request
+		});
+		await page.getByRole('button', { name: 'Tools', exact: true }).click();
+		await page.getByRole('button', { name: 'Decline' }).click();
+		await expect.element(page.getByText('You declined. Nothing was launched.')).toBeVisible();
+		expect(cancelled).toHaveBeenCalledOnce();
+	});
+
+	it('signs in to an OAuth server without saving, and reports a failed launch to the CLI', async () => {
+		await preparePageData();
+		const oauthDryRun = vi.fn();
+		const completed = vi.fn();
+		const previewPath =
+			'/api/mcp-catalogs/default/entries/default-everything/generate-tool-previews';
+		worker.use(
+			http.post(previewPath, () =>
+				HttpResponse.json({ message: 'MCP server requires OAuth authentication' }, { status: 400 })
+			),
+			http.post(previewPath + '/oauth-url', ({ request }) => {
+				oauthDryRun(new URL(request.url).searchParams.get('dryRun'));
+				return HttpResponse.json({ message: 'the OAuth server is down' }, { status: 502 });
+			}),
+			http.post('/api/tool-list-requests/tlr1/complete', async ({ request }) => {
+				completed(await request.json());
+				return new HttpResponse(null, { status: 200 });
+			})
+		);
+		render(McpServerEntryForm, {
+			entry: entry(),
+			id: 'default',
+			entity: 'catalog',
+			type: 'remote',
+			readonly: true,
+			isDialogView: true,
+			toolListRequestID: 'tlr1',
+			toolListRequest: request
+		});
+		await page.getByRole('button', { name: 'Tools', exact: true }).click();
+		await page.getByRole('button', { name: 'Launch and list tools' }).click();
+
+		// A git-synced entry can't be saved, so its OAuth URL is requested for a dry run too.
+		await vi.waitFor(() => expect(oauthDryRun).toHaveBeenCalledWith('true'));
+		await expect.element(page.getByText(/The tools couldn't be listed/)).toBeVisible();
+		await vi.waitFor(() =>
+			expect(completed).toHaveBeenCalledWith(
+				expect.objectContaining({
+					tools: [],
+					error: expect.stringContaining('requires OAuth authentication')
+				})
+			)
+		);
+	});
+
+	it("won't answer a request for another entry", async () => {
+		await preparePageData();
+		render(McpServerEntryForm, {
+			entry: entry(),
+			id: 'default',
+			entity: 'catalog',
+			type: 'remote',
+			readonly: true,
+			isDialogView: true,
+			toolListRequestID: 'tlr1',
+			toolListRequest: { ...request, entryID: 'default-other' }
+		});
+		await page.getByRole('button', { name: 'Tools', exact: true }).click();
+		await expect
+			.element(page.getByText(/This request is for a different MCP server/))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Launch and list tools' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('explains a request that expired', async () => {
+		await preparePageData();
+		render(McpServerEntryForm, {
+			entry: entry(),
+			id: 'default',
+			entity: 'catalog',
+			type: 'remote',
+			readonly: true,
+			isDialogView: true,
+			toolListRequestID: 'tlr1'
+		});
+		await page.getByRole('button', { name: 'Tools', exact: true }).click();
+		await expect
+			.element(page.getByText(/This request expired or was already answered/))
+			.toBeVisible();
+	});
+	it.each([false, true])(
+		'retries result delivery without relaunching (launchFailed=%s)',
+		async (launchFailed) => {
+			await preparePageData();
+			const tools = [{ id: 'echo', name: 'echo', description: 'Echo' }];
+			const previews = vi.fn();
+			const completed = vi.fn();
+			worker.use(
+				http.post(
+					'/api/mcp-catalogs/default/entries/default-everything/generate-tool-previews',
+					() => {
+						previews();
+						return launchFailed
+							? HttpResponse.json({ message: 'Original launch failure' }, { status: 503 })
+							: HttpResponse.json({
+									...entry(),
+									manifest: { ...entry().manifest, toolPreview: tools }
+								});
+					}
+				),
+				http.post('/api/tool-list-requests/tlr1/complete', async ({ request }) => {
+					completed(await request.json());
+					return completed.mock.calls.length === 1
+						? HttpResponse.json({ message: 'Delivery unavailable' }, { status: 503 })
+						: new HttpResponse(null, { status: 200 });
+				}),
+				http.get('/api/tool-list-requests/tlr1', () => HttpResponse.json(request))
+			);
+			render(McpServerEntryForm, {
+				entry: entry(),
+				id: 'default',
+				entity: 'catalog',
+				type: 'remote',
+				readonly: true,
+				isDialogView: true,
+				toolListRequestID: 'tlr1',
+				toolListRequest: request
+			});
+			await page.getByRole('button', { name: 'Tools', exact: true }).click();
+			await page.getByRole('button', { name: 'Launch and list tools' }).click();
+			await expect.element(page.getByText(/Obot has not acknowledged/)).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Launch and list tools' }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'Retry sending result' }).click();
+			await expect
+				.element(page.getByText(launchFailed ? /The tools couldn't be listed/ : /Listed 1 tools/))
+				.toBeVisible();
+			expect(previews).toHaveBeenCalledOnce();
+			expect(completed).toHaveBeenCalledTimes(2);
+			const expected = launchFailed
+				? { tools: [], error: expect.stringContaining('Original launch failure') }
+				: { tools };
+			expect(completed.mock.calls[0][0]).toEqual(expected);
+			expect(completed.mock.calls[1][0]).toEqual(expected);
+		}
+	);
+
+	it('acknowledges a committed result after a lost completion response', async () => {
+		await preparePageData();
+		const tools = [{ id: 'echo', name: 'echo', description: 'Echo' }];
+		const completed = vi.fn();
+		worker.use(
+			http.post('/api/mcp-catalogs/default/entries/default-everything/generate-tool-previews', () =>
+				HttpResponse.json({ ...entry(), manifest: { ...entry().manifest, toolPreview: tools } })
+			),
+			http.post('/api/tool-list-requests/tlr1/complete', () => {
+				completed();
+				return HttpResponse.error();
+			}),
+			http.get('/api/tool-list-requests/tlr1', () =>
+				HttpResponse.json({ ...request, status: 'completed', tools })
+			)
+		);
+		render(McpServerEntryForm, {
+			entry: entry(),
+			id: 'default',
+			entity: 'catalog',
+			type: 'remote',
+			readonly: true,
+			isDialogView: true,
+			toolListRequestID: 'tlr1',
+			toolListRequest: request
+		});
+		await page.getByRole('button', { name: 'Tools', exact: true }).click();
+		await page.getByRole('button', { name: 'Launch and list tools' }).click();
+		await expect.element(page.getByText(/Listed 1 tools/)).toBeVisible();
+		expect(completed).toHaveBeenCalledOnce();
+		await expect
+			.element(page.getByRole('button', { name: 'Retry sending result' }))
+			.not.toBeInTheDocument();
+	});
 });

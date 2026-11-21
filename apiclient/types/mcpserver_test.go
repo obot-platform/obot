@@ -917,3 +917,48 @@ func TestMCPServer_IsSingleUser(t *testing.T) {
 		})
 	}
 }
+
+func TestMapCatalogEntryToServerBuiltin(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *BuiltinRuntimeConfig
+		wantErr bool
+	}{
+		{
+			name:   "copies the built-in configuration",
+			config: &BuiltinRuntimeConfig{Name: "obot-admin"},
+		},
+		{
+			name:    "requires a built-in configuration",
+			wantErr: true,
+		},
+		{
+			name:    "requires a built-in server name",
+			config:  &BuiltinRuntimeConfig{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := MapCatalogEntryToServer(MCPServerCatalogEntryManifest{
+				Runtime:       RuntimeBuiltin,
+				BuiltinConfig: tt.config,
+			}, "", false)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.BuiltinConfig == nil || result.BuiltinConfig.Name != tt.config.Name {
+				t.Fatalf("BuiltinConfig = %+v, want %+v", result.BuiltinConfig, tt.config)
+			}
+			if result.BuiltinConfig == tt.config {
+				t.Fatal("BuiltinConfig shares the catalog entry's configuration")
+			}
+		})
+	}
+}

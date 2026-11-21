@@ -37,7 +37,7 @@ func TestClaudeCodeDetectMissing(t *testing.T) {
 func TestClaudeCodeInstallBootstrapWritesExpectedSkills(t *testing.T) {
 	home := t.TempDir()
 
-	result, err := NewClaudeCode().InstallBootstrap(t.Context(), home)
+	result, err := NewClaudeCode().InstallBootstrap(t.Context(), home, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,11 +45,11 @@ func TestClaudeCodeInstallBootstrapWritesExpectedSkills(t *testing.T) {
 	if result.AgentID != ClaudeCodeAgentID {
 		t.Fatalf("AgentID = %q, want %q", result.AgentID, ClaudeCodeAgentID)
 	}
-	if len(result.Installed) != 4 {
-		t.Fatalf("Installed count = %d, want 4: %#v", len(result.Installed), result.Installed)
+	if len(result.Installed) != 5 {
+		t.Fatalf("Installed count = %d, want 5: %#v", len(result.Installed), result.Installed)
 	}
 
-	for _, name := range []string{"obot", "obot-search-skills", "obot-search-mcp-servers", "obot-install-skill"} {
+	for _, name := range []string{"obot", "obot-search-skills", "obot-search-mcp-servers", "obot-install-skill", "obot-author-vmcps"} {
 		content := readFile(t, filepath.Join(home, ".claude", "skills", name, skillformat.SkillMainFile))
 		if !strings.Contains(content, "Obot") && !strings.Contains(content, "obot") {
 			t.Fatalf("%s content did not look like an Obot bootstrap skill:\n%s", name, content)
@@ -68,7 +68,7 @@ func TestClaudeCodeInstallBootstrapOverwritesExistingContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := NewClaudeCode().InstallBootstrap(t.Context(), home); err != nil {
+	if _, err := NewClaudeCode().InstallBootstrap(t.Context(), home, true); err != nil {
 		t.Fatal(err)
 	}
 

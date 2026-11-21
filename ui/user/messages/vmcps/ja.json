@@ -233,6 +233,7 @@
 	"vmcps_mcp_servers_in_named": "{name} の MCP サーバー",
 	"vmcps_mcp_servers_settings": "MCP サーバー設定",
 	"vmcps_modify_tools": "ツールを変更",
+	"vmcps_builtin_tools_use_profiles": "{name} のツールは Obot に組み込まれているため変更できません。どのユーザーにどのツールを使わせるかは、この vMCP のプロファイルで選択してください。",
 	"vmcps_n_more": "+{count} 件",
 	"vmcps_n_more_servers": "他 {count} 個のサーバー",
 	"vmcps_name_required": "名前は必須です",

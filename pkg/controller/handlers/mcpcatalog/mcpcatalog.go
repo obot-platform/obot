@@ -46,8 +46,6 @@ const (
 	// token is stored as a key in the credential's Env map.
 	CatalogCredentialToolName = "catalog-source-tokens"
 
-	catalogReferenceSeparator = "::"
-
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
 	forceSyncStartupAnnotation = "obot.ai/force-sync-startup"
@@ -60,10 +58,6 @@ var (
 	startupSyncGeneration = "1/" + version.Tag
 )
 
-type openAPIImporter interface {
-	Import(context.Context, types.OpenAPIRuntimeConfig) (*openapi.Result, error)
-}
-
 type Handler struct {
 	maxRepoSizeMB             int
 	defaultCatalogPath        string
@@ -74,7 +68,7 @@ type Handler struct {
 	remoteURLValidationConfig mcp.ValidationOptions
 	mcpBackend                string
 	mcpSessionManager         *mcp.SessionManager
-	openAPIImporter           openAPIImporter
+	openAPIImporter           catalogvalidation.OpenAPIImporter
 }
 
 // userInfo is a wrapper around kuser.Info that includes the user's role.
@@ -478,24 +472,6 @@ func detachCatalogEntry(ctx context.Context, c kclient.Client, catalog *v1.MCPCa
 	})
 }
 
-// sourceRef builds an explicit source::entryKey reference.
-func sourceRef(sourceID, entryKey string) string {
-	return sourceID + catalogReferenceSeparator + entryKey
-}
-
-// parseSourceRef returns the source/key pair for either an explicit
-// source::entryKey reference or a same-source shorthand entryKey.
-func parseSourceRef(sourceID, catalogEntryID string) (refSourceID, entryKey string, hasSep, valid bool) {
-	refSourceID, entryKey, hasSep = strings.Cut(catalogEntryID, catalogReferenceSeparator)
-	if !hasSep {
-		return sourceID, catalogEntryID, false, true
-	}
-	if strings.Contains(entryKey, catalogReferenceSeparator) {
-		return refSourceID, entryKey, true, false
-	}
-	return refSourceID, entryKey, true, refSourceID != "" && entryKey != ""
-}
-
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog := req.Object.(*v1.SystemMCPCatalog)
 
@@ -706,7 +682,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			continue
 		} else if !inRange {
 			if header.EntryKey != "" {
-				versionSkippedRefs[sourceRef(mcp.SourceIDForURL(sourceURL), header.EntryKey)] = struct{}{}
+				versionSkippedRefs[catalogvalidation.SourceRef(mcp.SourceIDForURL(sourceURL), header.EntryKey)] = struct{}{}
 			}
 			continue
 		}
@@ -762,28 +738,9 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		catalogvalidation.NormalizeManifest(&entry)
-		if entry.Runtime == types.RuntimeOpenAPI {
-			if entry.OpenAPIConfig == nil {
-				errs = append(errs, fmt.Errorf("catalog entry %s: openAPIConfig is required", entry.Name))
-				continue
-			}
-			entry.OpenAPIConfig.Source.URL = strings.TrimSpace(entry.OpenAPIConfig.Source.URL)
-			entry.OpenAPIConfig.BaseURL = strings.TrimSpace(entry.OpenAPIConfig.BaseURL)
-			if err := openapi.ValidateInput(*entry.OpenAPIConfig); err != nil {
-				errs = append(errs, fmt.Errorf("catalog entry %s: %w", entry.Name, err))
-				continue
-			}
-			// Always import the source, even when Git and info.version are unchanged.
-			// Never forward catalog credentials to the schema URL. Failed imports
-			// leave the last good entry untouched.
-			result, err := h.openAPIImporter.Import(ctx, *entry.OpenAPIConfig)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to import OpenAPI schema for catalog entry %s: %w", entry.Name, err))
-				continue
-			}
-			// Preview destination status is advisory. ValidateManifest below
-			// rejects invalid destinations before the entry can be applied.
-			entry.OpenAPIConfig.Schema = &types.OpenAPISchema{Raw: result.Schema}
+		if err := catalogvalidation.PrepareSourceEntry(ctx, &entry, h.openAPIImporter); err != nil {
+			errs = append(errs, fmt.Errorf("catalog entry %s: %w", entry.Name, err))
+			continue
 		}
 		if err := catalogvalidation.ValidateManifest(ctx, entry, catalogvalidation.ValidationOptions{
 			MCP:        validationOptions,

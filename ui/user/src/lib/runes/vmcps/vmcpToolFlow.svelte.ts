@@ -112,6 +112,11 @@ function catalogEntryForComponent(component: VMCPComponent): MCPCatalogEntry | u
 	};
 }
 
+/** Built-in servers come with Obot, so their tools can't be changed; profiles choose who gets them. */
+export function isBuiltinComponent(component?: VMCPComponent): boolean {
+	return component?.catalogEntry?.manifest?.runtime === 'builtin';
+}
+
 function toolRowsFromComponent(component: VMCPComponent): CompositeServerToolRow[] {
 	const id = vmcpComponentId(component);
 	const preview = component.catalogEntry?.manifest?.toolPreview ?? [];
@@ -271,6 +276,14 @@ export function createVMcpToolFlow() {
 	) {
 		const raw = findComponent(vmcp, component.id);
 		if (!raw) return;
+		if (isBuiltinComponent(raw)) {
+			// The actions dialog explains that profiles, not tool edits, choose its tools.
+			if (configure(vmcp, raw, true)) {
+				dialog = 'actions';
+				onDialogDismissed = options?.onDismissed;
+			}
+			return;
+		}
 		const opened = raw.toolOverrides?.length ? openEdit(vmcp, raw) : openSetup(vmcp, raw, true);
 		if (opened) onDialogDismissed = options?.onDismissed;
 	}
@@ -295,6 +308,7 @@ export function createVMcpToolFlow() {
 	}
 
 	function offerToolSelection(component: VMCPComponent, vmcp: VMCP) {
+		if (isBuiltinComponent(component)) return;
 		addedServer = { component: persistedAddedComponent(component, vmcp), vmcp };
 		dialog = 'added-create';
 	}
@@ -462,7 +476,7 @@ export function createVMcpToolFlow() {
 	function modifyToolsFromActions(readonly = false) {
 		const vmcp = modifyingVMcp;
 		const component = configuringComponent;
-		if (!vmcp || !component) return;
+		if (!vmcp || !component || isBuiltinComponent(component)) return;
 		if (readonly || component.toolOverrides?.length) {
 			openEdit(vmcp, component);
 			return;

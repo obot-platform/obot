@@ -233,6 +233,7 @@
 	"vmcps_mcp_servers_in_named": "{name} 中的 MCP 服务器",
 	"vmcps_mcp_servers_settings": "MCP 服务器设置",
 	"vmcps_modify_tools": "修改工具",
+	"vmcps_builtin_tools_use_profiles": "{name} 的工具内置于 Obot 中，无法更改。要选择谁可以使用哪些工具，请使用此 vMCP 的配置文件。",
 	"vmcps_n_more": "+{count} 个",
 	"vmcps_n_more_servers": "另外 {count} 个服务器",
 	"vmcps_name_required": "名称为必填项",
