@@ -1187,14 +1187,10 @@ func AuthCodeURL(conf *oauth2.Config, urlFromMetadata, resourceURL, state, verif
 		// VSCode does something similar to this.
 		authCodeURLOpts = append(authCodeURLOpts, oauth2.SetAuthURLParam("resource", resourceURL))
 	}
-	if authEndpoint.Host != "mcp.zoho.com" {
-		// Zoho doesn't support the access_type parameter
-		authCodeURLOpts = append(authCodeURLOpts, oauth2.AccessTypeOffline)
-	}
 	if strings.EqualFold(authEndpoint.Hostname(), "accounts.google.com") {
 		// Google needs renewed consent to issue refresh tokens on repeat authorization.
 		// https://developers.google.com/identity/protocols/oauth2/web-server#offline
-		authCodeURLOpts = append(authCodeURLOpts, oauth2.SetAuthURLParam("prompt", "consent"))
+		authCodeURLOpts = append(authCodeURLOpts, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "consent"))
 	}
 
 	return conf.AuthCodeURL(state, authCodeURLOpts...), nil
