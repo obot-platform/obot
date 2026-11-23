@@ -57,6 +57,9 @@ type LLMAuditLog struct {
 	// GuardrailFindings is what the LLM gateway's guardrails did to the request, in the order
 	// their guardrail policies ran.
 	GuardrailFindings []LLMAuditGuardrailFinding `json:"guardrailFindings,omitempty"`
+
+	// ClaudeSubscription is deprecated; retained for older audit consumers. Use Subscription instead.
+	ClaudeSubscription bool `json:"claudeSubscription,omitempty"`
 }
 
 // LLMAuditGuardrailFinding is what one guardrail policy did to an LLM request: the guardrail that

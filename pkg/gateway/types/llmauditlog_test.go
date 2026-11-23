@@ -29,11 +29,53 @@ func TestConvertLLMAuditLogLeavesOutMessagePolicies(t *testing.T) {
 }
 
 func TestConvertLLMAuditLogSubscription(t *testing.T) {
-	data, err := json.Marshal(ConvertLLMAuditLog(LLMAuditLog{Subscription: true}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), `"subscription":true`) || strings.Contains(string(data), `"claudeSubscription"`) || strings.Contains(string(data), `"chatgptSubscription"`) {
-		t.Fatalf("incorrect subscription type: %s", data)
+	for _, tc := range []struct {
+		name               string
+		provider           string
+		subscription       bool
+		claudeSubscription bool
+	}{
+		{
+			name:               "Claude subscription",
+			provider:           "anthropic",
+			subscription:       true,
+			claudeSubscription: true,
+		},
+		{
+			name:         "ChatGPT subscription",
+			provider:     "openai",
+			subscription: true,
+		},
+		{
+			name:     "Anthropic configured key",
+			provider: "anthropic",
+		},
+		{
+			name:     "OpenAI configured key",
+			provider: "openai",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := json.Marshal(ConvertLLMAuditLog(LLMAuditLog{
+				ServedProvider: tc.provider,
+				Subscription:   tc.subscription,
+			}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Older consumers decode only claudeSubscription and ignore the new field.
+			var legacy struct {
+				ClaudeSubscription bool `json:"claudeSubscription"`
+			}
+			if err := json.Unmarshal(data, &legacy); err != nil {
+				t.Fatal(err)
+			}
+			if legacy.ClaudeSubscription != tc.claudeSubscription ||
+				strings.Contains(string(data), `"subscription":true`) != tc.subscription ||
+				strings.Contains(string(data), `"claudeSubscription":true`) != tc.claudeSubscription ||
+				strings.Contains(string(data), `"chatgptSubscription"`) {
+				t.Fatalf("incorrect subscription attribution: %s", data)
+			}
+		})
 	}
 }

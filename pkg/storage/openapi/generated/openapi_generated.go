@@ -7105,6 +7105,13 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 							},
 						},
 					},
+					"claudeSubscription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaudeSubscription is deprecated; retained for older audit consumers. Use Subscription instead.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"id", "createdAt", "duration", "userID", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "userAgent", "clientSessionID", "clientIP"},
 			},

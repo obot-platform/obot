@@ -119,5 +119,8 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		ClientSessionID:   a.ClientSessionID,
 		ClientIP:          a.ClientIP,
 		GuardrailFindings: a.GuardrailFindings,
+
+		// The legacy flag must not mislabel ChatGPT subscription records as Claude-paid.
+		ClaudeSubscription: a.Subscription && a.ServedProvider == "anthropic",
 	}
 }
