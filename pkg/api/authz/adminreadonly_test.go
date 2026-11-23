@@ -42,10 +42,13 @@ var (
 		"GET /api/system-mcp-servers/{id}/tools":                               "tool discovery launches the system server",
 	}
 
-	// routerFiles are the files that register the API's routes: the API's own router and the gateway's.
+	// Some handlers register their routes separately from the API and gateway routers.
 	routerFiles = []string{
 		"../router/router.go",
+		"../handlers/llmgatewayadmin.go",
+		"../handlers/mcpgateway/oauth/handler.go",
 		"../../gateway/server/router.go",
+		"../../gateway/server/llmproxy_legacy.go",
 	}
 )
 
@@ -124,6 +127,45 @@ func TestAdminReadonlyRulesCoverAdminReads(t *testing.T) {
 		} else if !allowed {
 			t.Errorf("%s is an admin read but is not allowed for admin read-only; add it to adminReadonlyRules or adminReadonlyExcludedReads", route.pattern)
 		}
+	}
+}
+
+func TestAdminReadonlyPrefixGrantsCoverOnlyReviewedReads(t *testing.T) {
+	const reviewedPath = "testdata/admin_readonly_prefix_reads.txt"
+	reviewed, err := os.ReadFile(reviewedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Split(strings.TrimSpace(string(reviewed)), "\n")
+	readonly := rulesFromStatic(map[string][]string{types.GroupAdminReadonly: adminReadonlyRules})[0].mux
+
+	// Prefix rules admit future routes automatically. Record the exact registrations so
+	// replacing one route with another under the same prefix still requires review.
+	var got []string
+	for _, route := range routerRoutes(t) {
+		if route.method != http.MethodGet {
+			continue
+		}
+		req := httptest.NewRequest(route.method, route.path, nil)
+		_, pattern := readonly.Handler(req)
+		if strings.HasSuffix(pattern, "/") || strings.HasSuffix(pattern, "...}") {
+			got = append(got, route.pattern)
+		}
+	}
+	slices.Sort(got)
+	got = slices.Compact(got)
+	for _, pattern := range got {
+		if !slices.Contains(want, pattern) {
+			t.Errorf("new read covered by a read-only admin prefix: %s", pattern)
+		}
+	}
+	for _, pattern := range want {
+		if pattern != "" && !slices.Contains(got, pattern) {
+			t.Errorf("reviewed read is no longer covered by a read-only admin prefix: %s", pattern)
+		}
+	}
+	if t.Failed() {
+		t.Logf("Review the affected routes before updating %s", reviewedPath)
 	}
 }
 
