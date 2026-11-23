@@ -494,7 +494,7 @@ func TestChatGPTSubscriptionRecordingFallbackRetryAndErrors(t *testing.T) {
 func TestChatGPTSubscriptionAttemptIsolationAndFinalGate(t *testing.T) {
 	a := &account{}
 	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{
-		schemas.OpenAI:    {},
+		schemas.OpenAI:    {SubscriptionPassthrough: true},
 		schemas.Anthropic: {},
 	}})
 	ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)

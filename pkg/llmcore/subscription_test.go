@@ -212,7 +212,10 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 			if !tc.absent {
 				tc.config.NetworkConfig.BaseURL = strings.ReplaceAll(tc.config.NetworkConfig.BaseURL, "anthropic", string(provider))
 				tc.config.NetworkConfig.BaseURL = strings.ReplaceAll(tc.config.NetworkConfig.BaseURL, "ANTHROPIC", strings.ToUpper(string(provider)))
-				cfg.Providers[provider] = llmcoreclient.ProviderConfig{ProviderConfig: tc.config}
+				cfg.Providers[provider] = llmcoreclient.ProviderConfig{
+					ProviderConfig:          tc.config,
+					SubscriptionPassthrough: true,
+				}
 			}
 			require.Equal(t, tc.safe, SubscriptionDestination(cfg, provider))
 
@@ -284,7 +287,7 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 
 func TestSubscriptionAttemptIsolation(t *testing.T) {
 	a := &account{}
-	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{schemas.Anthropic: {}}})
+	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{schemas.Anthropic: {SubscriptionPassthrough: true}}})
 	ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
 	ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{provider: schemas.Anthropic, token: "Bearer sk-ant-oat-fixture"})
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, map[string][]string{"x-stainless-lang": {"go", "typescript"}})

@@ -252,6 +252,63 @@ func testSubscriptionReplacementAfterHooks(t *testing.T, provider schemas.ModelP
 	}
 }
 
+func TestSubscriptionRevocationAfterSync(t *testing.T) {
+	for _, provider := range []schemas.ModelProvider{schemas.Anthropic, schemas.OpenAI} {
+		t.Run(string(provider), func(t *testing.T) {
+			store := subscriptionStore(t)
+			require.NoError(t, store.CreateProvider(t.Context(), string(provider), subscriptionProvider("configured-key")))
+			e, err := New(t.Context(), store, Options{})
+			require.NoError(t, err)
+			defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
+			original := e.client.GetProviderByKey(provider)
+			credential := subscriptionCredentialValue{provider: provider, token: subscriptionFixture}
+			if provider == schemas.OpenAI {
+				credential.token, credential.accountID = chatgptFixture, "workspace-fixture"
+			}
+			ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
+			defer ctx.Cancel()
+			ctx.SetValue(subscriptionTokenKey{}, credential)
+			req := &schemas.BifrostRequest{
+				RequestType: schemas.ResponsesRequest,
+				ResponsesRequest: &schemas.BifrostResponsesRequest{
+					Provider: provider,
+					Model:    "test",
+				},
+			}
+			require.Nil(t, prepareSubscription(ctx, req, e.account))
+			require.Equal(t, []string{credential.token}, ctx.Value(schemas.BifrostContextKeyExtraHeaders).(map[string][]string)["authorization"])
+
+			// An active request holds this lock; a toggle must reconcile without retiring its provider.
+			e.subscriptionLock(provider).RLock()
+			func() {
+				defer e.subscriptionLock(provider).RUnlock()
+				require.NoError(t, store.MutateProvider(t.Context(), string(provider), func(p *llmcoreclient.Provider) error {
+					p.SubscriptionPassthrough = new(false)
+					return nil
+				}))
+				changed, err := e.Sync(t.Context())
+				require.NoError(t, err)
+				require.True(t, changed)
+			}()
+			require.Same(t, original, e.client.GetProviderByKey(provider))
+			require.Empty(t, e.retirements)
+
+			// The same request context must lose admission at the final gate or a later fallback.
+			gate := &providerTransitionPlugin{account: e.account}
+			_, denied, err := gate.PreLLMHook(ctx, req)
+			require.NoError(t, err)
+			require.NotNil(t, denied)
+			require.Equal(t, http.StatusForbidden, denied.Error.EffectiveHTTPStatus())
+			extra := ctx.Value(schemas.BifrostContextKeyExtraHeaders).(map[string][]string)
+			require.NotContains(t, extra, "authorization")
+			require.NotContains(t, extra, "chatgpt-account-id")
+			require.False(t, ctx.Value(schemas.BifrostContextKeySkipKeySelection).(bool))
+			require.Nil(t, ctx.Value(schemas.BifrostContextKeyDirectKey))
+			require.Nil(t, ctx.Value(schemas.BifrostContextKeyURLPath))
+		})
+	}
+}
+
 func TestSubscriptionKeyOnlyRotationDoesNotRetire(t *testing.T) {
 	for _, provider := range []schemas.ModelProvider{schemas.Anthropic, schemas.OpenAI} {
 		t.Run(string(provider), func(t *testing.T) { testSubscriptionKeyOnlyRotation(t, provider) })

@@ -84,6 +84,7 @@ func subscriptionStore(t *testing.T) *llmcoreclient.Client {
 
 func subscriptionProvider(key string) llmcoreclient.Provider {
 	return llmcoreclient.Provider{
+		SubscriptionPassthrough: new(true),
 		Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{
 			MaxRetries:          1,
 			RetryBackoffInitial: time.Millisecond,

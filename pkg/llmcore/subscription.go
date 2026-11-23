@@ -154,7 +154,9 @@ func prepareSubscription(ctx *schemas.BifrostContext, req *schemas.BifrostReques
 	}
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, extra)
 	provider, _, _ := req.GetRequestFields()
-	admitted := provider == credential.provider && SubscriptionDestination(a.config.Load(), provider)
+	// Recheck the live flag so reconciliation revokes later attempts on an admitted request.
+	cfg := a.config.Load()
+	admitted := provider == credential.provider && cfg.Providers[provider].SubscriptionPassthrough && SubscriptionDestination(cfg, provider)
 	if credential.provider == schemas.OpenAI {
 		admitted = admitted && (req.RequestType == schemas.ResponsesRequest || req.RequestType == schemas.ResponsesStreamRequest ||
 			req.RequestType == schemas.PassthroughRequest && req.PassthroughRequest != nil && req.PassthroughRequest.Method == http.MethodGet && req.PassthroughRequest.Path == "/models")
@@ -189,7 +191,7 @@ func prepareSubscription(ctx *schemas.BifrostContext, req *schemas.BifrostReques
 			AllowFallbacks: new(true),
 			Error: &schemas.ErrorField{
 				Type:    new("permission_denied"),
-				Message: "Subscription requests require their standard provider over verified TLS without configured authentication overrides",
+				Message: "Subscription requests require passthrough enabled on their standard provider over verified TLS without configured authentication overrides",
 			},
 		}}
 	}

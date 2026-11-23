@@ -83,6 +83,8 @@ func TestPublicCodexRecording(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	recordCodexTransport(t, engine, upstream)
 	setPublicChatGPTSubscriptions(t, req, true)
+	_, err = engine.Sync(t.Context())
+	require.NoError(t, err)
 	_, tokenClient := newTokenRequestTestServer(t)
 	tokens, err := persistent.NewTokenService("https://obot.example.com", tokenClient)
 	require.NoError(t, err)
@@ -313,6 +315,8 @@ func TestPublicCodexNativeModelNamespace(t *testing.T) {
 	}
 	require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
 	setPublicChatGPTSubscriptions(t, req, true)
+	_, err = proxy.backend.(*bifrostProviderBackend).engine.Sync(t.Context())
+	require.NoError(t, err)
 
 	for _, reference := range []string{"test", "openai/test", "m1-test"} {
 		t.Run(reference, func(t *testing.T) {
