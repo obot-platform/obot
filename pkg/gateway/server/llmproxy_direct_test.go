@@ -202,6 +202,118 @@ func (w *notifyingWriter) FlushError() error {
 	return nil
 }
 
+type auditRouteBackend struct {
+	*bifrostProviderBackend
+	servedModel  string
+	subscription bool
+}
+
+func (b *auditRouteBackend) decorateRequest(l *llmProviderProxy, req api.Context, model *v1.Model) (gatewayRequest, error) {
+	tracked, err := b.bifrostProviderBackend.decorateRequest(l, req, model)
+	if err != nil {
+		return nil, err
+	}
+	// Supply the engine's admitted attempt, including the payment decision. The checkout
+	// predates OpenAI subscription admission, so that decision is simulated here.
+	attempts := tracked.(*gatewayAttempts)
+	attempts.admitted = b.servedModel
+	attempts.admittedSubscription = b.subscription
+	return attempts, nil
+}
+
+func (b *auditRouteBackend) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+	provider, model, _ := strings.Cut(b.servedModel, "/")
+	w.Header().Set("X-Bifrost-Routing-Info-Provider", provider)
+	w.Header().Set("X-Bifrost-Routing-Info-Model", model)
+	if !b.subscription {
+		w.Header().Set("X-Bifrost-Routing-Info-Key", "gateway-key")
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.WriteString(w, `{"id":"r1","status":"completed"}`)
+}
+
+func TestDirectLLMAuditSubscription(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		provider     string
+		subscription bool
+		legacyRow    bool
+	}{
+		{
+			name:         "ChatGPT",
+			provider:     "openai",
+			subscription: true,
+		},
+		{
+			name:         "Claude",
+			provider:     "anthropic",
+			subscription: true,
+		},
+		{
+			name:     "gateway credentials",
+			provider: "openai",
+		},
+		{
+			name:         "historical Claude record",
+			provider:     "anthropic",
+			subscription: true,
+			legacyRow:    true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newUsageTestClientWithAudit(t, true)
+			if tc.legacyRow {
+				require.NoError(t, c.InsertLLMAuditLog(t.Context(), &gatewaytypes.LLMAuditLog{
+					ID:                 "historical",
+					CreatedAt:          time.Now(),
+					ServedProvider:     tc.provider,
+					ClaudeSubscription: true,
+				}))
+			} else {
+				proxy, req := directProxy(t, &directFixture{})
+				proxy.backend = &auditRouteBackend{
+					bifrostProviderBackend: proxy.backend.(*bifrostProviderBackend),
+					servedModel:            tc.provider + "/test",
+					subscription:           tc.subscription,
+				}
+				req.GatewayClient = c
+				req.Request = httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/responses", strings.NewReader(`{"model":"m1-test","input":"hi"}`))
+				req.SetPathValue("path", "v1/responses")
+				w := httptest.NewRecorder()
+				req.ResponseWriter = w
+				require.NoError(t, proxy.proxy(req))
+				require.Equal(t, http.StatusOK, w.Code)
+			}
+
+			var logs []gatewaytypes.LLMAuditLog
+			require.EventuallyWithT(t, func(check *assert.CollectT) {
+				var err error
+				logs, _, err = c.GetLLMAuditLogs(t.Context(), client.LLMAuditLogOptions{})
+				require.NoError(check, err)
+				require.Len(check, logs, 1)
+			}, 2*time.Second, 5*time.Millisecond)
+			data, err := json.Marshal(gatewaytypes.ConvertLLMAuditLog(logs[0]))
+			require.NoError(t, err)
+			var payload map[string]any
+			require.NoError(t, json.Unmarshal(data, &payload))
+			assert.Equal(t, tc.provider, payload["servedProvider"])
+			if tc.subscription {
+				assert.Equal(t, true, payload["subscription"], "subscription-paid requests must emit subscription: true")
+				assert.NotContains(t, payload, "providerKey")
+			} else {
+				assert.NotContains(t, payload, "subscription")
+				assert.Equal(t, "gateway-key", payload["providerKey"])
+			}
+			if tc.subscription && tc.provider == "anthropic" {
+				assert.Equal(t, true, payload["claudeSubscription"])
+			} else {
+				assert.NotContains(t, payload, "claudeSubscription", "only Claude subscriptions may set the legacy field")
+			}
+		})
+	}
+}
+
 func TestDirectPublicInferenceStreaming(t *testing.T) {
 	for _, endpoint := range []string{"chat/completions", "responses", "messages"} {
 		for _, failure := range []string{"none", "before", "later", "flush", "cancel"} {
