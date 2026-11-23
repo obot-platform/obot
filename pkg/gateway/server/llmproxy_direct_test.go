@@ -91,12 +91,15 @@ type panicStatusWriter struct {
 // Capture the real direct writer without replacing engine execution or observers.
 type mountedDirectBackend struct {
 	*bifrostProviderBackend
-	output *llmResponseWriter
+	output      *llmResponseWriter
+	deadlineErr error
 }
 
 type publicFlushFailureWriter struct {
 	panicStatusWriter
-	flushes int
+	flushes          int
+	readDeadlineSet  bool
+	writeDeadlineSet bool
 }
 
 func (b *directAccessBackend) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
@@ -474,7 +477,20 @@ func TestDirectHandlerPanicDoesNotFlushSuccess(t *testing.T) {
 
 func (b *mountedDirectBackend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	b.output = w.(*llmResponseWriter)
+	controller := http.NewResponseController(w)
+	deadline := time.Now()
+	b.deadlineErr = errors.Join(controller.SetReadDeadline(deadline), controller.SetWriteDeadline(deadline))
 	b.bifrostProviderBackend.ServeHTTP(w, r)
+}
+
+func (w *publicFlushFailureWriter) SetReadDeadline(time.Time) error {
+	w.readDeadlineSet = true
+	return nil
+}
+
+func (w *publicFlushFailureWriter) SetWriteDeadline(time.Time) error {
+	w.writeDeadlineSet = true
+	return nil
 }
 
 func (w *publicFlushFailureWriter) FlushError() error {
@@ -543,6 +559,9 @@ func TestDirectMountedFlushFailure(t *testing.T) {
 			require.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
 			require.NotEmpty(t, w.Header().Get("X-RateLimit-Limit"))
 			require.NotNil(t, b.output)
+			require.NoError(t, b.deadlineErr)
+			require.True(t, w.readDeadlineSet)
+			require.True(t, w.writeDeadlineSet)
 			require.ErrorIs(t, b.output.err, io.ErrClosedPipe)
 			require.ErrorIs(t, b.output.request.Context().Err(), context.Canceled)
 			require.Zero(t, b.output.audit.observed, "failed flush must not yield a normalized delivered chunk")

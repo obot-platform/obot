@@ -63,14 +63,16 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		lifetime := e.subscriptionLock(credential.provider)
-		// TryRLock refuses new readers once retirement is waiting. Hold through
-		// stream drain and handler return, beyond core's pre-hook/enqueue window.
-		if !lifetime.TryRLock() {
+		ctx, release, admitted := lifetime.admit(r.Context(), w, func() bool {
+			_, transitioning := e.account.transitioning.Load(credential.provider)
+			return transitioning
+		})
+		if !admitted {
 			writeError(w, d, http.StatusServiceUnavailable, "api_error", "Subscription provider is being reconfigured; retry the request")
 			return
 		}
-		defer lifetime.RUnlock()
-		r = r.WithContext(context.WithValue(r.Context(), subscriptionTokenKey{}, credential))
+		defer release()
+		r = r.WithContext(context.WithValue(ctx, subscriptionTokenKey{}, credential))
 	}
 
 	e.mux.ServeHTTP(w, r)

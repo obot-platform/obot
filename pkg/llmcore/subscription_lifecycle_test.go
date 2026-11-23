@@ -194,7 +194,10 @@ func testSubscriptionReplacementAfterHooks(t *testing.T, provider schemas.ModelP
 				return nil
 			}))
 			start := time.Now()
-			_, err = e.Sync(t.Context())
+			// Exercise a Sync that expires before the retirement's own grace period.
+			syncCtx, stopSync := context.WithTimeout(t.Context(), 100*time.Millisecond)
+			_, err = e.Sync(syncCtx)
+			stopSync()
 			require.ErrorContains(t, err, string(provider)+" is still draining")
 			require.Less(t, time.Since(start), 3*time.Second)
 			require.Same(t, original, e.client.GetProviderByKey(provider))

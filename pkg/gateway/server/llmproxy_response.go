@@ -17,6 +17,8 @@ import (
 
 func (r *llmResponseWriter) Header() http.Header { return r.header }
 
+func (r *llmResponseWriter) Unwrap() http.ResponseWriter { return r.w }
+
 func (r *llmResponseWriter) WriteHeader(status int) {
 	if r.status != 0 {
 		return
