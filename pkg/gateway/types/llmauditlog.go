@@ -34,12 +34,14 @@ type LLMAuditLog struct {
 	// ServedProvider and ServedModel are the provider and model that served the request, which
 	// routing rules and fallbacks can make differ from TargetModel. ProviderKey names the
 	// gateway key it was served with, and Fallback is true when a fallback served it.
-	// ClaudeSubscription is true when the caller's Claude subscription paid for it instead,
-	// with no gateway key.
-	ServedProvider            string `gorm:"type:text;index:idx_llm_audit_served_provider_created,priority:1"`
-	ServedModel               string `gorm:"type:text"`
-	ProviderKey               string `gorm:"type:text"`
-	Fallback                  bool   `gorm:"not null;default:false"`
+	ServedProvider string `gorm:"type:text;index:idx_llm_audit_served_provider_created,priority:1"`
+	ServedModel    string `gorm:"type:text"`
+	ProviderKey    string `gorm:"type:text"`
+	Fallback       bool   `gorm:"not null;default:false"`
+	// Subscription records payment by the caller's subscription.
+	Subscription bool `gorm:"not null;default:false"`
+	// ClaudeSubscription is also written for Anthropic requests so older replicas
+	// can still report Claude subscription payment during a rolling upgrade.
 	ClaudeSubscription        bool   `gorm:"not null;default:false"`
 	ReasoningEffort           string `gorm:"type:text"`
 	RequestPath               string `gorm:"type:text;index:idx_llm_audit_request_path_created,priority:1"`
@@ -80,6 +82,7 @@ func (LLMAuditLog) TableName() string {
 }
 
 func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
+	// Older replicas only write ClaudeSubscription.
 	return types2.LLMAuditLog{
 		ID:                 a.ID,
 		CreatedAt:          *types2.NewTime(a.CreatedAt),
@@ -95,6 +98,7 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		ServedModel:        a.ServedModel,
 		ProviderKey:        a.ProviderKey,
 		Fallback:           a.Fallback,
+		Subscription:       a.Subscription || a.ClaudeSubscription,
 		ClaudeSubscription: a.ClaudeSubscription,
 		ReasoningEffort:    a.ReasoningEffort,
 		RequestPath:        a.RequestPath,

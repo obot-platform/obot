@@ -21,12 +21,15 @@ type LLMAuditLog struct {
 	// ServedProvider and ServedModel are the provider and model that served the request, which
 	// routing rules and fallbacks can make differ from TargetModel. ProviderKey names the
 	// gateway key it was served with, and Fallback is true when a fallback served it.
-	// ClaudeSubscription is true when the caller's Claude subscription paid for it instead,
-	// with no gateway key.
-	ServedProvider     string          `json:"servedProvider,omitempty"`
-	ServedModel        string          `json:"servedModel,omitempty"`
-	ProviderKey        string          `json:"providerKey,omitempty"`
-	Fallback           bool            `json:"fallback,omitempty"`
+	ServedProvider string `json:"servedProvider,omitempty"`
+	ServedModel    string `json:"servedModel,omitempty"`
+	ProviderKey    string `json:"providerKey,omitempty"`
+	Fallback       bool   `json:"fallback,omitempty"`
+	// Subscription is true when the caller's subscription paid for the request.
+	Subscription bool `json:"subscription,omitempty"`
+	// ClaudeSubscription is true when the caller's Claude subscription paid for the request.
+	//
+	// Deprecated: Use Subscription and ServedProvider to identify Claude subscription requests.
 	ClaudeSubscription bool            `json:"claudeSubscription,omitempty"`
 	ReasoningEffort    string          `json:"reasoningEffort"`
 	RequestPath        string          `json:"requestPath"`

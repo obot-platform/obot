@@ -70,3 +70,5 @@ Filter LLM logs by:
 ### Exporting LLM Audit Logs {#audit-logs-and-usage-exporting-llm-audit-logs}
 
 LLM audit logs can be exported as one-time or scheduled JSONL exports using the same storage configuration as MCP audit log exports. See [Audit Log Export](../configuration/audit-log-export.md) for configuration options.
+
+Starting in v0.29, use `subscription` in LLM audit API responses and JSONL exports to determine whether the caller's subscription paid for a request. Use `servedProvider` to identify the subscription provider. `anthropic` identifies Claude and `openai` identifies ChatGPT. The deprecated `claudeSubscription` field remains available for compatibility and is true only for Claude subscription requests.

@@ -202,7 +202,8 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 			r.log.ServedModel = route.Model
 			r.log.ProviderKey = route.Key
 			r.log.Fallback = route.Fallback
-			r.log.ClaudeSubscription = route.Subscription
+			r.log.Subscription = route.Subscription
+			r.log.ClaudeSubscription = route.Subscription && route.Provider == string(schemas.Anthropic)
 		}
 		r.finishBody()
 		c.LogLLMAuditEntry(r.log)
