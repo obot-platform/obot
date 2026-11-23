@@ -767,12 +767,7 @@ func storedServerForInspection(req api.Context) (v1.MCPServer, error) {
 }
 
 func (m *MCPHandler) launchConfigForInspection(req api.Context, server v1.MCPServer) (mcp.ServerConfig, error) {
-	id := req.PathValue("mcp_server_id")
-	if req.UserCanViewAdmin() && !req.UserIsAdmin() {
-		// An administrative reader reaches their own deployment even when the route names an instance.
-		id = server.Name
-	}
-	resolved, config, err := m.mcpSessionManager.ServerForAction(req.Context(), id, req.User)
+	resolved, config, err := m.mcpSessionManager.ServerForAction(req.Context(), server.Name, req.User)
 	if err != nil {
 		return mcp.ServerConfig{}, err
 	}
