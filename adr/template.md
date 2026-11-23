@@ -1,6 +1,6 @@
 # YYYY-MM-DD: Decision title
 
-- **Status:** Accepted
+- **Status:** Proposed | Accepted
 - **Date:** YYYY-MM-DD
 - **Supersedes:** None
 - **Superseded by:** None
@@ -8,10 +8,6 @@
 ## Related issues
 
 <!-- Link the GitHub issue(s) related to this decision. -->
-
-## Related ODPs
-
-<!-- Link related Obot Design Proposals, or write "None." -->
 
 ## Context
 

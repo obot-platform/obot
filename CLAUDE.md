@@ -75,11 +75,13 @@ make serve-docs       # Start local docs server
 ```
 When reviewing changes under docs/, read and follow docs/REVIEW.md. These rules apply only to documentation changes.
 
-## Design Proposals and Architecture Decisions
+## Design and Architecture Decisions
 
-- Design significant or architecturally important changes first in the [Obot Design Proposals repository](https://github.com/obot-platform/obot-design-proposals). A merged ODP is the signal that implementation may proceed.
-- When an implementation introduces a meaningful architectural decision, include an ADR in the implementation pull request and follow the [`adr/README.md`](adr/README.md) guidance. The ADR records the decision that shipped and links to its related issues and ODP when applicable.
-- If implementation differs materially from the accepted ODP, resolve the change through a follow-up ODP rather than documenting the surprise only in the ADR.
+Follow [`adr/README.md`](adr/README.md). Do not open new proposals in the retired `obot-design-proposals` repository.
+
+- Design significant or architecturally important changes first: open a pull request that adds only an ADR with status `Proposed`. A merged `Proposed` ADR is the signal that implementation may proceed. The implementation pull request sets it to `Accepted` and updates it to match what shipped.
+- If implementation must differ materially from a merged `Proposed` ADR, stop and revise that ADR in its own pull request for review rather than documenting the change only in the implementation pull request.
+- Smaller decisions worth recording do not need a separate design review. Agree on the decision with the developer during implementation and include the ADR, with status `Accepted`, in the implementation pull request.
 
 ## Pull Requests and Issues
 
