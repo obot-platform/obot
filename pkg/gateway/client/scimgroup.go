@@ -600,6 +600,10 @@ func (c *Client) DeleteSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 // before this commits may still save a subject, which the cleanup waits for. Any later one is refused, because the
 // group no longer exists.
 func deleteSCIMGroupTx(tx *gorm.DB, conn *types.SCIMConnection, groupID string) error {
+	// Role edits take the group lock before touching its role mapping.
+	if err := lockRoleGroups(tx, []string{groupID}, clause.LockingStrengthUpdate); err != nil {
+		return fmt.Errorf("failed to lock SCIM group %s for deletion: %w", groupID, err)
+	}
 	if err := tx.Where("group_name = ?", groupID).Delete(new(types.GroupRoleAssignment)).Error; err != nil {
 		return fmt.Errorf("failed to delete the group role assignments of group %s: %w", groupID, err)
 	}

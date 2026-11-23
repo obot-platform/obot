@@ -54,7 +54,7 @@ func (c *Client) CreateGroupRoleAssignment(ctx context.Context, groupName string
 	}
 
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockRoleGroups(tx, []string{groupName}); err != nil {
+		if err := lockRoleGroups(tx, []string{groupName}, clause.LockingStrengthUpdate); err != nil {
 			return err
 		}
 		if err := tx.Create(assignment).Error; err != nil {
@@ -73,7 +73,7 @@ func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string
 	var assignment types.GroupRoleAssignment
 
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockRoleGroups(tx, []string{groupName}); err != nil {
+		if err := lockRoleGroups(tx, []string{groupName}, clause.LockingStrengthUpdate); err != nil {
 			return err
 		}
 		if err := tx.Where("group_name = ?", groupName).First(&assignment).Error; err != nil {
@@ -108,11 +108,16 @@ func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string
 	return &assignment, nil
 }
 
-// Lock the group row to serialize mapping changes with membership additions, including the first mapping.
-func lockRoleGroups(tx *gorm.DB, groupIDs []string) error {
+// Lock group rows in the same order as refreshes that need different strengths for different groups.
+func lockRoleGroups(tx *gorm.DB, groupIDs []string, strength string) error {
+	order := "id"
+	if tx.Name() == "postgres" {
+		// Match Go's byte order for refreshes that acquire their locks in several batches.
+		order = `id COLLATE "C"`
+	}
 	var ids []string
-	return tx.Model(new(types.Group)).Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id IN ?", groupIDs).Order("id").Pluck("id", &ids).Error
+	return tx.Model(new(types.Group)).Clauses(clause.Locking{Strength: strength}).
+		Where("id IN ?", groupIDs).Order(order).Pluck("id", &ids).Error
 }
 
 func elevatedGroupMembers(tx *gorm.DB) *gorm.DB {
@@ -149,7 +154,7 @@ func clearReadonlyAdminForElevatedUsers(tx *gorm.DB, ids []uint) error {
 
 // Lock membership additions against role edits before writing the new edges.
 func lockMembershipAddsForRoles(tx *gorm.DB, groupIDs []string, userIDs []uint) error {
-	if err := lockRoleGroups(tx, groupIDs); err != nil {
+	if err := lockRoleGroups(tx, groupIDs, clause.LockingStrengthShare); err != nil {
 		return err
 	}
 	return lockUsersForRoleChanges(tx, userIDs)

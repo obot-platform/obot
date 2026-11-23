@@ -572,11 +572,30 @@ func lockAndUpsertAuthProviderGroups(tx *gorm.DB, updates []types.Group, members
 	}
 	groupIDs := make([]string, 0, len(updates)+len(membershipGroupIDs))
 	groupIDs = append(groupIDs, membershipGroupIDs...)
+	exclusive := make(map[string]bool, len(updates))
 	for _, group := range updates {
 		groupIDs = append(groupIDs, group.ID)
+		exclusive[group.ID] = true
 	}
-	if err := lockRoleGroups(tx, groupIDs); err != nil {
-		return fmt.Errorf("failed to lock auth provider groups: %w", err)
+	slices.Sort(groupIDs)
+	groupIDs = slices.Compact(groupIDs)
+
+	// Batch adjacent groups with the same lock strength. A group being upserted
+	// needs an exclusive lock from the start to avoid deadlocks during upgrades.
+	for start := 0; start < len(groupIDs); {
+		update := exclusive[groupIDs[start]]
+		end := start + 1
+		for end < len(groupIDs) && exclusive[groupIDs[end]] == update {
+			end++
+		}
+		strength := clause.LockingStrengthShare
+		if update {
+			strength = clause.LockingStrengthUpdate
+		}
+		if err := lockRoleGroups(tx, groupIDs[start:end], strength); err != nil {
+			return fmt.Errorf("failed to lock auth provider groups: %w", err)
+		}
+		start = end
 	}
 	if len(updates) == 0 {
 		return nil
