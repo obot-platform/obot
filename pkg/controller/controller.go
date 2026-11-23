@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -84,6 +85,12 @@ func (c *Controller) PreStart(ctx context.Context) error {
 
 	if err := ensureDefaultUserRoleSetting(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
+	}
+
+	if err := c.services.GatewayClient.MigrateKinmIfNotRun(ctx, "reset_unsupported_default_user_role", func() error {
+		return repairDefaultUserRoleSetting(ctx, c.services.StorageClient)
+	}); err != nil {
+		return fmt.Errorf("failed to repair default user role setting: %w", err)
 	}
 
 	resourceMaximums, err := c.services.MCPSessionManager.StartupKubernetesResourceMaximums(ctx, c.services.StorageClient)
@@ -349,22 +356,37 @@ func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 		return err
 	}
 
-	// If the role is 1, 2, 3, or 10, then this needs to be migrated to the new role system. Any other value means it was already migrated.
-	switch defaultRoleSetting.Spec.Role {
-	case 1:
-		defaultRoleSetting.Spec.Role = types.RoleAdmin
-	case 2:
-		defaultRoleSetting.Spec.Role = types.RolePowerUserPlus
-	case 3:
-		defaultRoleSetting.Spec.Role = types.RolePowerUser
-	case 10:
-		defaultRoleSetting.Spec.Role = types.RoleBasic
-	default:
-		// Already migrated
-		return nil
-	}
+	return nil
+}
 
-	return client.Update(ctx, &defaultRoleSetting)
+func repairDefaultUserRoleSetting(ctx context.Context, client kclient.Client) error {
+	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var setting v1.UserDefaultRoleSetting
+		if err := client.Get(ctx, key, &setting); err != nil {
+			return err
+		}
+		previous := setting.Spec.Role
+		if previous.IsValidUserRole() {
+			return nil
+		}
+		// Preserve the configured role on direct upgrades from the pre-bitflag encoding.
+		switch previous {
+		case 1:
+			setting.Spec.Role = types.RoleAdmin
+		case 2:
+			setting.Spec.Role = types.RolePowerUserPlus
+		case 3:
+			setting.Spec.Role = types.RolePowerUser
+		default:
+			setting.Spec.Role = types.RoleBasic
+		}
+		if err := client.Update(ctx, &setting); err != nil {
+			return err
+		}
+		slog.Info("Repaired saved default user role", "previousRole", previous, "role", setting.Spec.Role)
+		return nil
+	})
 }
 
 // ensureK8sSettings ensures the K8sSettings resource exists with proper configuration.

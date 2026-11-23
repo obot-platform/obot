@@ -734,7 +734,7 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 		Email:          email,
 		HashedEmail:    hashOptional(email),
 		DisplayName:    input.Profile.ObotDisplayName(),
-		Role:           opts.DefaultRole,
+		Role:           provisionedDefaultRole(opts.DefaultRole, "SCIM"),
 	}
 	if err := c.encryptUser(ctx, user); err != nil {
 		return 0, false, fmt.Errorf("failed to encrypt user: %w", err)
