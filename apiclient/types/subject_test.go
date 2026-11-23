@@ -10,6 +10,7 @@ var allPolicySystems = []PolicySystem{
 	PolicySystemModelAccess,
 	PolicySystemSkillAccess,
 	PolicySystemAccessControl,
+	PolicySystemAgentProfile,
 }
 
 func TestSubjectValidateFor(t *testing.T) {

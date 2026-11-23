@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentprofile"
 	"github.com/obot-platform/obot/pkg/api"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -103,6 +104,9 @@ func (h *AgentIdentityHandler) Create(req api.Context) error {
 	}
 	agent, err := agentFromManifest(manifest)
 	if err != nil {
+		return err
+	}
+	if err := validateAgentProfiles(agent.Profiles); err != nil {
 		return err
 	}
 	// The creator is the calling admin. It is 0 for a caller with no user row, such as the bootstrap admin.
@@ -227,8 +231,8 @@ func accessProblems(keys []gtypes.APIKey, access types.AgentIdentityAccess, now 
 	return problems
 }
 
-// Update replaces the metadata of an agent. It changes nothing else: an agent is disabled and deleted by their own
-// routes, and its creator is never changed.
+// Update replaces the metadata and the agent profiles of an agent. It changes nothing else: an agent is disabled and
+// deleted by their own routes, and its creator is never changed.
 func (h *AgentIdentityHandler) Update(req api.Context) error {
 	agent, err := pathAgent(req)
 	if err != nil {
@@ -244,6 +248,9 @@ func (h *AgentIdentityHandler) Update(req api.Context) error {
 		return err
 	}
 	update.ID = agent.ID
+	if err := validateAgentProfiles(update.Profiles); err != nil {
+		return err
+	}
 
 	updated, err := req.GatewayClient.UpdateAgent(adminAuditContext(req), update)
 	if err != nil {
@@ -429,16 +436,29 @@ func (h *AgentIdentityHandler) writeAgent(req api.Context, agent *gtypes.Agent) 
 	return req.Write(convertAgentIdentity(*agent, countActiveAPIKeys(keys)))
 }
 
-// agentFromManifest returns the agent whose metadata manifest describes.
+// agentFromManifest returns the agent whose metadata and profiles manifest describes.
 func agentFromManifest(manifest types.AgentIdentityManifest) (gtypes.Agent, error) {
 	if strings.TrimSpace(manifest.DisplayName) == "" {
 		return gtypes.Agent{}, types.NewErrBadRequest("displayName is required")
 	}
 
+	profiles := slices.Clone(manifest.Profiles)
+	for i := range profiles {
+		profiles[i].Name = strings.TrimSpace(profiles[i].Name)
+	}
 	return gtypes.Agent{
 		DisplayName: strings.TrimSpace(manifest.DisplayName),
 		Description: manifest.Description,
+		Profiles:    profiles,
 	}, nil
+}
+
+// validateAgentProfiles checks the agent profiles an agent is given (agentprofile.Validate).
+func validateAgentProfiles(profiles []types.AgentProfile) error {
+	if err := agentprofile.Validate(profiles); err != nil {
+		return types.NewErrBadRequest("invalid profiles: %v", err)
+	}
+	return nil
 }
 
 // readAgentIdentityRequest reads a request body into obj, and answers 400 for one that is not valid. Unknown fields
@@ -487,6 +507,7 @@ func convertAgentIdentity(agent gtypes.Agent, activeAPIKeyCount int) types.Agent
 		Type:              "agentidentity",
 		DisplayName:       agent.DisplayName,
 		Description:       agent.Description,
+		Profiles:          agent.Profiles,
 		Status:            agent.Status(),
 		DisabledReason:    agent.DisabledReason,
 		ActiveAPIKeyCount: activeAPIKeyCount,

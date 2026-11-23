@@ -26,6 +26,10 @@ const (
 	AdminAuditActionAgentEnable  = "agent.enable"
 	AdminAuditActionAgentDelete  = "agent.delete"
 
+	// AdminAuditAgentProfiles names an agent's profiles in the details of its agent.create and agent.update
+	// events: in changedFields, and as the key of its before and after.
+	AdminAuditAgentProfiles = "profiles"
+
 	AdminAuditActionAgentKeyCreate = "agent.key.create"
 	AdminAuditActionAgentKeyRevoke = "agent.key.revoke"
 

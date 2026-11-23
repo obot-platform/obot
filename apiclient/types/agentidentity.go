@@ -1,11 +1,14 @@
 package types
 
-// AgentIdentityManifest is the metadata an admin sets on an agent identity. It is all of an agent's configuration
-// that an admin writes: whether an agent is enabled, and what it is granted, are separate.
+// AgentIdentityManifest is what an admin sets on an agent identity: its metadata, and its agent profiles. Whether an
+// agent is enabled, and what it is granted, are separate.
 type AgentIdentityManifest struct {
 	// DisplayName names the agent for people. It is required, and need not be unique: an agent is identified by its ID.
 	DisplayName string `json:"displayName"`
 	Description string `json:"description,omitempty"`
+	// Profiles says which users the agent may act for. An update replaces the whole
+	// list, so one that leaves it out removes every entry.
+	Profiles []AgentProfile `json:"profiles,omitempty"`
 }
 
 // AgentIdentity is a non-human identity that calls Obot with its own API keys. It is not a hosted agent or an agent on

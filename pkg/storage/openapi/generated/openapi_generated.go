@@ -40,6 +40,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityManifest":                     schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess":                 schema_obot_platform_obot_apiclient_types_AgentIdentityPolicyAccess(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess":            schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentProfile":                              schema_obot_platform_obot_apiclient_types_AgentProfile(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason":                      schema_obot_platform_obot_apiclient_types_AgentReadinessReason(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadiness":                        schema_obot_platform_obot_apiclient_types_AgentVMCPReadiness(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadinessList":                    schema_obot_platform_obot_apiclient_types_AgentVMCPReadinessList(ref),
@@ -1423,6 +1424,19 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentity(ref common.Referenc
 							Format: "",
 						},
 					},
+					"profiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Profiles says which users the agent may act for. An update replaces the whole list, so one that leaves it out removes every entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentProfile"),
+									},
+								},
+							},
+						},
+					},
 					"creatorUserID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CreatorUserID is the ID of the admin who created the agent.",
@@ -1463,7 +1477,7 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentity(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AgentProfile", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -1616,7 +1630,7 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref common.
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AgentIdentityManifest is the metadata an admin sets on an agent identity. It is all of an agent's configuration that an admin writes: whether an agent is enabled, and what it is granted, are separate.",
+				Description: "AgentIdentityManifest is what an admin sets on an agent identity: its metadata, and its agent profiles. Whether an agent is enabled, and what it is granted, are separate.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"displayName": {
@@ -1633,10 +1647,25 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref common.
 							Format: "",
 						},
 					},
+					"profiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Profiles says which users the agent may act for. An update replaces the whole list, so one that leaves it out removes every entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentProfile"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"displayName"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentProfile"},
 	}
 }
 
@@ -1704,6 +1733,50 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(re
 				Required: []string{"vmcpID", "profileName"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentProfile is a profile of an agent: users the agent may act for. An agent acting on behalf of a user whom one of its profiles matches has exactly its own grants (the vMCP profiles, model access policies and skill access rules that name it), within the scopes of the key it acts with. A profile never narrows or widens them.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is assigned by Obot, and never changes. An entry sent without one is new; an entry sent with one must already be the agent's.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name labels the entry for administrators. It is required and unique within the agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"subjects": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Subjects are the users the entry applies to: users, groups, Obot groups, or the selector \"*\" (All Obot Users), which must then be the only subject. An agent is never a subject.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.Subject"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "subjects"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Subject"},
 	}
 }
 

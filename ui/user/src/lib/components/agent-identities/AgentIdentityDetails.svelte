@@ -96,10 +96,11 @@
 		if (!displayName.trim()) return;
 		saving = true;
 		try {
-			// The update replaces all metadata, so the whole manifest is sent.
+			// The update replaces the whole manifest, so the profiles are sent back unchanged.
 			const updated = await AgentIdentitiesService.updateAgent(agent.id, {
 				displayName: displayName.trim(),
-				description: description.trim() || undefined
+				description: description.trim() || undefined,
+				profiles: agent.profiles ?? []
 			});
 			agent = { ...agent, ...updated };
 			displayName = agent.displayName;

@@ -25,6 +25,9 @@ const (
 	PolicySystemModelAccess   PolicySystem = "modelAccess"
 	PolicySystemSkillAccess   PolicySystem = "skillAccess"
 	PolicySystemAccessControl PolicySystem = "accessControl"
+	// PolicySystemAgentProfile holds the subjects of an agent's profiles: the users an agent may act
+	// for. An agent never acts for another agent, so it refuses agent subjects.
+	PolicySystemAgentProfile PolicySystem = "agentProfile"
 
 	ResourceTypeMCPServerCatalogEntry ResourceType = "mcpServerCatalogEntry"
 	ResourceTypeMCPServer             ResourceType = "mcpServer"
@@ -59,9 +62,9 @@ type SubjectType string
 type PolicySystem string
 
 // allowsAgents reports whether the policy system's subjects can match agents: vMCP profiles, model access policies
-// and skill access rules can, and access control rules never do. Only these systems accept agent subjects. In access
-// control rules an agent subject would match nobody, so ValidateFor refuses it rather than store it with a meaning it
-// does not have.
+// and skill access rules can, and access control rules and agent profiles never do. Only these systems accept agent
+// subjects. In access control rules an agent subject would match nobody, so ValidateFor refuses it rather than store it
+// with a meaning it does not have.
 func (p PolicySystem) allowsAgents() bool {
 	switch p {
 	case PolicySystemVMCPProfile, PolicySystemModelAccess, PolicySystemSkillAccess:
@@ -139,6 +142,8 @@ func (p PolicySystem) displayName() string {
 	switch p {
 	case PolicySystemAccessControl:
 		return "access control rules"
+	case PolicySystemAgentProfile:
+		return "agent profiles"
 	}
 	return string(p)
 }

@@ -32,6 +32,8 @@ type Agent struct {
 	CreatorUserID uint      `json:"creatorUserID"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
+	// Profiles says which users the agent may act for. The agent create and update paths write it whole.
+	Profiles []types2.AgentProfile `json:"profiles,omitempty" gorm:"serializer:json"`
 
 	// Lifecycle fields. A disabled agent keeps its keys and assignments but is denied access. A deleted agent's row
 	// is kept so that audit history can still show it. Only lifecycle operations write these fields; see

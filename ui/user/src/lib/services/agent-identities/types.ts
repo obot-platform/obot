@@ -1,10 +1,21 @@
 // Types of the agent identities API (apiclient/types/agentidentity.go). IDs are decimal strings.
+import type { AccessControlRuleSubject } from '$lib/services/user/types';
 
 export type AgentIdentityStatus = 'active' | 'disabled' | 'deleted';
 
 export interface AgentIdentityManifest {
 	displayName: string;
 	description?: string;
+	// An update replaces the whole list, so one that leaves it out removes every entry. Left out when there is none.
+	profiles?: AgentProfile[];
+}
+
+// Users an agent may act for (apiclient/types/agentprofile.go). For a user one matches, the agent has its own grants.
+export interface AgentProfile {
+	// Assigned by the server; omit it for a new entry.
+	id?: string;
+	name: string;
+	subjects: AccessControlRuleSubject[];
 }
 
 export interface AgentIdentity extends AgentIdentityManifest {

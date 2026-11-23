@@ -1,15 +1,19 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentprofile"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -27,7 +31,7 @@ var (
 	ErrInvalidAgentMetadata = errors.New("invalid agent metadata")
 
 	// agentMetadataColumns are the agent columns that UpdateAgent writes.
-	agentMetadataColumns = []string{"display_name", "description"}
+	agentMetadataColumns = []string{"display_name", "description", "profiles"}
 )
 
 // agentLifecycleKey is what the agent lifecycle events delivered together share.
@@ -36,25 +40,36 @@ type agentLifecycleKey struct {
 	eventType types.AgentLifecycleEventType
 }
 
-// CreateAgent creates an active agent with the metadata and creator of agent, and returns it. Nothing else of agent
-// is written: the new agent gets a new ID, and is never created disabled or deleted.
+// CreateAgent creates an active agent with the metadata, profiles and creator of agent, and returns it. Nothing
+// else of agent is written: the new agent gets a new ID, and is never created disabled or deleted. Every agent
+// profile gets a new ID, and one that has an ID is refused. The entries are the caller's to validate
+// (agentprofile.Validate).
 func (c *Client) CreateAgent(ctx context.Context, agent types.Agent) (*types.Agent, error) {
 	created := &types.Agent{
 		DisplayName:   agent.DisplayName,
 		Description:   agent.Description,
 		CreatorUserID: agent.CreatorUserID,
+		Profiles:      slices.Clone(agent.Profiles),
 	}
 	if err := validateAgentMetadata(*created); err != nil {
 		return nil, err
+	}
+	if err := agentprofile.InitializeIDs(created.Profiles); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidAgentMetadata, err)
 	}
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(created).Error; err != nil {
 			return fmt.Errorf("failed to create agent: %w", err)
 		}
+		var details map[string]any
+		if len(created.Profiles) > 0 {
+			details = map[string]any{types.AdminAuditAgentProfiles: profilesChange(nil, created.Profiles)}
+		}
 		return recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
 			Action:       types.AdminAuditActionAgentCreate,
 			ResourceKind: types.AdminAuditResourceAgent,
 			ResourceID:   strconv.FormatUint(uint64(created.ID), 10),
+			Details:      details,
 		})
 	}); err != nil {
 		return nil, err
@@ -85,13 +100,18 @@ func (c *Client) ListAgents(ctx context.Context, includeDeleted bool) ([]types.A
 	return agents, nil
 }
 
-// UpdateAgent replaces the metadata of the agent with agent.ID with that of agent, and returns the agent. Nothing else
-// of agent is written, so it can neither change the agent's lifecycle nor its creator. A deleted or missing agent is
-// gorm.ErrRecordNotFound.
+// UpdateAgent replaces the metadata and profiles of the agent with agent.ID with those of agent, and returns the
+// agent. Nothing else of agent is written, so it can neither change the agent's lifecycle nor its creator. A deleted or
+// missing agent is gorm.ErrRecordNotFound.
+//
+// Profiles are matched to the stored ones by ID, under the agent's lock (agentprofile.ReconcileIDs): an entry
+// without an ID gets a new one, and an ID the agent does not have is refused. The entries are the caller's to validate
+// (agentprofile.Validate).
 func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Agent, error) {
 	if err := validateAgentMetadata(agent); err != nil {
 		return nil, err
 	}
+	profiles := slices.Clone(agent.Profiles)
 
 	var updated *types.Agent
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -106,8 +126,17 @@ func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Age
 		if updated.Description != agent.Description {
 			changed = append(changed, "description")
 		}
+		if err := agentprofile.ReconcileIDs(updated.Profiles, profiles); err != nil {
+			return fmt.Errorf("%w: %w", ErrInvalidAgentMetadata, err)
+		}
+		details := map[string]any{}
+		if !profilesEqual(updated.Profiles, profiles) {
+			changed = append(changed, types.AdminAuditAgentProfiles)
+			details[types.AdminAuditAgentProfiles] = profilesChange(updated.Profiles, profiles)
+		}
 		updated.DisplayName = agent.DisplayName
 		updated.Description = agent.Description
+		updated.Profiles = profiles
 
 		// Select writes the metadata even where it is now empty, which a struct update skips. Omit is redundant with
 		// it, and keeps the lifecycle columns out should the selection ever grow.
@@ -118,12 +147,14 @@ func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Age
 			// Saving what is already stored changes nothing, so there is nothing to record.
 			return nil
 		}
-		// Field names only: the audit is for who changed what, not a copy of the agent.
+		// Field names, and the before and after of profiles, which hold only names, subjects and IDs: the
+		// display name and description are free text, which could hold anything.
+		details["changedFields"] = changed
 		return recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
 			Action:       types.AdminAuditActionAgentUpdate,
 			ResourceKind: types.AdminAuditResourceAgent,
 			ResourceID:   strconv.FormatUint(uint64(agent.ID), 10),
-			Details:      map[string]any{"changedFields": changed},
+			Details:      details,
 		})
 	}); err != nil {
 		return nil, err
@@ -364,6 +395,29 @@ func lockAgent(tx *gorm.DB, id uint) (*types.Agent, error) {
 		return nil, err
 	}
 	return agent, nil
+}
+
+// profilesEqual reports whether a and b are the same profiles, as they are stored: compared as JSON, in which a
+// list that is empty and one that is missing are the same.
+func profilesEqual(a, b []types2.AgentProfile) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return len(a) == len(b)
+	}
+	aJSON, aErr := json.Marshal(a)
+	bJSON, bErr := json.Marshal(b)
+	return aErr == nil && bErr == nil && bytes.Equal(aJSON, bJSON)
+}
+
+// profilesChange is how a change to an agent's profiles is recorded in the admin audit: what it was before and
+// after the change, always as lists. Subjects and IDs are not secret.
+func profilesChange(before, after []types2.AgentProfile) map[string]any {
+	if before == nil {
+		before = []types2.AgentProfile{}
+	}
+	if after == nil {
+		after = []types2.AgentProfile{}
+	}
+	return map[string]any{"before": before, "after": after}
 }
 
 func validateAgentMetadata(agent types.Agent) error {
