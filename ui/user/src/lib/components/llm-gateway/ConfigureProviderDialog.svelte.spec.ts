@@ -17,6 +17,9 @@ const openai = {
 	provider_status: 'active'
 };
 
+const chatgptHeadersNotice =
+	'When ChatGPT subscriptions are enabled, this provider’s extra headers are also sent to chatgpt.com. Only configure values that may be shared with OpenAI.';
+
 const existingKey = {
 	id: 'k1',
 	name: 'openai-key-1',
@@ -533,6 +536,7 @@ describe('ConfigureProviderDialog', () => {
 		);
 		await renderProviderPage([Group.ADMIN], 'anthropic');
 
+		await expect.element(page.getByText(chatgptHeadersNotice)).not.toBeInTheDocument();
 		const toggle = page.getByRole('switch', { name: 'Allow Claude subscriptions' });
 		await expect.element(toggle).not.toBeChecked();
 		await toggle.click();
@@ -555,6 +559,9 @@ describe('ConfigureProviderDialog', () => {
 		await renderProviderPage([Group.ADMIN], 'openai');
 		const toggle = page.getByRole('switch', { name: 'Allow ChatGPT subscriptions' });
 		await expect.element(toggle).not.toBeChecked();
+		// Disclose the destination at both settings before the administrator enables passthrough.
+		await expect.element(page.getByText(chatgptHeadersNotice).nth(0)).toBeVisible();
+		await expect.element(page.getByText(chatgptHeadersNotice).nth(1)).toBeVisible();
 		await expect
 			.element(page.getByRole('switch', { name: 'Allow Claude subscriptions' }))
 			.not.toBeInTheDocument();
@@ -576,6 +583,7 @@ describe('ConfigureProviderDialog', () => {
 		});
 		await renderProviderPage([Group.ADMIN], 'custom');
 		await expect.element(page.getByText('openai-key-1')).toBeInTheDocument();
+		await expect.element(page.getByText(chatgptHeadersNotice)).not.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('switch', { name: 'Allow ChatGPT subscriptions' }))
 			.not.toBeInTheDocument();

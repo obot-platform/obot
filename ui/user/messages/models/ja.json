@@ -519,5 +519,6 @@
 	"models_providers_chatgpt_subscriptions_turned_off": "ChatGPT サブスクリプションを無効にしました。",
 	"models_connect_codex_default": "Codex のデフォルト",
 	"models_providers_chatgpt_subscriptions_only": "ChatGPT サブスクリプションのみ",
-	"models_connect_codex_model_note": "ChatGPT サブスクリプションは OpenAI モデルでのみ使用できます。Codex のデフォルトはクライアントのデフォルトモデルを使用します。"
+	"models_connect_codex_model_note": "ChatGPT サブスクリプションは OpenAI モデルでのみ使用できます。Codex のデフォルトはクライアントのデフォルトモデルを使用します。",
+	"models_providers_chatgpt_extra_headers_help": "ChatGPT サブスクリプションを有効にすると、このプロバイダーの追加ヘッダーも chatgpt.com に送信されます。OpenAI と共有してよい値のみを設定してください。"
 }

@@ -479,6 +479,11 @@
 							>
 							{m.models_providers_subscriptions_forwarded_suffix()}
 						</p>
+						{#if isOpenAI}
+							<p class="text-muted-content text-xs mt-2">
+								{m.models_providers_chatgpt_extra_headers_help()}
+							</p>
+						{/if}
 					</div>
 					<Toggle
 						classes={{
@@ -605,6 +610,11 @@
 					{/if}
 					<div class="flex flex-col gap-2 md:col-span-2">
 						<span class="text-sm font-light">{m.models_providers_extra_headers()}</span>
+						{#if isOpenAI}
+							<p class="text-muted-content text-xs">
+								{m.models_providers_chatgpt_extra_headers_help()}
+							</p>
+						{/if}
 						{#each headers as h, i (i)}
 							<div class="flex gap-2">
 								<input

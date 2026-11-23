@@ -519,5 +519,6 @@
 	"models_providers_chatgpt_subscriptions_turned_off": "ChatGPT 구독이 꺼졌습니다.",
 	"models_connect_codex_default": "Codex 기본값",
 	"models_providers_chatgpt_subscriptions_only": "ChatGPT 구독만 사용",
-	"models_connect_codex_model_note": "ChatGPT 구독은 OpenAI 모델에서만 사용됩니다. Codex 기본값은 클라이언트의 기본 모델을 유지합니다."
+	"models_connect_codex_model_note": "ChatGPT 구독은 OpenAI 모델에서만 사용됩니다. Codex 기본값은 클라이언트의 기본 모델을 유지합니다.",
+	"models_providers_chatgpt_extra_headers_help": "ChatGPT 구독을 활성화하면 이 공급자의 추가 헤더도 chatgpt.com으로 전송됩니다. OpenAI와 공유해도 되는 값만 설정하세요."
 }

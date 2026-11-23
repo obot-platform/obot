@@ -519,5 +519,6 @@
 	"models_providers_chatgpt_subscriptions_turned_off": "ChatGPT subscriptions turned off.",
 	"models_connect_codex_default": "Codex default",
 	"models_providers_chatgpt_subscriptions_only": "ChatGPT subscriptions only",
-	"models_connect_codex_model_note": "Only OpenAI models use your ChatGPT subscription. Codex default keeps the client’s default model."
+	"models_connect_codex_model_note": "Only OpenAI models use your ChatGPT subscription. Codex default keeps the client’s default model.",
+	"models_providers_chatgpt_extra_headers_help": "When ChatGPT subscriptions are enabled, this provider’s extra headers are also sent to chatgpt.com. Only configure values that may be shared with OpenAI."
 }
