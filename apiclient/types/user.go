@@ -155,7 +155,7 @@ func (u Role) WithoutRedundantReadonlyAdmin() Role {
 
 // ExtractBaseRole removes orthogonal role flags to get the base role
 func (u Role) ExtractBaseRole() Role {
-	return u &^ (RoleAuditor | RoleAdminReadonly)
+	return u &^ u.AddOnRoles()
 }
 
 // AddOnRoles returns the explicit add-ons independent of the base role.
