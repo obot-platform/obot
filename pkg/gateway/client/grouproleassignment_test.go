@@ -337,7 +337,7 @@ func TestReadonlyAdminDirectGrantClearedOnPromotion(t *testing.T) {
 					_, _, err := c.ensureGroupMemberships(ctx, tx, &types.Identity{
 						UserID:             u.ID,
 						AuthProviderGroups: []types.Group{group},
-					})
+					}, nil)
 					return err
 				}))
 			}

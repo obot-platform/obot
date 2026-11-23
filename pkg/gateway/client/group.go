@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -557,13 +558,40 @@ func (c *Client) cacheResolvedGroups(ctx context.Context, authProviderNamespace,
 			return nil
 		}
 
-		return tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
-		}).Create(&groups).Error
+		return lockAndUpsertAuthProviderGroups(tx, groups, nil)
 	}); err != nil {
 		slog.Warn("failed to cache groups resolved from the auth provider", "groups", len(groups), "error", err)
 	}
+}
+
+// Metadata upserts and membership additions must lock their combined set of existing
+// groups before either write. Concurrent upserts of new groups also use a stable order.
+func lockAndUpsertAuthProviderGroups(tx *gorm.DB, updates []types.Group, membershipGroupIDs []string) error {
+	if len(updates) == 0 && len(membershipGroupIDs) == 0 {
+		return nil
+	}
+	groupIDs := make([]string, 0, len(updates)+len(membershipGroupIDs))
+	groupIDs = append(groupIDs, membershipGroupIDs...)
+	for _, group := range updates {
+		groupIDs = append(groupIDs, group.ID)
+	}
+	if err := lockRoleGroups(tx, groupIDs); err != nil {
+		return fmt.Errorf("failed to lock auth provider groups: %w", err)
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+
+	ordered := slices.SortedFunc(slices.Values(updates), func(a, b types.Group) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+	if err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
+	}).Create(&ordered).Error; err != nil {
+		return fmt.Errorf("failed to upsert groups: %w", err)
+	}
+	return nil
 }
 
 // ListGroupIDsForUser lists the group IDs that the given user is a member of.
@@ -846,19 +874,8 @@ func (c *Client) persistGroups(ctx context.Context, identity *types.Identity, la
 			toUpsert = append(toUpsert, group)
 		}
 
-		if len(toUpsert) > 0 {
-			if err := tx.WithContext(ctx).Clauses(clause.OnConflict{
-				Columns: []clause.Column{
-					{Name: "id"},
-				},
-				DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
-			}).Create(&toUpsert).Error; err != nil {
-				return fmt.Errorf("failed to upsert groups: %w", err)
-			}
-		}
-
 		var err error
-		membershipsChanged, groupsLost, err = c.ensureGroupMemberships(ctx, tx, identity)
+		membershipsChanged, groupsLost, err = c.ensureGroupMemberships(ctx, tx, identity, toUpsert)
 		if err != nil {
 			return fmt.Errorf("failed to update group memberships for identity: %w", err)
 		}
@@ -899,11 +916,11 @@ func (c *Client) persistGroups(ctx context.Context, identity *types.Identity, la
 	return claimed, nil
 }
 
-// ensureGroupMemberships ensures the Identity is a member of the groups it references.
+// ensureGroupMemberships persists group metadata updates and reconciles the identity's memberships.
 // Returns (membershipsChanged, groupsLost, error) where:
 //   - membershipsChanged: true if user joined or left any groups
 //   - groupsLost: true if user left at least one group
-func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity) (bool, bool, error) {
+func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity, groupUpdates []types.Group) (bool, bool, error) {
 	// Get the existing memberships for this identity
 	var memberships []types.GroupMemberships
 	if err := tx.WithContext(ctx).
@@ -919,7 +936,10 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 		existingMemberships[membership.GroupID] = membership
 	}
 
-	var toInsert []types.GroupMemberships
+	var (
+		toInsert    []types.GroupMemberships
+		addedGroups []string
+	)
 	for _, group := range identity.AuthProviderGroups {
 		if _, ok := existingMemberships[group.ID]; ok {
 			// The membership already exists, skip
@@ -931,15 +951,16 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 			UserID:  identity.UserID,
 			GroupID: group.ID,
 		})
+		addedGroups = append(addedGroups, group.ID)
+	}
+
+	if err := lockAndUpsertAuthProviderGroups(tx, groupUpdates, addedGroups); err != nil {
+		return false, false, err
 	}
 
 	// Insert new memberships
 	if len(toInsert) > 0 {
-		addedGroups := make([]string, 0, len(toInsert))
-		for _, membership := range toInsert {
-			addedGroups = append(addedGroups, membership.GroupID)
-		}
-		if err := lockMembershipAddsForRoles(tx, addedGroups, []uint{identity.UserID}); err != nil {
+		if err := lockUsersForRoleChanges(tx, []uint{identity.UserID}); err != nil {
 			return false, false, err
 		}
 		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&toInsert).Error; err != nil {

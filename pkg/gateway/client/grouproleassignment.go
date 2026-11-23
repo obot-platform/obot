@@ -152,6 +152,10 @@ func lockMembershipAddsForRoles(tx *gorm.DB, groupIDs []string, userIDs []uint) 
 	if err := lockRoleGroups(tx, groupIDs); err != nil {
 		return err
 	}
+	return lockUsersForRoleChanges(tx, userIDs)
+}
+
+func lockUsersForRoleChanges(tx *gorm.DB, userIDs []uint) error {
 	for batch := range slices.Chunk(userIDs, scimMemberBatchSize) {
 		var locked []uint
 		if err := tx.Model(new(types.User)).Clauses(clause.Locking{Strength: "UPDATE"}).
