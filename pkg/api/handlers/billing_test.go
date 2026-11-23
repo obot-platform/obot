@@ -76,9 +76,10 @@ func TestBillingLicenseShowsUsage(t *testing.T) {
 			wantSyncError: "billing unavailable",
 		},
 		{
-			name:        "read-only admin",
-			role:        types.RoleBasic | types.RoleAdminReadonly,
-			wantDetails: true,
+			name:          "read-only admin",
+			role:          types.RoleBasic | types.RoleAdminReadonly,
+			wantDetails:   true,
+			wantSyncError: "billing unavailable",
 		},
 		{
 			name: "basic",

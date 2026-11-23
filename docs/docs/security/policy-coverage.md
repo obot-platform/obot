@@ -43,9 +43,11 @@ Connect to approved MCP servers and use models granted through access policies.
 
 ### Read-Only Admin {#user-roles-admin-read-only}
 
-Read-Only Admins can see everything Admins can see, with sensitive configuration values and secrets masked. This includes administrative configuration and organization-wide audit metadata.
+Read-Only Admins can inspect administrative configuration and organization-wide audit metadata. Obot masks sensitive values in administrative configuration.
 
-Admins and Owners can grant Read-Only Admin directly or through an identity-provider group. The add-on preserves the user's existing base role and personal capabilities, including any Power User workspace. Admins and Owners inherit this access, and promotion to either role removes a direct Read-Only Admin grant. Combine Read-Only Admin with Auditor to inspect sensitive audit payloads and exports.
+Admins and Owners can grant Read-Only Admin directly or through an identity-provider group. The add-on preserves the user's existing base role and personal capabilities, including any Power User workspace. Admins and Owners inherit this access, and promotion to either role removes a direct Read-Only Admin grant.
+
+Read-Only Admins can inspect audit export jobs and schedules and view captured device scan files. Captured files can include credentials from the scanned device. Combine Read-Only Admin with Auditor to inspect sensitive audit payloads and run exports with those payloads.
 
 ### Auditor {#user-roles-auditor}
 

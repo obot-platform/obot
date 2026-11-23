@@ -1,7 +1,15 @@
 import { page } from '$app/state';
 import { m } from '$lib/i18n';
 import type { AuditLogAPIKeyFilterOption, AuditLogFilterOption } from '$lib/services';
+import { Group } from '$lib/services/admin/types';
 import { isSafe } from './utils';
+
+// Auditor can already manage exports independently of the Read-Only Admin add-on.
+export function canManageAuditExports(groups: string[]): boolean {
+	return groups.some(
+		(group) => group === Group.ADMIN || group === Group.OWNER || group === Group.AUDITOR
+	);
+}
 
 export function isAuditLogAPIKeyFilterOption(
 	option: unknown

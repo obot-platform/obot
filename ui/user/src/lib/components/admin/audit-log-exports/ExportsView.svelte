@@ -15,9 +15,10 @@
 	interface Props {
 		query?: string;
 		logType?: 'mcp' | 'llm';
+		readonly?: boolean;
 	}
 
-	let { query, logType = 'mcp' }: Props = $props();
+	let { query, logType = 'mcp', readonly = false }: Props = $props();
 
 	let loading = $state(false);
 	let exports = $state<AuditLogExport[]>([]);
@@ -167,6 +168,7 @@
 			}}
 			onClickRow={handleRowClick}
 			initSort={{ property: 'created', order: 'desc' }}
+			tableSelectActions={readonly ? undefined : emptySelectActions}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -217,11 +219,11 @@
 					{d[property as keyof typeof d]}
 				{/if}
 			{/snippet}
-
-			{#snippet tableSelectActions()}{/snippet}
 		</Table>
 	{/if}
 </div>
+
+{#snippet emptySelectActions()}{/snippet}
 
 <Confirm
 	show={!!showDeleteConfirm}

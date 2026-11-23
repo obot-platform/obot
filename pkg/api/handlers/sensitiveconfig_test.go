@@ -226,7 +226,7 @@ func TestRedactSystemMCPServerManifestLeavesInputUnchanged(t *testing.T) {
 	require.Equal(t, sensitiveConfigValue, manifest.RemoteConfig.DeprecatedHeaders[0].Value) //nolint:staticcheck // Legacy values are still returned when stored.
 }
 
-func TestReadOnlyAdminMasksOtherUsersCapturedFiles(t *testing.T) {
+func TestReadOnlyAdminCanViewCapturedFiles(t *testing.T) {
 	gateway := newEnforcementTestGatewayClient(t)
 	scan := &gtypes.DeviceScan{
 		SubmittedBy: "42",
@@ -240,10 +240,9 @@ func TestReadOnlyAdminMasksOtherUsersCapturedFiles(t *testing.T) {
 	require.NoError(t, gateway.InsertDeviceScan(t.Context(), scan))
 
 	for _, tt := range []struct {
-		name        string
-		userID      string
-		role        types.Role
-		wantContent string
+		name   string
+		userID string
+		role   types.Role
 	}{
 		{
 			name:   "other user without Auditor",
@@ -251,16 +250,14 @@ func TestReadOnlyAdminMasksOtherUsersCapturedFiles(t *testing.T) {
 			role:   types.RoleBasic | types.RoleAdminReadonly,
 		},
 		{
-			name:        "own scan",
-			userID:      "42",
-			role:        types.RoleBasic | types.RoleAdminReadonly,
-			wantContent: sensitiveConfigValue,
+			name:   "own scan",
+			userID: "42",
+			role:   types.RoleBasic | types.RoleAdminReadonly,
 		},
 		{
-			name:        "other user with Auditor",
-			userID:      "7",
-			role:        types.RoleBasic | types.RoleAdminReadonly | types.RoleAuditor,
-			wantContent: sensitiveConfigValue,
+			name:   "other user with Auditor",
+			userID: "7",
+			role:   types.RoleBasic | types.RoleAdminReadonly | types.RoleAuditor,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -280,7 +277,7 @@ func TestReadOnlyAdminMasksOtherUsersCapturedFiles(t *testing.T) {
 			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &result))
 			require.Len(t, result.Files, 1)
 			require.Equal(t, scan.Files[0].Path, result.Files[0].Path)
-			require.Equal(t, tt.wantContent, result.Files[0].Content)
+			require.Equal(t, scan.Files[0].Content, result.Files[0].Content)
 		})
 	}
 }

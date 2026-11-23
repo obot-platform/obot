@@ -690,7 +690,7 @@ export interface License {
 	entitlements: Entitlements;
 	manualCheckAvailableAt?: string;
 	// A billed environment answers with its billing status instead: the entitlements and the fields below, without
-	// the license's own fields above. Usage, subscription and syncError are for admins and auditors.
+	// the license's own fields above. Usage, subscription and syncError are for admin readers.
 	usage?: EntitlementsUsage;
 	subscription?: Subscription;
 	syncing?: boolean;

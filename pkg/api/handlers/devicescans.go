@@ -102,14 +102,7 @@ func (*DeviceScansHandler) Get(req api.Context) error {
 		}
 		return err
 	}
-	result := gtypes.ConvertDeviceScan(*scan)
-	// Captured files may contain credentials that structured inventory omits.
-	if scan.SubmittedBy != req.User.GetUID() && req.UserIsReadonlyAdmin() && !req.UserIsAuditor() {
-		for i := range result.Files {
-			result.Files[i].Content = ""
-		}
-	}
-	return req.Write(result)
+	return req.Write(gtypes.ConvertDeviceScan(*scan))
 }
 
 // Delete handles DELETE /api/devices/scans/{scan_id}. Idempotent:

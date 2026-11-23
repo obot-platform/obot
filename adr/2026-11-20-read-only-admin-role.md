@@ -22,7 +22,7 @@ Read-Only Admin is an independent role bit (256). The `admin-readonly` authoriza
 
 Effective role resolution keeps the highest base role and combines add-ons from active grants. Promotion to Admin or Owner clears any direct Read-Only Admin grant, including when the promotion comes from group membership. The effective role suppresses overlapping Read-Only Admin group grants while the user is elevated. Those mappings remain available to other members and can confer Read-Only Admin again after demotion. An add-on-only mapping supplies no base role. Standard is the fallback when no source grants a base role.
 
-The add-on grants administrative inspection through an explicit allowlist of safe reads. Inspection respects secret masking. Passive details and logs look up a workload by name. Launch-capable inspection requires a separate session manager method and a launch configuration. Audit views expose metadata, and existing permissions govern personal MCP payload access. Auditor grants sensitive audit access and exports independently of this add-on.
+The add-on grants administrative inspection through an explicit allowlist of reads. Inspection masks sensitive configuration. Passive details and logs look up a workload by name. Launch-capable inspection requires a separate session manager method and a launch configuration. Audit views expose metadata, export job records, and schedules. Device inventory includes captured files. Existing permissions govern personal MCP payload access. Auditor grants sensitive audit access and export actions independently of this add-on.
 
 ## Rationale
 

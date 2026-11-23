@@ -118,10 +118,10 @@
 			if (initialData.schedule) {
 				form.schedule = {
 					interval: initialData.schedule.interval || 'daily',
-					hour: initialData.schedule.hour || 3,
+					hour: initialData.schedule.hour ?? 3,
 					minute: initialData.schedule.minute || 0,
 					day: initialData.schedule.day || 0,
-					weekday: initialData.schedule.weekday || 1,
+					weekday: initialData.schedule.weekday ?? 1,
 					timezone:
 						initialData.schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
 				};
@@ -588,6 +588,8 @@
 	});
 
 	async function handleSubmit() {
+		if (isViewMode) return;
+
 		try {
 			creating = true;
 			error = '';
@@ -793,7 +795,7 @@
 			handleSubmit();
 		}}
 	>
-		{#if !hasAuditorPermissions}
+		{#if !isViewMode && !hasAuditorPermissions}
 			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
 				<TriangleAlert class="size-5 text-warning" />
 				<div class="text-sm">
@@ -912,6 +914,7 @@
 				{#if form.schedule.interval === 'hourly'}
 					<Select
 						id="schedule-minute"
+						disabled={isViewMode}
 						classes={{ root: selectRootClass }}
 						options={[
 							{ id: '0', label: m.audit_usage_export_schedules_on_the_hour() },
@@ -929,6 +932,7 @@
 				{#if form.schedule.interval === 'daily'}
 					<Select
 						id="schedule-hour"
+						disabled={isViewMode}
 						classes={{ root: selectRootClass }}
 						options={hourOptions}
 						selected={form.schedule.hour.toString()}
@@ -947,6 +951,7 @@
 				{#if form.schedule.interval === 'weekly'}
 					<Select
 						id="schedule-weekday"
+						disabled={isViewMode}
 						classes={{ root: selectRootClass }}
 						options={[
 							{ id: '0', label: m.audit_usage_export_schedules_sunday() },
@@ -964,6 +969,7 @@
 					/>
 					<Select
 						id="schedule-hour"
+						disabled={isViewMode}
 						classes={{ root: selectRootClass }}
 						options={hourOptions}
 						selected={form.schedule.hour.toString()}
@@ -982,6 +988,7 @@
 				{#if form.schedule.interval === 'monthly'}
 					<Select
 						id="schedule-day"
+						disabled={isViewMode}
 						classes={{ root: selectRootClass }}
 						options={[
 							{ id: '0', label: m.audit_usage_export_schedules_day_1st() },
@@ -1000,6 +1007,7 @@
 					/>
 					<Select
 						id="schedule-hour"
+						disabled={isViewMode}
 						classes={{ root: selectRootClass }}
 						options={hourOptions}
 						selected={form.schedule.hour.toString()}
@@ -1025,6 +1033,7 @@
 			<div class="flex flex-col gap-1">
 				<Select
 					id="schedule-retention-period"
+					disabled={isViewMode}
 					class="w-full max-w-xs"
 					options={[
 						{ id: '1', label: m.audit_usage_export_schedules_last_1_day() },

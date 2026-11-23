@@ -59,7 +59,7 @@
 />
 
 {#snippet navActions(view: string)}
-	{#if (view === 'mcp' || view === 'llm') && (canCreateExports || profile.current.groups.includes(Group.AUDITOR))}
+	{#if (view === 'mcp' || view === 'llm') && (canCreateExports || profile.current.hasAdminAccess?.())}
 		<button
 			class="btn btn-secondary rounded-4xl"
 			onclick={() => goto(`/audit-logs/${view}/exports`)}

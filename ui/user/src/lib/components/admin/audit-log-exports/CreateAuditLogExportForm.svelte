@@ -550,6 +550,8 @@
 	}
 
 	async function handleSubmit() {
+		if (isViewMode) return;
+
 		try {
 			creating = true;
 			error = '';
@@ -678,7 +680,7 @@
 			handleSubmit();
 		}}
 	>
-		{#if !hasAuditorPermissions}
+		{#if !isViewMode && !hasAuditorPermissions}
 			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
 				<TriangleAlert class="size-5 text-warning" />
 				<div class="text-sm">

@@ -17,11 +17,6 @@ import (
 var (
 	// adminReadonlyExcludedReads are the admin GET routes that the admin read-only group may not use, and why.
 	adminReadonlyExcludedReads = map[string]string{
-		"GET /api/audit-log-exports":                                           "audit exports require separate permission",
-		"GET /api/audit-log-exports/{id}":                                      "audit exports require separate permission",
-		"GET /api/scheduled-audit-log-exports":                                 "audit exports require separate permission",
-		"GET /api/scheduled-audit-log-exports/{id}":                            "audit exports require separate permission",
-		"GET /api/mdm/configurations/{id}/download/{slug}":                     "installers can enroll devices",
 		"GET /api/setup/explicit-role-emails":                                  "setup is for owners",
 		"GET /api/setup/temp-user":                                             "setup is for owners",
 		"GET /api/all-mcps/servers/{mcp_server_id}/tools":                      "resolves a connection, which can launch the server",

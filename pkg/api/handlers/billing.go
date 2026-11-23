@@ -49,6 +49,7 @@ func (h *BillingHandler) Get(req api.Context) error {
 		Syncing:      subscription.Annotations[v1.SubscriptionSyncAnnotation] == "true",
 	}
 	if req.UserCanViewAdmin() {
+		status.SyncError = subscription.Status.SyncError
 		used, err := license.Usage(req.Context(), req.GatewayClient, req.Storage)
 		if err != nil {
 			return err
@@ -64,10 +65,6 @@ func (h *BillingHandler) Get(req api.Context) error {
 				SelfService:       stored.SelfService,
 			}
 		}
-	}
-	// Raw sync errors can include a billing provider's response or request URL.
-	if req.UserIsAdmin() || req.UserIsAuditor() {
-		status.SyncError = subscription.Status.SyncError
 	}
 	return req.Write(status)
 }

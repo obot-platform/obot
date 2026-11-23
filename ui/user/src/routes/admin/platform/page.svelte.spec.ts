@@ -642,6 +642,22 @@ describe('Platform Page', () => {
 				.not.toBeInTheDocument();
 		});
 
+		it('shows read-only admins the last billing sync failure', async () => {
+			await renderPlatformPage({
+				license: { ...billingLicense, syncError: 'billing unavailable' },
+				groups: [Group.ADMIN_READONLY],
+				versionOverrides: billing
+			});
+
+			await expect
+				.element(page.getByText('Failed to check the subscription: billing unavailable'))
+				.toBeVisible();
+			await expect.element(page.getByText('Team', { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Manage Billing', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
 		it("doesn't offer billing management for a plan the account team manages", async () => {
 			await renderPlatformPage({
 				license: {
