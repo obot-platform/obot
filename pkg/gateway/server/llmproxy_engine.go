@@ -605,10 +605,6 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 			return nil, apierrors.NewServiceUnavailable(fmt.Sprintf("subscription provider unavailable: %v", err))
 		}
 	}
-	if allowSubscription && subscriptionToken {
-		// Keep Claude's admission policy; core validates both providers under their lifetime gates.
-		allowSubscription = provider == "openai" || b.engine.AnthropicIsDirect(ctx)
-	}
 	if scope := llmengine.LegacyProvider(ctx); scope != "" && model != nil {
 		key, err := b.engine.LegacyKey(ctx, model.Spec.Manifest.TargetModel)
 		if err != nil {
@@ -616,6 +612,7 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 		}
 		*req = *req.WithContext(llmcore.WithInitialKey(ctx, key))
 	}
+	// Core validates destinations at subscription admission and the final attempt gate.
 	subscription := stripCallerCredentials(req, model, allowSubscription)
 	if subscriptionToken && !subscription && (model != nil || chatgpt) {
 		// Subscription requests must not silently spend configured provider keys.
