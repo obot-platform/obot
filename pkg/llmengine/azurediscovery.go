@@ -126,11 +126,11 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 		return err
 	}
 	// Recheck the provider type from the same version used for publication.
-	if !isAzureProvider(llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{provider: current.Config}}, provider) {
+	if !isAzureProvider(llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{provider: current.RuntimeConfig()}}, provider) {
 		return nil
 	}
 
-	proxy := llmcore.ProviderProxy(current.Config, cfg.Settings["proxy"])
+	proxy := llmcore.ProviderProxy(provider, current.Config, cfg.Settings["proxy"])
 	snapshots := map[string]llmcoreclient.AzureDiscoverySnapshot{}
 	keep := map[string]struct{}{}
 	var failures []error
@@ -340,7 +340,7 @@ func keyViews(keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount
 	return out
 }
 
-func providerViewWithIDs(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount) ProviderResponse {
+func providerViewWithIDs(name schemas.ModelProvider, pc llmcoreclient.ProviderConfig, keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount) ProviderResponse {
 	view := providerView(name, pc, keys)
 	view.Keys = keyViews(view.ProviderConfig.Keys, accounts)
 

@@ -251,7 +251,7 @@ func TestSettingsConflictPreservesOtherSettings(t *testing.T) {
 
 func TestCreateProviderPreservesExistingAggregate(t *testing.T) {
 	store := newStore(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
-	original := client.Provider{Keys: []schemas.Key{{ID: "existing", Value: *schemas.NewSecretVar("existing-secret")}}}
+	original := client.Provider{SubscriptionPassthrough: new(false), Keys: []schemas.Key{{ID: "existing", Value: *schemas.NewSecretVar("existing-secret")}}}
 	require.NoError(t, store.CreateProvider(t.Context(), "openai", original))
 	require.True(t, apierrors.IsAlreadyExists(store.CreateProvider(t.Context(), "openai", client.Provider{})))
 	got, err := store.GetProvider(t.Context(), "openai")
@@ -259,6 +259,66 @@ func TestCreateProviderPreservesExistingAggregate(t *testing.T) {
 	require.Equal(t, original, got)
 	require.Error(t, store.CreateProvider(t.Context(), "invalid", client.Provider{Keys: []schemas.Key{{}}}))
 	require.Error(t, store.CreateProvider(t.Context(), "duplicate", client.Provider{Keys: []schemas.Key{{ID: "same"}, {ID: "same"}}}))
+}
+
+func TestProviderRuntimeConfigPreservesMigrationMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		stored   *bool
+		explicit bool
+		allowed  bool
+		want     *bool
+	}{
+		{
+			name: "unmigrated unrelated edit",
+		},
+		{
+			name:     "unmigrated explicit disable",
+			explicit: true,
+			want:     new(false),
+		},
+		{
+			name:     "unmigrated explicit enable",
+			explicit: true,
+			allowed:  true,
+			want:     new(true),
+		},
+		{
+			name:   "enabled unrelated edit",
+			stored: new(true),
+			want:   new(true),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := newStore(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
+			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", client.Provider{}))
+			require.NoError(t, store.MutateProvider(t.Context(), "anthropic", func(provider *client.Provider) error {
+				provider.SubscriptionPassthrough = tc.stored
+				return nil
+			}))
+
+			loaded, err := store.Load(t.Context())
+			require.NoError(t, err)
+			config := loaded.Config.Providers[schemas.Anthropic]
+			require.Equal(t, tc.stored != nil && *tc.stored, config.SubscriptionPassthrough)
+			config.NetworkConfig.MaxRetries = 4
+			if tc.explicit {
+				config.SubscriptionPassthrough = tc.allowed
+			}
+			require.NoError(t, store.MutateProvider(t.Context(), "anthropic", func(provider *client.Provider) error {
+				provider.SetConfig(config, tc.explicit)
+				return nil
+			}))
+
+			stored, err := store.GetProvider(t.Context(), "anthropic")
+			require.NoError(t, err)
+			require.Equal(t, tc.want, stored.SubscriptionPassthrough)
+			require.Equal(t, 4, stored.Config.NetworkConfig.MaxRetries)
+			loaded, err = store.Load(t.Context())
+			require.NoError(t, err)
+			require.Equal(t, config, loaded.Config.Providers[schemas.Anthropic])
+		})
+	}
 }
 
 func TestRuleConflictRetriesLatestFields(t *testing.T) {

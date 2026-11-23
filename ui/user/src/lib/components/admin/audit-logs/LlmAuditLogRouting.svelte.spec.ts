@@ -103,6 +103,24 @@ describe('LlmAuditLogRouting', () => {
 		expect(ends.every((c) => c === '_')).toBe(true);
 	});
 
+	it("says when the user's ChatGPT subscription paid for Codex", async () => {
+		render(LlmAuditLogRouting, {
+			auditLog: auditLog({
+				targetModel: 'openai/test',
+				servedProvider: 'openai',
+				servedModel: 'test',
+				providerKey: undefined,
+				subscription: true
+			})
+		});
+		const section = page.getByRole('region', { name: 'Routing' });
+		await expect.element(section.getByText("The user's ChatGPT subscription")).toBeVisible();
+		await expect
+			.element(section.getByText("The user's Claude subscription"))
+			.not.toBeInTheDocument();
+		await expect.element(section.getByText('Provider key')).not.toBeInTheDocument();
+	});
+
 	it("says when the user's Claude subscription paid for a request", async () => {
 		render(LlmAuditLogRouting, {
 			auditLog: auditLog({
@@ -110,7 +128,7 @@ describe('LlmAuditLogRouting', () => {
 				servedProvider: 'anthropic',
 				servedModel: 'claude-sonnet-4-5',
 				providerKey: undefined,
-				claudeSubscription: true
+				subscription: true
 			})
 		});
 

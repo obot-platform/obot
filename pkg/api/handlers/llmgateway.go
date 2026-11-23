@@ -133,17 +133,6 @@ func (h *LLMGatewayHandler) validateProviderBody(req api.Context, body []byte) (
 	if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
 		return "", err
 	}
-	if isAnthropicProvider(name, body) {
-		settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
-		if err != nil {
-			return "", err
-		}
-		if settings.SubscriptionPassthrough {
-			if err := rejectSubscriptionRedirects(body); err != nil {
-				return "", err
-			}
-		}
-	}
 	return providerType, nil
 }
 
@@ -328,20 +317,6 @@ func triggerGatewayModelSync(req api.Context) {
 	}
 }
 
-func disableSubscriptionPassthrough(ctx context.Context, req api.Context) {
-	settings, err := req.GatewayClient.GetLLMGatewaySettings(ctx)
-	if err != nil || !settings.SubscriptionPassthrough {
-		if err != nil {
-			slog.Warn("failed to read LLM gateway settings", "error", err)
-		}
-		return
-	}
-	settings.SubscriptionPassthrough = false
-	if err := req.GatewayClient.SetLLMGatewaySettings(ctx, settings); err != nil {
-		slog.Warn("failed to turn off Claude subscriptions after removing the Anthropic provider", "error", err)
-	}
-}
-
 func (h *LLMGatewayHandler) SyncModels(req api.Context) error {
 	if err := h.requireEngine(); err != nil {
 		return err
@@ -353,36 +328,21 @@ func (h *LLMGatewayHandler) SyncModels(req api.Context) error {
 	return nil
 }
 
-// GetSettings returns the LLM gateway settings Obot enforces.
-func (h *LLMGatewayHandler) GetSettings(req api.Context) error {
-	settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
+// GetSubscriptionPassthroughSettings exposes only the provider-derived subscription summary to signed-in users.
+func (h *LLMGatewayHandler) GetSubscriptionPassthroughSettings(req api.Context) error {
+	// Connection setup remains usable while inference is unavailable.
+	if !h.engine.Ready() {
+		return req.Write(gatewaytypes.SubscriptionPassthroughSettings{})
+	}
+	claude, err := h.engine.SubscriptionPassthrough(req.Context(), "anthropic")
 	if err != nil {
 		return err
 	}
-	return req.Write(settings)
-}
-
-// UpdateSettings replaces the LLM gateway settings Obot enforces.
-func (h *LLMGatewayHandler) UpdateSettings(req api.Context) error {
-	var settings gatewaytypes.LLMGatewaySettings
-	if err := req.Read(&settings); err != nil {
-		return types.NewErrBadRequest("invalid settings: %v", err)
-	}
-	previous, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
+	chatgpt, err := h.engine.SubscriptionPassthrough(req.Context(), "openai")
 	if err != nil {
 		return err
 	}
-	if err := req.GatewayClient.SetLLMGatewaySettings(req.Context(), settings); err != nil {
-		return err
-	}
-	if previous.SubscriptionPassthrough != settings.SubscriptionPassthrough {
-		// An Anthropic provider without keys lists its models only while subscriptions are
-		// allowed.
-		if err := llmengine.TriggerModelSync(req.Context(), req.Storage); err != nil {
-			slog.Warn("failed to trigger LLM gateway model sync", "error", err)
-		}
-	}
-	return req.Write(settings)
+	return req.Write(gatewaytypes.SubscriptionPassthroughSettings{ClaudeSubscriptionPassthrough: claude, ChatGPTSubscriptionPassthrough: chatgpt})
 }
 
 func (h *LLMGatewayHandler) ListBudgets(req api.Context) error {

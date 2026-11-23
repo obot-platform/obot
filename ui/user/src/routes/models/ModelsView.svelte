@@ -11,7 +11,7 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { ApiKeysService, type APIKey } from '$lib/services';
-	import { doGet } from '$lib/services/http';
+	import { getSubscriptionPassthroughSettings } from '$lib/services/llm-gateway/gateway';
 	import { profile } from '$lib/stores';
 	import accessibleModels from '$lib/stores/accessibleModels.svelte';
 	import { goto, resolve } from '$lib/url';
@@ -29,16 +29,16 @@
 	// The store only holds the LLM gateway's models.
 	let gatewayModels = $derived(accessibleModels.current);
 	let subscriptionPassthrough = $state(false);
+	let chatgptSubscriptionPassthrough = $state(false);
 
 	onMount(() => {
 		obotURL = window.location.origin;
-		// Without it, the setup instructions just leave out the Claude subscription option.
-		(
-			doGet('/llm-gateway/settings', { dontLogErrors: true }) as Promise<{
-				subscriptionPassthrough: boolean;
-			}>
-		)
-			.then((s) => (subscriptionPassthrough = s.subscriptionPassthrough))
+		// If settings are unavailable, setup instructions leave out subscription options.
+		getSubscriptionPassthroughSettings({ dontLogErrors: true })
+			.then((s) => {
+				subscriptionPassthrough = s.subscriptionPassthrough;
+				chatgptSubscriptionPassthrough = !!s.chatgptSubscriptionPassthrough;
+			})
 			.catch(() => {});
 	});
 
@@ -176,6 +176,7 @@
 				{hasValidIdentityApiKeys}
 				{creatingApiKey}
 				onGenerateApiKey={generateApiKey}
+				{chatgptSubscriptionPassthrough}
 			/>
 			<GatewayModelsDialog bind:this={modelsDialog} models={gatewayModels} />
 		{:else}

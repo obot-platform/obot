@@ -37,6 +37,8 @@ Keys are only sent to the address they were entered for:
 - **Changing a provider's base URL removes its keys.** The provider page asks you to confirm, and you add the keys again after saving. Through the API, a base URL change is refused while the provider has keys, unless the request adds `?removeKeys=true` to `PUT /api/llm-gateway/admin/providers/{name}`.
 - **Changing a key's server URL or endpoint requires entering its secrets again** (its API key or client secret), so a stored secret can't be redirected to another server.
 
+When **Allow ChatGPT subscriptions** is enabled on the built-in OpenAI provider, its **Extra headers** are also sent to `chatgpt.com` for subscription requests. Only configure header values that may be shared with OpenAI; do not add secrets intended only for an egress gateway or another service.
+
 ### Amazon Bedrock {#amazon-bedrock}
 
 Add the **AWS Bedrock** provider with a Bedrock API key or an access key ID and secret access key, and the region.

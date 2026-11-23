@@ -143,10 +143,6 @@ func (h *LLMGatewayHandler) DeleteProvider(req api.Context) error {
 	if err != nil {
 		return gatewayAdminError(err)
 	}
-	// Do not silently re-enable subscriptions if Anthropic is added again.
-	if req.PathValue("provider") == "anthropic" {
-		disableSubscriptionPassthrough(context.WithoutCancel(req.Context()), req)
-	}
 	triggerGatewayModelSync(req)
 	return req.Write(map[string]any{"status": "deleted"})
 }

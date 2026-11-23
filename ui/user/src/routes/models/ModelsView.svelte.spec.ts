@@ -111,6 +111,31 @@ describe('ModelsView', () => {
 			.toBeVisible();
 	});
 
+	it('offers ChatGPT subscriptions to ordinary users from the safe summary', async () => {
+		worker.use(
+			http.get('/api/llm-gateway/settings', () =>
+				HttpResponse.json({ subscriptionPassthrough: false, chatgptSubscriptionPassthrough: true })
+			)
+		);
+		await renderModelsView(gatewayModels, [Group.USER]);
+		await page.getByRole('button', { name: 'Codex CLI' }).click();
+		await expect.element(page.getByRole('tab', { name: 'Use subscription' })).toBeVisible();
+	});
+
+	it('hides unavailable Claude subscriptions for ordinary users', async () => {
+		worker.use(
+			http.get('/api/llm-gateway/settings', () =>
+				HttpResponse.json({ subscriptionPassthrough: false, chatgptSubscriptionPassthrough: true })
+			)
+		);
+		await renderModelsView(gatewayModels, [Group.USER]);
+		await page.getByRole('button', { name: 'Claude Code' }).click();
+		await expect.element(page.getByRole('heading', { name: 'Claude Code' })).toBeVisible();
+		await expect
+			.element(page.getByRole('tab', { name: 'Use subscription' }))
+			.not.toBeInTheDocument();
+	});
+
 	it('counts a single model in the singular', async () => {
 		await renderModelsView([gatewayModels[0]]);
 

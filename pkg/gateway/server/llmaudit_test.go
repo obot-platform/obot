@@ -34,6 +34,7 @@ func (p auditMarshalProbe) MarshalJSON() ([]byte, error) {
 func TestRedactedHeaders(t *testing.T) {
 	headers := http.Header{
 		"Authorization":                               []string{"Bearer secret"},
+		"Chatgpt-Account-Id":                          []string{"account-secret"},
 		"X-Api-Key":                                   []string{"secret"},
 		"Content-Type":                                []string{"application/json"},
 		"X-Ratelimit-Limit-Tokens":                    []string{"x-limit"},
