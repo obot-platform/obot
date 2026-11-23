@@ -81,6 +81,9 @@ var (
 		"tool":       {},
 		"outcome":    {},
 		"client":     {},
+
+		// The users agents acted for, which the on_behalf_of filter takes.
+		api.OnBehalfOfParam: {},
 	}
 )
 
@@ -216,6 +219,8 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 	opts := gateway.MCPAuditLogOptions{
 		APIKeyID:                  api.ParseUintList(query["api_key_id"]),
 		UserID:                    parseMultiValueParam(query, "user_id"),
+		IncludeOnBehalfOf:         api.IncludeOnBehalfOf(query),
+		OnBehalfOf:                parseMultiValueParam(query, api.OnBehalfOfParam),
 		ActorKind:                 parseMultiValueParam(query, "actor_kind"),
 		MCPID:                     parseMultiValueParam(query, "mcp_id"),
 		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
@@ -620,6 +625,9 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 		MCPServerDisplayNames:      mcpServerDisplayNames,
 		MCPServerCatalogEntryNames: mcpServerCatalogEntryNames,
 		UserIDs:                    userIDs,
+		IncludeOnBehalfOf:          api.IncludeOnBehalfOf(query),
+		// Unlike the filters above, it applies to a single server's stats too.
+		OnBehalfOf: parseMultiValueParam(query, api.OnBehalfOfParam),
 	}
 
 	// Apply scope filtering based on user role (same logic as audit logs)
@@ -796,9 +804,11 @@ func convertMCPAuditLog(auditLog *auditLogInput) {
 		auditLog.SourceType = types.AuditLogSourceTypeMCP
 	}
 	// The subject arrives as the storage encoding of the caller, as the MCP server was given it, so it is decoded
-	// into the row's attribution here rather than from a UserInfo. An agent's call has no user ID.
+	// into the row's attribution here rather than from a UserInfo. An agent's call has no user ID. Nothing an MCP server
+	// sends can say that an agent acted for a user.
 	actor := gatewaytypes.ActorForOwner(auditLog.UserID)
 	auditLog.UserID, auditLog.PrincipalKind, auditLog.PrincipalID = actor.UserID, actor.PrincipalKind, actor.PrincipalID
+	auditLog.OnBehalfOf = actor.OnBehalfOf
 	if apiKeyID, err := strconv.ParseUint(auditLog.Metadata[principal.APIKeyIDExtra], 10, 0); err == nil && apiKeyID > 0 {
 		id := uint(apiKeyID)
 		auditLog.APIKeyID = &id

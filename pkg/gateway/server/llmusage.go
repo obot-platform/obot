@@ -114,6 +114,7 @@ func newRunTokenActivity(user kuser.Info, model string, usage types.TokenUsage) 
 		UserID:        actor.UserID,
 		PrincipalKind: actor.PrincipalKind,
 		PrincipalID:   actor.PrincipalID,
+		OnBehalfOf:    actor.OnBehalfOf,
 		Model:         model,
 		Usage:         usage,
 	}

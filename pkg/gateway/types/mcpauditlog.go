@@ -32,6 +32,9 @@ type MCPAuditLog struct {
 	UserID        string `json:"userID" gorm:"index"`
 	PrincipalKind string `json:"principalKind,omitempty" gorm:"type:text;not null;default:user;index:idx_mcp_audit_principal,priority:1"`
 	PrincipalID   string `json:"principalID,omitempty" gorm:"type:text;index:idx_mcp_audit_principal,priority:2"`
+	// OnBehalfOf is the ID of the user an agent made the call for, and empty for any other call; see Actor. Rows from
+	// before agents acted for users have none.
+	OnBehalfOf string `json:"onBehalfOf,omitempty" gorm:"type:text;index"`
 	// AgentDisplayName is the current display name of the agent, populated when audit logs are read, from the agent
 	// row even when the agent has been deleted. It is not part of the historical event.
 	AgentDisplayName string `json:"-" gorm:"-"`
@@ -228,6 +231,7 @@ type MCPToolCallStatsItem struct {
 	UserID           string    `json:"userID"`
 	PrincipalKind    string    `json:"principalKind"`
 	PrincipalID      string    `json:"principalID"`
+	OnBehalfOf       string    `json:"onBehalfOf"`
 	ProcessingTimeMs int64     `json:"processingTimeMs"`
 	ResponseStatus   int       `json:"responseStatus"`
 	Error            string    `json:"error"`
@@ -503,6 +507,7 @@ func ConvertMCPUsageStats(s MCPUsageStatItem) types2.MCPUsageStatItem {
 				CreatedAt:        *types2.NewTime(item.CreatedAt),
 				UserID:           item.UserID,
 				Principal:        Actor{PrincipalKind: item.PrincipalKind, PrincipalID: item.PrincipalID, UserID: item.UserID}.Ref(),
+				OnBehalfOf:       Actor{OnBehalfOf: item.OnBehalfOf}.OnBehalfOfRef(),
 				ProcessingTimeMs: item.ProcessingTimeMs,
 				ResponseStatus:   item.ResponseStatus,
 				Error:            item.Error,

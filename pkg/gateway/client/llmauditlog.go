@@ -40,6 +40,11 @@ type LLMAuditLogOptions struct {
 	// UserID matches the user or the agent that made the request. A value is a user's ID, or "agent:<id>" for an
 	// agent.
 	UserID []string
+	// IncludeOnBehalfOf makes the users in UserID also match the requests agents made on their behalf.
+	IncludeOnBehalfOf bool
+	// OnBehalfOf matches the requests that agents made on behalf of any of these users, by ID. Like every other
+	// filter, it narrows the others: with an agent in UserID, it selects that agent's requests for these users.
+	OnBehalfOf []string
 	// ActorKind matches the kind of principal that made the request, "user" or "agent". Rows of a deleted agent still
 	// match.
 	ActorKind       []string
@@ -279,7 +284,8 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 		}
 		db = db.Where(fmt.Sprintf(query, like), args...)
 	}
-	db = applyOwnerFilter(db, opts.UserID)
+	db = applyOwnerFilter(db, opts.UserID, opts.IncludeOnBehalfOf)
+	db = applyOnBehalfOfFilter(db, opts.OnBehalfOf)
 	db = applyActorFilters(db, opts.ActorKind)
 	if len(opts.APIKeyID) > 0 {
 		db = db.Where("api_key_id IN (?)", opts.APIKeyID)

@@ -33,22 +33,36 @@ func TestPreconfiguredOAuthOwnerRoundTrip(t *testing.T) {
 	}
 }
 
-// TestPreconfiguredOAuthOwnerIsNeverAPrincipal checks that the owner of a vMCP's preconfigured OAuth grants is never
-// read as a user or an agent, however a caller carrying it presents itself: it cannot be parsed, a caller with it is no
-// principal, and it never claims to be an agent, which would confine it as one rather than refuse it.
-func TestPreconfiguredOAuthOwnerIsNeverAPrincipal(t *testing.T) {
-	owner := PreconfiguredOAuthOwner("vmcp1abc")
-	if p, err := Parse(owner); err == nil {
-		t.Fatalf("Parse(%q) = %#v, want an error", owner, p)
-	}
-	for _, kind := range []Kind{KindUser, KindAgent, ""} {
-		extra := map[string][]string{}
-		if kind != "" {
-			RecordKind(extra, kind)
+// TestOwnersAreNeverPrincipals checks that the owners that stand for something other than a caller, the owner of a
+// vMCP's preconfigured OAuth grants and the owner of a user's setup through an agent, are never read as a user or an
+// agent, however a caller carrying one presents itself: neither can be parsed, a caller with one is no principal and
+// owns nothing, and the admission check refuses a caller with either.
+func TestOwnersAreNeverPrincipals(t *testing.T) {
+	for _, owner := range []string{
+		PreconfiguredOAuthOwner("vmcp1abc"),
+		DelegatedOwner{AgentID: 5, UserID: 7}.String(),
+	} {
+		if p, err := Parse(owner); err == nil {
+			t.Fatalf("Parse(%q) = %#v, want an error", owner, p)
 		}
-		caller := &kuser.DefaultInfo{UID: owner, Name: owner, Extra: extra}
-		if p, ok := FromUserInfo(caller); ok {
-			t.Errorf("FromUserInfo() of a caller with UID %q marked %q = %#v", owner, kind, p)
+		if id, ok := ParseAgent(owner); ok {
+			t.Fatalf("ParseAgent(%q) = %q, want none", owner, id)
+		}
+		for _, kind := range []Kind{KindUser, KindAgent, ""} {
+			extra := map[string][]string{}
+			if kind != "" {
+				RecordKind(extra, kind)
+			}
+			caller := &kuser.DefaultInfo{UID: owner, Name: owner, Extra: extra}
+			if p, ok := FromUserInfo(caller); ok {
+				t.Errorf("FromUserInfo() of a caller with UID %q marked %q = %#v", owner, kind, p)
+			}
+			if got, err := CallerOwner(caller); err == nil {
+				t.Errorf("CallerOwner() of a caller with UID %q marked %q = %q", owner, kind, got)
+			}
+		}
+		if !IsPreconfiguredOAuthOwner(owner) && !IsDelegatedOwner(owner) {
+			t.Errorf("the admission check would not refuse a caller with UID %q", owner)
 		}
 	}
 	// A caller's UID with the prefix is refused by the admission check whatever follows it.

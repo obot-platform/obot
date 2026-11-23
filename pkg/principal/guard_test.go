@@ -28,6 +28,12 @@ var (
 		"pkg/clauderunner/access.go: owner":                      "hosted Claude sessions belong to users",
 		"pkg/gateway/client/claude_tag.go: userID":               "Claude Tag identities are users",
 	}
+
+	// allowedOnBehalfOfRecorders are the functions outside this package, keyed by file and function name, that may
+	// record the user a caller acts for (RecordOnBehalfOf or OnBehalfOfExtra). Each must be an authenticator that opted
+	// in to tokens with which an agent acts on behalf of a user (persistent.TokenService.DecodeDelegatedToken), and must
+	// record it on an agent principal only, after its kind. There are none yet.
+	allowedOnBehalfOfRecorders = map[string]string{}
 )
 
 // sourceFile is a parsed non-test Go file of the repository, outside this package.
@@ -191,5 +197,49 @@ func TestUserStatusIsRecordedWithAKind(t *testing.T) {
 	// The guard is only meaningful while it finds the authenticators that record a status.
 	if recorders == 0 {
 		t.Fatal("found no function that records a user status")
+	}
+}
+
+// TestOnBehalfOfIsRecordedOnlyByAllowedAuthenticators fails when a function outside this package that is not in
+// allowedOnBehalfOfRecorders records the user a caller acts for. Whoever records it decides that an agent acts for a
+// user, so only an authenticator that verified a delegated token may.
+func TestOnBehalfOfIsRecordedOnlyByAllowedAuthenticators(t *testing.T) {
+	seen := map[string]bool{}
+	walkSourceFiles(t, func(f sourceFile) {
+		name := f.principalName()
+		if name == "" {
+			return
+		}
+		for _, decl := range f.file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				sel, ok := n.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				if pkg, ok := sel.X.(*ast.Ident); !ok || pkg.Name != name {
+					return true
+				}
+				if sel.Sel.Name != "RecordOnBehalfOf" && sel.Sel.Name != "OnBehalfOfExtra" {
+					return true
+				}
+				key := f.rel + ": " + fn.Name.Name
+				if _, ok := allowedOnBehalfOfRecorders[key]; ok {
+					seen[key] = true
+					return true
+				}
+				t.Errorf("%s: %s records the user a caller acts for; only an authenticator of delegated tokens may (allowedOnBehalfOfRecorders)", f.fset.Position(sel.Pos()), fn.Name.Name)
+				return true
+			})
+		}
+	})
+
+	for key := range allowedOnBehalfOfRecorders {
+		if !seen[key] {
+			t.Errorf("allowed on-behalf-of recorder %q no longer records it; remove it from allowedOnBehalfOfRecorders", key)
+		}
 	}
 }

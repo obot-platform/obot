@@ -78,13 +78,15 @@ func testActivityPrincipalColumnsMigration(t *testing.T, database *DB, gormDB *g
 	}
 
 	migrator := gormDB.Migrator()
-	for model, index := range map[any]string{
-		&types.LLMAuditLog{}:      "idx_llm_audit_principal",
-		&types.MCPAuditLog{}:      "idx_mcp_audit_principal",
-		&types.RunTokenActivity{}: "idx_run_token_activity_principal",
+	for model, indexes := range map[any][]string{
+		&types.LLMAuditLog{}:      {"idx_llm_audit_principal", "idx_llm_audit_on_behalf_of_created"},
+		&types.MCPAuditLog{}:      {"idx_mcp_audit_principal", "idx_mcp_audit_logs_on_behalf_of"},
+		&types.RunTokenActivity{}: {"idx_run_token_activity_principal", "idx_run_token_activity_on_behalf_of_created"},
 	} {
-		if !migrator.HasIndex(model, index) {
-			t.Errorf("%T has no %s index", model, index)
+		for _, index := range indexes {
+			if !migrator.HasIndex(model, index) {
+				t.Errorf("%T has no %s index", model, index)
+			}
 		}
 	}
 
@@ -120,9 +122,14 @@ func testActivityPrincipalColumnsMigration(t *testing.T, database *DB, gormDB *g
 					PrincipalKind string
 					PrincipalID   string
 					UserID        string
+					OnBehalfOf    *string
 				}
 				if err := gormDB.Model(test.model).Where(where).Take(&row).Error; err != nil {
 					t.Fatalf("failed to read the row where %s: %v", where, err)
+				}
+				// The on-behalf-of column is new and nullable, so a previous row is not rewritten: it acts for no one.
+				if row.OnBehalfOf != nil {
+					t.Errorf("previous row on_behalf_of = %q, want NULL", *row.OnBehalfOf)
 				}
 				return attribution{kind: row.PrincipalKind, id: row.PrincipalID, userID: row.UserID}
 			}

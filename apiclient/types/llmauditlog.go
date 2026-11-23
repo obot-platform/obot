@@ -13,6 +13,8 @@ type LLMAuditLog struct {
 	UserID string `json:"userID"`
 	// Principal is the user or agent that made the request. It is set for every request that has a caller.
 	Principal PrincipalRef `json:"principal,omitzero"`
+	// OnBehalfOf is the user an agent made the request for, when it acted for one.
+	OnBehalfOf PrincipalRef `json:"onBehalfOf,omitzero"`
 	// AgentDisplayName is the current display name of the agent that made the request, also after the agent is
 	// deleted.
 	AgentDisplayName string `json:"agentDisplayName,omitempty"`

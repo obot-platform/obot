@@ -140,7 +140,7 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 
 // actorOf returns the principal a row is attributed to.
 func actorOf(log gatewaytypes.MCPAuditLog) gatewaytypes.Actor {
-	return gatewaytypes.Actor{PrincipalKind: log.PrincipalKind, PrincipalID: log.PrincipalID, UserID: log.UserID}
+	return gatewaytypes.Actor{PrincipalKind: log.PrincipalKind, PrincipalID: log.PrincipalID, UserID: log.UserID, OnBehalfOf: log.OnBehalfOf}
 }
 
 // apiKeyDisplayName labels an API key with its event-time name and its masked identifier. actor is the principal the
@@ -164,11 +164,12 @@ func apiKeyDisplayName(actor gatewaytypes.Actor, apiKeyID *uint, name string) st
 
 func mcpActor(log gatewaytypes.MCPAuditLog, credentialID string) api.AuditLogActor {
 	userID, apiKeyRevoked := log.UserID, log.APIKeyRevoked
-	if actorOf(log).IsAgent() {
+	if actor := actorOf(log); actor.IsAgent() {
 		return api.AuditLogActor{
 			ActorType:     api.AuditLogActorTypeAgent,
 			ID:            log.PrincipalID,
 			DisplayName:   log.AgentDisplayName,
+			OnBehalfOf:    actor.OnBehalfOfRef(),
 			CredentialID:  credentialID,
 			APIKeyRevoked: apiKeyRevoked,
 		}

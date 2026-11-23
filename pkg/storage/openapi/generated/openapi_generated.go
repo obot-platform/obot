@@ -2192,6 +2192,13 @@ func schema_obot_platform_obot_apiclient_types_AuditLogActor(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf is the user an agent acted for, when the actor is an agent that acted for one. The agent is still the actor.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
 					"credentialID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CredentialID records authentication context when the actor itself is a known user or agent.",
@@ -2207,9 +2214,11 @@ func schema_obot_platform_obot_apiclient_types_AuditLogActor(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"actorType"},
+				Required: []string{"actorType", "onBehalfOf"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.PrincipalRef"},
 	}
 }
 
@@ -2754,6 +2763,27 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					"actors": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Actors matches an Obot user ID, an agent as \"agent:<id>\", or an enrolled device ID.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"includeOnBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IncludeOnBehalfOf makes the users that Actors and UserIDs name also match the calls agents made on their behalf.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf matches the calls that agents made on behalf of any of these users, by ID. It narrows the other filters, with one source or several: with an agent in Actors or UserIDs, it selects that agent's calls for these users.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -7991,6 +8021,13 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
 						},
 					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf is the user an agent made the request for, when it acted for one.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
 					"agentDisplayName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AgentDisplayName is the current display name of the agent that made the request, also after the agent is deleted.",
@@ -8231,7 +8268,7 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "duration", "userID", "principal", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "userAgent", "clientSessionID", "clientIP"},
+				Required: []string{"id", "createdAt", "duration", "userID", "principal", "onBehalfOf", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "userAgent", "clientSessionID", "clientIP"},
 			},
 		},
 		Dependencies: []string{
@@ -8276,6 +8313,27 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref comm
 					"actorKinds": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"includeOnBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IncludeOnBehalfOf makes the users that UserIDs names also match the requests agents made on their behalf.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf matches the requests that agents made on behalf of any of these users, by ID. It narrows the other filters: with an agent in UserIDs, it selects that agent's requests for these users.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -11600,6 +11658,13 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.R
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
 						},
 					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf is the user an agent made the call for, when it acted for one.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
 					"processingTimeMs": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
@@ -11622,7 +11687,7 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.R
 						},
 					},
 				},
-				Required: []string{"createdAt", "userID", "principal", "processingTimeMs", "responseStatus", "error"},
+				Required: []string{"createdAt", "userID", "principal", "onBehalfOf", "processingTimeMs", "responseStatus", "error"},
 			},
 		},
 		Dependencies: []string{
@@ -18701,6 +18766,13 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
 						},
 					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf is the user an agent made the request for, when it acted for one. Totals have none.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
 					"model": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -18836,7 +18908,7 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"date", "principal", "inputTokens", "cacheReadTokens", "cacheWriteTokens", "outputTokens", "thinkingTokens", "totalTokens", "inputSpend", "cacheReadSpend", "cacheWriteSpend", "outputSpend", "totalSpend"},
+				Required: []string{"date", "principal", "onBehalfOf", "inputTokens", "cacheReadTokens", "cacheWriteTokens", "outputTokens", "thinkingTokens", "totalTokens", "inputSpend", "cacheReadSpend", "cacheWriteSpend", "outputSpend", "totalSpend"},
 			},
 		},
 		Dependencies: []string{

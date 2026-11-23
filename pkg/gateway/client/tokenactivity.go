@@ -47,6 +47,10 @@ type TokenUsageStatsOptions struct {
 	Start, End time.Time
 	// UserIDs are the users, or the agents as "agent:<id>", whose requests are summarized.
 	UserIDs []string
+	// IncludeOnBehalfOf also summarizes the requests agents made on behalf of the users in UserIDs.
+	IncludeOnBehalfOf bool
+	// OnBehalfOf summarizes only the requests that agents made on behalf of any of these users, by ID.
+	OnBehalfOf []string
 	// ActorKinds are the kinds of principal, "user" or "agent", whose requests are summarized.
 	ActorKinds []string
 	Models     []string
@@ -88,10 +92,13 @@ func (c *Client) InsertTokenUsage(ctx context.Context, activity *types.RunTokenA
 }
 
 // TokenUsageForUser returns the token usage records of the principal that owner names: the ID of a user, or
-// "agent:<id>" for an agent.
-func (c *Client) TokenUsageForUser(ctx context.Context, owner string, start, end time.Time) ([]types.RunTokenActivity, error) {
+// "agent:<id>" for an agent. With includeOnBehalfOf, a user's records include those of the requests agents made on the
+// user's behalf. With onBehalfOf, only the records of the requests agents made on behalf of those users, by ID, are
+// returned.
+func (c *Client) TokenUsageForUser(ctx context.Context, owner string, start, end time.Time, includeOnBehalfOf bool, onBehalfOf []string) ([]types.RunTokenActivity, error) {
 	var activities []types.RunTokenActivity
-	return activities, applyOwnerFilter(withUsage(c.db.WithContext(ctx)), []string{owner}).Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC()).Order("created_at DESC").Find(&activities).Error
+	db := applyOnBehalfOfFilter(applyOwnerFilter(withUsage(c.db.WithContext(ctx)), []string{owner}, includeOnBehalfOf), onBehalfOf)
+	return activities, db.Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC()).Order("created_at DESC").Find(&activities).Error
 }
 
 // TotalTokenUsageForUser returns the total token usage of the principal that owner names: the ID of a user, or
@@ -151,7 +158,8 @@ func (c *Client) tokenUsageByUser(ctx context.Context, owner string, start, end 
 			"SUM(total_spend) as total_spend").
 		Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC())
 	if owner != "" {
-		db = applyOwnerFilter(db, []string{owner})
+		// A total is the principal's own: the requests agents made on a user's behalf count for the agents.
+		db = applyOwnerFilter(db, []string{owner}, false)
 	} else {
 		db = db.Where("user_id IS NOT NULL")
 	}
@@ -204,7 +212,8 @@ func (c *Client) TokenUsageStats(ctx context.Context, opts TokenUsageStatsOption
 		db := c.db.WithContext(ctx).Model(new(types.RunTokenActivity)).
 			Where("created_at >= ? AND created_at <= ?", start, end).
 			Where("user_id IS NOT NULL")
-		db = applyOwnerFilter(db, opts.UserIDs)
+		db = applyOwnerFilter(db, opts.UserIDs, opts.IncludeOnBehalfOf)
+		db = applyOnBehalfOfFilter(db, opts.OnBehalfOf)
 		db = applyActorFilters(db, opts.ActorKinds)
 		if len(opts.Models) > 0 {
 			db = db.Where("model IN ?", opts.Models)

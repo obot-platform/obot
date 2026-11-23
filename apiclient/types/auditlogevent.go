@@ -107,6 +107,9 @@ type AuditLogActor struct {
 	// deleted. In the admin audit it names the administrator. It is empty when the record cannot be found, and for
 	// other actors.
 	DisplayName string `json:"displayName,omitempty"`
+	// OnBehalfOf is the user an agent acted for, when the actor is an agent that acted for one. The agent is still the
+	// actor.
+	OnBehalfOf PrincipalRef `json:"onBehalfOf,omitzero"`
 	// CredentialID records authentication context when the actor itself is a known user or agent.
 	CredentialID string `json:"credentialID,omitempty"`
 	// APIKeyRevoked reports the current lifecycle state of the API key represented by CredentialID,

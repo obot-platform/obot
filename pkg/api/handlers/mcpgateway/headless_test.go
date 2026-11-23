@@ -164,6 +164,18 @@ func TestHeadlessCallersAreNeverChallenged(t *testing.T) {
 			caller:        anonymous,
 			authorization: "Bearer " + unsignedToken(t, jwt.MapClaims{"sub": "agent:not-a-number"}),
 		},
+		{
+			// A token with which an agent acts on behalf of a user has the user as its subject, but it is an agent's
+			// credential, which no authenticator accepts yet: it is not sent into the user's login flow either.
+			name:   "refused token acting on behalf of a user",
+			caller: anonymous,
+			authorization: "Bearer " + unsignedToken(t, jwt.MapClaims{
+				"sub":                 "7",
+				"obot_principal_kind": "user",
+				"act":                 map[string]any{"sub": "agent:7"},
+				"obot_delegation_id":  "adl1test",
+			}),
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "https://obot.example/mcp-connect/vmcp1test", nil)

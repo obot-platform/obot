@@ -260,7 +260,7 @@ func testAgentActivityAttribution(t *testing.T, c *Client) {
 			if ref := types.ConvertTokenActivity(agentUsage).Principal; ref != (apitypes.PrincipalRef{Kind: apitypes.PrincipalKindAgent, ID: agentIDString}) {
 				t.Errorf("agent token usage principal = %+v", ref)
 			}
-			records, err := c.TokenUsageForUser(t.Context(), agentOwner, now.Add(-time.Hour), now.Add(time.Hour))
+			records, err := c.TokenUsageForUser(t.Context(), agentOwner, now.Add(-time.Hour), now.Add(time.Hour), false, nil)
 			if err != nil || len(records) != 1 || records[0].PrincipalKind != "agent" {
 				t.Errorf("agent token usage records = %+v, %v", records, err)
 			}

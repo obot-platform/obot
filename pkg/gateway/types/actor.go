@@ -24,13 +24,20 @@ type Actor struct {
 	// UserID is the user's ID for a user, and empty for an agent, so that nothing that reads a row's user mistakes
 	// an agent for one. A caller that is not a principal keeps its UID here, as it was always recorded.
 	UserID string
+	// OnBehalfOf is the decimal ID of the user an agent acted for (principal.OnBehalfOf), and empty for any other
+	// request. The agent's row keeps UserID empty even then, so that nothing that reads a user's rows, such as the
+	// user's own budgets and daily token limits, counts the agent's work for them. Readers that include it ask to.
+	OnBehalfOf string
 }
 
 // ActorForCaller returns the attribution of the request of an authenticated caller. It uses the kind its authenticator
-// recorded, and never reads one from the shape of the UID.
+// recorded, and never reads one from the shape of the UID. An agent that acts for a user is attributed to the agent,
+// with the user as OnBehalfOf.
 func ActorForCaller(caller kuser.Info) Actor {
 	if p, ok := principal.FromUserInfo(caller); ok {
-		return actorOf(p)
+		actor := actorOf(p)
+		actor.OnBehalfOf, _ = principal.OnBehalfOf(caller)
+		return actor
 	}
 	if caller == nil {
 		return Actor{}
@@ -66,6 +73,15 @@ func (a Actor) Ref() apitypes.PrincipalRef {
 		return apitypes.PrincipalRef{}
 	}
 	return apitypes.PrincipalRef{Kind: apitypes.PrincipalKindUser, ID: a.UserID}
+}
+
+// OnBehalfOfRef returns the typed principal of the user a row's agent acted for, and the zero PrincipalRef when it acted
+// for no one.
+func (a Actor) OnBehalfOfRef() apitypes.PrincipalRef {
+	if a.OnBehalfOf == "" {
+		return apitypes.PrincipalRef{}
+	}
+	return apitypes.PrincipalRef{Kind: apitypes.PrincipalKindUser, ID: a.OnBehalfOf}
 }
 
 // IsAgent reports whether a row's actor is an agent that it names.

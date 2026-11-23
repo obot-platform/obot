@@ -90,6 +90,9 @@ var (
 		"mcp_server": "CASE WHEN source_type = 'local_agent_tool_call' THEN target_parent_name ELSE mcp_server_display_name END",
 		"tool":       "CASE WHEN source_type = 'local_agent_tool_call' THEN action_name ELSE call_identifier END",
 		"client":     "CASE WHEN source_type = 'local_agent_tool_call' THEN agent_provider ELSE client_name END",
+
+		// The users agents acted for. Every other row has none, and the empty value is never an option.
+		"on_behalf_of": "on_behalf_of",
 	}
 
 	localAgentFilterOptionColumns = map[string]string{
@@ -117,6 +120,11 @@ type MCPAuditLogOptions struct {
 	APIKeyID []uint
 	// UserID matches the user or the agent that made the call. A value is a user's ID, or "agent:<id>" for an agent.
 	UserID []string
+	// IncludeOnBehalfOf makes the users in UserID and Actor also match the calls agents made on their behalf.
+	IncludeOnBehalfOf bool
+	// OnBehalfOf matches the calls that agents made on behalf of any of these users, by ID. Like every other filter,
+	// it narrows the others: with an agent in UserID or Actor, it selects that agent's calls for these users.
+	OnBehalfOf []string
 	// ActorKind matches the kind of principal that made the call, "user" or "agent". Rows of a deleted agent still
 	// match.
 	ActorKind []string
@@ -185,6 +193,10 @@ type MCPUsageStatsOptions struct {
 	MCPServerCatalogEntryNames []string
 	StartTime                  time.Time
 	EndTime                    time.Time
+	// IncludeOnBehalfOf makes the users in UserIDs also match the calls agents made on their behalf.
+	IncludeOnBehalfOf bool
+	// OnBehalfOf counts only the calls that agents made on behalf of any of these users, by ID.
+	OnBehalfOf []string
 }
 
 func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
@@ -531,7 +543,8 @@ func applySharedAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
 	if len(opts.APIKeyID) > 0 {
 		db = db.Where("api_key_id IN ?", opts.APIKeyID)
 	}
-	db = applyOwnerFilter(db, opts.UserID)
+	db = applyOwnerFilter(db, opts.UserID, opts.IncludeOnBehalfOf)
+	db = applyOnBehalfOfFilter(db, opts.OnBehalfOf)
 	db = applyActorFilters(db, opts.ActorKind)
 	if len(opts.SessionID) > 0 {
 		db = db.Where("session_id IN ?", opts.SessionID)
@@ -592,7 +605,7 @@ func applyLocalAgentAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.
 func applyUnifiedAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
 	// Actor: an Obot user (user_id, both sources), an agent ("agent:<id>") or an enrolled device (device_id, local-agent).
 	if len(opts.Actor) > 0 {
-		if condition, args, ok := ownerFilter(opts.Actor); ok {
+		if condition, args, ok := ownerFilter(opts.Actor, opts.IncludeOnBehalfOf); ok {
 			db = db.Where("("+condition+" OR device_id IN ?)", append(args, opts.Actor)...)
 		}
 	}
@@ -1065,7 +1078,12 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 	// Get basic stats for each server
 	if err := c.db.WithContext(ctx).Transaction(func(base *gorm.DB) error {
 		base = base.Model(&types.MCPAuditLog{}).Where("source_type = ?", types2.AuditLogSourceTypeMCP).Session(&gorm.Session{})
-		tx := base.Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime)
+		// The principals asked for, and the users agents acted for, narrow the totals and each server's breakdown
+		// alike, so that a server's tool calls are those of the principals the stats are for.
+		principals := func(db *gorm.DB) *gorm.DB {
+			return applyOnBehalfOfFilter(applyOwnerFilter(db, opts.UserIDs, opts.IncludeOnBehalfOf), opts.OnBehalfOf)
+		}
+		tx := principals(base.Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime))
 
 		if opts.MCPID != "" {
 			tx = tx.Where("mcp_id = ?", opts.MCPID)
@@ -1086,7 +1104,6 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			tx = tx.Where(strings.Join(conditions, " OR "), args...)
 		}
-		tx = applyOwnerFilter(tx, opts.UserIDs)
 		if len(opts.MCPServerDisplayNames) > 0 {
 			tx = tx.Where("mcp_server_display_name IN (?)", opts.MCPServerDisplayNames)
 		}
@@ -1123,8 +1140,8 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			// Get tool call items and build stats from them
 			var toolItems []types.MCPToolCallStatsItem
-			if err := base.
-				Select("call_identifier as tool_name, created_at, user_id, principal_kind, principal_id, processing_time_ms, response_status, error").
+			if err := principals(base).
+				Select("call_identifier as tool_name, created_at, user_id, principal_kind, principal_id, on_behalf_of, processing_time_ms, response_status, error").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "tools/call", opts.StartTime, opts.EndTime).
 				Where("call_identifier != ''").
@@ -1150,7 +1167,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			// Get resource read breakdown for this server
 			var resourceStats []types.MCPResourceReadStats
-			if err := base.
+			if err := principals(base).
 				Select("call_identifier as resource_uri, COUNT(*) as read_count").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "resources/read", opts.StartTime, opts.EndTime).
@@ -1162,7 +1179,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			// Get prompt read breakdown for this server
 			var promptStats []types.MCPPromptReadStats
-			if err := base.
+			if err := principals(base).
 				Select("call_identifier as prompt_name, COUNT(*) as read_count").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "prompts/get", opts.StartTime, opts.EndTime).

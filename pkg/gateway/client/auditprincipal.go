@@ -11,9 +11,10 @@ import (
 )
 
 // The activity tables that attribute their rows by principal (llm_audit_logs, mcp_audit_logs and run_token_activities)
-// share the columns user_id, principal_kind and principal_id, so the predicates below apply to any of them. An agent's
-// rows have no user_id, and a user's rows have no principal_id, so a row is an agent's when its principal_kind is
-// "agent", and is otherwise the user in its user_id.
+// share the columns user_id, principal_kind, principal_id and on_behalf_of, so the predicates below apply to any of
+// them. An agent's rows have no user_id, and a user's rows have no principal_id, so a row is an agent's when its
+// principal_kind is "agent", and is otherwise the user in its user_id. An agent's row that it made for a user has the
+// user in on_behalf_of, and is only a user's row when a reader asks for those too.
 
 const (
 	// agentDisplayNameLookupBatchSize bounds how many agent IDs one query looks up.
@@ -26,8 +27,9 @@ const (
 
 // ownerFilter selects the rows of any of the principals that owners name, each in its storage encoding: the ID of a
 // user, or "agent:<id>" for an agent. It reports false when owners is empty. A value that is not an encoded agent is
-// matched against user_id as it was before agents existed, whatever else it is.
-func ownerFilter(owners []string) (string, []any, bool) {
+// matched against user_id as it was before agents existed, whatever else it is, and with includeOnBehalfOf against
+// on_behalf_of as well, so that a user's rows include those agents made on their behalf.
+func ownerFilter(owners []string, includeOnBehalfOf bool) (string, []any, bool) {
 	var users, agentIDs []string
 	for _, owner := range owners {
 		if agentID, ok := principal.ParseAgent(owner); ok {
@@ -43,6 +45,9 @@ func ownerFilter(owners []string) (string, []any, bool) {
 	)
 	if len(users) > 0 {
 		conditions, args = append(conditions, "user_id IN ?"), append(args, users)
+		if includeOnBehalfOf {
+			conditions, args = append(conditions, "on_behalf_of IN ?"), append(args, users)
+		}
 	}
 	if len(agentIDs) > 0 {
 		conditions, args = append(conditions, "(principal_kind = 'agent' AND principal_id IN ?)"), append(args, agentIDs)
@@ -54,9 +59,20 @@ func ownerFilter(owners []string) (string, []any, bool) {
 }
 
 // applyOwnerFilter narrows db to the rows of the principals that owners name; see ownerFilter.
-func applyOwnerFilter(db *gorm.DB, owners []string) *gorm.DB {
-	if condition, args, ok := ownerFilter(owners); ok {
+func applyOwnerFilter(db *gorm.DB, owners []string, includeOnBehalfOf bool) *gorm.DB {
+	if condition, args, ok := ownerFilter(owners, includeOnBehalfOf); ok {
 		return db.Where(condition, args...)
+	}
+	return db
+}
+
+// applyOnBehalfOfFilter narrows db to the rows that agents made on behalf of any of the users that onBehalfOf names by
+// ID. Unlike includeOnBehalfOf, which widens a filter by user, it is a filter of its own that every other filter
+// narrows further, so that a reader can ask for what one agent did for one user. A user's own rows, and an agent's
+// rows for itself, have no on_behalf_of and never match.
+func applyOnBehalfOfFilter(db *gorm.DB, onBehalfOf []string) *gorm.DB {
+	if len(onBehalfOf) > 0 {
+		db = db.Where("on_behalf_of IN ?", onBehalfOf)
 	}
 	return db
 }

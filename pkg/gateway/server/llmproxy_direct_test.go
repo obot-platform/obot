@@ -443,7 +443,7 @@ func TestDirectHandlerPanicDoesNotFlushSuccess(t *testing.T) {
 			require.InDelta(t, 0.1, logs[0].Spend, 1e-9)
 
 			start, end := time.Now().Add(-time.Hour), time.Now().Add(time.Hour)
-			usage, err := c.TokenUsageForUser(t.Context(), "7", start, end)
+			usage, err := c.TokenUsageForUser(t.Context(), "7", start, end, false, nil)
 			require.NoError(t, err)
 			require.Len(t, usage, 1)
 			require.Equal(t, gatewaytypes.LLMAuditOutcomeError, usage[0].Outcome)

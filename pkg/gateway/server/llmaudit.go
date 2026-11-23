@@ -80,6 +80,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 			UserID:         actor.UserID,
 			PrincipalKind:  actor.PrincipalKind,
 			PrincipalID:    actor.PrincipalID,
+			OnBehalfOf:     actor.OnBehalfOf,
 			APIKeyID:       apiKeyID,
 			APIKeyName:     apiKeyName,
 			RequestPath:    req.URL.Path,

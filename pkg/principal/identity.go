@@ -144,6 +144,10 @@ func IsAgentKind(kind string) bool {
 // record a kind (RecordKind), so a caller without one, such as a system principal, is not a principal. It also
 // reports false when the recorded kind does not match the encoding of the caller's UID: a decimal UID marked as an
 // agent, or an agent UID marked as a user, is rejected rather than read as some other identity.
+//
+// Only an agent acts for a user (RecordOnBehalfOf), so a caller that carries an on-behalf-of user is rejected as well
+// unless it is an agent and the user is a single user ID: it is never read as the user it claims to act for, or as
+// acting for itself.
 func FromUserInfo(u kuser.Info) (Principal, bool) {
 	if u == nil {
 		return Principal{}, false
@@ -156,6 +160,11 @@ func FromUserInfo(u kuser.Info) (Principal, bool) {
 	if err != nil || Kind(marker[0]) != p.Kind {
 		return Principal{}, false
 	}
+	if values, present := u.GetExtra()[OnBehalfOfExtra]; present {
+		if _, ok := onBehalfOfUser(values); !ok || p.Kind != KindAgent {
+			return Principal{}, false
+		}
+	}
 	return p, true
 }
 
@@ -163,18 +172,26 @@ func FromUserInfo(u kuser.Info) (Principal, bool) {
 // the storage encoding of its principal (Principal.String), "agent:<id>" for an agent, so that a user and an agent
 // with the same numeric ID never share one. A caller that records no principal kind, which no authenticator of users
 // or agents builds, keeps its UID as before. A caller that claims to be an agent but is not a well-formed one owns
-// nothing, and neither does a caller with the owner of a vMCP's preconfigured OAuth grants as its UID.
+// nothing, and neither does a caller with the owner of a vMCP's preconfigured OAuth grants, or the owner of a user's
+// setup through an agent, as its UID, nor one with an on-behalf-of user that FromUserInfo refuses.
 func CallerOwner(u kuser.Info) (string, error) {
 	if u != nil && IsPreconfiguredOAuthOwner(u.GetUID()) {
 		// The owner of a vMCP's preconfigured OAuth grants owns no instance, server or connection, so a caller carrying it,
 		// which the admission check already refuses, never reaches the grants through one.
 		return "", types.NewErrForbidden("a vMCP preconfigured OAuth grant owner is not a caller")
 	}
+	if u != nil && IsDelegatedOwner(u.GetUID()) {
+		// Likewise, the owner of a user's setup through an agent is reached only through that agent, never as a caller.
+		return "", types.NewErrForbidden("the owner of a user's setup through an agent is not a caller")
+	}
 	if p, ok := FromUserInfo(u); ok {
 		return p.String(), nil
 	}
 	if ClaimsAgent(u) {
 		return "", types.NewErrForbidden("malformed agent principal")
+	}
+	if HasInvalidOnBehalfOf(u) {
+		return "", types.NewErrForbidden("only an agent can act on behalf of a user")
 	}
 	return u.GetUID(), nil
 }

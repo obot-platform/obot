@@ -342,3 +342,25 @@ func TestPresentMCPKeepsUserRowsAsUsers(t *testing.T) {
 		t.Fatalf("actor = %#v, want %#v", actor, want)
 	}
 }
+
+func TestPresentMCPAttributesAgentCallsOnBehalfOfAUser(t *testing.T) {
+	log := gatewaytypes.MCPAuditLog{
+		SourceType:       api.AuditLogSourceTypeMCP,
+		PrincipalKind:    "agent",
+		PrincipalID:      "7",
+		OnBehalfOf:       "9",
+		AgentDisplayName: "Assistant",
+		MCPFields:        &gatewaytypes.MCPAuditLogFields{},
+	}
+
+	// The agent is the actor, with the user beside it.
+	want := api.AuditLogActor{
+		ActorType:   api.AuditLogActorTypeAgent,
+		ID:          "7",
+		DisplayName: "Assistant",
+		OnBehalfOf:  api.PrincipalRef{Kind: api.PrincipalKindUser, ID: "9"},
+	}
+	if actor := Present(log, PresentOptions{}).Actor; actor != want {
+		t.Fatalf("actor = %#v, want %#v", actor, want)
+	}
+}

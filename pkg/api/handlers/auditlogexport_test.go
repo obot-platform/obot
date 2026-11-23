@@ -338,6 +338,22 @@ func TestValidateAuditLogExportFilters(t *testing.T) {
 			},
 		},
 		{
+			name: "valid multi-source common filter with the users agents acted for",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
+				Actors:      []string{"agent:7"},
+				OnBehalfOf:  []string{"12"},
+			},
+		},
+		{
+			name: "valid single-source filters with the users agents acted for",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+				UserIDs:     []string{"agent:7"},
+				OnBehalfOf:  []string{"12"},
+			},
+		},
+		{
 			name: "valid multi-source common filter naming an agent",
 			filters: types.AuditLogExportFilters{
 				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},

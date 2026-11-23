@@ -515,6 +515,7 @@ func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
 	// multi-source export uses the common Actors filter (user OR device) instead.
 	hasSharedColumnFilters := len(filters.UserIDs) > 0 || len(filters.ActorKinds) > 0 ||
 		len(filters.SessionIDs) > 0 || len(filters.ClientIPs) > 0
+	// OnBehalfOf belongs to neither vocabulary: it narrows either, whatever the sources, like APIKeyIDs.
 
 	// Common cross-source filters and single-source filters are two distinct vocabularies keyed off
 	// the source selection; they can never be combined regardless of how many sources are selected.

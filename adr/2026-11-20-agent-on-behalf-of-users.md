@@ -132,8 +132,9 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
      and ignores `act` would treat the token as the user. So the token service
      refuses any token that carries `act`, unless the caller has explicitly opted in
      to on-behalf-of tokens. A missed check then refuses the token rather than
-     granting the user's access. Tests cover every authentication and token lookup
-     path, including loopback tokens and token store lookups.
+     granting the user's access. Tests cover every authentication and token decode
+     path, including composite loopback tokens and the full authenticator chains
+     with authentication on and off.
    - The same token works for vMCP connections, the LLM gateway and Skills, within
      the agent's grants and the key's scopes.
 6. **Every request re-checks** that the delegation exists, the agent is active, the
@@ -158,8 +159,10 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
   and status checks. The JWT's standard `sub`/`act` shape is mapped to this on
   authentication.
 - **Audit and usage tables get an `OnBehalfOf` column** next to `UserID`, on MCP
-  audit, LLM usage and skills activity. Filters for a user can include rows where
-  they are `OnBehalfOf`.
+  audit, LLM audit and run token activity. On those rows, `UserID` stays empty, as it
+  is for every agent row, so per-user readers, budgets and daily limits never count
+  an agent's work against the user. Filters for a user can include rows where they
+  are `OnBehalfOf` (`include_on_behalf_of`).
 - **Setup through an agent has its own owner.** Instances, credentials and OAuth
   tokens for a user's setup through an agent are owned by the encoded pair
   `agent:<id>/user:<id>`. That keeps them apart from the user's own setup (`<id>`)

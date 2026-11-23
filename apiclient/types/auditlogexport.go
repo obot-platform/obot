@@ -131,6 +131,12 @@ type AuditLogExportFilters struct {
 
 	// Actors matches an Obot user ID, an agent as "agent:<id>", or an enrolled device ID.
 	Actors []string `json:"actors,omitempty"`
+	// IncludeOnBehalfOf makes the users that Actors and UserIDs name also match the calls agents made on their behalf.
+	IncludeOnBehalfOf bool `json:"includeOnBehalfOf,omitempty"`
+	// OnBehalfOf matches the calls that agents made on behalf of any of these users, by ID. It narrows the other
+	// filters, with one source or several: with an agent in Actors or UserIDs, it selects that agent's calls for these
+	// users.
+	OnBehalfOf []string `json:"onBehalfOf,omitempty"`
 	// Operations is the MCP call type; local-agent tool calls are implicitly tools/call.
 	Operations []string `json:"operations,omitempty"`
 	// MCPServers is the MCP server (id/display name) or a local-agent row's MCP parent.
@@ -175,8 +181,13 @@ type LLMAuditLogExportFilters struct {
 	APIKeyIDs []uint `json:"apiKeyIDs,omitempty"`
 	// UserIDs matches the user ID of a user, or "agent:<id>" for an agent. ActorKinds matches the kind of principal
 	// that made the request, "user" or "agent".
-	UserIDs          []string `json:"userIDs,omitempty"`
-	ActorKinds       []string `json:"actorKinds,omitempty"`
+	UserIDs    []string `json:"userIDs,omitempty"`
+	ActorKinds []string `json:"actorKinds,omitempty"`
+	// IncludeOnBehalfOf makes the users that UserIDs names also match the requests agents made on their behalf.
+	IncludeOnBehalfOf bool `json:"includeOnBehalfOf,omitempty"`
+	// OnBehalfOf matches the requests that agents made on behalf of any of these users, by ID. It narrows the other
+	// filters: with an agent in UserIDs, it selects that agent's requests for these users.
+	OnBehalfOf       []string `json:"onBehalfOf,omitempty"`
 	ModelProviders   []string `json:"modelProviders,omitempty"`
 	TargetModels     []string `json:"targetModels,omitempty"`
 	RequestPaths     []string `json:"requestPaths,omitempty"`

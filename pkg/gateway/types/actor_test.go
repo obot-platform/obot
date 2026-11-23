@@ -14,6 +14,13 @@ func callerOfKind(uid string, kind principal.Kind) kuser.Info {
 	return &kuser.DefaultInfo{UID: uid, Extra: extra}
 }
 
+// onBehalfOf returns caller with userID recorded as the user it acts for, after its kind, as an authenticator records
+// it.
+func onBehalfOf(caller kuser.Info, userID string) kuser.Info {
+	caller.GetExtra()[principal.OnBehalfOfExtra] = []string{userID}
+	return caller
+}
+
 func TestActorForCaller(t *testing.T) {
 	for name, test := range map[string]struct {
 		caller kuser.Info
@@ -42,6 +49,14 @@ func TestActorForCaller(t *testing.T) {
 		"no caller": {
 			caller: nil,
 			want:   Actor{},
+		},
+		"agent acting for a user has no user ID": {
+			caller: onBehalfOf(callerOfKind("agent:7", principal.KindAgent), "9"),
+			want:   Actor{PrincipalKind: "agent", PrincipalID: "7", OnBehalfOf: "9"},
+		},
+		"a user carrying an on-behalf-of user is never attributed to it": {
+			caller: onBehalfOf(callerOfKind("7", principal.KindUser), "9"),
+			want:   Actor{UserID: "7"},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -84,14 +99,21 @@ func TestActorForOwner(t *testing.T) {
 
 func TestActorRefAndOwner(t *testing.T) {
 	for name, test := range map[string]struct {
-		actor     Actor
-		wantRef   apitypes.PrincipalRef
-		wantOwner string
+		actor          Actor
+		wantRef        apitypes.PrincipalRef
+		wantOwner      string
+		wantOnBehalfOf apitypes.PrincipalRef
 	}{
 		"agent": {
 			actor:     Actor{PrincipalKind: "agent", PrincipalID: "7"},
 			wantRef:   apitypes.PrincipalRef{Kind: apitypes.PrincipalKindAgent, ID: "7"},
 			wantOwner: "agent:7",
+		},
+		"an agent acting for a user is still the row's principal": {
+			actor:          Actor{PrincipalKind: "agent", PrincipalID: "7", OnBehalfOf: "9"},
+			wantRef:        apitypes.PrincipalRef{Kind: apitypes.PrincipalKindAgent, ID: "7"},
+			wantOwner:      "agent:7",
+			wantOnBehalfOf: apitypes.PrincipalRef{Kind: apitypes.PrincipalKindUser, ID: "9"},
 		},
 		"a user's row, including one from before agents, reads as its user": {
 			actor:     Actor{PrincipalKind: "user", UserID: "7"},
@@ -109,6 +131,9 @@ func TestActorRefAndOwner(t *testing.T) {
 			}
 			if got := test.actor.Owner(); got != test.wantOwner {
 				t.Errorf("Owner() = %q, want %q", got, test.wantOwner)
+			}
+			if got := test.actor.OnBehalfOfRef(); got != test.wantOnBehalfOf {
+				t.Errorf("OnBehalfOfRef() = %+v, want %+v", got, test.wantOnBehalfOf)
 			}
 		})
 	}

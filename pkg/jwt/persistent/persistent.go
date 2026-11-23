@@ -32,9 +32,28 @@ const (
 	keyEnvVar = "JWK_KEY"
 	// Bound API-key display metadata before JWT encoding expands it into an HTTP header.
 	maxAPIKeyNameCharacters = 512
+
+	// DelegatedTokenTTL is how long a token with which an agent acts on behalf of a user lasts (NewDelegatedToken),
+	// unless its minter asks for less.
+	DelegatedTokenTTL = 15 * time.Minute
+
+	// actorClaim and delegationIDClaim are the claims that only a token with which an agent acts on behalf of a user
+	// carries (TokenContext.Actor and TokenContext.DelegationID).
+	actorClaim        = "act"
+	delegationIDClaim = "obot_delegation_id"
 )
 
 var (
+	// ErrDelegatedToken refuses a token with which an agent acts on behalf of a user wherever such tokens are not
+	// accepted: everywhere but DecodeDelegatedToken.
+	ErrDelegatedToken = errors.New("a token that acts on behalf of a user is not accepted here")
+
+	// errNotDelegatedToken refuses any other token where only tokens that act on behalf of a user are read.
+	errNotDelegatedToken = errors.New("not a token that acts on behalf of a user")
+
+	// errMalformedDelegatedToken refuses a token that acts on behalf of a user that NewDelegatedToken would not issue.
+	errMalformedDelegatedToken = errors.New("malformed token that acts on behalf of a user")
+
 	// agentTokenGroups are the only groups a token issued for an agent may carry. Tokens are only issued to agents
 	// for Obot's internal MCP connections, such as a composite vMCP's loopback to its components, and an agent has
 	// no role, so no token grants an agent any other route.
@@ -71,7 +90,15 @@ type TokenContext struct {
 	AuthProviderNamespace string
 	AuthProviderUserID    string
 
-	// Non-secret attribution retained across authenticated composite loopback calls.
+	// Actor is set only on a token with which an agent acts on behalf of a user (NewDelegatedToken): the user is its
+	// subject (UserID), and the agent is its actor (RFC 8693). Because a check that reads only the subject would take
+	// such a token for the user's own, every decoder refuses it except DecodeDelegatedToken, which callers opt in to.
+	Actor *TokenActor `json:"act,omitempty"`
+	// DelegationID is the delegation that a token acting on behalf of a user was minted from.
+	DelegationID string `json:"obot_delegation_id,omitempty"`
+
+	// Non-secret attribution retained across authenticated composite loopback calls. A token acting on behalf of a
+	// user records the ID of the agent's key that minted it here as well.
 	APIKeyID      string `json:"api_key_id,omitempty"`
 	APIKeyName    string `json:"api_key_name,omitempty"`
 	APIKeyRawName string `json:"api_key_raw_name,omitempty"`
@@ -86,6 +113,26 @@ type TokenContext struct {
 	Namespace     string
 	ModelProvider string
 	Model         string
+}
+
+// TokenActor is the actor (RFC 8693 "act") claim of a token with which an agent acts on behalf of a user.
+type TokenActor struct {
+	// Subject is the storage encoding of the agent, "agent:<id>" (principal.Principal.String).
+	Subject string `json:"sub"`
+}
+
+// DelegatedToken is what a token with which an agent acts on behalf of a user establishes (NewDelegatedToken).
+type DelegatedToken struct {
+	// AgentID is the agent that acts, from the token's actor.
+	AgentID uint
+	// UserID is the user the agent acts for, from the token's subject.
+	UserID uint
+	// DelegationID is the delegation the token was minted from.
+	DelegationID string
+	// APIKeyID is the agent's key that minted the token.
+	APIKeyID uint
+	// ExpiresAt is when the token expires.
+	ExpiresAt time.Time
 }
 
 // NewTokenService returns a service that issues and authenticates Obot's own tokens, for users and agents alike.
@@ -241,11 +288,12 @@ func RequestToken(req *http.Request) string {
 	return req.Header.Get("X-API-Key")
 }
 
-// ClaimsAgentToken reports whether token is a JWT whose claims name an agent, by its subject or by its principal kind.
-// The claims are read without checking the token's signature or expiry: a token is classified by what it claims to
-// be, so that one that is forged, expired or signed with a replaced key is refused like any other agent token that
-// fails. It is the one classifier of agent tokens, for this guard and for any code that must not treat a refused agent
-// token as a user's, such as the MCP gateway's decision to withhold an interactive challenge.
+// ClaimsAgentToken reports whether token is a JWT whose claims name an agent, by its subject or by its principal kind,
+// or that acts on behalf of a user, which only an agent does (claimsDelegation). The claims are read without checking
+// the token's signature or expiry: a token is classified by what it claims to be, so that one that is forged, expired
+// or signed with a replaced key is refused like any other agent token that fails. It is the one classifier of agent
+// tokens, for this guard and for any code that must not treat a refused agent token as a user's, such as the MCP
+// gateway's decision to withhold an interactive challenge.
 func ClaimsAgentToken(token string) bool {
 	claims, ok := unverifiedClaims(token)
 	if !ok {
@@ -255,12 +303,13 @@ func ClaimsAgentToken(token string) bool {
 	// The principal kind claim has the name of the user info extra that records the kind once the token authenticates.
 	kind, _ := claims[principal.KindExtra].(string)
 	// The subject of an agent's token is its storage encoding, "agent:<id>" (principal.Principal.String). Its prefix
-	// is tested rather than the subject parsed, so that a malformed agent subject is classified as an agent's too.
-	return principal.IsAgentKind(kind) || principal.ClaimsAgentOwner(subject)
+	// is tested rather than the subject parsed, so that a malformed agent subject is classified as an agent's too. A
+	// token that acts on behalf of a user has the user as its subject, and is classified by its claims instead.
+	return principal.IsAgentKind(kind) || principal.ClaimsAgentOwner(subject) || claimsDelegation(claims)
 }
 
 // unverifiedClaims returns the claims of token, a JWT, without checking its signature or expiry. It is only for
-// classifying a token by what it claims to be (ClaimsAgentToken), never for trusting them.
+// classifying a token by what it claims to be (ClaimsAgentToken, ClaimsDelegatedToken), never for trusting them.
 func unverifiedClaims(token string) (jwt.MapClaims, bool) {
 	claims := jwt.MapClaims{}
 	_, _, err := jwt.NewParser().ParseUnverified(token, claims)
@@ -275,6 +324,13 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 
 	tokenContext, err := t.DecodeToken(req.Context(), token)
 	if err != nil {
+		// A token with which an agent acts on behalf of a user is refused rather than declined, whatever is wrong with
+		// it, so that no later authenticator, such as the catch-all of a server that does not authenticate callers or
+		// the anonymous one, takes the request as anyone. Its subject is the user, so a valid one would otherwise read
+		// as the user's own.
+		if ClaimsDelegatedToken(token) {
+			return nil, false, ErrDelegatedToken
+		}
 		return nil, false, nil
 	}
 
@@ -382,7 +438,77 @@ func (t *TokenService) authenticateAgent(ctx context.Context, tokenContext *Toke
 	}, true, nil
 }
 
+// DecodeToken returns the claims of one of Obot's own tokens, once its signature, issuer, expiry and audience are
+// verified. It refuses a token with which an agent acts on behalf of a user (ErrDelegatedToken): only
+// DecodeDelegatedToken reads one.
 func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenContext, error) {
+	claims, err := t.verifiedClaims(ctx, token, false)
+	if err != nil {
+		return nil, err
+	}
+	return tokenContextFromClaims(claims), nil
+}
+
+// DecodeDelegatedToken returns what a token with which an agent acts on behalf of a user establishes, once the token is
+// verified as DecodeToken verifies one. It is the only decoder that reads such a token, and it reads no other: a
+// token that does not name an agent as its actor, a user as its subject, a delegation, the agent's key that minted it
+// and its expiry is refused.
+//
+// The token's user is not the caller. A caller that accepts these tokens acts as the agent, on behalf of the user
+// (principal.RecordOnBehalfOf), and must check on every use that the delegation, the agent, the user and the key are
+// still valid.
+func (t *TokenService) DecodeDelegatedToken(ctx context.Context, token string) (*DelegatedToken, error) {
+	claims, err := t.verifiedClaims(ctx, token, true)
+	if err != nil {
+		return nil, err
+	}
+	tokenContext := tokenContextFromClaims(claims)
+
+	if tokenContext.Actor == nil {
+		return nil, fmt.Errorf("%w: no actor", errMalformedDelegatedToken)
+	}
+	agent, err := principal.Parse(tokenContext.Actor.Subject)
+	if err != nil {
+		return nil, fmt.Errorf("%w: actor: %w", errMalformedDelegatedToken, err)
+	}
+	agentID, ok := agent.AgentID()
+	if !ok || agentID == 0 {
+		return nil, fmt.Errorf("%w: actor %q is not an agent", errMalformedDelegatedToken, tokenContext.Actor.Subject)
+	}
+	// The subject must be a user, recorded as one: a token never acts for an agent, or for anything that is not a user.
+	user, isPrincipal := tokenContext.Principal()
+	userID, isUser := user.UserID()
+	if !isPrincipal || tokenContext.PrincipalKind != string(principal.KindUser) || !isUser || userID == 0 {
+		return nil, fmt.Errorf("%w: subject %q is not a user", errMalformedDelegatedToken, tokenContext.UserID)
+	}
+	if tokenContext.DelegationID == "" {
+		return nil, fmt.Errorf("%w: no delegation", errMalformedDelegatedToken)
+	}
+	apiKeyID, err := strconv.ParseUint(tokenContext.APIKeyID, 10, 0)
+	if err != nil || apiKeyID == 0 {
+		return nil, fmt.Errorf("%w: no minting key", errMalformedDelegatedToken)
+	}
+	// The parser checks an expiry only when the token has one, and this kind of token always has one.
+	if _, ok := claims["exp"]; !ok || tokenContext.ExpiresAt.IsZero() {
+		return nil, fmt.Errorf("%w: no expiry", errMalformedDelegatedToken)
+	}
+
+	return &DelegatedToken{
+		AgentID:      agentID,
+		UserID:       userID,
+		DelegationID: tokenContext.DelegationID,
+		APIKeyID:     uint(apiKeyID),
+		ExpiresAt:    tokenContext.ExpiresAt.Time,
+	}, nil
+}
+
+// verifiedClaims returns the claims of one of Obot's own tokens, once its signature, issuer, expiry and audience are
+// verified. It is the one step that every decoder of these tokens takes.
+//
+// delegated says whether its caller reads tokens with which an agent acts on behalf of a user (claimsDelegation): a
+// token is refused unless it is the kind its caller reads. Only DecodeDelegatedToken reads that kind, so any other
+// decoder, including one added later, refuses those tokens without a check of its own.
+func (t *TokenService) verifiedClaims(ctx context.Context, token string, delegated bool) (jwt.MapClaims, error) {
 	t.lock.RLock()
 	privateKey := t.privateKey
 	t.lock.RUnlock()
@@ -409,7 +535,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 
 	claims, ok := tk.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, err
+		return nil, fmt.Errorf("unexpected claims type %T", tk.Claims)
 	}
 
 	audiences, err := claims.GetAudience()
@@ -421,6 +547,18 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		return nil, fmt.Errorf("no audience")
 	}
 
+	switch isDelegated := claimsDelegation(claims); {
+	case isDelegated && !delegated:
+		return nil, ErrDelegatedToken
+	case !isDelegated && delegated:
+		return nil, errNotDelegatedToken
+	}
+
+	return claims, nil
+}
+
+// tokenContextFromClaims reads the claims of a verified token.
+func tokenContextFromClaims(claims jwt.MapClaims) *TokenContext {
 	var groups []string
 	if userGroups, ok := claims["UserGroups"].(string); ok && userGroups != "" {
 		groups = strings.Split(userGroups, ",")
@@ -451,6 +589,12 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		return ""
 	}
 
+	var actor *TokenActor
+	if act, ok := claims[actorClaim].(map[string]any); ok {
+		subject, _ := act["sub"].(string)
+		actor = &TokenActor{Subject: subject}
+	}
+
 	return &TokenContext{
 		IssuedAt:              NewTime(issuedAt),
 		ExpiresAt:             NewTime(expiresAt),
@@ -458,6 +602,8 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		Audience:              getStringClaim("aud"),
 		UserID:                getStringClaim("sub"),
 		PrincipalKind:         getStringClaim(principal.KindExtra),
+		Actor:                 actor,
+		DelegationID:          getStringClaim(delegationIDClaim),
 		Picture:               getStringClaim("picture"),
 		OAuthScope:            getStringClaim("scope"),
 		OAuthClientID:         getStringClaim("client_id"),
@@ -478,18 +624,44 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		// This makes this backwards compatible with older tokens.
 		UserName:  getStringClaim("name", "UserName"),
 		UserEmail: getStringClaim("email", "UserEmail"),
-	}, nil
+	}
 }
 
+// claimsDelegation reports whether claims are those of a token with which an agent acts on behalf of a user: they
+// carry an actor or a delegation, whatever their values.
+func claimsDelegation(claims jwt.MapClaims) bool {
+	_, hasActor := claims[actorClaim]
+	_, hasDelegation := claims[delegationIDClaim]
+	return hasActor || hasDelegation
+}
+
+// ClaimsDelegatedToken reports whether token is a JWT whose claims are those of a token with which an agent acts on
+// behalf of a user (claimsDelegation). Like ClaimsAgentToken, it reads the claims without checking the token's
+// signature or expiry, so that such a token is refused whatever is wrong with it.
+func ClaimsDelegatedToken(token string) bool {
+	claims, ok := unverifiedClaims(token)
+	return ok && claimsDelegation(claims)
+}
+
+// NewToken issues one of Obot's own tokens with the claims of context. It never issues a token with which an agent
+// acts on behalf of a user: such a token's subject is the user, and only NewDelegatedToken issues one.
 func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt.Token, string, error) {
 	if context.Audience == "" {
 		return nil, "", fmt.Errorf("audience is required")
 	}
 
+	if context.Actor != nil || context.DelegationID != "" {
+		return nil, "", errors.New("a token that acts on behalf of a user is only issued by NewDelegatedToken")
+	}
+
 	// The owner of a vMCP's preconfigured OAuth grants stands for a vMCP's grants, never for a caller, so no token is
-	// issued for it, even one that would never authenticate.
+	// issued for it, even one that would never authenticate. The owner of a user's setup through an agent is likewise no
+	// caller.
 	if principal.IsPreconfiguredOAuthOwner(context.UserID) {
 		return nil, "", fmt.Errorf("token subject %q is a vMCP preconfigured OAuth grant owner", context.UserID)
+	}
+	if principal.IsDelegatedOwner(context.UserID) {
+		return nil, "", fmt.Errorf("token subject %q is the owner of a user's setup through an agent", context.UserID)
 	}
 
 	// The token records the kind of its subject, so that it authenticates only as a principal of that kind. A
@@ -534,6 +706,87 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 			context.APIKeyName = principal.MaskedAPIKeyName(context.UserID, uint(keyID))
 		}
 	}
+
+	return t.sign(ctx, context)
+}
+
+// NewDelegatedToken issues a token with which the agent with agentID acts on behalf of the user with userID, from the
+// delegation with delegationID, minted with the agent's key with apiKeyID. It returns the token and when it expires,
+// ttl from now: DelegatedTokenTTL when ttl is not positive, and never later.
+//
+// The token's subject is the user and its actor (RFC 8693 "act") the agent. It carries no group, name or email. Every
+// decoder but DecodeDelegatedToken refuses it, so it authenticates no one until a caller opts in to such tokens.
+//
+// It is never issued for a disabled or deleted agent or user, or with a key that is not the agent's or that is
+// revoked or expired. Whether the delegation is valid is its caller's to check.
+func (t *TokenService) NewDelegatedToken(ctx context.Context, agentID, userID uint, delegationID string, apiKeyID uint, ttl time.Duration) (string, time.Time, error) {
+	switch {
+	case agentID == 0:
+		return "", time.Time{}, errors.New("a token that acts on behalf of a user needs an agent")
+	case userID == 0:
+		return "", time.Time{}, errors.New("a token that acts on behalf of a user needs a user")
+	case delegationID == "":
+		return "", time.Time{}, errors.New("a token that acts on behalf of a user needs a delegation")
+	case apiKeyID == 0:
+		return "", time.Time{}, errors.New("a token that acts on behalf of a user needs the key that mints it")
+	case ttl > DelegatedTokenTTL:
+		return "", time.Time{}, fmt.Errorf("a token that acts on behalf of a user lasts at most %s", DelegatedTokenTTL)
+	case ttl <= 0:
+		ttl = DelegatedTokenTTL
+	}
+
+	// Without the gateway database, neither the agent's status nor the user's is known, and no token is issued.
+	if t.gatewayClient == nil {
+		return "", time.Time{}, &client.AgentAccessLookupError{
+			AgentID: agentID,
+			Err:     errors.New("no gateway client to read the agent's status"),
+		}
+	}
+	if _, err := t.gatewayClient.ActiveAgent(ctx, agentID); err != nil {
+		return "", time.Time{}, err
+	}
+	if status, err := t.gatewayClient.UserStatus(ctx, userID); err != nil {
+		return "", time.Time{}, err
+	} else if status != apitypes.UserStatusActive {
+		return "", time.Time{}, &client.UserAccessDeniedError{
+			UserID: userID,
+			Status: status,
+		}
+	}
+	key, err := t.gatewayClient.GetAgentAPIKey(ctx, agentID, apiKeyID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", time.Time{}, fmt.Errorf("API key %d is not a key of agent %d", apiKeyID, agentID)
+	} else if err != nil {
+		return "", time.Time{}, err
+	}
+	now := time.Now()
+	if key.RevokedAt != nil {
+		return "", time.Time{}, fmt.Errorf("API key %d of agent %d is revoked", apiKeyID, agentID)
+	}
+	if key.ExpiresAt != nil && !key.ExpiresAt.After(now) {
+		return "", time.Time{}, fmt.Errorf("API key %d of agent %d is expired", apiKeyID, agentID)
+	}
+
+	expiresAt := now.Add(ttl)
+	_, token, err := t.sign(ctx, TokenContext{
+		Audience:      t.serverURL,
+		IssuedAt:      NewTime(now.Add(-time.Second)),
+		ExpiresAt:     NewTime(expiresAt),
+		UserID:        principal.User(userID).String(),
+		PrincipalKind: string(principal.KindUser),
+		Actor:         &TokenActor{Subject: principal.Agent(agentID).String()},
+		DelegationID:  delegationID,
+		APIKeyID:      strconv.FormatUint(uint64(apiKeyID), 10),
+	})
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	// The token records its expiry in whole seconds.
+	return token, time.Unix(expiresAt.Unix(), 0), nil
+}
+
+// sign issues a token with the claims of context, which its caller has checked, signed with the service's key.
+func (t *TokenService) sign(ctx context.Context, context TokenContext) (*jwt.Token, string, error) {
 	context.Issuer = t.serverURL
 	if context.IssuedAt.IsZero() {
 		context.IssuedAt = NewTime(time.Now().Add(-time.Second))

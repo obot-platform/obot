@@ -23,6 +23,15 @@ var (
 	// authenticator builds one, and none must: the owner stands for a vMCP's grants, never for anyone who can act.
 	errPreconfiguredOAuthCaller = errors.New("the owner of a vMCP's preconfigured OAuth grants cannot authenticate")
 
+	// errDelegatedOwnerCaller refuses a caller whose UID is the owner of a user's setup through an agent
+	// (principal.DelegatedOwner). It is an owner, never anyone who can act.
+	errDelegatedOwnerCaller = errors.New("the owner of a user's setup through an agent cannot authenticate")
+
+	// errInvalidOnBehalfOf refuses a caller that carries an on-behalf-of user that is not an agent's acting for a user
+	// (principal.HasInvalidOnBehalfOf). No authenticator builds one, and none must: it would act as the user it names,
+	// or as itself while claiming to act for someone else.
+	errInvalidOnBehalfOf = errors.New("only an agent can act on behalf of a user")
+
 	// nonUserGroups mark principals that act for Obot itself or for a device, never for a user, so they have no
 	// lifecycle status. Only their own authenticators assign these groups.
 	nonUserGroups = []string{
@@ -71,6 +80,14 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 	// that no authenticator, now or later, can let a caller read or use the grants as their own.
 	if principal.IsPreconfiguredOAuthOwner(resp.User.GetUID()) {
 		return nil, false, errPreconfiguredOAuthCaller
+	}
+	// The same holds for the owner of a user's setup through an agent, and for a caller with an on-behalf-of user that
+	// is not an agent's.
+	if principal.IsDelegatedOwner(resp.User.GetUID()) {
+		return nil, false, errDelegatedOwnerCaller
+	}
+	if principal.HasInvalidOnBehalfOf(resp.User) {
+		return nil, false, errInvalidOnBehalfOf
 	}
 
 	status, recorded := principal.UserStatus(resp.User)

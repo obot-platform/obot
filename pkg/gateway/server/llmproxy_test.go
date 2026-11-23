@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
@@ -445,4 +446,22 @@ func TestCopyBody(t *testing.T) {
 			t.Errorf("restored body = %q, want %q", restored, "payload")
 		}
 	})
+}
+
+// TestWritersAttributeAgentsActingForUsers checks that the LLM gateway's writers attribute a request that an agent made
+// on behalf of a user to the agent, with the user as OnBehalfOf and no user ID, so that the user's own usage readers,
+// budgets and daily limits never count it.
+func TestWritersAttributeAgentsActingForUsers(t *testing.T) {
+	caller := principalTestUser("agent:7", principal.KindAgent, principal.OnBehalfOfExtra, "9", principal.APIKeyIDExtra, "42", principal.APIKeyNameExtra, "ci")
+
+	activity := newRunTokenActivity(caller, "gpt-5", types.TokenUsage{})
+	if activity.UserID != "" || activity.PrincipalKind != "agent" || activity.PrincipalID != "7" || activity.OnBehalfOf != "9" ||
+		activity.APIKeyID == nil || *activity.APIKeyID != 42 {
+		t.Errorf("token activity = %#v", activity)
+	}
+
+	log := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/responses", nil), caller, 5<<20).log
+	if log.UserID != "" || log.PrincipalKind != "agent" || log.PrincipalID != "7" || log.OnBehalfOf != "9" {
+		t.Errorf("LLM audit log attribution = user %q, kind %q, principal %q, on behalf of %q", log.UserID, log.PrincipalKind, log.PrincipalID, log.OnBehalfOf)
+	}
 }

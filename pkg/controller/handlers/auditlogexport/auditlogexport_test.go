@@ -831,6 +831,101 @@ func TestExportOptionsMapActorFilters(t *testing.T) {
 	if !reflect.DeepEqual(mcp.ActorKind, []string{"agent"}) || !reflect.DeepEqual(mcp.UserID, []string{"agent:7"}) {
 		t.Errorf("MCP actor filters were not mapped: %#v", mcp)
 	}
+	llm := llmAuditLogOptionsFromExport(&v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:       types.AuditLogTypeLLM,
+		LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"7"}},
+	}}, 100, 0)
+	if mcp.IncludeOnBehalfOf || llm.IncludeOnBehalfOf {
+		t.Error("an export that does not ask for it includes what agents did on users' behalf")
+	}
+
+	mcp = mcpAuditLogOptionsFromExport(exportWithFilters(types.AuditLogExportFilters{
+		SourceTypes:       []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+		UserIDs:           []string{"7"},
+		IncludeOnBehalfOf: true,
+	}, false), 100, 0)
+	if !mcp.IncludeOnBehalfOf {
+		t.Error("MCP includeOnBehalfOf was not mapped")
+	}
+	llm = llmAuditLogOptionsFromExport(&v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:       types.AuditLogTypeLLM,
+		LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"7"}, IncludeOnBehalfOf: true},
+	}}, 100, 0)
+	if !llm.IncludeOnBehalfOf {
+		t.Error("LLM includeOnBehalfOf was not mapped")
+	}
+}
+
+// TestExportFiltersOnBehalfOf exports what one agent did on behalf of one user: neither what the agent did for itself
+// or for another user, nor what another agent did for the user, nor what the user did.
+func TestExportFiltersOnBehalfOf(t *testing.T) {
+	c := newExportTestGatewayClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	rows := []gatewaytypes.Actor{
+		{PrincipalKind: "agent", PrincipalID: "7", OnBehalfOf: "12"},
+		{PrincipalKind: "agent", PrincipalID: "8", OnBehalfOf: "12"},
+		{PrincipalKind: "agent", PrincipalID: "7", OnBehalfOf: "13"},
+		{PrincipalKind: "agent", PrincipalID: "7"},
+		{PrincipalKind: "user", UserID: "12"},
+	}
+	name := func(actor gatewaytypes.Actor) string {
+		return actor.PrincipalKind + "-" + actor.PrincipalID + actor.UserID + "-for-" + actor.OnBehalfOf
+	}
+	for _, actor := range rows {
+		if err := c.InsertLLMAuditLog(ctx, &gatewaytypes.LLMAuditLog{
+			ID: name(actor), CreatedAt: now, UserID: actor.UserID, PrincipalKind: actor.PrincipalKind, PrincipalID: actor.PrincipalID, OnBehalfOf: actor.OnBehalfOf,
+		}); err != nil {
+			t.Fatalf("insert LLM audit log: %v", err)
+		}
+		c.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
+			CreatedAt: now, SourceType: types.AuditLogSourceTypeMCP,
+			UserID: actor.UserID, PrincipalKind: actor.PrincipalKind, PrincipalID: actor.PrincipalID, OnBehalfOf: actor.OnBehalfOf,
+			MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: name(actor)},
+		})
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, total, err := c.GetMCPAuditLogs(ctx, gatewayclient.MCPAuditLogOptions{}); err == nil && total == int64(len(rows)) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("MCP audit logs were not persisted")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	want := name(rows[0])
+
+	for _, filters := range []types.AuditLogExportFilters{
+		{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}, UserIDs: []string{"agent:7"}, OnBehalfOf: []string{"12"}},
+		{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall}, Actors: []string{"agent:7"}, OnBehalfOf: []string{"12"}},
+	} {
+		logs, _, err := c.GetMCPAuditLogs(ctx, mcpAuditLogOptionsFromExport(exportWithFilters(filters, false), 100, 0))
+		if err != nil {
+			t.Fatalf("get MCP audit logs: %v", err)
+		}
+		if len(logs) != 1 || logs[0].MCP().CallIdentifier != want {
+			var got []string
+			for _, log := range logs {
+				got = append(got, log.MCP().CallIdentifier)
+			}
+			t.Errorf("MCP export of %d sources = %v, want %s", len(filters.SourceTypes), got, want)
+		}
+	}
+
+	llmLogs, err := (&Handler{gatewayClient: c}).llmAuditLogFetcher()(ctx, &v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:       types.AuditLogTypeLLM,
+		StartTime:  metav1.NewTime(now.Add(-time.Hour)),
+		EndTime:    metav1.NewTime(now.Add(time.Hour)),
+		LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"agent:7"}, OnBehalfOf: []string{"12"}},
+	}}, 100, 0)
+	if err != nil {
+		t.Fatalf("get LLM audit logs: %v", err)
+	}
+	if len(llmLogs) != 1 || llmLogs[0].ID != want {
+		t.Errorf("LLM export = %+v, want %s", llmLogs, want)
+	}
 }
 
 // TestAdminAuditExport checks the export of the admin change audit: its filters and window, its oldest-first paging, and

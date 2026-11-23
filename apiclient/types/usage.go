@@ -6,7 +6,9 @@ type TokenUsage struct {
 	// UserID is the user's ID. It is empty for usage by an agent.
 	UserID string `json:"userID,omitempty"`
 	// Principal is the user or agent that made the requests.
-	Principal  PrincipalRef `json:"principal,omitzero"`
+	Principal PrincipalRef `json:"principal,omitzero"`
+	// OnBehalfOf is the user an agent made the request for, when it acted for one. Totals have none.
+	OnBehalfOf PrincipalRef `json:"onBehalfOf,omitzero"`
 	Model      string       `json:"model,omitempty"`
 	APIKeyID   *uint        `json:"apiKeyID,omitempty"`
 	APIKeyName string       `json:"apiKeyName,omitempty"`

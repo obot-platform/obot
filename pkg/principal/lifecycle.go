@@ -27,8 +27,13 @@ func RecordUserStatus(extra map[string][]string, status types.UserStatus) {
 
 // RecordKind records the kind of identity a principal acts for. It always replaces any value already in extra, so
 // that no auth provider can supply one.
+//
+// It also removes any user the principal is recorded to act for (RecordOnBehalfOf). Every authenticator of users and
+// agents records a kind, so a caller acts for a user only when its own authenticator records that after the kind, and
+// never because an auth provider supplied it.
 func RecordKind(extra map[string][]string, kind Kind) {
 	extra[KindExtra] = []string{string(kind)}
+	delete(extra, OnBehalfOfExtra)
 }
 
 // RecordPrincipal records the kind of identity a principal acts for and its lifecycle status, as every authenticator

@@ -10,17 +10,22 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
+// usageForUser lists the token usage records of a user, or of an agent as "agent:<id>". With include_on_behalf_of, a
+// user's records include those of the requests agents made on the user's behalf. With on_behalf_of, only the records
+// of the requests agents made on behalf of those users are listed.
 func (s *Server) usageForUser(apiContext api.Context) error {
 	userID := apiContext.PathValue("user_id")
-	requestedStart := apiContext.Request.URL.Query().Get("start")
-	requestedEnd := apiContext.Request.URL.Query().Get("end")
+	query := apiContext.URL.Query()
+	requestedStart := query.Get("start")
+	requestedEnd := query.Get("end")
 
 	start, end, err := parseDateRange(requestedStart, requestedEnd)
 	if err != nil {
 		return err
 	}
 
-	activities, err := apiContext.GatewayClient.TokenUsageForUser(apiContext.Context(), userID, start, end)
+	activities, err := apiContext.GatewayClient.TokenUsageForUser(apiContext.Context(), userID, start, end, api.IncludeOnBehalfOf(query),
+		splitQueryList(query[api.OnBehalfOfParam]))
 	if err != nil {
 		return err
 	}
@@ -111,7 +116,8 @@ func (s *Server) totalSystemTokenUsage(apiContext api.Context) error {
 // tokenUsageStats summarizes LLM gateway requests over a time range: totals, a time histogram,
 // spend by provider and the top models. The users, models and API keys it covers can be
 // narrowed with user_id, actor_kind, model and api_key_id, each repeatable or comma-separated. A user_id
-// is a user's ID, or "agent:<id>" for an agent.
+// is a user's ID, or "agent:<id>" for an agent. With include_on_behalf_of, a user_id's requests include those agents
+// made on the user's behalf. on_behalf_of narrows them to the requests agents made on behalf of those users.
 func (s *Server) tokenUsageStats(apiContext api.Context) error {
 	query := apiContext.URL.Query()
 	start, end, err := parseDateRange(query.Get("start"), query.Get("end"))
@@ -123,12 +129,14 @@ func (s *Server) tokenUsageStats(apiContext api.Context) error {
 	}
 
 	stats, err := apiContext.GatewayClient.TokenUsageStats(apiContext.Context(), client.TokenUsageStatsOptions{
-		Start:      start,
-		End:        end,
-		UserIDs:    splitQueryList(query["user_id"]),
-		ActorKinds: splitQueryList(query["actor_kind"]),
-		Models:     splitQueryList(query["model"]),
-		APIKeyIDs:  api.ParseUintList(splitQueryList(query["api_key_id"])),
+		Start:             start,
+		End:               end,
+		UserIDs:           splitQueryList(query["user_id"]),
+		IncludeOnBehalfOf: api.IncludeOnBehalfOf(query),
+		OnBehalfOf:        splitQueryList(query[api.OnBehalfOfParam]),
+		ActorKinds:        splitQueryList(query["actor_kind"]),
+		Models:            splitQueryList(query["model"]),
+		APIKeyIDs:         api.ParseUintList(splitQueryList(query["api_key_id"])),
 	})
 	if err != nil {
 		return err

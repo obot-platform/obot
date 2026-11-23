@@ -13,9 +13,9 @@ var (
 	errInvalidAgentToken = errors.New("invalid agent token")
 )
 
-// AgentTokens returns an authenticator that refuses every token that claims to be an agent's (ClaimsAgentToken). It
-// fails rather than declines, and authenticates nothing, so it is only correct after t, which authenticates a valid
-// agent token first.
+// AgentTokens returns an authenticator that refuses every token that claims to be an agent's (ClaimsAgentToken),
+// including one with which an agent acts on behalf of a user. It fails rather than declines, and authenticates
+// nothing, so it is only correct after t, which authenticates a valid agent token first.
 //
 // It is for an authenticator chain that ends in a catch-all, such as the one of a server that does not authenticate
 // callers, which ends with every caller as the "nobody" administrator. A token that the token service refused there,

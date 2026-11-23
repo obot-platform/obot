@@ -389,36 +389,107 @@ func TestAdmissionCheckRefusesAsUnavailableWhenRestrictionCantBeRead(t *testing.
 	}
 }
 
-// TestAdmissionCheckRefusesPreconfiguredOAuthOwners checks that no caller is ever admitted as the owner of a vMCP's agent
-// OAuth grants, whatever kind, status or groups its authenticator recorded: such an owner stands for a vMCP's grants,
-// and must never be able to read or use them as its own.
-func TestAdmissionCheckRefusesPreconfiguredOAuthOwners(t *testing.T) {
-	owner := principal.PreconfiguredOAuthOwner("vmcp1abc")
-	for _, tt := range []struct {
-		name string
-		resp *authenticator.Response
+// TestAdmissionCheckRefusesOwnersThatAreNotCallers checks that no caller is ever admitted as the owner of a vMCP's
+// preconfigured OAuth grants, or as the owner of a user's setup through an agent, whatever kind, status or groups its
+// authenticator recorded: such an owner stands for what it owns, and must never be able to read or use it as its own.
+func TestAdmissionCheckRefusesOwnersThatAreNotCallers(t *testing.T) {
+	for _, owner := range []struct {
+		name      string
+		uid       string
+		malformed string
+		wantErr   error
 	}{
 		{
-			name: "marked as an active user",
-			resp: principalWith(owner, []string{types2.GroupAdmin, types2.GroupAuthenticated}, map[string][]string{
-				principal.UserStatusExtra: {string(types2.UserStatusActive)},
-				principal.KindExtra:       {string(principal.KindUser)},
-			}),
+			name:      "preconfigured OAuth owner",
+			uid:       principal.PreconfiguredOAuthOwner("vmcp1abc"),
+			malformed: "vmcp-oauth:anything/else",
+			wantErr:   errPreconfiguredOAuthCaller,
 		},
 		{
-			name: "marked as an active agent",
-			resp: principalWith(owner, []string{types2.GroupMCP, types2.GroupAuthenticated}, map[string][]string{
-				principal.UserStatusExtra: {string(types2.UserStatusActive)},
-				principal.KindExtra:       {string(principal.KindAgent)},
-			}),
+			name:      "delegated owner",
+			uid:       principal.DelegatedOwner{AgentID: 5, UserID: 7}.String(),
+			malformed: "agent:5/anything",
+			wantErr:   errDelegatedOwnerCaller,
+		},
+	} {
+		for _, tt := range []struct {
+			name string
+			resp *authenticator.Response
+		}{
+			{
+				name: "marked as an active user",
+				resp: principalWith(owner.uid, []string{types2.GroupAdmin, types2.GroupAuthenticated}, map[string][]string{
+					principal.UserStatusExtra: {string(types2.UserStatusActive)},
+					principal.KindExtra:       {string(principal.KindUser)},
+				}),
+			},
+			{
+				name: "marked as an active agent",
+				resp: principalWith(owner.uid, []string{types2.GroupMCP, types2.GroupAuthenticated}, map[string][]string{
+					principal.UserStatusExtra: {string(types2.UserStatusActive)},
+					principal.KindExtra:       {string(principal.KindAgent)},
+				}),
+			},
+			{
+				name: "with the groups of a non-user principal",
+				resp: principalWith(owner.uid, []string{types2.GroupTunnel}, nil),
+			},
+			{
+				name: "malformed",
+				resp: principalWith(owner.malformed, []string{types2.GroupTunnel}, nil),
+			},
+		} {
+			t.Run(owner.name+" "+tt.name, func(t *testing.T) {
+				resp, ok, err := NewAdmissionCheck(stubAuthenticator{
+					resp: tt.resp,
+					ok:   true,
+				}, nil).AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/api/me", nil))
+				if !errors.Is(err, owner.wantErr) || ok || resp != nil {
+					t.Fatalf("got %v, %v, %v; want the caller refused", resp, ok, err)
+				}
+			})
+		}
+	}
+}
+
+// TestAdmissionCheckOnBehalfOf checks that only an agent is admitted acting for a user: a user, a non-user principal
+// or an agent with a malformed on-behalf-of user is refused, rather than admitted as itself or as the user it names.
+func TestAdmissionCheckOnBehalfOf(t *testing.T) {
+	active := func(kind principal.Kind, onBehalfOf ...string) map[string][]string {
+		extra := map[string][]string{}
+		principal.RecordPrincipal(extra, kind, types2.UserStatusActive)
+		extra[principal.OnBehalfOfExtra] = onBehalfOf
+		return extra
+	}
+	for _, tt := range []struct {
+		name      string
+		resp      *authenticator.Response
+		wantAdmit bool
+	}{
+		{
+			name:      "agent acting for a user",
+			resp:      principalWith("agent:5", []string{types2.GroupMCP, types2.GroupAuthenticated}, active(principal.KindAgent, "7")),
+			wantAdmit: true,
 		},
 		{
-			name: "with the groups of a non-user principal",
-			resp: principalWith(owner, []string{types2.GroupTunnel}, nil),
+			name: "user acting for another user",
+			resp: principalWith("8", []string{types2.GroupAuthenticated}, active(principal.KindUser, "7")),
 		},
 		{
-			name: "malformed",
-			resp: principalWith("vmcp-oauth:anything/else", []string{types2.GroupTunnel}, nil),
+			name: "user acting for no one in particular",
+			resp: principalWith("8", []string{types2.GroupAuthenticated}, active(principal.KindUser)),
+		},
+		{
+			name: "agent acting for another agent",
+			resp: principalWith("agent:5", []string{types2.GroupMCP, types2.GroupAuthenticated}, active(principal.KindAgent, "agent:6")),
+		},
+		{
+			name: "agent acting for two users",
+			resp: principalWith("agent:5", []string{types2.GroupMCP, types2.GroupAuthenticated}, active(principal.KindAgent, "7", "8")),
+		},
+		{
+			name: "non-user principal acting for a user",
+			resp: principalWith("tunnel", []string{types2.GroupTunnel}, map[string][]string{principal.OnBehalfOfExtra: {"7"}}),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -426,7 +497,13 @@ func TestAdmissionCheckRefusesPreconfiguredOAuthOwners(t *testing.T) {
 				resp: tt.resp,
 				ok:   true,
 			}, nil).AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/api/me", nil))
-			if !errors.Is(err, errPreconfiguredOAuthCaller) || ok || resp != nil {
+			if tt.wantAdmit {
+				if err != nil || !ok || resp == nil {
+					t.Fatalf("got %v, %v, %v; want the caller admitted", resp, ok, err)
+				}
+				return
+			}
+			if !errors.Is(err, errInvalidOnBehalfOf) || ok || resp != nil {
 				t.Fatalf("got %v, %v, %v; want the caller refused", resp, ok, err)
 			}
 		})

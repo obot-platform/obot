@@ -1,6 +1,7 @@
 package client
 
 import (
+	"strings"
 	"testing"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
@@ -121,4 +122,29 @@ func TestIdentityInfoOfAnAgent(t *testing.T) {
 
 	_, err = c.IdentityInfo(ctx, principal.Agent(agent.ID+1))
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
+
+// TestIdentityInfoRefusesDelegatedOwners checks that the owner of a user's setup through an agent is never loaded as an
+// identity: it is not a principal, and no principal built from its parts names the agent or the user.
+func TestIdentityInfoRefusesDelegatedOwners(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	agent, err := c.CreateAgent(ctx, types.Agent{DisplayName: "assistant"})
+	require.NoError(t, err)
+	u := &types.User{Username: "alice", Email: "alice@example.com", Role: apitypes.RoleBasic}
+	require.NoError(t, c.db.WithContext(ctx).Create(u).Error)
+
+	owner := principal.DelegatedOwner{AgentID: agent.ID, UserID: u.ID}.String()
+	_, err = principal.Parse(owner)
+	require.Error(t, err)
+
+	for _, p := range []principal.Principal{
+		{Kind: principal.KindAgent, ID: strings.TrimPrefix(owner, "agent:")},
+		{Kind: principal.KindUser, ID: owner},
+		{Kind: principal.KindUser, ID: strings.TrimPrefix(owner, "agent:")},
+	} {
+		info, err := c.IdentityInfo(ctx, p)
+		require.Error(t, err, "IdentityInfo(%#v)", p)
+		require.Nil(t, info)
+	}
 }

@@ -51,6 +51,107 @@ func TestParseAuditLogOptsParsesActorFilters(t *testing.T) {
 	}
 }
 
+// TestOnBehalfOfFilterNarrowsAuditLogsOptionsAndStats checks the on_behalf_of parameter of the MCP audit log list, its
+// filter options and the MCP usage stats: with an agent as the actor, it selects what that agent did for the user.
+func TestOnBehalfOfFilterNarrowsAuditLogsOptionsAndStats(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	now := time.Now().UTC()
+	call := func(agentID, onBehalfOf, tool string) gatewaytypes.MCPAuditLog {
+		return gatewaytypes.MCPAuditLog{
+			CreatedAt: now, SourceType: types.AuditLogSourceTypeMCP, PrincipalKind: "agent", PrincipalID: agentID, OnBehalfOf: onBehalfOf,
+			MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: tool},
+		}
+	}
+	seedMCPAuditLogs(t, gatewayClient,
+		call("7", "12", "seven-for-twelve"),
+		call("8", "12", "eight-for-twelve"),
+		call("7", "13", "seven-for-thirteen"),
+		gatewaytypes.MCPAuditLog{
+			CreatedAt: now, SourceType: types.AuditLogSourceTypeMCP, UserID: "12", PrincipalKind: "user",
+			MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: "twelve"},
+		},
+	)
+	admin := &user.DefaultInfo{UID: "1", Groups: types.RoleAdmin.Groups()}
+
+	for query, want := range map[string][]string{
+		"actor=agent:7&on_behalf_of=12":                      {"seven-for-twelve"},
+		"on_behalf_of=12":                                    {"eight-for-twelve", "seven-for-twelve"},
+		"on_behalf_of=12,13":                                 {"eight-for-twelve", "seven-for-thirteen", "seven-for-twelve"},
+		"actor=12&on_behalf_of=12":                           nil,
+		"actor=12&include_on_behalf_of=true&on_behalf_of=12": {"eight-for-twelve", "seven-for-twelve"},
+	} {
+		rec := httptest.NewRecorder()
+		if err := NewAuditLogHandler(gatewayClient).ListAuditLogs(newAuditLogListContextWithRecorder(t, gatewayClient, "operation=tools/call&"+query, admin, rec)); err != nil {
+			t.Fatalf("list audit logs for %s: %v", query, err)
+		}
+		var response types.AuditLogEventResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, item := range response.Items {
+			got = append(got, item.Action.Name)
+		}
+		slices.Sort(got)
+		if !slices.Equal(got, want) || response.Total != int64(len(want)) {
+			t.Errorf("audit logs for %s = %v (total %d), want %v", query, got, response.Total, want)
+		}
+	}
+
+	for query, want := range map[string][]string{
+		"":              {"12", "13"},
+		"actor=agent:8": {"12"},
+	} {
+		rec := httptest.NewRecorder()
+		ctx := newAuditLogListContextWithRecorder(t, gatewayClient, query, admin, rec)
+		ctx.SetPathValue("filter", "on_behalf_of")
+		if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err != nil {
+			t.Fatalf("list on_behalf_of options for %q: %v", query, err)
+		}
+		var response struct {
+			Options []string `json:"options"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(response.Options, want) {
+			t.Errorf("on_behalf_of options for %q = %v, want %v", query, response.Options, want)
+		}
+	}
+
+	for query, want := range map[string]int64{
+		"on_behalf_of=12":                     2,
+		"user_ids=agent:7&on_behalf_of=12":    1,
+		"user_ids=agent:7&on_behalf_of=12,13": 2,
+	} {
+		rec := httptest.NewRecorder()
+		if err := NewAuditLogHandler(gatewayClient).GetUsageStats(newAuditLogListContextWithRecorder(t, gatewayClient, query, admin, rec)); err != nil {
+			t.Fatalf("get usage stats for %s: %v", query, err)
+		}
+		var stats types.MCPUsageStats
+		if err := json.Unmarshal(rec.Body.Bytes(), &stats); err != nil {
+			t.Fatal(err)
+		}
+		if stats.TotalCalls != want {
+			t.Errorf("usage stats for %s = %d calls, want %d", query, stats.TotalCalls, want)
+		}
+	}
+}
+
+// TestConvertMCPAuditLogNeverRecordsOnBehalfOf checks that an entry an MCP server submits cannot say that an agent acted
+// for a user: the attribution comes from the subject alone.
+func TestConvertMCPAuditLogNeverRecordsOnBehalfOf(t *testing.T) {
+	var input auditLogInput
+	if err := json.Unmarshal([]byte(`{"subject":"agent:7","onBehalfOf":"9","callType":"tools/call"}`), &input); err != nil {
+		t.Fatal(err)
+	}
+	input.OnBehalfOf = "9"
+	convertMCPAuditLog(&input)
+	if input.PrincipalKind != "agent" || input.PrincipalID != "7" || input.UserID != "" || input.OnBehalfOf != "" {
+		t.Fatalf("attribution = kind %q, principal %q, user %q, on behalf of %q", input.PrincipalKind, input.PrincipalID, input.UserID, input.OnBehalfOf)
+	}
+}
+
 func TestAuditLogInputUnmarshalFlatMCPFields(t *testing.T) {
 	var input auditLogInput
 	if err := json.Unmarshal([]byte(`{
