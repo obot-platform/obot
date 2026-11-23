@@ -96,11 +96,13 @@
 		if (!displayName.trim()) return;
 		saving = true;
 		try {
-			// The update replaces the whole manifest, so the profiles are sent back unchanged.
+			// The update replaces the whole manifest, so the agent profiles and the allowed return hosts are sent back
+			// unchanged.
 			const updated = await AgentIdentitiesService.updateAgent(agent.id, {
 				displayName: displayName.trim(),
 				description: description.trim() || undefined,
-				profiles: agent.profiles ?? []
+				profiles: agent.profiles ?? [],
+				allowedReturnHosts: agent.allowedReturnHosts ?? []
 			});
 			agent = { ...agent, ...updated };
 			displayName = agent.displayName;

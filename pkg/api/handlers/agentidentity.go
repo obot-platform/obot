@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentdelegation"
 	"github.com/obot-platform/obot/pkg/agentprofile"
 	"github.com/obot-platform/obot/pkg/api"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -128,14 +129,31 @@ func (h *AgentIdentityHandler) Get(req api.Context) error {
 	return h.writeAgent(req, agent)
 }
 
-// Access returns the vMCP profiles, model access policies and skill access rules whose subjects match an agent, as the
-// policy matchers evaluate the agent (pkg/subjects). An agent matches only a subject that names it by ID, never the
-// selector wildcard, a user or a group subject, so no groups are evaluated.
+// Access returns the vMCP profiles, model access policies and skill access rules whose subjects match an agent
+// (agentGrants), and the problems of its keys that they leave.
 func (h *AgentIdentityHandler) Access(req api.Context) error {
 	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
+	access, err := agentGrants(req, agent)
+	if err != nil {
+		return err
+	}
+
+	keys, err := req.GatewayClient.ListAgentAPIKeys(req.Context(), agent.ID, gclient.APIKeyListOptions{})
+	if err != nil {
+		return err
+	}
+	access.Problems = accessProblems(keys, access, time.Now())
+	return req.Write(access)
+}
+
+// agentGrants returns the vMCP profiles, model access policies and skill access rules whose subjects match an agent,
+// as the policy matchers evaluate the agent (pkg/subjects), with the names people know them by. An agent matches only
+// a subject that names it by ID, never the selector wildcard, a user or a group subject, so no groups are evaluated.
+// They are what the agent may use, for itself and on behalf of every user its profiles match.
+func agentGrants(req api.Context, agent *gtypes.Agent) (types.AgentIdentityAccess, error) {
 	caller := subjects.Caller{Principal: principal.Agent(agent.ID)}
 
 	access := types.AgentIdentityAccess{
@@ -147,7 +165,7 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 
 	vmcps, err := listSharedVMCPs(req)
 	if err != nil {
-		return err
+		return access, err
 	}
 	info := agentInfo(agent)
 	for _, vmcp := range vmcps {
@@ -163,7 +181,7 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 
 	var policies v1.ModelAccessPolicyList
 	if err := req.List(&policies); err != nil {
-		return fmt.Errorf("failed to list model access policies: %w", err)
+		return access, fmt.Errorf("failed to list model access policies: %w", err)
 	}
 	slices.SortFunc(policies.Items, func(a, b v1.ModelAccessPolicy) int { return strings.Compare(a.Name, b.Name) })
 	for _, policy := range policies.Items {
@@ -180,7 +198,7 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 
 	var rules v1.SkillAccessRuleList
 	if err := req.List(&rules); err != nil {
-		return fmt.Errorf("failed to list skill access rules: %w", err)
+		return access, fmt.Errorf("failed to list skill access rules: %w", err)
 	}
 	slices.SortFunc(rules.Items, func(a, b v1.SkillAccessRule) int { return strings.Compare(a.Name, b.Name) })
 	for _, rule := range rules.Items {
@@ -194,13 +212,7 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 			})
 		}
 	}
-
-	keys, err := req.GatewayClient.ListAgentAPIKeys(req.Context(), agent.ID, gclient.APIKeyListOptions{})
-	if err != nil {
-		return err
-	}
-	access.Problems = accessProblems(keys, access, time.Now())
-	return req.Write(access)
+	return access, nil
 }
 
 // listSharedVMCPs lists the vMCPs agents can use, sorted by name: shared vMCPs that are not being deleted. A personal
@@ -231,8 +243,8 @@ func accessProblems(keys []gtypes.APIKey, access types.AgentIdentityAccess, now 
 	return problems
 }
 
-// Update replaces the metadata and the agent profiles of an agent. It changes nothing else: an agent is disabled and
-// deleted by their own routes, and its creator is never changed.
+// Update replaces the metadata, the agent profiles and the allowed return hosts of an agent. It changes nothing else: an
+// agent is disabled and deleted by their own routes, and its creator is never changed.
 func (h *AgentIdentityHandler) Update(req api.Context) error {
 	agent, err := pathAgent(req)
 	if err != nil {
@@ -436,7 +448,7 @@ func (h *AgentIdentityHandler) writeAgent(req api.Context, agent *gtypes.Agent) 
 	return req.Write(convertAgentIdentity(*agent, countActiveAPIKeys(keys)))
 }
 
-// agentFromManifest returns the agent whose metadata and profiles manifest describes.
+// agentFromManifest returns the agent whose metadata, profiles and allowed return hosts manifest describes.
 func agentFromManifest(manifest types.AgentIdentityManifest) (gtypes.Agent, error) {
 	if strings.TrimSpace(manifest.DisplayName) == "" {
 		return gtypes.Agent{}, types.NewErrBadRequest("displayName is required")
@@ -446,10 +458,15 @@ func agentFromManifest(manifest types.AgentIdentityManifest) (gtypes.Agent, erro
 	for i := range profiles {
 		profiles[i].Name = strings.TrimSpace(profiles[i].Name)
 	}
+	hosts, err := agentdelegation.NormalizeAllowedReturnHosts(manifest.AllowedReturnHosts)
+	if err != nil {
+		return gtypes.Agent{}, types.NewErrBadRequest("invalid allowedReturnHosts: %v", err)
+	}
 	return gtypes.Agent{
-		DisplayName: strings.TrimSpace(manifest.DisplayName),
-		Description: manifest.Description,
-		Profiles:    profiles,
+		DisplayName:        strings.TrimSpace(manifest.DisplayName),
+		Description:        manifest.Description,
+		Profiles:           profiles,
+		AllowedReturnHosts: hosts,
 	}, nil
 }
 
@@ -502,15 +519,16 @@ func agentIdentityError(err error) error {
 
 func convertAgentIdentity(agent gtypes.Agent, activeAPIKeyCount int) types.AgentIdentity {
 	identity := types.AgentIdentity{
-		ID:                strconv.FormatUint(uint64(agent.ID), 10),
-		Created:           *types.NewTime(agent.CreatedAt),
-		Type:              "agentidentity",
-		DisplayName:       agent.DisplayName,
-		Description:       agent.Description,
-		Profiles:          agent.Profiles,
-		Status:            agent.Status(),
-		DisabledReason:    agent.DisabledReason,
-		ActiveAPIKeyCount: activeAPIKeyCount,
+		ID:                 strconv.FormatUint(uint64(agent.ID), 10),
+		Created:            *types.NewTime(agent.CreatedAt),
+		Type:               "agentidentity",
+		DisplayName:        agent.DisplayName,
+		Description:        agent.Description,
+		Profiles:           agent.Profiles,
+		AllowedReturnHosts: agent.AllowedReturnHosts,
+		Status:             agent.Status(),
+		DisabledReason:     agent.DisabledReason,
+		ActiveAPIKeyCount:  activeAPIKeyCount,
 	}
 	if agent.CreatorUserID != 0 {
 		identity.CreatorUserID = strconv.FormatUint(uint64(agent.CreatorUserID), 10)

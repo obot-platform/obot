@@ -238,6 +238,11 @@ func (f *agentCleanupFixture) request(t *testing.T) router.Request {
 	}
 }
 
+// cleanup returns the handler of the fixture's event, which removes nothing set up through agents.
+func (f *agentCleanupFixture) cleanup() *AgentCleanup {
+	return NewAgentCleanup(f.gateway, nil)
+}
+
 func (f *agentCleanupFixture) activeKeys(t *testing.T, agentID uint) int {
 	t.Helper()
 	keys, err := f.gateway.ListAgentAPIKeys(t.Context(), agentID, gclient.APIKeyListOptions{})
@@ -304,11 +309,11 @@ func (f *agentCleanupFixture) requireCleanedUp(t *testing.T) {
 func TestAgentCleanupDeleteRemovesOnlyTheAgentsResources(t *testing.T) {
 	f := newAgentCleanupFixture(t, nil)
 
-	require.NoError(t, DeletedAgent(f.request(t), nil))
+	require.NoError(t, f.cleanup().DeletedAgent(f.request(t), nil))
 	f.requireCleanedUp(t)
 
 	// Handling a stale copy of the event again finds nothing left and changes nothing.
-	require.NoError(t, DeletedAgent(f.request(t), nil))
+	require.NoError(t, f.cleanup().DeletedAgent(f.request(t), nil))
 	f.requireCleanedUp(t)
 }
 
@@ -317,7 +322,7 @@ func TestAgentCleanupDeleteResumesAfterAFailureAtEveryStep(t *testing.T) {
 	// event's deletion.
 	counter := &failer{}
 	f := newAgentCleanupFixture(t, counter)
-	require.NoError(t, DeletedAgent(f.request(t), nil))
+	require.NoError(t, f.cleanup().DeletedAgent(f.request(t), nil))
 	f.requireCleanedUp(t)
 	require.Equal(t, 4, counter.calls)
 
@@ -326,11 +331,11 @@ func TestAgentCleanupDeleteResumesAfterAFailureAtEveryStep(t *testing.T) {
 			failures := &failer{failAt: failAt}
 			f := newAgentCleanupFixture(t, failures)
 
-			require.ErrorIs(t, DeletedAgent(f.request(t), nil), errInjected)
+			require.ErrorIs(t, f.cleanup().DeletedAgent(f.request(t), nil), errInjected)
 			// The event survives a failed attempt, so the controller retries it.
 			require.True(t, storedObjectExists(t, f.storage, &v1.AgentIdentityDelete{ObjectMeta: objectMeta(f.event.Name)}))
 
-			require.NoError(t, DeletedAgent(f.request(t), nil))
+			require.NoError(t, f.cleanup().DeletedAgent(f.request(t), nil))
 			f.requireCleanedUp(t)
 		})
 	}
@@ -468,7 +473,7 @@ func TestAgentCleanupDeleteCascadesToConnectionCredentials(t *testing.T) {
 		require.Equal(t, want, credential.Secrets, tag)
 	}
 
-	require.NoError(t, DeletedAgent(request(event), nil))
+	require.NoError(t, NewAgentCleanup(gateway, nil).DeletedAgent(request(event), nil))
 
 	// Reference cleanup deletes the connection whose instance is gone, and the finalizers of the connection and the
 	// instance delete their credentials and the connection's MCP OAuth tokens.

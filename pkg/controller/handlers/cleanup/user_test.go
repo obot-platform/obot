@@ -59,7 +59,7 @@ func TestUserCleanupVMCPs(t *testing.T) {
 	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
 		"user-ids": func(any) ([]string, error) { return nil, nil },
 	})
-	handler := NewUserCleanup(newCredentialsCleanupGatewayClient(t), accesscontrolrule.NewAccessControlRuleHelper(indexer, client))
+	handler := NewUserCleanup(newCredentialsCleanupGatewayClient(t), accesscontrolrule.NewAccessControlRuleHelper(indexer, client), nil)
 	require.NoError(t, handler.Cleanup(router.Request{
 		Ctx:       t.Context(),
 		Client:    client,

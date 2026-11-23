@@ -1,6 +1,7 @@
 package authz
 
 import (
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -14,11 +15,15 @@ import (
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 )
 
 const (
+	// agentTestKey is the API key of agentKeyPrincipal, as a request presents it.
+	agentTestKey = "oak1-7-3-secret"
+
 	agentTestVMCP         = "vmcp1shared"
 	agentTestSkill        = "sk1agent"
 	agentTestSystemServer = "sms1hooks"
@@ -72,6 +77,15 @@ var (
 			method: http.MethodPost,
 			path:   "/api/api-keys/auth",
 		},
+		// With its own key, the agent asks users for approval to act on their behalf, and gets tokens to.
+		{
+			method: http.MethodPost,
+			path:   "/api/agent-delegations",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/agent-delegations/token",
+		},
 	}
 
 	// agentUnreachableRoutes are routes no agent reaches: administration, user, device and API key management, the
@@ -98,6 +112,45 @@ var (
 		{
 			method: http.MethodPost,
 			path:   "/api/local-auth/change-password",
+		},
+		// A user's approval of an agent, and the agents acting for them, which are the user's, and the delegations of
+		// an agent, which are its administrators'.
+		{
+			method: http.MethodGet,
+			path:   "/api/agent-delegation-requests/adr1x",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/agent-delegation-requests/adr1x/approve",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/agent-delegation-requests/adr1x/cancel",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/me/agent-delegations",
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/api/me/agent-delegations/adl1x",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/agents/7/delegations",
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/api/agents/7/delegations/adl1x",
+		},
+		// Other routes under the agent delegation routes.
+		{
+			method: http.MethodGet,
+			path:   "/api/agent-delegations",
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/api/agent-delegations/adl1x",
 		},
 		// The admin change audit, which records what was done to agents and so is not theirs to read.
 		{
@@ -567,12 +620,17 @@ func agentKeyPrincipal(scopes gatewaytypes.APIKeyScopes) user.Info {
 		ID:          7,
 		DisplayName: "nightly build",
 	}, scopes.Groups(nil), map[string][]string{
-		"authorized_mcp_ids": scopes.MCPServerIDs,
+		"authorized_mcp_ids":         scopes.MCPServerIDs,
+		principal.APIKeyIDExtra:      {"3"},
+		principal.APIKeyNameExtra:    {"ci"},
+		principal.APIKeyRawNameExtra: {"ci"},
 	})
 }
 
+// agentTestRequest returns a request for route that presents agentTestKey, as the requests of agentKeyPrincipal do.
 func agentTestRequest(route agentTestRoute) *http.Request {
 	req := httptest.NewRequest(route.method, route.path, nil)
+	req.Header.Set("Authorization", "Bearer "+agentTestKey)
 	if route.ui {
 		// The server's mux serves the UI as its "/" fallback, and sets the pattern it matched.
 		req.Pattern = "/"
@@ -581,7 +639,8 @@ func agentTestRequest(route agentTestRoute) *http.Request {
 }
 
 // TestAgentRouteReachability checks an agent's principal against the route rules: with every scope an agent's key
-// can have, it reaches only the LLM proxy, the skill GET routes, MCP connections and the API key webhook.
+// can have, it reaches only the LLM proxy, the skill GET routes, MCP connections, the API key webhook and the agent
+// delegation routes.
 func TestAgentRouteReachability(t *testing.T) {
 	authorizer := newAgentTestAuthorizer(t)
 	agent := agentKeyPrincipal(gatewaytypes.APIKeyScopes{
@@ -1042,6 +1101,133 @@ func TestSkillAdminBypassNeverAppliesToAgents(t *testing.T) {
 	for _, route := range agentSkillRoutes[1:] {
 		if authorizer.Authorize(agentTestRequest(route), agent) {
 			t.Errorf("%s %s: the agent reached a skill no rule grants it", route.method, route.path)
+		}
+	}
+}
+
+// TestAgentDelegationRoutesNeedTheAgentsKey checks that the agent delegation routes are reached with an agent's own
+// API key, whatever its scopes, and with no other credential of the agent: not the token of an internal MCP
+// connection, not the composite loopback, whose token carries the key of the connection it serves, not a token with
+// which the agent acts on behalf of a user, and not a principal whose request presents anything but the key the
+// principal records.
+func TestAgentDelegationRoutesNeedTheAgentsKey(t *testing.T) {
+	authorizer := newAgentTestAuthorizer(t)
+	routes := []agentTestRoute{
+		{
+			method: http.MethodPost,
+			path:   "/api/agent-delegations",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/agent-delegations/token",
+		},
+	}
+	withExtra := func(u user.Info, groups []string, extra map[string][]string) user.Info {
+		merged := maps.Clone(u.GetExtra())
+		maps.Copy(merged, extra)
+		return &user.DefaultInfo{Name: u.GetName(), UID: u.GetUID(), Groups: append(slices.Clone(u.GetGroups()), groups...), Extra: merged}
+	}
+	llmKey := agentKeyPrincipal(gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true})
+	onBehalfOf := withExtra(llmKey, nil, nil)
+	principal.RecordOnBehalfOf(onBehalfOf.GetExtra(), 3)
+	malformedOnBehalfOf := withExtra(llmKey, nil, map[string][]string{principal.OnBehalfOfExtra: {"agent:3"}})
+
+	for _, tt := range []struct {
+		name    string
+		user    user.Info
+		headers map[string]string
+		reached bool
+	}{
+		{
+			name:    "a key with only an LLM scope",
+			user:    llmKey,
+			headers: map[string]string{"Authorization": "Bearer " + agentTestKey},
+			reached: true,
+		},
+		{
+			name:    "a key with only an MCP scope",
+			user:    agentKeyPrincipal(gatewaytypes.APIKeyScopes{MCPServerIDs: []string{agentTestVMCP}}),
+			headers: map[string]string{"Authorization": "Bearer " + agentTestKey},
+			reached: true,
+		},
+		{
+			name:    "the key in X-API-Key, which the key authenticator reads too",
+			user:    llmKey,
+			headers: map[string]string{"X-API-Key": agentTestKey},
+			reached: true,
+		},
+		{
+			name: "the token of an internal MCP connection",
+			user: gatewayclient.AgentUserInfo(&gatewaytypes.Agent{ID: 7}, []string{types.GroupMCP, types.GroupAuthenticated}, map[string][]string{
+				"authorized_mcp_ids": {agentTestVMCP},
+			}),
+			headers: map[string]string{"Authorization": "Bearer " + agentTestKey},
+		},
+		{
+			name:    "the composite loopback",
+			user:    withExtra(agentKeyPrincipal(gatewaytypes.APIKeyScopes{MCPServerIDs: []string{agentTestVMCP}}), []string{types.GroupCompositeMCP}, nil),
+			headers: map[string]string{"Authorization": "Bearer " + agentTestKey},
+		},
+		{
+			name:    "acting on behalf of a user",
+			user:    onBehalfOf,
+			headers: map[string]string{"Authorization": "Bearer " + agentTestKey},
+		},
+		{
+			name:    "a malformed on-behalf-of user",
+			user:    malformedOnBehalfOf,
+			headers: map[string]string{"Authorization": "Bearer " + agentTestKey},
+		},
+		{
+			name:    "another key of the agent presented",
+			user:    llmKey,
+			headers: map[string]string{"Authorization": "Bearer oak1-7-4-secret"},
+		},
+		{
+			name:    "a key of another agent presented",
+			user:    llmKey,
+			headers: map[string]string{"Authorization": "Bearer oak1-8-3-secret"},
+		},
+		{
+			name:    "a user's key with the same IDs presented",
+			user:    llmKey,
+			headers: map[string]string{"Authorization": "Bearer ok1-7-3-secret"},
+		},
+		{
+			name:    "a token presented",
+			user:    llmKey,
+			headers: map[string]string{"Authorization": "Bearer eyJhbGciOiJFZERTQSJ9.e30.c2ln"},
+		},
+		{
+			name:    "a token presented ahead of the key",
+			user:    llmKey,
+			headers: map[string]string{"Authorization": "Bearer eyJhbGciOiJFZERTQSJ9.e30.c2ln", "X-API-Key": agentTestKey},
+		},
+		{
+			name:    "the key only in X-Obot-Api-Key, which is read on the LLM proxy only",
+			user:    llmKey,
+			headers: map[string]string{gatewayclient.HeaderObotAPIKey: agentTestKey},
+		},
+		{
+			name: "nothing presented",
+			user: llmKey,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, route := range routes {
+				req := httptest.NewRequest(route.method, route.path, nil)
+				for name, value := range tt.headers {
+					req.Header.Set(name, value)
+				}
+				require.Equal(t, tt.reached, authorizer.Authorize(req, tt.user), "%s %s", route.method, route.path)
+			}
+		})
+	}
+
+	// No user reaches them, not even an owner presenting the agent's key.
+	for _, role := range []types.Role{types.RoleOwner, types.RoleBasic} {
+		for _, route := range routes {
+			require.False(t, authorizer.Authorize(agentTestRequest(route), &user.DefaultInfo{UID: "1", Groups: role.Groups()}), "%s %s", route.method, route.path)
 		}
 	}
 }

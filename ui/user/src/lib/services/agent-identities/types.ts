@@ -8,6 +8,9 @@ export interface AgentIdentityManifest {
 	description?: string;
 	// An update replaces the whole list, so one that leaves it out removes every entry. Left out when there is none.
 	profiles?: AgentProfile[];
+	// The hosts, each with an optional port, that the agent may send users back to after they approve it. An update
+	// replaces the whole list. Left out when there is none.
+	allowedReturnHosts?: string[];
 }
 
 // Users an agent may act for (apiclient/types/agentprofile.go). For a user one matches, the agent has its own grants.

@@ -200,6 +200,8 @@ func (db *DB) AutoMigrate() (err error) {
 		types.UserLifecycleEvent{},
 		types.Agent{},
 		types.AgentLifecycleEvent{},
+		types.AgentDelegationRequest{},
+		types.AgentDelegation{},
 		types.AdminAuditEvent{},
 		types.SCIMConnection{},
 		types.SCIMUserBinding{},

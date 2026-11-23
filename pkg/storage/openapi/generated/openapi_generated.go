@@ -32,6 +32,19 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateRequest":                  schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateResponse":                 schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyList":                           schema_obot_platform_obot_apiclient_types_AgentAPIKeyList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegation":                           schema_obot_platform_obot_apiclient_types_AgentDelegation(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationAccess":                     schema_obot_platform_obot_apiclient_types_AgentDelegationAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent":                      schema_obot_platform_obot_apiclient_types_AgentDelegationAgent(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationApprovalRequest":            schema_obot_platform_obot_apiclient_types_AgentDelegationApprovalRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationList":                       schema_obot_platform_obot_apiclient_types_AgentDelegationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRedirect":                   schema_obot_platform_obot_apiclient_types_AgentDelegationRedirect(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRequestCreate":              schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreate(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRequestCreated":             schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreated(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationToken":                      schema_obot_platform_obot_apiclient_types_AgentDelegationToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationTokenRequest":               schema_obot_platform_obot_apiclient_types_AgentDelegationTokenRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationUser":                       schema_obot_platform_obot_apiclient_types_AgentDelegationUser(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPAccess":                 schema_obot_platform_obot_apiclient_types_AgentDelegationVMCPAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPProfile":                schema_obot_platform_obot_apiclient_types_AgentDelegationVMCPProfile(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentity":                             schema_obot_platform_obot_apiclient_types_AgentIdentity(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccess":                       schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccessProblem":                schema_obot_platform_obot_apiclient_types_AgentIdentityAccessProblem(ref),
@@ -1396,6 +1409,535 @@ func schema_obot_platform_obot_apiclient_types_AgentAPIKeyList(ref common.Refere
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_AgentDelegation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegation is a user's approval for an agent to act on their behalf.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent"),
+						},
+					},
+					"user": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationUser"),
+						},
+					},
+					"firstApprovedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastApprovedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastUsedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastUsedAt is when the agent last got a token from the delegation.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"id", "agent", "user", "firstApprovedAt", "lastApprovedAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent", "github.com/obot-platform/obot/apiclient/types.AgentDelegationUser", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationAccess is what an agent may do for a user one of its profiles matches: the agent's own grants, which are the same for every such user.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcps": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPs are the vMCPs, and the profiles of each that name the agent, that the agent may use for the user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPAccess"),
+									},
+								},
+							},
+						},
+					},
+					"modelAccessPolicies": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ModelAccessPolicies are the agent's LLM gateway policies, whose models and budgets apply to the agent for the user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"),
+									},
+								},
+							},
+						},
+					},
+					"skillAccessRules": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkillAccessRules are the agent's skill access rules, whose skills the agent may use for the user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcps", "modelAccessPolicies", "skillAccessRules"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPAccess", "github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationAgent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationAgent is the agent of a delegation or of a request for one.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "displayName", "status"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationApprovalRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationApprovalRequest is an agent's request, as the signed-in user who can approve it sees it: the agent, and what it will be able to do for them.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent"),
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"delegationID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DelegationID is the user's existing delegation of the agent, if they approved it before. Approving again keeps it.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"access": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Access is what the agent may do for the user: its own grants.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationAccess"),
+						},
+					},
+				},
+				Required: []string{"id", "agent", "expiresAt", "access"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationAccess", "github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegation"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegation"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationRedirect(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationRedirect is the response to approving or cancelling a request: the URL to send the user's browser to. It is the agent's return URL, with the request ID and code on approval, or with error=access_denied on cancellation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"redirectURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"redirectURL"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationRequestCreate is the body with which an agent asks for a link a user can open to let it act on their behalf (POST /api/agent-delegations). The agent authenticates with its API key.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"returnURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReturnURL is where the user's browser is sent back to after approving or cancelling: on approval with the requestID and code query parameters, and on cancellation with error=access_denied. It must use https and have one of the agent's allowed return hosts (AgentIdentityManifest.AllowedReturnHosts).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretHash is the S256 hash of a random secret that the agent keeps in the session of the user's browser: the unpadded base64url SHA-256 digest of it, as a PKCE code challenge is. The secret is 43 to 128 of the characters A-Z, a-z, 0-9, \"-\", \".\", \"_\" and \"~\". Only the agent's backend, with the secret from the session of the browser that comes back, can redeem the code, so an approval link that a user forwards to someone else is useless.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"loginHint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LoginHint is passed on to sign-in, as a convenience. It is never a check of who approves.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"delegationID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DelegationID is the agent's delegation that the request asks to have approved again, if any. It must be the agent's, and only its user can approve the request.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"returnURL", "secretHash"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreated(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationRequestCreated is the response to AgentDelegationRequestCreate.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"requestID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"approvalURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ApprovalURL is the page, in Obot, at which the user approves the request. It works once, and until ExpiresAt.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"requestID", "approvalURL", "expiresAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationToken(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationToken is a token with which an agent acts on behalf of a user. There is no refresh token: the agent mints a new token from the delegation when it needs one.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"delegationID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"accessToken": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"tokenType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenType is always \"Bearer\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"user": {
+						SchemaProps: spec.SchemaProps{
+							Description: "User is the user the agent acts for.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationUser"),
+						},
+					},
+				},
+				Required: []string{"delegationID", "accessToken", "tokenType", "expiresAt", "user"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationUser", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationTokenRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationTokenRequest is the body with which an agent gets a token to act on behalf of a user (POST /api/agent-delegations/token). The agent authenticates with its API key, which becomes the token's minting key.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"grantType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GrantType is AgentDelegationGrantCode or AgentDelegationGrantDelegation.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"requestID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequestID, Code and Secret redeem the code of an approved request (AgentDelegationGrantCode). The secret is the one whose hash the request was created with, from the session of the browser the code came back with. A code is used once: a wrong or missing secret uses it up too.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"delegationID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DelegationID mints a new token from a delegation of the agent (AgentDelegationGrantDelegation).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"grantType"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationUser(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationUser is the user of a delegation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"email": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"id"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationVMCPAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationVMCPAccess is a vMCP that an agent may use for a user, through the profiles listed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"vmcpDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profiles": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPProfile"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcpID", "profiles"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPProfile"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationVMCPProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationVMCPProfile is a profile of a vMCP.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "name"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_AgentIdentity(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1432,6 +1974,20 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentity(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentProfile"),
+									},
+								},
+							},
+						},
+					},
+					"allowedReturnHosts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowedReturnHosts are the hosts that the agent may send a user's browser back to after the user approves or cancels its request to act on their behalf: host names or IP addresses, each with an optional port, such as \"agent.example.com\" or \"localhost:3000\". A return URL must use https, except that plain http is allowed to localhost or a loopback address on the list, for development. A host without a port allows only the default port. An agent with none cannot ask users for approval. An update replaces the whole list.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -1630,7 +2186,7 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref common.
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AgentIdentityManifest is what an admin sets on an agent identity: its metadata, and its agent profiles. Whether an agent is enabled, and what it is granted, are separate.",
+				Description: "AgentIdentityManifest is what an admin sets on an agent identity: its metadata, its agent profiles, and where it may send users back to after they approve it. Whether an agent is enabled, and what it is granted, are separate.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"displayName": {
@@ -1655,6 +2211,20 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref common.
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentProfile"),
+									},
+								},
+							},
+						},
+					},
+					"allowedReturnHosts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowedReturnHosts are the hosts that the agent may send a user's browser back to after the user approves or cancels its request to act on their behalf: host names or IP addresses, each with an optional port, such as \"agent.example.com\" or \"localhost:3000\". A return URL must use https, except that plain http is allowed to localhost or a loopback address on the list, for development. A host without a port allows only the default port. An agent with none cannot ask users for approval. An update replaces the whole list.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},

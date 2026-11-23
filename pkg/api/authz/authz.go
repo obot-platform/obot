@@ -349,6 +349,7 @@ var (
 		"GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness",
 		"GET /api/agents/{agent_id}/api-keys",
 		"GET /api/agents/{agent_id}/api-keys/{key_id}",
+		"GET /api/agents/{agent_id}/delegations",
 		// The admin change history of agents and the policies and profiles that name them.
 		"GET /api/admin-audit-events",
 	}
@@ -563,6 +564,9 @@ var (
 			"/api/oauth/redirect/{namespace}/{name}",
 			"DELETE /api/me",
 			"PATCH /api/me",
+			// The agents that may act on behalf of the caller. A delegation of theirs is reached as a resource
+			// (checkAgentDelegation), and approving an agent's request through authorizeAgentDelegationApproval.
+			"GET /api/me/agent-delegations",
 			"POST /api/logout-all",
 			"GET /api/version",
 			"GET /api/default-k8s-settings",
@@ -752,7 +756,7 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 		}
 	}
 
-	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
+	return a.authorizeAPIResources(req, user) || authorizeAgentDelegationApproval(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
 }
 
 func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object) error {

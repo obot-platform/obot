@@ -1,15 +1,35 @@
 package cleanup
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/pkg/agentdelegation"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// AgentCleanup removes what a deleted agent owns.
+type AgentCleanup struct {
+	gatewayClient     *gclient.Client
+	delegationCleanup agentdelegation.Cleanup
+}
+
+// NewAgentCleanup returns the cleanup of deleted agents. delegationCleanup removes what users set up through an agent.
+func NewAgentCleanup(gatewayClient *gclient.Client, delegationCleanup agentdelegation.Cleanup) *AgentCleanup {
+	if delegationCleanup == nil {
+		delegationCleanup = agentdelegation.NoCleanup{}
+	}
+	return &AgentCleanup{
+		gatewayClient:     gatewayClient,
+		delegationCleanup: delegationCleanup,
+	}
+}
 
 // DeletedAgent handles an AgentIdentityDelete: it removes what a deleted agent owns. It handles an agent the way
 // UserCleanup handles a user, step for step, wherever the step has an agent equivalent:
@@ -26,9 +46,12 @@ import (
 // vMCPs', keyed by them, and are kept. Audit, usage and budget usage rows are history and
 // are kept, and the soft-deleted agent row keeps them resolvable.
 //
+// The agent's delegations, the users' approvals for it to act on their behalf, are deleted with its approval requests,
+// after what the users set up through it (agentdelegation.Cleanup), as UserCleanup deletes a user's.
+//
 // Every step is idempotent, and the event object is deleted only after every step succeeded, so a handler that fails
 // at any point is retried and finishes what an earlier attempt left.
-func DeletedAgent(req router.Request, _ router.Response) error {
+func (a *AgentCleanup) DeletedAgent(req router.Request, _ router.Response) error {
 	agentDelete := req.Object.(*v1.AgentIdentityDelete)
 	agentID := agentDelete.Spec.AgentID
 	// Owned resources record their owner as the encoded principal, so this never selects those of the user with the
@@ -95,6 +118,17 @@ func DeletedAgent(req router.Request, _ router.Response) error {
 		instancesDeleted++
 	}
 	slog.Info("Deleted MCP server instances during agent cleanup", "agentID", agentID, "instances", instancesDeleted)
+
+	// What users set up through the agent goes before the delegations, so that a retry still finds the agent's
+	// delegations to delete if removing the setup fails.
+	if err := a.delegationCleanup.CleanupDelegations(req.Ctx, agentdelegation.Scope{AgentID: agentID}); err != nil {
+		return fmt.Errorf("failed to remove what users set up through agent %d: %w", agentID, err)
+	}
+	delegations, err := a.gatewayClient.DeleteAgentDelegationsOfAgent(req.Ctx, agentID)
+	if err != nil {
+		return err
+	}
+	slog.Info("Deleted agent delegations during agent cleanup", "agentID", agentID, "delegations", delegations)
 
 	// If everything is cleaned up successfully, then delete this object because we don't need it.
 	slog.Info("Completed agent cleanup", "agentID", agentID)

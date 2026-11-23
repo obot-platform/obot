@@ -141,6 +141,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Agent identities. These are admin-only routes (see authz).
 	agentIdentities.RegisterRoutes(mux.HandleFunc)
+	// Agents acting on behalf of users: the agent's approval requests and tokens, the user's approval and delegations,
+	// and the administrators' list of an agent's delegations (see authz).
+	handlers.NewAgentDelegationHandler(services.PersistentTokenServer, services.AgentDelegationCleanup, services.ServerURL).RegisterRoutes(mux.HandleFunc)
 	handlers.NewAdminAuditEventHandler().RegisterRoutes(mux.HandleFunc)
 
 	// License

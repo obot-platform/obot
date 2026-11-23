@@ -1,7 +1,7 @@
 package types
 
-// AgentIdentityManifest is what an admin sets on an agent identity: its metadata, and its agent profiles. Whether an
-// agent is enabled, and what it is granted, are separate.
+// AgentIdentityManifest is what an admin sets on an agent identity: its metadata, its agent profiles, and where it may
+// send users back to after they approve it. Whether an agent is enabled, and what it is granted, are separate.
 type AgentIdentityManifest struct {
 	// DisplayName names the agent for people. It is required, and need not be unique: an agent is identified by its ID.
 	DisplayName string `json:"displayName"`
@@ -9,6 +9,12 @@ type AgentIdentityManifest struct {
 	// Profiles says which users the agent may act for. An update replaces the whole
 	// list, so one that leaves it out removes every entry.
 	Profiles []AgentProfile `json:"profiles,omitempty"`
+	// AllowedReturnHosts are the hosts that the agent may send a user's browser back to after the user approves or
+	// cancels its request to act on their behalf: host names or IP addresses, each with an optional port, such as
+	// "agent.example.com" or "localhost:3000". A return URL must use https, except that plain http is allowed to
+	// localhost or a loopback address on the list, for development. A host without a port allows only the default
+	// port. An agent with none cannot ask users for approval. An update replaces the whole list.
+	AllowedReturnHosts []string `json:"allowedReturnHosts,omitempty"`
 }
 
 // AgentIdentity is a non-human identity that calls Obot with its own API keys. It is not a hosted agent or an agent on

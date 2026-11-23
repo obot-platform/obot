@@ -186,7 +186,8 @@ func TestAdminReadonlyPrefixGrantsCoverOnlyReviewedReads(t *testing.T) {
 
 // TestAdminReadonlyCannotMutate checks that the admin read-only role may make no change that a basic user may not.
 func TestAdminReadonlyCannotMutate(t *testing.T) {
-	authorizer := newVMCPTestAuthorizer()
+	// The resource checks of some routes, such as a user's own agent delegation, read the gateway database.
+	authorizer, _, _ := newGatewayTestAuthorizer(t)
 	pairs := []struct {
 		name     string
 		readonly types.Role

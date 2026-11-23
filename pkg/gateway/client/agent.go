@@ -13,6 +13,7 @@ import (
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentdelegation"
 	"github.com/obot-platform/obot/pkg/agentprofile"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
@@ -31,7 +32,7 @@ var (
 	ErrInvalidAgentMetadata = errors.New("invalid agent metadata")
 
 	// agentMetadataColumns are the agent columns that UpdateAgent writes.
-	agentMetadataColumns = []string{"display_name", "description", "profiles"}
+	agentMetadataColumns = []string{"display_name", "description", "profiles", "allowed_return_hosts"}
 )
 
 // agentLifecycleKey is what the agent lifecycle events delivered together share.
@@ -40,18 +41,20 @@ type agentLifecycleKey struct {
 	eventType types.AgentLifecycleEventType
 }
 
-// CreateAgent creates an active agent with the metadata, profiles and creator of agent, and returns it. Nothing
-// else of agent is written: the new agent gets a new ID, and is never created disabled or deleted. Every agent
-// profile gets a new ID, and one that has an ID is refused. The entries are the caller's to validate
-// (agentprofile.Validate).
+// CreateAgent creates an active agent with the metadata, profiles, allowed return hosts and creator of agent, and
+// returns it. Nothing else of agent is written: the new agent gets a new ID, and is never created disabled or deleted.
+// Every agent profile gets a new ID, and one that has an ID is refused. The entries are the caller's to validate
+// (agentprofile.Validate). The allowed return hosts are stored in canonical form
+// (agentdelegation.NormalizeAllowedReturnHosts).
 func (c *Client) CreateAgent(ctx context.Context, agent types.Agent) (*types.Agent, error) {
 	created := &types.Agent{
-		DisplayName:   agent.DisplayName,
-		Description:   agent.Description,
-		CreatorUserID: agent.CreatorUserID,
-		Profiles:      slices.Clone(agent.Profiles),
+		DisplayName:        agent.DisplayName,
+		Description:        agent.Description,
+		CreatorUserID:      agent.CreatorUserID,
+		Profiles:           slices.Clone(agent.Profiles),
+		AllowedReturnHosts: agent.AllowedReturnHosts,
 	}
-	if err := validateAgentMetadata(*created); err != nil {
+	if err := validateAgentMetadata(created); err != nil {
 		return nil, err
 	}
 	if err := agentprofile.InitializeIDs(created.Profiles); err != nil {
@@ -63,7 +66,13 @@ func (c *Client) CreateAgent(ctx context.Context, agent types.Agent) (*types.Age
 		}
 		var details map[string]any
 		if len(created.Profiles) > 0 {
-			details = map[string]any{types.AdminAuditAgentProfiles: profilesChange(nil, created.Profiles)}
+			details = map[string]any{types.AdminAuditAgentProfiles: beforeAfter(nil, created.Profiles)}
+		}
+		if len(created.AllowedReturnHosts) > 0 {
+			if details == nil {
+				details = map[string]any{}
+			}
+			details[types.AdminAuditAgentAllowedReturnHosts] = beforeAfter(nil, created.AllowedReturnHosts)
 		}
 		return recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
 			Action:       types.AdminAuditActionAgentCreate,
@@ -86,6 +95,15 @@ func (c *Client) GetAgent(ctx context.Context, id uint) (*types.Agent, error) {
 	return agent, nil
 }
 
+// GetAgentIncludeDeleted returns the agent with id, deleted or not, for audit history.
+func (c *Client) GetAgentIncludeDeleted(ctx context.Context, id uint) (*types.Agent, error) {
+	agent := new(types.Agent)
+	if err := c.db.WithContext(ctx).Unscoped().Where("id = ?", id).First(agent).Error; err != nil {
+		return nil, err
+	}
+	return agent, nil
+}
+
 // ListAgents returns the agents in the order they were created. Deleted agents are left out unless includeDeleted is
 // set.
 func (c *Client) ListAgents(ctx context.Context, includeDeleted bool) ([]types.Agent, error) {
@@ -100,15 +118,15 @@ func (c *Client) ListAgents(ctx context.Context, includeDeleted bool) ([]types.A
 	return agents, nil
 }
 
-// UpdateAgent replaces the metadata and profiles of the agent with agent.ID with those of agent, and returns the
-// agent. Nothing else of agent is written, so it can neither change the agent's lifecycle nor its creator. A deleted or
-// missing agent is gorm.ErrRecordNotFound.
+// UpdateAgent replaces the metadata, profiles and allowed return hosts of the agent with agent.ID with those of
+// agent, and returns the agent. Nothing else of agent is written, so it can neither change the agent's lifecycle nor
+// its creator. A deleted or missing agent is gorm.ErrRecordNotFound.
 //
 // Profiles are matched to the stored ones by ID, under the agent's lock (agentprofile.ReconcileIDs): an entry
 // without an ID gets a new one, and an ID the agent does not have is refused. The entries are the caller's to validate
 // (agentprofile.Validate).
 func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Agent, error) {
-	if err := validateAgentMetadata(agent); err != nil {
+	if err := validateAgentMetadata(&agent); err != nil {
 		return nil, err
 	}
 	profiles := slices.Clone(agent.Profiles)
@@ -132,11 +150,16 @@ func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Age
 		details := map[string]any{}
 		if !profilesEqual(updated.Profiles, profiles) {
 			changed = append(changed, types.AdminAuditAgentProfiles)
-			details[types.AdminAuditAgentProfiles] = profilesChange(updated.Profiles, profiles)
+			details[types.AdminAuditAgentProfiles] = beforeAfter(updated.Profiles, profiles)
+		}
+		if !slices.Equal(updated.AllowedReturnHosts, agent.AllowedReturnHosts) {
+			changed = append(changed, types.AdminAuditAgentAllowedReturnHosts)
+			details[types.AdminAuditAgentAllowedReturnHosts] = beforeAfter(updated.AllowedReturnHosts, agent.AllowedReturnHosts)
 		}
 		updated.DisplayName = agent.DisplayName
 		updated.Description = agent.Description
 		updated.Profiles = profiles
+		updated.AllowedReturnHosts = agent.AllowedReturnHosts
 
 		// Select writes the metadata even where it is now empty, which a struct update skips. Omit is redundant with
 		// it, and keeps the lifecycle columns out should the selection ever grow.
@@ -147,8 +170,8 @@ func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Age
 			// Saving what is already stored changes nothing, so there is nothing to record.
 			return nil
 		}
-		// Field names, and the before and after of profiles, which hold only names, subjects and IDs: the
-		// display name and description are free text, which could hold anything.
+		// Field names, and the before and after of profiles, which hold only names, subjects and IDs, and of the
+		// allowed return hosts: the display name and description are free text, which could hold anything.
 		details["changedFields"] = changed
 		return recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
 			Action:       types.AdminAuditActionAgentUpdate,
@@ -224,25 +247,7 @@ func (c *Client) DeleteAgent(ctx context.Context, id uint) error {
 // It is the one check of an agent's access: an agent that is disabled, deleted or missing is an
 // *AgentAccessDeniedError, and one that cannot be read, so that its access is unknown, is an *AgentAccessLookupError.
 func (c *Client) ActiveAgent(ctx context.Context, id uint) (*types.Agent, error) {
-	agent, err := c.GetAgent(ctx, id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, &AgentAccessDeniedError{
-			AgentID: id,
-			Status:  types2.UserStatusDeleted,
-		}
-	} else if err != nil {
-		return nil, &AgentAccessLookupError{
-			AgentID: id,
-			Err:     err,
-		}
-	}
-	if status := agent.Status(); status != types2.UserStatusActive {
-		return nil, &AgentAccessDeniedError{
-			AgentID: id,
-			Status:  status,
-		}
-	}
-	return agent, nil
+	return activeAgent(c.db.WithContext(ctx), id)
 }
 
 // AgentUserInfo returns the principal of agent, as every authenticator of agents builds it. Its UID and its name are
@@ -408,22 +413,30 @@ func profilesEqual(a, b []types2.AgentProfile) bool {
 	return aErr == nil && bErr == nil && bytes.Equal(aJSON, bJSON)
 }
 
-// profilesChange is how a change to an agent's profiles is recorded in the admin audit: what it was before and
-// after the change, always as lists. Subjects and IDs are not secret.
-func profilesChange(before, after []types2.AgentProfile) map[string]any {
+// beforeAfter is how a change to an agent's profiles or allowed return hosts is recorded in the admin audit: what they
+// were before and after the change, always as lists. Profiles hold only names, subjects and IDs, and hosts are not
+// secret.
+func beforeAfter[T any](before, after []T) map[string]any {
 	if before == nil {
-		before = []types2.AgentProfile{}
+		before = []T{}
 	}
 	if after == nil {
-		after = []types2.AgentProfile{}
+		after = []T{}
 	}
 	return map[string]any{"before": before, "after": after}
 }
 
-func validateAgentMetadata(agent types.Agent) error {
+// validateAgentMetadata checks the metadata of an agent that is being written, and replaces its allowed return hosts
+// with a canonical copy.
+func validateAgentMetadata(agent *types.Agent) error {
 	if strings.TrimSpace(agent.DisplayName) == "" {
 		return fmt.Errorf("%w: agent display name is required", ErrInvalidAgentMetadata)
 	}
+	hosts, err := agentdelegation.NormalizeAllowedReturnHosts(agent.AllowedReturnHosts)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidAgentMetadata, err)
+	}
+	agent.AllowedReturnHosts = hosts
 	return nil
 }
 

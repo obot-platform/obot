@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/agentdelegation"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -218,6 +219,10 @@ type Services struct {
 	// component. The vMCP controller deletes a component's grant when the component is removed, and every grant of a
 	// vMCP being deleted.
 	VMCPPreconfiguredOAuth *vmcp.PreconfiguredOAuthStore
+
+	// AgentDelegationCleanup removes what users set up through agents when a delegation is revoked, and when an agent
+	// or a user is deleted.
+	AgentDelegationCleanup agentdelegation.Cleanup
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -1192,6 +1197,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
 		VMCPPreconfiguredOAuth:       vmcpPreconfiguredOAuth,
+		AgentDelegationCleanup:       agentdelegation.NoCleanup{},
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,

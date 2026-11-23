@@ -59,7 +59,7 @@ func TestUserCleanupKeepsPreconfiguredOAuthTheUserAuthorized(t *testing.T) {
 		"user-ids": func(any) ([]string, error) { return nil, nil },
 	})
 
-	require.NoError(t, NewUserCleanup(gateway, accesscontrolrule.NewAccessControlRuleHelper(indexer, client)).Cleanup(router.Request{
+	require.NoError(t, NewUserCleanup(gateway, accesscontrolrule.NewAccessControlRuleHelper(indexer, client), nil).Cleanup(router.Request{
 		Ctx:       t.Context(),
 		Client:    client,
 		Object:    userDelete,
@@ -79,7 +79,7 @@ func TestAgentCleanupKeepsPreconfiguredOAuth(t *testing.T) {
 	owner, mcpID := storeAgentGrant(t, f.gateway, "vmcp1shared", "component", "3")
 	otherOwner, otherMCPID := storeAgentGrant(t, f.gateway, "vmcp1other", "component", "3")
 
-	require.NoError(t, DeletedAgent(f.request(t), nil))
+	require.NoError(t, f.cleanup().DeletedAgent(f.request(t), nil))
 	f.requireCleanedUp(t)
 	requireAgentGrant(t, f.gateway, owner, mcpID)
 	requireAgentGrant(t, f.gateway, otherOwner, otherMCPID)

@@ -32,7 +32,8 @@ func (h *AdminAuditEventHandler) RegisterRoutes(handle func(pattern string, f ap
 	handle("GET /api/admin-audit-events", h.List)
 }
 
-// List lists events, newest first, filtered by resourceKind, resourceId, actor (a user ID, or "system") and action,
+// List lists events, newest first, filtered by resourceKind, resourceId, actor (a user ID, an agent's "agent:<id>", or
+// "system") and action,
 // each of which may be repeated or comma-separated to match any of its values, and by since and until (RFC 3339; since is
 // inclusive, until exclusive), and paged with limit (default 100, at most 1000) and
 // offset. A filter that is not valid is 400, rather than ignored, so that a mistyped one never reads as no events.
@@ -75,16 +76,23 @@ func (h *AdminAuditEventHandler) List(req api.Context) error {
 		return err
 	}
 
-	// Each actor is looked up once. A user who has been deleted is still named, by the record the gateway keeps.
+	// Each actor is looked up once. A user who has been deleted is still named, by the record the gateway keeps, and so
+	// is a deleted agent, an actor of the approval protocol of agents acting on behalf of users.
 	names := map[string]string{}
 	items := make([]types.AdminAuditEvent, 0, len(events))
 	for _, event := range events {
 		name, ok := names[event.ActorUserID]
-		// Only a user is looked up: the bootstrap administrator has no user row, and the system actor is not a
-		// principal.
-		if p, parseErr := principal.Parse(event.ActorUserID); !ok && parseErr == nil && p.Kind == principal.KindUser {
-			if user, err := req.GatewayClient.UserByIDIncludeDeleted(req.Context(), event.ActorUserID); err == nil {
-				name = user.DisplayName
+		// Only a user or an agent is looked up: the bootstrap administrator has no user row, and the system actor is
+		// not a principal.
+		if p, parseErr := principal.Parse(event.ActorUserID); !ok && parseErr == nil {
+			if userID, isUser := p.UserID(); isUser {
+				if user, err := req.GatewayClient.UserByIDIncludeDeleted(req.Context(), strconv.FormatUint(uint64(userID), 10)); err == nil {
+					name = user.DisplayName
+				}
+			} else if agentID, isAgent := p.AgentID(); isAgent {
+				if agent, err := req.GatewayClient.GetAgentIncludeDeleted(req.Context(), agentID); err == nil {
+					name = agent.DisplayName
+				}
 			}
 		}
 		names[event.ActorUserID] = name

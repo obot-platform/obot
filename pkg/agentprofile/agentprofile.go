@@ -1,5 +1,5 @@
-// Package agentprofile holds the rules of an agent's profiles (types.AgentProfile): the IDs of its entries, and how
-// they are validated. It is pure: its callers read storage, and hand it what they read.
+// Package agentprofile holds the rules of an agent's profiles (types.AgentProfile): the IDs of its entries, how they
+// are validated, and which users they match. It is pure: its callers read storage, and hand it what they read.
 package agentprofile
 
 import (
@@ -9,7 +9,23 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/subjects"
 )
+
+// Matches reports whether an entry's subjects match caller, a user with their groups. A caller that is not a user
+// matches none: only users are acted for, and an agent is never a subject.
+func Matches(entries []types.AgentProfile, caller subjects.Caller) bool {
+	if caller.Principal.Kind != principal.KindUser {
+		return false
+	}
+	for _, entry := range entries {
+		if caller.Matches(entry.Subjects) {
+			return true
+		}
+	}
+	return false
+}
 
 // Validate checks an agent's profiles before they are written: each on its own (types.AgentProfile.Validate), and
 // that their names are unique.

@@ -92,6 +92,11 @@ type Client struct {
 	mcpOAuthRefreshLocks       keyedLocks
 	mcpOAuthRefreshHoldersOnce sync.Once
 	mcpOAuthRefreshHoldersSlot chan struct{}
+
+	// agentDelegationCache holds the delegations DelegationValid found valid, until the time each maps to.
+	agentDelegationCacheLock sync.Mutex
+	agentDelegationCache     map[agentDelegationValidation]time.Time
+	agentDelegationCacheTTL  time.Duration
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
@@ -124,6 +129,8 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		deviceScanRetentionDays:   deviceScanRetentionDays,
 		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
 		kickLifecycleDelivery:     make(chan struct{}, 1),
+		agentDelegationCache:      map[agentDelegationValidation]time.Time{},
+		agentDelegationCacheTTL:   agentDelegationValidationCacheTTL,
 	}
 
 	c.startAuditLoops(ctx, auditLogPersistenceInterval)
@@ -144,6 +151,7 @@ func (c *Client) StartCleanups(ctx context.Context, entitlements EntitlementProv
 		go c.runEgressAuditCleanup(ctx, egressAuditLogRetentionDays)
 		go c.runLocalAuthSessionCleanup(ctx)
 		go c.runSCIMGroupDeletionMarkExpiry(ctx)
+		go c.runAgentDelegationRequestCleanup(ctx)
 	})
 }
 

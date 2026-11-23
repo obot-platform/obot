@@ -18,6 +18,7 @@ var (
 		"/api/agents/7/access",
 		"/api/agents/7/api-keys",
 		"/api/agents/7/api-keys/1",
+		"/api/agents/7/delegations",
 	}
 	agentAdminWrites = []struct {
 		method string
@@ -51,11 +52,16 @@ var (
 			method: http.MethodDelete,
 			path:   "/api/agents/7/api-keys/1",
 		},
+		{
+			method: http.MethodDelete,
+			path:   "/api/agents/7/delegations/adl1x",
+		},
 	}
 )
 
 // TestAgentAdminRoutesByRole checks who reaches the admin API of agents: administrators and owners read and change
-// agents and their keys, read-only administrators and auditors only read them, and no other user reaches them.
+// agents, their keys and their delegations, read-only administrators and auditors only read them, and no other user
+// reaches them.
 func TestAgentAdminRoutesByRole(t *testing.T) {
 	authorizer := newAgentTestAuthorizer(t)
 

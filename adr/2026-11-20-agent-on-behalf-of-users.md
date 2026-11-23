@@ -101,13 +101,16 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
    sends the browser to `returnURL` with the request ID and a short-lived code.
    - The agent's backend takes the secret from the session of the browser that came
      back. It redeems the code with its key, the code and the secret.
-   - Obot checks the secret against `secretHash`, and only then creates the
-     delegation and returns the first token.
+   - Approval creates or updates the delegation, so that the user can see and revoke
+     it, and the setup they did, even if the agent never redeems the code. Obot checks
+     the secret against `secretHash`, and only then returns the delegation ID and the
+     first token. A wrong secret uses the code up.
    - **Why this blocks a forwarded link (the attack Arcade calls COAT).** Say someone
      using the agent forwards their approval link, and a victim approves it. The
      victim's browser returns to the agent with the victim's session, which doesn't
-     hold the attacker's secret. The code can't be redeemed, and no delegation is
-     created. Obot enforces this, not the agent.
+     hold the attacker's secret. The code can't be redeemed, so the agent never gets a
+     token for the victim in the attacker's session. Obot enforces this, not the
+     agent.
    - The user must approve in the same browser where they use the agent. There's no
      polling, because the return delivers the code.
    - Codes are single-use and expire quickly. A redeemed or expired code is refused.

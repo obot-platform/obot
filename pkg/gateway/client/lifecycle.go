@@ -397,7 +397,12 @@ func recordUserReconcileEvent(tx *gorm.DB, userID uint, groupsRemoved bool) erro
 
 // kickLifecycleEventDelivery asks the delivery loop to deliver new lifecycle events, of users and agents, now
 // instead of at its next tick. It never blocks.
+//
+// Its callers have just disabled, enabled or deleted a user or an agent, so it also forgets every delegation that
+// DelegationValid found valid: this replica refuses a delegation of a disabled or deleted user or agent at once, and
+// other replicas within agentDelegationValidationCacheTTL.
 func (c *Client) kickLifecycleEventDelivery() {
+	c.invalidateAgentDelegationValidations(func(agentDelegationValidation) bool { return true })
 	select {
 	case c.kickLifecycleDelivery <- struct{}{}:
 	default:

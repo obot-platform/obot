@@ -34,6 +34,10 @@ type Agent struct {
 	UpdatedAt     time.Time `json:"updatedAt"`
 	// Profiles says which users the agent may act for. The agent create and update paths write it whole.
 	Profiles []types2.AgentProfile `json:"profiles,omitempty" gorm:"serializer:json"`
+	// AllowedReturnHosts are the hosts, each with an optional port, that the agent may send a user's browser back to
+	// after the user approves or cancels its request to act on their behalf. An agent with none cannot ask for
+	// approval. The agent create and update paths write it whole.
+	AllowedReturnHosts []string `json:"allowedReturnHosts,omitempty" gorm:"serializer:json"`
 
 	// Lifecycle fields. A disabled agent keeps its keys and assignments but is denied access. A deleted agent's row
 	// is kept so that audit history can still show it. Only lifecycle operations write these fields; see
