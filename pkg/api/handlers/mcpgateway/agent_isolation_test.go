@@ -25,11 +25,26 @@ import (
 func TestCompositeConfigIDIsPerPrincipal(t *testing.T) {
 	userConfig := mcp.ServerConfig{MCPServerName: "vmcpi1user", UserID: "5"}
 	agentConfig := mcp.ServerConfig{MCPServerName: "vmcpi1agent", UserID: "agent:5"}
-	require.NotEqual(t, compositeConfigID(userConfig), compositeConfigID(agentConfig))
+	require.NotEqual(t, compositeConfigID(userConfig, nil), compositeConfigID(agentConfig, nil))
 
 	agentConfig.MCPServerName = userConfig.MCPServerName
-	require.NotEqual(t, compositeConfigID(userConfig), compositeConfigID(agentConfig))
-	require.Equal(t, compositeConfigID(agentConfig), compositeConfigID(mcp.ServerConfig{MCPServerName: "vmcpi1user", UserID: "agent:5"}))
+	require.NotEqual(t, compositeConfigID(userConfig, nil), compositeConfigID(agentConfig, nil))
+	require.Equal(t, compositeConfigID(agentConfig, nil), compositeConfigID(mcp.ServerConfig{MCPServerName: "vmcpi1user", UserID: "agent:5"}, nil))
+}
+
+// TestCompositeConfigIDIsPerDelegation checks that an agent acting on behalf of users, which connects through its own
+// vMCP instance, gets a configuration of its own for each user, apart from its own.
+func TestCompositeConfigIDIsPerDelegation(t *testing.T) {
+	agentConfig := mcp.ServerConfig{MCPServerName: "vmcpi1agent", UserID: "agent:5"}
+	own := compositeConfigID(agentConfig, agentUserInfo(5))
+	forAnn := compositeConfigID(agentConfig, onBehalfOfUserInfo(t, 5, 7))
+	forBob := compositeConfigID(agentConfig, onBehalfOfUserInfo(t, 5, 8))
+	require.NotEqual(t, own, forAnn)
+	require.NotEqual(t, forAnn, forBob)
+	require.Equal(t, forAnn, compositeConfigID(agentConfig, onBehalfOfUserInfo(t, 5, 7)))
+	require.Equal(t, "vmcpi1agent++agent:5/user:7", forAnn)
+	require.Equal(t, "agent:5/user:7", callerSessionOwner(onBehalfOfUserInfo(t, 5, 7), "agent:5"))
+	require.Equal(t, "agent:5", callerSessionOwner(agentUserInfo(5), "agent:5"))
 }
 
 // TestMCPClientSessionsArePerPrincipal checks that an MCP session opened by a user is never resumed by the agent with

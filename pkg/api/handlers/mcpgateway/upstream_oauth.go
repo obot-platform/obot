@@ -49,7 +49,7 @@ func upstreamOAuthResponse(req api.Context, cfg mcp.ServerConfig, manager *mcp.S
 	// An agent, or a composite loopback acting for one, cannot authorize interactively. It is told which components
 	// need OAuth, and no challenge is retained for it.
 	if headlessCaller(req) {
-		return agentOAuthRequiredResponse(cfg, challenges)
+		return agentOAuthRequiredResponse(req, cfg, challenges)
 	}
 
 	// A component that uses the vMCP's preconfigured OAuth is not the user's to authorize: the user is told that an

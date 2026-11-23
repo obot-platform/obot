@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentprofile"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
@@ -61,12 +62,70 @@ var (
 		types.GroupCompositeMCP: newPathMatcher(apiResources[types.GroupCompositeMCP]...),
 		types.GroupSkills:       newPathMatcher(apiResources[types.GroupSkills]...),
 	}
+
+	// delegatedTokenRoutes are the routes on which a token with which an agent acts on behalf of a user is accepted
+	// (AcceptsDelegatedTokens), by the group that grants each: the LLM proxy, the skill GET routes, and MCP
+	// connections, internal composite connections included. They are the agent's own routes, less the API key webhook,
+	// which answers only for API keys, and the routes an agent reaches only with its own key (agentKeyRules).
+	delegatedTokenRoutes = []delegatedTokenRoute{
+		{
+			group: types.GroupLLM,
+			paths: newPathMatcher("/api/llm-proxy/"),
+		},
+		{
+			group: types.GroupSkills,
+			paths: newPathMatcher(append([]string{"GET /api/skills"}, apiResources[types.GroupSkills]...)...),
+		},
+		{
+			group: types.GroupMCP,
+			paths: agentAPIResources[types.GroupMCP],
+		},
+		{
+			group: types.GroupCompositeMCP,
+			paths: agentAPIResources[types.GroupCompositeMCP],
+		},
+	}
 )
+
+// delegatedTokenRoute is routes that accept tokens with which an agent acts on behalf of a user.
+type delegatedTokenRoute struct {
+	// group grants the routes, as it does for the agent acting for itself.
+	group string
+	paths *pathMatcher
+}
+
+// AcceptsDelegatedTokens reports whether req is to a route on which an agent may act on behalf of a user
+// (delegatedTokenRoutes). The authenticator of such tokens opts in on these routes only; on every other route the
+// token service refuses them. The authorizer confines an agent acting on behalf of a user to them as well.
+func AcceptsDelegatedTokens(req *http.Request) bool {
+	return slices.ContainsFunc(delegatedTokenRoutes, func(route delegatedTokenRoute) bool {
+		_, ok := route.paths.Match(req)
+		return ok
+	})
+}
+
+// authorizeDelegatedRoute reports whether an agent acting on behalf of a user, with groups, may reach req at all: the
+// route accepts tokens that act on behalf of a user, with a group the key that minted the token grants. What the agent
+// reaches there is what its own grants give it.
+//
+// The authenticator of such tokens checked that a profile of the agent matches the user, and recorded what it
+// established about the user beside the agent (agentprofile.RecordDelegation). A caller without that record was not
+// built by it, and reaches nothing: guardrails that cover the user need the user's groups.
+func authorizeDelegatedRoute(req *http.Request, userInfo user.Info, groups []string) bool {
+	if d, _ := agentprofile.DelegationOf(userInfo); d.ID == "" {
+		return false
+	}
+	return slices.ContainsFunc(delegatedTokenRoutes, func(route delegatedTokenRoute) bool {
+		_, ok := route.paths.Match(req)
+		return ok && slices.Contains(groups, route.group)
+	})
+}
 
 // authorizeAgent authorizes a request of a principal that claims to be an agent (principal.ClaimsAgent). It is the
 // only authorization such a principal gets: an agent reaches the LLM proxy with GroupLLM, the skill GET routes with
 // GroupSkills, MCP connections with GroupMCP (and internal composite connections with GroupCompositeMCP), the API key
-// webhook, and with its own API key, the agent delegation routes, and nothing else.
+// webhook, and with its own API key, the agent delegation routes, and nothing else. An agent acting on behalf of a
+// user reaches only the first three (authorizeDelegatedRoute).
 func (a *Authorizer) authorizeAgent(req *http.Request, userInfo user.Info) bool {
 	// A principal that claims to be an agent but is not a well-formed one, such as one whose UID and recorded kind
 	// disagree, reaches nothing. Nor does one with a group that no agent is granted, such as GroupAPI or the group of a
@@ -76,6 +135,12 @@ func (a *Authorizer) authorizeAgent(req *http.Request, userInfo user.Info) bool 
 	}
 	groups := userInfo.GetGroups()
 	if slices.ContainsFunc(groups, func(group string) bool { return !slices.Contains(agentGroups, group) }) {
+		return false
+	}
+	// An agent acting on behalf of a user reaches only the routes that accept tokens that act on behalf of a user. Its
+	// routes are then checked as the agent's own below: the key that minted its token grants its groups, and every
+	// resource check and policy lookup is of the agent's own grants.
+	if _, ok := principal.OnBehalfOf(userInfo); ok && !authorizeDelegatedRoute(req, userInfo, groups) {
 		return false
 	}
 

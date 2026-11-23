@@ -51,7 +51,7 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 			{ComponentID: "ungranted", Name: "ms1ungranted", URL: "http://localhost/mcp-connect/msi1ungranted"},
 		},
 	}
-	response, err := agentOAuthRequiredResponse(cfg, []*mmmcpcomponent.AuthorizationError{
+	response, err := agentOAuthRequiredResponse(api.Context{Request: httptest.NewRequest(http.MethodPost, "/mcp-connect/vmcp1test", nil), User: agentUserInfo(7)}, cfg, []*mmmcpcomponent.AuthorizationError{
 		{URL: "http://localhost/mcp-connect/msi1granted", StatusCode: http.StatusUnauthorized},
 		{URL: "http://localhost/mcp-connect/msi1ungranted", StatusCode: http.StatusUnauthorized},
 	})

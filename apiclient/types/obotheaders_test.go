@@ -103,7 +103,7 @@ func TestInjectObotHeadersCatalogRoundTrip(t *testing.T) {
 }
 
 func TestReservedObotHeaderConfiguration(t *testing.T) {
-	for _, header := range ObotHeaders() {
+	for _, header := range ReservedObotHeaders() {
 		t.Run(string(header), func(t *testing.T) {
 			manifest := MCPServerManifest{
 				Runtime: RuntimeRemote,
@@ -118,5 +118,28 @@ func TestReservedObotHeaderConfiguration(t *testing.T) {
 			manifest.Config[0].Usage = Env
 			require.NoError(t, manifest.ValidateConfig(), "only HTTP headers reserve these names")
 		})
+	}
+}
+
+func TestOnBehalfOfObotHeaders(t *testing.T) {
+	for header, want := range map[ObotHeader]ObotHeader{
+		ObotHeaderUserID:    ObotHeaderOnBehalfOfUserID,
+		ObotHeaderUserName:  ObotHeaderOnBehalfOfUserName,
+		ObotHeaderUserEmail: ObotHeaderOnBehalfOfUserEmail,
+	} {
+		got, ok := OnBehalfOfObotHeader(header)
+		require.True(t, ok)
+		require.Equal(t, want, got)
+		reserved, ok := ReservedObotHeader(strings.ToUpper(string(want)))
+		require.True(t, ok)
+		require.Equal(t, want, reserved)
+		// The on-behalf-of headers come with the user header they accompany, and are not selected on their own.
+		_, selectable := CanonicalObotHeader(string(want))
+		require.False(t, selectable)
+		require.Error(t, ValidateObotHeaders(RuntimeRemote, []ObotHeader{want}))
+	}
+	for _, header := range []ObotHeader{ObotHeaderAPIKeyID, ObotHeaderAPIKeyName, ObotHeaderIDPUserID, ObotHeaderIDPGroups} {
+		_, ok := OnBehalfOfObotHeader(header)
+		require.False(t, ok, header)
 	}
 }

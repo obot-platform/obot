@@ -326,6 +326,15 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			// Check if this is a FetchUserGroupsError which indicates an auth provider configuration issue
 			if fetchGroupsErr, ok := authenticationError[*gclient.FetchUserGroupsError](err); ok {
 				httpError(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", fetchGroupsErr.Message), http.StatusInternalServerError)
+			} else if invalid, ok := authenticationError[*gclient.AgentDelegationInvalidError](err); ok {
+				// An agent's token that acts on behalf of a user no longer does. The agent mints a new one, or asks the
+				// user to approve it again; the response names only that, as its error code.
+				slog.Debug("Refused a token with which an agent acts on behalf of a user", "reason", invalid.Reason)
+				if llm.IsProxyPath(req.URL.Path) {
+					httpError(rw, gclient.AgentDelegationInvalidCode, http.StatusUnauthorized)
+				} else {
+					api.WriteErrorWithReasons(rw, api.NewErrHTTPWithReasons(http.StatusUnauthorized, gclient.AgentDelegationInvalidCode, nil))
+				}
 			} else if denied, ok := authenticationError[*gclient.UserAccessDeniedError](err); ok {
 				// End the browser session, so that the login page is reachable and can say why.
 				http.SetCookie(rw, &http.Cookie{

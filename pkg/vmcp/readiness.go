@@ -19,6 +19,10 @@ const (
 	// AgentOAuthRequiredError is the error of the 409 response to an agent whose vMCP lacks working preconfigured OAuth
 	// for a component the agent is granted.
 	AgentOAuthRequiredError = "agent_oauth_required"
+	// AgentUserApprovalRequiredError is the error of the 409 response to an agent acting on behalf of a user, whose
+	// vMCP needs something from the user that the user has not set up through the agent: a value a user enters, or an
+	// upstream OAuth account that no grant of the vMCP covers. The agent asks the user to approve it again.
+	AgentUserApprovalRequiredError = "agent_user_approval_required"
 )
 
 // ReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value. Its Code is
@@ -43,7 +47,10 @@ type AgentReadinessReport struct {
 
 // AgentReadinessFailure is the body of the 409 response to an agent that cannot use a vMCP.
 type AgentReadinessFailure struct {
-	Error   string            `json:"error"`
+	Error string `json:"error"`
+	// VMCPID is the vMCP the agent cannot use. It is set for an agent acting on behalf of a user, when the gateway
+	// knows it, as it always does on connect: such an agent asks the user to approve it again for that vMCP.
+	VMCPID  string            `json:"vmcpID,omitempty"`
 	Reasons []ReadinessReason `json:"reasons"`
 }
 
@@ -51,6 +58,11 @@ type AgentReadinessFailure struct {
 // than an interactive challenge.
 type AgentNotReadyError struct {
 	Readiness Readiness
+	// VMCPID is the vMCP an agent acting on behalf of a user cannot use (AgentReadinessFailure.VMCPID).
+	VMCPID string
+	// OnBehalfOfUser reports that the agent acts on behalf of a user, so that what the user can set up is reported as
+	// needing their approval (AgentReadinessFailure.ForUser).
+	OnBehalfOfUser bool
 }
 
 // PreconfiguredComponents returns the IDs of the components enabled for the agent for which the vMCP holds a grant
@@ -85,16 +97,41 @@ func (r Readiness) ErrorCode() string {
 }
 
 func (e *AgentNotReadyError) Error() string {
-	codes := make([]string, 0, len(e.Readiness.Reasons))
-	for _, reason := range e.Readiness.Reasons {
+	failure := e.Failure()
+	codes := make([]string, 0, len(failure.Reasons))
+	for _, reason := range failure.Reasons {
 		codes = append(codes, reason.ComponentID+": "+reason.Code)
 	}
-	return fmt.Sprintf("%s: %s", e.Readiness.ErrorCode(), strings.Join(codes, ", "))
+	return fmt.Sprintf("%s: %s", failure.Error, strings.Join(codes, ", "))
 }
 
 // Failure returns the body of the 409 response.
 func (e *AgentNotReadyError) Failure() AgentReadinessFailure {
-	return AgentReadinessFailure{Error: e.Readiness.ErrorCode(), Reasons: e.Readiness.Reasons}
+	failure := AgentReadinessFailure{Error: e.Readiness.ErrorCode(), VMCPID: e.VMCPID, Reasons: e.Readiness.Reasons}
+	if e.OnBehalfOfUser {
+		return failure.ForUser()
+	}
+	return failure
+}
+
+// ForUser returns the failure to report to an agent acting on behalf of a user in place of f. A user can supply some
+// of what a component lacks through the agent: a value a user enters (AgentReadinessConfigurationRequired), or an
+// upstream OAuth account where the vMCP holds no grant for the component (AgentReadinessOAuthRequired). Those need the
+// user to approve the agent again (AgentUserApprovalRequiredError). A grant the vMCP holds that no longer works
+// (AgentReadinessOAuthInvalid) is used in place of anything the user could set up, so only an administrator can fix
+// it: it is reported as it is to the agent acting for itself, alone, since approval cannot fix it. A failure without
+// reasons is kept as it is.
+func (f AgentReadinessFailure) ForUser() AgentReadinessFailure {
+	administrator := slices.DeleteFunc(slices.Clone(f.Reasons), func(reason ReadinessReason) bool {
+		return reason.Code != types.AgentReadinessOAuthInvalid
+	})
+	switch {
+	case len(administrator) > 0:
+		return AgentReadinessFailure{Error: AgentOAuthRequiredError, VMCPID: f.VMCPID, Reasons: administrator}
+	case len(f.Reasons) == 0:
+		return f
+	}
+	return AgentReadinessFailure{Error: AgentUserApprovalRequiredError, VMCPID: f.VMCPID, Reasons: f.Reasons}
 }
 
 // AgentReadiness reports whether agent can use vmcp through instance, its connection to it, or nil when it has not

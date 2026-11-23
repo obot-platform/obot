@@ -155,6 +155,7 @@ func TestOnBehalfOfIsStrippedFromProviderExtras(t *testing.T) {
 		t.Run(string(kind), func(t *testing.T) {
 			supplied := map[string][]string{
 				OnBehalfOfExtra: {"7"},
+				DelegationExtra: {`{"userID":"7"}`},
 				"email":         {"mallory@example.com"},
 			}
 			uid := "8"
@@ -165,6 +166,9 @@ func TestOnBehalfOfIsStrippedFromProviderExtras(t *testing.T) {
 
 			if _, present := info.GetExtra()[OnBehalfOfExtra]; present {
 				t.Fatal("the supplied on-behalf-of user survived recording the kind")
+			}
+			if _, present := info.GetExtra()[DelegationExtra]; present {
+				t.Fatal("the supplied delegation record survived recording the kind")
 			}
 			if userID, ok := OnBehalfOf(info); ok {
 				t.Fatalf("OnBehalfOf() = %q", userID)

@@ -189,8 +189,14 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
   can't be avoided by going through an agent.
 - **No tool narrowing.** The agent gets every tool its own vMCP profiles grant, for
   every user it acts for. The user can't narrow them at approval.
-- **Identity passed on.** MCP servers, guardrail filters and webhook payloads receive
-  the agent as the caller and the user as on-behalf-of.
+- **Identity passed on.** MCP servers and guardrail filters receive the agent as the
+  caller and the user as on-behalf-of.
+  - An MCP server that selects the user attribution headers gets the agent in them,
+    and the user's ID, name and email in their on-behalf-of counterparts
+    (`X-Obot-On-Behalf-Of-User-Id`, `-Name`, `-Email`). Those can't be selected on
+    their own, and clients can't send them.
+  - Webhook (filter server) payloads carry only the MCP message, with no caller
+    identity, so there is nothing to add to them.
 - **Composite vMCPs.** The internal tokens between a vMCP and its components carry
   `OnBehalfOf`, so the user is attributed all the way through.
 - **Setup that no longer applies stays.** If no profile of a vMCP names the agent any

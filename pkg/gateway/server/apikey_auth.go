@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auth"
@@ -162,18 +163,23 @@ func (a *APIKeyAuthenticator) authenticateAgentKey(req *http.Request, apiKey *ga
 		return nil, false, err
 	}
 
-	attribution := principal.NewAPIKeyAttribution(apiKey.ID, principal.Agent(agentID), apiKey.Name)
-	extra := map[string][]string{
-		"authorized_mcp_ids":         apiKey.MCPServerIDs,
-		principal.APIKeyIDExtra:      {fmt.Sprintf("%d", attribution.ID)},
-		principal.APIKeyNameExtra:    {attribution.Name},
-		principal.APIKeyRawNameExtra: {apiKey.Name},
-	}
 	// AgentUserInfo records the agent's kind and status, so that the admission check reads this principal as an
 	// active agent.
 	return &authenticator.Response{
-		User: client.AgentUserInfo(agent, agentKeyGroups(apiKey.APIKeyScopes), extra),
+		User: client.AgentUserInfo(agent, agentKeyGroups(apiKey.APIKeyScopes), agentKeyExtra(agentID, apiKey)),
 	}, true, nil
+}
+
+// agentKeyExtra returns the extra of the principal of the agent with agentID that authenticates with its key: the key's
+// attribution, and the MCP servers it names.
+func agentKeyExtra(agentID uint, key *gatewaytypes.APIKey) map[string][]string {
+	attribution := principal.NewAPIKeyAttribution(key.ID, principal.Agent(agentID), key.Name)
+	return map[string][]string{
+		"authorized_mcp_ids":         slices.Clone(key.MCPServerIDs),
+		principal.APIKeyIDExtra:      {strconv.FormatUint(uint64(attribution.ID), 10)},
+		principal.APIKeyNameExtra:    {attribution.Name},
+		principal.APIKeyRawNameExtra: {key.Name},
+	}
 }
 
 // agentKeyGroups returns the groups that an agent's API key grants. They are what its scopes (agentKeyScopes) grant,

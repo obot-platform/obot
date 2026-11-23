@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentprofile"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	"golang.org/x/net/http/httpguts"
@@ -49,6 +50,11 @@ func ForCaller(ctx context.Context, reader IdentityReader, selected []types.Obot
 
 // callerHeaders derives only the fields explicitly selected by the destination.
 // It is request-local: caller identity must never enter a shared deployment or client.
+//
+// For an agent acting on behalf of a user, the user headers carry the agent, as for its own
+// requests, and each has an on-behalf-of counterpart that carries the user, with the user's
+// ID, display name and email (types.OnBehalfOfObotHeader). They come from authentication, never
+// from the request.
 func callerHeaders(selected []types.ObotHeader, caller user.Info, idpUserID string) (http.Header, error) {
 	headers := make(http.Header)
 	if caller == nil {
@@ -65,6 +71,25 @@ func callerHeaders(selected []types.ObotHeader, caller user.Info, idpUserID stri
 		// The audit name may be a masked identifier. Never disclose it as a raw key name.
 		values[types.ObotHeaderAPIKeyName] = cmp.Or(caller.GetExtra()[principal.APIKeyRawNameExtra]...)
 	}
+	if delegation, ok := agentprofile.DelegationOf(caller); ok {
+		values[types.ObotHeaderOnBehalfOfUserID] = delegation.User.Principal.ID
+		values[types.ObotHeaderOnBehalfOfUserName] = delegation.DisplayName
+		values[types.ObotHeaderOnBehalfOfUserEmail] = delegation.Email
+	}
+	set := func(header types.ObotHeader, value string) {
+		if value == "" {
+			return
+		}
+		if !httpguts.ValidHeaderFieldValue(value) {
+			slog.Warn("Omitting MCP attribution header", "header", header, "reason", "invalid header value")
+			return
+		}
+		if utf8.RuneCountInString(value) > maxObotHeaderValueCharacters {
+			slog.Warn("Omitting MCP attribution header", "header", header, "reason", "header size limit exceeded")
+			return
+		}
+		headers.Set(string(header), value)
+	}
 	for _, name := range selected {
 		header, ok := types.CanonicalObotHeader(string(name))
 		if !ok {
@@ -78,18 +103,10 @@ func callerHeaders(selected []types.ObotHeader, caller user.Info, idpUserID stri
 				return nil, err
 			}
 		}
-		if value == "" {
-			continue
+		set(header, value)
+		if onBehalfOf, ok := types.OnBehalfOfObotHeader(header); ok {
+			set(onBehalfOf, values[onBehalfOf])
 		}
-		if !httpguts.ValidHeaderFieldValue(value) {
-			slog.Warn("Omitting MCP attribution header", "header", header, "reason", "invalid header value")
-			continue
-		}
-		if utf8.RuneCountInString(value) > maxObotHeaderValueCharacters {
-			slog.Warn("Omitting MCP attribution header", "header", header, "reason", "header size limit exceeded")
-			continue
-		}
-		headers.Set(string(header), value)
 	}
 	return headers, nil
 }
@@ -148,29 +165,37 @@ func selectedIDPUserID(ctx context.Context, reader IdentityReader, selected []ty
 }
 
 // Selected copies only the destination's selected attribution from trusted internal
-// headers. It must not be used for untrusted client-supplied headers.
+// headers, with the on-behalf-of counterpart of each (types.OnBehalfOfObotHeader). It must not
+// be used for untrusted client-supplied headers.
 func Selected(headers http.Header, runtime types.Runtime, selected []types.ObotHeader) http.Header {
 	result := make(http.Header)
 	if !types.SupportsObotHeaders(runtime) {
 		return result
+	}
+	copyHeader := func(header types.ObotHeader) {
+		if value := headers.Get(string(header)); value != "" {
+			result.Set(string(header), value)
+		}
 	}
 	for _, name := range selected {
 		header, ok := types.CanonicalObotHeader(string(name))
 		if !ok {
 			continue
 		}
-		if value := headers.Get(string(header)); value != "" {
-			result.Set(string(header), value)
+		copyHeader(header)
+		if onBehalfOf, ok := types.OnBehalfOfObotHeader(header); ok {
+			copyHeader(onBehalfOf)
 		}
 	}
 	return result
 }
 
-// Strip removes all reserved attribution names, including non-canonical map keys
-// supplied by in-process callers. Apply it before consuming incoming headers.
+// Strip removes all reserved attribution names (types.ReservedObotHeaders), including
+// non-canonical map keys supplied by in-process callers. Apply it before consuming incoming
+// headers.
 func Strip(headers http.Header) {
 	for name := range headers {
-		if _, reserved := types.CanonicalObotHeader(name); reserved {
+		if _, reserved := types.ReservedObotHeader(name); reserved {
 			delete(headers, name)
 		}
 	}
@@ -182,7 +207,7 @@ func Strip(headers http.Header) {
 func Configured(static, keys, values []string) http.Header {
 	headers := make(http.Header, len(keys)+len(static))
 	set := func(name, value string) {
-		if _, reserved := types.CanonicalObotHeader(name); !reserved {
+		if _, reserved := types.ReservedObotHeader(name); !reserved {
 			headers.Set(name, value)
 		}
 	}

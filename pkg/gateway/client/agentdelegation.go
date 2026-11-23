@@ -36,6 +36,11 @@ const (
 	agentDelegationValidationCacheTTL = 15 * time.Second
 	// agentDelegationRequestCleanupInterval is how often the requests that can no longer be used are deleted.
 	agentDelegationRequestCleanupInterval = 10 * time.Minute
+
+	// AgentDelegationInvalidCode is the error of the 401 response to an agent whose token that acts on behalf of a
+	// user is refused (AgentDelegationInvalidError). The agent mints a new token from the delegation, or asks the user
+	// to approve it again.
+	AgentDelegationInvalidCode = "agent_delegation_invalid"
 )
 
 var (
@@ -82,6 +87,14 @@ type AgentDelegationApproval struct {
 	// Delegation is the user's delegation of the agent: after approval, the one it created or updated, and before it,
 	// the one the user already has, if any.
 	Delegation *types.AgentDelegation
+}
+
+// AgentDelegationInvalidError refuses a token with which an agent acts on behalf of a user that no longer acts for
+// anyone: it is malformed or expired, its delegation was revoked, the agent or the user is disabled or deleted, no profile
+// of the agent matches the user any more, or the key that minted it is revoked, expired or not the agent's.
+// Reason says which, for logs; the response carries only AgentDelegationInvalidCode.
+type AgentDelegationInvalidError struct {
+	Reason string
 }
 
 // agentDelegationValidation is a delegation that DelegationValid found valid.
@@ -820,4 +833,8 @@ func newAgentDelegationCode() string {
 func agentDelegationCodeHash(code string) string {
 	digest := sha256.Sum256([]byte(code))
 	return hex.EncodeToString(digest[:])
+}
+
+func (e *AgentDelegationInvalidError) Error() string {
+	return AgentDelegationInvalidCode + ": " + e.Reason
 }

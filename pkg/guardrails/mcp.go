@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentprofile"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
@@ -80,7 +81,9 @@ type jsonText struct {
 //
 // An agent has no role and no groups: whatever its user info carries, its identity has no groups and it is never an
 // admin, so no budget that exempts admins exempts it. This covers any caller that claims to be an agent
-// (principal.ClaimsAgent), including a malformed one, rather than reading such a caller as a user.
+// (principal.ClaimsAgent), including a malformed one, rather than reading such a caller as a user. An agent acting on
+// behalf of a user carries the user, with the user's current groups as authentication read them, for the guardrail
+// filters that cover the user (Identity.OnBehalfOf); they are never the agent's own groups.
 func ResolveIdentity(_ context.Context, _ *gateway.Client, user kuser.Info) (Identity, bool, error) {
 	userID := user.GetUID()
 	caller, ok := principal.FromUserInfo(user)
@@ -88,7 +91,11 @@ func ResolveIdentity(_ context.Context, _ *gateway.Client, user kuser.Info) (Ide
 		userID = caller.String()
 	}
 	if principal.ClaimsAgent(user) {
-		return Identity{UserID: userID, Principal: caller}, false, nil
+		identity := Identity{UserID: userID, Principal: caller}
+		if delegation, ok := agentprofile.DelegationOf(user); ok {
+			identity.OnBehalfOf = delegation.User
+		}
+		return identity, false, nil
 	}
 	return Identity{UserID: userID, Principal: caller, Groups: user.GetExtra()["auth_provider_groups"]}, principal.IsAdminOrOwner(user), nil
 }

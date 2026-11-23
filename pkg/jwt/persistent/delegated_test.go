@@ -1,7 +1,6 @@
 package persistent
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -328,6 +327,34 @@ func TestDecodeDelegatedTokenReadsNoOtherToken(t *testing.T) {
 			name:  "with a malformed minting key",
 			token: variant(func(c jwt.MapClaims) { c["api_key_id"] = "key" }),
 		},
+		{
+			name:  "with a group but no composite loopback",
+			token: variant(func(c jwt.MapClaims) { c["UserGroups"] = types.GroupLLM }),
+		},
+		{
+			name: "with a loopback group no agent's token carries",
+			token: variant(func(c jwt.MapClaims) {
+				c["UserGroups"] = types.GroupCompositeMCP + "," + types.GroupAdmin
+				c["MCPID"] = "vmcpi1test"
+			}),
+		},
+		{
+			name: "with a loopback without the composite group",
+			token: variant(func(c jwt.MapClaims) {
+				c["UserGroups"] = types.GroupMCP
+				c["MCPID"] = "vmcpi1test"
+			}),
+		},
+		{
+			name: "with a loopback without its connection",
+			token: variant(func(c jwt.MapClaims) {
+				c["UserGroups"] = types.GroupCompositeMCP
+			}),
+		},
+		{
+			name:  "with authorized MCP IDs but no loopback",
+			token: variant(func(c jwt.MapClaims) { c["AuthorizedMCPIDs"] = "ms1test" }),
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			decoded, err := f.tokens.DecodeDelegatedToken(t.Context(), tt.token)
@@ -549,16 +576,101 @@ func TestNewDelegatedTokenRefuses(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestDelegatedTokenClaimsAreTheTokenContexts checks that the claims NewDelegatedToken issues are the JSON names of
-// TokenContext's fields, so that a TokenContext decoded from such a token, as DecodeDelegatedToken does, carries them.
-func TestDelegatedTokenClaimsAreTheTokenContexts(t *testing.T) {
-	data, err := json.Marshal(TokenContext{
-		Actor:        &TokenActor{Subject: "agent:5"},
-		DelegationID: testDelegationID,
-	})
+// TestDelegatedLoopbackTokenRoundTrip checks the token of a composite vMCP's loopback for an agent acting on behalf of a
+// user: it carries the delegation with the loopback's claims, only DecodeDelegatedToken reads it, and it is issued only
+// for what a composite loopback carries.
+func TestDelegatedLoopbackTokenRoundTrip(t *testing.T) {
+	f := newDelegationFixture(t)
+	delegation := DelegatedToken{AgentID: f.agent.ID, UserID: f.user.ID, DelegationID: testDelegationID, APIKeyID: f.keyID}
+	loopback := DelegatedLoopback{
+		Audience:          testServerURL + "/mcp-connect-composite/vmcpi1test",
+		Groups:            agentLoopbackGroups,
+		MCPID:             "vmcpi1test",
+		AuthorizedMCPIDs:  []string{"msi1one", "ms1two"},
+		OAuthConnectionID: "vmcp1test",
+		OAuthClientID:     "client",
+		APIKeyName:        "assistant",
+		APIKeyRawName:     "assistant",
+	}
+
+	before := time.Now()
+	token, expiresAt, err := f.tokens.NewDelegatedLoopbackToken(t.Context(), delegation, loopback, 10*time.Minute)
 	require.NoError(t, err)
-	var claims map[string]any
-	require.NoError(t, json.Unmarshal(data, &claims))
-	assert.Equal(t, map[string]any{"sub": "agent:5"}, claims[actorClaim])
-	assert.Equal(t, testDelegationID, claims[delegationIDClaim])
+	assert.WithinDuration(t, before.Add(10*time.Minute), expiresAt, 2*time.Second)
+
+	claims, parsed := unverifiedClaims(token)
+	require.True(t, parsed)
+	assert.Equal(t, principal.User(f.user.ID).String(), claims["sub"])
+	assert.Equal(t, map[string]any{"sub": principal.Agent(f.agent.ID).String()}, claims["act"])
+	assert.Empty(t, claims["name"])
+	assert.Empty(t, claims["email"])
+
+	decoded, err := f.tokens.DecodeDelegatedToken(t.Context(), token)
+	require.NoError(t, err)
+	want := delegation
+	want.ExpiresAt = expiresAt
+	want.Loopback = &loopback
+	assert.Equal(t, &want, decoded)
+
+	// Like the token the agent is given, no other decoder reads it.
+	_, err = f.tokens.DecodeToken(t.Context(), token)
+	require.ErrorIs(t, err, ErrDelegatedToken)
+	req := httptest.NewRequest(http.MethodPost, "/mcp-connect-composite/vmcpi1test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	_, ok, err := f.tokens.AuthenticateRequest(req)
+	require.ErrorIs(t, err, ErrDelegatedToken)
+	require.False(t, ok)
+
+	for _, tt := range []struct {
+		name       string
+		delegation func(*DelegatedToken)
+		loopback   func(*DelegatedLoopback)
+		ttl        time.Duration
+	}{
+		{
+			name:     "without the composite group",
+			loopback: func(l *DelegatedLoopback) { l.Groups = []string{types.GroupMCP} },
+		},
+		{
+			name:     "with a group no agent's token carries",
+			loopback: func(l *DelegatedLoopback) { l.Groups = append(slices.Clone(l.Groups), types.GroupLLM) },
+		},
+		{
+			name:     "without its connection",
+			loopback: func(l *DelegatedLoopback) { l.MCPID = "" },
+		},
+		{
+			name:     "without an audience",
+			loopback: func(l *DelegatedLoopback) { l.Audience = "" },
+		},
+		{
+			name:       "without a delegation",
+			delegation: func(d *DelegatedToken) { d.DelegationID = "" },
+		},
+		{
+			name:       "with another agent's key",
+			delegation: func(d *DelegatedToken) { d.APIKeyID++ },
+		},
+		{
+			name: "for longer than a delegated token lasts",
+			ttl:  DelegatedTokenTTL + time.Second,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			d, l := delegation, loopback
+			if tt.delegation != nil {
+				tt.delegation(&d)
+			}
+			if tt.loopback != nil {
+				tt.loopback(&l)
+			}
+			_, _, err := f.tokens.NewDelegatedLoopbackToken(t.Context(), d, l, tt.ttl)
+			require.Error(t, err)
+		})
+	}
+
+	// It is never issued once the key that minted the agent's token is revoked.
+	require.NoError(t, f.gateway.RevokeAgentAPIKey(t.Context(), f.agent.ID, f.keyID))
+	_, _, err = f.tokens.NewDelegatedLoopbackToken(t.Context(), delegation, loopback, 0)
+	require.Error(t, err)
 }

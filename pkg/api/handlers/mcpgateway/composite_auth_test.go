@@ -40,6 +40,15 @@ func (fakeCompositeTokens) NewToken(_ context.Context, tokenContext persistent.T
 	return nil, string(data), err
 }
 
+// DecodeDelegatedToken refuses every token: the fake issues none that act on behalf of a user.
+func (fakeCompositeTokens) DecodeDelegatedToken(context.Context, string) (*persistent.DelegatedToken, error) {
+	return nil, errors.New("not a token that acts on behalf of a user")
+}
+
+func (fakeCompositeTokens) NewDelegatedLoopbackToken(context.Context, persistent.DelegatedToken, persistent.DelegatedLoopback, time.Duration) (string, time.Time, error) {
+	return "", time.Time{}, errors.New("the fake issues no token that acts on behalf of a user")
+}
+
 func (fakeCompositeTokens) DecodeToken(_ context.Context, token string) (*persistent.TokenContext, error) {
 	var tokenContext persistent.TokenContext
 	if err := json.Unmarshal([]byte(token), &tokenContext); err != nil {

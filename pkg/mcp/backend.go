@@ -302,7 +302,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		// the headers of the request that opened them long after it expires.
 		// Attribution was derived before the loopback and travels independently
 		// of Authorization. Each component gateway applies its own selections.
-		for _, name := range types.ObotHeaders() {
+		for _, name := range types.ReservedObotHeaders() {
 			passthroughHeaders = append(passthroughHeaders, string(name))
 		}
 

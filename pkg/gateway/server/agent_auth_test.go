@@ -466,18 +466,25 @@ func TestAPIKeyWebhookFailsWhenItCannotReadTheAgent(t *testing.T) {
 	}
 }
 
-// agentChain composes the authenticators of agents' credentials as the server does with authentication enabled.
+// agentChain composes the authenticators of agents' credentials as the server does with authentication enabled: their
+// API keys, the tokens with which they act on behalf of users, and the token service.
 func agentChain(t *testing.T, client *gatewayclient.Client) (*authn.AdmissionCheck, *persistent.TokenService) {
 	t.Helper()
 
 	tokenService := newChainTokenService(t, client)
+	return agentChainWith(client, tokenService), tokenService
+}
+
+// agentChainWith is agentChain with tokenService.
+func agentChainWith(client *gatewayclient.Client, tokenService *persistent.TokenService) *authn.AdmissionCheck {
 	return authn.NewAdmissionCheck(union.NewFailOnError(
 		union.New(
 			NewAPIKeyAuthenticator(client),
+			NewDelegatedTokenAuthenticator(client, tokenService),
 			tokenService,
 		),
 		authn.Anonymous{},
-	), nil), tokenService
+	), nil)
 }
 
 // newChainTokenService returns a token service with a stored key, as the server's.

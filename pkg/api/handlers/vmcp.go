@@ -139,12 +139,12 @@ func vmcpForUser(req api.Context, vmcp v1.VMCP) v1.VMCP {
 	manifest.Components = vmcpconfig.EnabledComponents(req.User, vmcp, manifest.Components)
 	// Only the profiles grant tools here. An instance's selection narrows its own
 	// connection, not the VMCP definition.
-	grant := vmcpconfig.AllowedTools(req.User, manifest.Profiles, nil)
+	grant := vmcpconfig.AllowedTools(req.User, vmcp, nil)
 	for i := range manifest.Components {
 		component := &manifest.Components[i]
 		component.ToolOverrides, _ = vmcpconfig.GrantedToolOverrides(component.ID, component.ToolOverrides, grant)
 	}
-	manifest.Profiles = vmcpconfig.MatchingProfiles(req.User, manifest.Profiles)
+	manifest.Profiles = vmcpconfig.CallerProfiles(req.User, vmcp)
 
 	// Component statuses are keyed by name. Readiness only reflects the visible components.
 	visible := make(map[string]struct{}, len(manifest.Components))

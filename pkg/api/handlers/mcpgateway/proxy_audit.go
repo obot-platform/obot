@@ -123,13 +123,21 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 
 // setCaller attributes the entry to the authenticated caller, the principal the gateway itself authenticated, rather
 // than only to the subject in the server's audit metadata. A caller that is not a well-formed principal keeps that
-// subject.
+// subject. The user an agent acts for comes from the caller too (obotmcp.AuditLogOnBehalfOf), and any other value of
+// it in the metadata is dropped.
 func (a *proxyAudit) setCaller(caller kuser.Info) {
 	if a == nil {
 		return
 	}
 	if p, ok := principal.FromUserInfo(caller); ok {
 		a.entry.Subject = p.String()
+	}
+	delete(a.entry.Metadata, obotmcp.AuditLogOnBehalfOf)
+	if onBehalfOf, ok := principal.OnBehalfOf(caller); ok {
+		if a.entry.Metadata == nil {
+			a.entry.Metadata = map[string]string{}
+		}
+		a.entry.Metadata[obotmcp.AuditLogOnBehalfOf] = onBehalfOf
 	}
 }
 

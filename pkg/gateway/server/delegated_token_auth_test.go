@@ -11,9 +11,11 @@ import (
 )
 
 // TestChainsRefuseDelegatedTokens checks, across the authenticator chains as the server composes them, with and
-// without authentication, that a token with which an agent acts on behalf of a user authenticates no one: not the
-// user it names as its subject, not the agent, not the anonymous caller and not the "nobody" owner. No route accepts
-// such tokens yet, so every credential authenticator refuses them, in either header the token service reads.
+// without authentication, that a token with which an agent acts on behalf of a user from a delegation that does not
+// exist authenticates no one: not the user it names as its subject, not the agent, not the anonymous caller and not
+// the "nobody" owner. On the routes that accept such tokens the delegated token authenticator refuses it, and on every
+// other route the token service does, in either header the token service reads. TestChainsAcceptDelegatedTokensOnly
+// OnTheirRoutes covers a valid delegation.
 func TestChainsRefuseDelegatedTokens(t *testing.T) {
 	s, client := newTokenRequestTestServer(t)
 	ctx := t.Context()

@@ -16,6 +16,7 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/streaming"
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentprofile"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/guardrails"
@@ -674,6 +675,12 @@ func admit(ctx context.Context, gatewayClient *client.Client, owner string, prof
 // gatewayIdentity resolves whose guardrails and budgets apply to a request: the caller, and
 // the gateway profiles that apply to them. For an agent, that is its "agent:<id>" principal, no
 // groups, the profiles whose subjects match the agent, and never an administrator.
+//
+// For an agent acting on behalf of a user, the profiles are the agent's own
+// (modelaccesspolicy.Helper.UserPolicies), and guardrails also apply through the profiles that
+// cover the user, so that a user's guardrails are not avoided by going through an agent. Those
+// add guardrails only: budgets apply through the profiles that grant the model
+// (UserProfileIDsForModel), which are only the agent's, and count against the agent.
 func (l *llmProviderProxy) gatewayIdentity(user kuser.Info) (guardrails.Identity, bool, error) {
 	identity, isAdmin, err := guardrails.ResolveIdentity(context.Background(), nil, user)
 	if err != nil {
@@ -681,6 +688,17 @@ func (l *llmProviderProxy) gatewayIdentity(user kuser.Info) (guardrails.Identity
 	}
 	if identity.ProfileIDs, err = l.mapHelper.UserProfileIDs(user); err != nil {
 		return guardrails.Identity{}, false, fmt.Errorf("failed to resolve gateway profiles: %w", err)
+	}
+	if delegation, ok := agentprofile.DelegationOf(user); ok {
+		userPolicies, err := l.mapHelper.CallerPolicies(delegation.User)
+		if err != nil {
+			return guardrails.Identity{}, false, fmt.Errorf("failed to resolve the gateway profiles of the user the agent acts for: %w", err)
+		}
+		for _, policy := range userPolicies {
+			if !slices.Contains(identity.ProfileIDs, policy.Name) {
+				identity.ProfileIDs = append(identity.ProfileIDs, policy.Name)
+			}
+		}
 	}
 	return identity, isAdmin, nil
 }

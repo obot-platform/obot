@@ -133,6 +133,31 @@ type DelegatedToken struct {
 	APIKeyID uint
 	// ExpiresAt is when the token expires.
 	ExpiresAt time.Time
+	// Loopback is set only on a token of a composite vMCP's loopback that acts for the agent on behalf of the user
+	// (NewDelegatedLoopbackToken): what the loopback carries beyond the delegation. It is nil on the token an agent is
+	// given (NewDelegatedToken).
+	Loopback *DelegatedLoopback
+}
+
+// DelegatedLoopback is what a token of a composite vMCP's loopback carries for an agent acting on behalf of a user,
+// beyond the delegation: the claims of the composite loopback token an agent acting for itself gets
+// (TokenContext), which only Obot itself issues, for its own connections to the composite and its components.
+type DelegatedLoopback struct {
+	// Audience is the composite's connect URL.
+	Audience string
+	// Groups are the loopback's groups. They always include types.GroupCompositeMCP, and are only groups that tokens
+	// are issued to agents with (agentTokenGroups).
+	Groups []string
+	// MCPID is the vMCP connection the loopback serves, and AuthorizedMCPIDs its component connections.
+	MCPID            string
+	AuthorizedMCPIDs []string
+	// OAuthConnectionID is the vMCP connection the caller reached, and OAuthClientID the OAuth client it reached it
+	// with, if any.
+	OAuthConnectionID string
+	OAuthClientID     string
+	// APIKeyName and APIKeyRawName are the attribution of the minting key.
+	APIKeyName    string
+	APIKeyRawName string
 }
 
 // NewTokenService returns a service that issues and authenticates Obot's own tokens, for users and agents alike.
@@ -493,13 +518,32 @@ func (t *TokenService) DecodeDelegatedToken(ctx context.Context, token string) (
 		return nil, fmt.Errorf("%w: no expiry", errMalformedDelegatedToken)
 	}
 
-	return &DelegatedToken{
+	delegated := &DelegatedToken{
 		AgentID:      agentID,
 		UserID:       userID,
 		DelegationID: tokenContext.DelegationID,
 		APIKeyID:     uint(apiKeyID),
 		ExpiresAt:    tokenContext.ExpiresAt.Time,
-	}, nil
+	}
+	// The token an agent is given carries no groups: what it grants comes from the minting key. Only a composite
+	// loopback's carries any, and then exactly what NewDelegatedLoopbackToken issues.
+	if len(tokenContext.UserGroups) > 0 || tokenContext.MCPID != "" || len(tokenContext.AuthorizedMCPIDs) > 0 {
+		loopback := DelegatedLoopback{
+			Audience:          tokenContext.Audience,
+			Groups:            slices.Clone([]string(tokenContext.UserGroups)),
+			MCPID:             tokenContext.MCPID,
+			AuthorizedMCPIDs:  slices.Clone([]string(tokenContext.AuthorizedMCPIDs)),
+			OAuthConnectionID: tokenContext.OAuthConnectionID,
+			OAuthClientID:     tokenContext.OAuthClientID,
+			APIKeyName:        tokenContext.APIKeyName,
+			APIKeyRawName:     tokenContext.APIKeyRawName,
+		}
+		if err := checkDelegatedLoopback(loopback); err != nil {
+			return nil, fmt.Errorf("%w: %w", errMalformedDelegatedToken, err)
+		}
+		delegated.Loopback = &loopback
+	}
+	return delegated, nil
 }
 
 // verifiedClaims returns the claims of one of Obot's own tokens, once its signature, issuer, expiry and audience are
@@ -720,69 +764,133 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 // It is never issued for a disabled or deleted agent or user, or with a key that is not the agent's or that is
 // revoked or expired. Whether the delegation is valid is its caller's to check.
 func (t *TokenService) NewDelegatedToken(ctx context.Context, agentID, userID uint, delegationID string, apiKeyID uint, ttl time.Duration) (string, time.Time, error) {
+	delegation := DelegatedToken{AgentID: agentID, UserID: userID, DelegationID: delegationID, APIKeyID: apiKeyID}
+	return t.signDelegated(ctx, delegation, ttl, TokenContext{Audience: t.serverURL})
+}
+
+// NewDelegatedLoopbackToken issues the token of a composite vMCP's loopback, and of its connections to the vMCP's
+// components, for the agent that acts on behalf of the user of delegation: the delegation's agent, user, delegation
+// and minting key, with the loopback's claims. Only the MCP gateway issues it, for its own connections, from a
+// delegation that authenticated the request it serves (or a loopback token that did). It returns the token and when it
+// expires, ttl from now: DelegatedTokenTTL when ttl is not positive, and never later.
+//
+// Like any token that acts on behalf of a user, every decoder but DecodeDelegatedToken refuses it, and the
+// authenticator that accepts it checks the delegation, the agent, the user and the key on every use. It is never
+// issued for a disabled or deleted agent or user, or with a key that is not the agent's or that is revoked or expired.
+func (t *TokenService) NewDelegatedLoopbackToken(ctx context.Context, delegation DelegatedToken, loopback DelegatedLoopback, ttl time.Duration) (string, time.Time, error) {
+	if err := checkDelegatedLoopback(loopback); err != nil {
+		return "", time.Time{}, err
+	}
+
+	tokenContext := TokenContext{
+		Audience:          loopback.Audience,
+		APIKeyName:        loopback.APIKeyName,
+		APIKeyRawName:     loopback.APIKeyRawName,
+		UserGroups:        slices.Clone(loopback.Groups),
+		MCPID:             loopback.MCPID,
+		AuthorizedMCPIDs:  slices.Clone(loopback.AuthorizedMCPIDs),
+		OAuthConnectionID: loopback.OAuthConnectionID,
+		OAuthClientID:     loopback.OAuthClientID,
+	}
+	// Header-injection limits run after the loopback hop, so they cannot bound the Authorization header that carries
+	// this token (NewToken does the same).
+	if utf8.RuneCountInString(tokenContext.APIKeyRawName) > maxAPIKeyNameCharacters {
+		tokenContext.APIKeyRawName = ""
+	}
+	if utf8.RuneCountInString(tokenContext.APIKeyName) > maxAPIKeyNameCharacters {
+		tokenContext.APIKeyName = principal.Agent(delegation.AgentID).MaskedAPIKeyName(delegation.APIKeyID)
+	}
+	return t.signDelegated(ctx, delegation, ttl, tokenContext)
+}
+
+// signDelegated issues a token with which the agent of delegation acts on behalf of its user, with the claims of
+// tokenContext beyond the delegation, once checkDelegation accepts delegation and ttl. It returns the token and when it
+// expires.
+func (t *TokenService) signDelegated(ctx context.Context, delegation DelegatedToken, ttl time.Duration, tokenContext TokenContext) (string, time.Time, error) {
+	now := time.Now()
+	ttl, err := t.checkDelegation(ctx, delegation, ttl, now)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	tokenContext.IssuedAt = NewTime(now.Add(-time.Second))
+	tokenContext.ExpiresAt = NewTime(now.Add(ttl))
+	tokenContext.UserID = principal.User(delegation.UserID).String()
+	tokenContext.PrincipalKind = string(principal.KindUser)
+	tokenContext.Actor = &TokenActor{Subject: principal.Agent(delegation.AgentID).String()}
+	tokenContext.DelegationID = delegation.DelegationID
+	tokenContext.APIKeyID = strconv.FormatUint(uint64(delegation.APIKeyID), 10)
+	_, token, err := t.sign(ctx, tokenContext)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	// The token records its expiry in whole seconds.
+	return token, time.Unix(tokenContext.ExpiresAt.Unix(), 0), nil
+}
+
+// checkDelegation returns an error unless a token that acts on behalf of a user may be issued from delegation at now:
+// it names an agent, a user, a delegation and a minting key, both the agent and the user are active, and the key is
+// the agent's and neither revoked nor expired. It returns the token's lifetime: ttl, or DelegatedTokenTTL when ttl is
+// not positive. Whether the delegation itself is valid is its caller's to check.
+func (t *TokenService) checkDelegation(ctx context.Context, delegation DelegatedToken, ttl time.Duration, now time.Time) (time.Duration, error) {
 	switch {
-	case agentID == 0:
-		return "", time.Time{}, errors.New("a token that acts on behalf of a user needs an agent")
-	case userID == 0:
-		return "", time.Time{}, errors.New("a token that acts on behalf of a user needs a user")
-	case delegationID == "":
-		return "", time.Time{}, errors.New("a token that acts on behalf of a user needs a delegation")
-	case apiKeyID == 0:
-		return "", time.Time{}, errors.New("a token that acts on behalf of a user needs the key that mints it")
+	case delegation.AgentID == 0:
+		return 0, errors.New("a token that acts on behalf of a user needs an agent")
+	case delegation.UserID == 0:
+		return 0, errors.New("a token that acts on behalf of a user needs a user")
+	case delegation.DelegationID == "":
+		return 0, errors.New("a token that acts on behalf of a user needs a delegation")
+	case delegation.APIKeyID == 0:
+		return 0, errors.New("a token that acts on behalf of a user needs the key that mints it")
 	case ttl > DelegatedTokenTTL:
-		return "", time.Time{}, fmt.Errorf("a token that acts on behalf of a user lasts at most %s", DelegatedTokenTTL)
+		return 0, fmt.Errorf("a token that acts on behalf of a user lasts at most %s", DelegatedTokenTTL)
 	case ttl <= 0:
 		ttl = DelegatedTokenTTL
 	}
+	agentID, userID, apiKeyID := delegation.AgentID, delegation.UserID, delegation.APIKeyID
 
 	// Without the gateway database, neither the agent's status nor the user's is known, and no token is issued.
-	if t.gatewayClient == nil {
-		return "", time.Time{}, &client.AgentAccessLookupError{
-			AgentID: agentID,
-			Err:     errors.New("no gateway client to read the agent's status"),
-		}
-	}
-	if _, err := t.gatewayClient.ActiveAgent(ctx, agentID); err != nil {
-		return "", time.Time{}, err
+	if err := t.requireActiveAgent(ctx, agentID); err != nil {
+		return 0, err
 	}
 	if status, err := t.gatewayClient.UserStatus(ctx, userID); err != nil {
-		return "", time.Time{}, err
+		return 0, err
 	} else if status != apitypes.UserStatusActive {
-		return "", time.Time{}, &client.UserAccessDeniedError{
+		return 0, &client.UserAccessDeniedError{
 			UserID: userID,
 			Status: status,
 		}
 	}
 	key, err := t.gatewayClient.GetAgentAPIKey(ctx, agentID, apiKeyID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", time.Time{}, fmt.Errorf("API key %d is not a key of agent %d", apiKeyID, agentID)
+		return 0, fmt.Errorf("API key %d is not a key of agent %d", apiKeyID, agentID)
 	} else if err != nil {
-		return "", time.Time{}, err
+		return 0, err
 	}
-	now := time.Now()
 	if key.RevokedAt != nil {
-		return "", time.Time{}, fmt.Errorf("API key %d of agent %d is revoked", apiKeyID, agentID)
+		return 0, fmt.Errorf("API key %d of agent %d is revoked", apiKeyID, agentID)
 	}
 	if key.ExpiresAt != nil && !key.ExpiresAt.After(now) {
-		return "", time.Time{}, fmt.Errorf("API key %d of agent %d is expired", apiKeyID, agentID)
+		return 0, fmt.Errorf("API key %d of agent %d is expired", apiKeyID, agentID)
 	}
+	return ttl, nil
+}
 
-	expiresAt := now.Add(ttl)
-	_, token, err := t.sign(ctx, TokenContext{
-		Audience:      t.serverURL,
-		IssuedAt:      NewTime(now.Add(-time.Second)),
-		ExpiresAt:     NewTime(expiresAt),
-		UserID:        principal.User(userID).String(),
-		PrincipalKind: string(principal.KindUser),
-		Actor:         &TokenActor{Subject: principal.Agent(agentID).String()},
-		DelegationID:  delegationID,
-		APIKeyID:      strconv.FormatUint(uint64(apiKeyID), 10),
-	})
-	if err != nil {
-		return "", time.Time{}, err
+// checkDelegatedLoopback returns an error unless loopback is what a composite vMCP's loopback token carries: an
+// audience, a connection, the composite group and no group that tokens are not issued to agents with.
+func checkDelegatedLoopback(loopback DelegatedLoopback) error {
+	switch {
+	case loopback.Audience == "":
+		return errors.New("a loopback token needs an audience")
+	case loopback.MCPID == "":
+		return errors.New("a loopback token needs the connection it serves")
+	case !slices.Contains(loopback.Groups, apitypes.GroupCompositeMCP):
+		return fmt.Errorf("a loopback token needs the group %q", apitypes.GroupCompositeMCP)
 	}
-	// The token records its expiry in whole seconds.
-	return token, time.Unix(expiresAt.Unix(), 0), nil
+	if group, refused := refusedAgentTokenGroup(loopback.Groups); refused {
+		return fmt.Errorf("a loopback token cannot grant group %q", group)
+	}
+	return nil
 }
 
 // sign issues a token with the claims of context, which its caller has checked, signed with the service's key.

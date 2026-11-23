@@ -702,23 +702,35 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 }
 
 // CollectMCPAuditEntry converts a nanobot audit log entry to an API audit log entry and queues it for processing.
+// The entry is the MCP server's, so nothing in it says that an agent acted on behalf of a user.
 func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 	h.collectMCPAuditEntry(context.Background(), entry)
 }
 
 func (h *AuditLogHandler) collectMCPAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog) {
-	h.collectMCPProxyAuditEntry(ctx, entry, false, "", "")
+	entry.Metadata = maps.Clone(entry.Metadata)
+	delete(entry.Metadata, mcp.AuditLogOnBehalfOf)
+	h.collectMCPEntry(ctx, entry, false, false, "", "")
 }
 
 // CollectMCPProxyAuditEntry records proxy-only persistence metadata. The
 // nanobot audit type predates ResponseReceived and has no internal exchange ID,
 // so the proxy passes both values separately. responseMethod is the MCP method a
 // response-only entry answers, when the proxy knows it.
+//
+// The gateway recorded the entry itself, for the caller it authenticated, so the user an agent acted on behalf of is
+// taken from the entry's metadata (mcp.AuditLogOnBehalfOf), which the gateway set from that caller.
 func (h *AuditLogHandler) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID, responseMethod string) {
 	h.collectMCPProxyAuditEntry(context.Background(), entry, responseReceived, proxyExchangeID, responseMethod)
 }
 
 func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID, responseMethod string) {
+	h.collectMCPEntry(ctx, entry, true, responseReceived, proxyExchangeID, responseMethod)
+}
+
+// collectMCPEntry records entry. byGateway reports that the MCP gateway recorded it for the caller it authenticated,
+// rather than an MCP server submitting it; only then is it attributed to a user an agent acted on behalf of.
+func (h *AuditLogHandler) collectMCPEntry(ctx context.Context, entry auditlogs.MCPAuditLog, byGateway, responseReceived bool, proxyExchangeID, responseMethod string) {
 	if !h.gatewayClient.MCPAuditLogEnabled() {
 		return
 	}
@@ -736,6 +748,9 @@ func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry a
 	}
 
 	convertMCPAuditLog(&auditLog)
+	if byGateway {
+		attributeOnBehalfOf(&auditLog)
+	}
 	if err := h.attributeMCPAuditLogAPIKey(ctx, &auditLog); err != nil {
 		slog.Warn("failed to attribute MCP audit log API key", "error", err)
 	}
@@ -840,6 +855,19 @@ func convertMCPAuditLog(auditLog *auditLogInput) {
 	}
 	if len(fields.ProfileIDs) == 0 {
 		fields.ProfileIDs = auditProfileIDs(auditLog.Metadata[mcp.AuditLogProfiles])
+	}
+}
+
+// attributeOnBehalfOf attributes an entry that the MCP gateway recorded to the user that its agent acted on behalf of,
+// as the gateway recorded it from the caller it authenticated (proxyAudit.setCaller). Only an agent's call is, and only
+// with a user ID in canonical form.
+func attributeOnBehalfOf(auditLog *auditLogInput) {
+	onBehalfOf := auditLog.Metadata[mcp.AuditLogOnBehalfOf]
+	if onBehalfOf == "" || !principal.IsAgentKind(auditLog.PrincipalKind) || auditLog.PrincipalID == "" {
+		return
+	}
+	if user, err := principal.Parse(onBehalfOf); err == nil && user.Kind == principal.KindUser && user.ID == onBehalfOf {
+		auditLog.OnBehalfOf = onBehalfOf
 	}
 }
 

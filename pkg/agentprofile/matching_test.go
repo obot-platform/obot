@@ -17,20 +17,13 @@ func TestMatches(t *testing.T) {
 		{Name: "admins", Subjects: []types.Subject{{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}}},
 	}
 	user := func(id uint, authProviderGroups, obotGroups []string) subjects.Caller {
-		caller := subjects.Caller{
+		return subjects.Caller{
 			Principal: principal.User(id),
 			Groups: subjects.Groups{
-				AuthProvider: map[string]struct{}{},
-				Obot:         map[string]struct{}{},
+				AuthProvider: setOf(authProviderGroups),
+				Obot:         setOf(obotGroups),
 			},
 		}
-		for _, group := range authProviderGroups {
-			caller.Groups.AuthProvider[group] = struct{}{}
-		}
-		for _, group := range obotGroups {
-			caller.Groups.Obot[group] = struct{}{}
-		}
-		return caller
 	}
 
 	for _, tt := range []struct {

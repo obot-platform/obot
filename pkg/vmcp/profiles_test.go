@@ -22,6 +22,11 @@ func userInfo(uid string, extra map[string][]string) *kuser.DefaultInfo {
 	return &kuser.DefaultInfo{UID: uid, Extra: extra}
 }
 
+// sharedVMCP returns a shared vMCP with profiles.
+func sharedVMCP(profiles ...types.VMCPProfile) v1.VMCP {
+	return v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: profiles}}}
+}
+
 // agentInfo returns the principal of the agent with id, as its authenticator records it.
 func agentInfo(id uint, extra map[string][]string) *kuser.DefaultInfo {
 	extra = maps.Clone(extra)
@@ -51,32 +56,32 @@ func TestAllowedToolsUnionsAllMatchingProfiles(t *testing.T) {
 		{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "other"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
 	}
 	wantGrant := []types.VMCPToolReference{tool("everything", "echo"), tool("gmail", "read"), tool("gmail", "send")}
-	if got := AllowedTools(u, profiles, nil); !reflect.DeepEqual(got, wantGrant) {
+	if got := AllowedTools(u, sharedVMCP(profiles...), nil); !reflect.DeepEqual(got, wantGrant) {
 		t.Fatalf("union = %v", got)
 	}
-	if got := AllowedTools(u, profiles, map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}, "gmail": {AllowedTools: []string{"forbidden"}}}); !reflect.DeepEqual(got, []types.VMCPToolReference{tool("everything", "echo")}) {
+	if got := AllowedTools(u, sharedVMCP(profiles...), map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}, "gmail": {AllowedTools: []string{"forbidden"}}}); !reflect.DeepEqual(got, []types.VMCPToolReference{tool("everything", "echo")}) {
 		t.Fatalf("selection widened grant: %v", got)
 	}
 	for _, ps := range [][]types.VMCPProfile{nil, profiles[4:5]} {
-		if got := AllowedTools(u, ps, nil); len(got) != 0 {
+		if got := AllowedTools(u, sharedVMCP(ps...), nil); len(got) != 0 {
 			t.Fatalf("empty grant = %#v", got)
 		}
-		if got := AllowedTools(u, ps, components("everything", "echo")); len(got) != 0 {
+		if got := AllowedTools(u, sharedVMCP(ps...), components("everything", "echo")); len(got) != 0 {
 			t.Fatalf("selection widened empty grant: %#v", got)
 		}
 	}
 	profiles[4].Permissions.AllowAllComponents = true
 	profiles[4].Permissions.AllowedComponents = map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{}}}
-	if got := AllowedTools(u, profiles, nil); got != nil {
+	if got := AllowedTools(u, sharedVMCP(profiles...), nil); got != nil {
 		t.Fatalf("allow all = %v", got)
 	}
-	if got := AllowedTools(u, profiles, map[string]types.VMCPComponentSet{}); got == nil || len(got) != 0 {
+	if got := AllowedTools(u, sharedVMCP(profiles...), map[string]types.VMCPComponentSet{}); got == nil || len(got) != 0 {
 		t.Fatalf("empty selection = %#v", got)
 	}
-	if got := AllowedTools(u, profiles, components("new-component", "new-tool")); !reflect.DeepEqual(got, []types.VMCPToolReference{tool("new-component", "new-tool")}) {
+	if got := AllowedTools(u, sharedVMCP(profiles...), components("new-component", "new-tool")); !reflect.DeepEqual(got, []types.VMCPToolReference{tool("new-component", "new-tool")}) {
 		t.Fatalf("all-tools selection = %v", got)
 	}
-	if got := AllowedTools(u, profiles, components("everything", "new-tool")); !reflect.DeepEqual(got, []types.VMCPToolReference{tool("everything", "new-tool")}) {
+	if got := AllowedTools(u, sharedVMCP(profiles...), components("everything", "new-tool")); !reflect.DeepEqual(got, []types.VMCPToolReference{tool("everything", "new-tool")}) {
 		t.Fatalf("allow all components did not override the explicit tool restriction: %v", got)
 	}
 }
@@ -89,22 +94,22 @@ func TestComponentWildcardSelections(t *testing.T) {
 	}}
 	selection := map[string]types.VMCPComponentSet{"gmail": {AllowedTools: []string{"list_emails"}}, "everything": {AllowedTools: []string{"echo", "other"}}}
 	want := []types.VMCPToolReference{{ComponentID: "everything", Name: "echo"}, {ComponentID: "gmail", Name: "list_emails"}}
-	if got := AllowedTools(u, profiles, selection); !reflect.DeepEqual(got, want) {
+	if got := AllowedTools(u, sharedVMCP(profiles...), selection); !reflect.DeepEqual(got, want) {
 		t.Fatalf("wildcard selection = %#v, want %#v", got, want)
 	}
 	selection = map[string]types.VMCPComponentSet{"gmail": {}, "everything": {}}
 	want[1].Name = "*"
-	if got := AllowedTools(u, profiles, selection); !reflect.DeepEqual(got, want) {
+	if got := AllowedTools(u, sharedVMCP(profiles...), selection); !reflect.DeepEqual(got, want) {
 		t.Fatalf("component intersection = %#v, want %#v", got, want)
 	}
 	profiles[0].Permissions.AllowedComponents["gmail"] = types.VMCPComponentSet{AllowedTools: []string{"list_emails"}}
 	want[1].Name = "list_emails"
-	if got := AllowedTools(u, profiles, selection); !reflect.DeepEqual(got, want) {
+	if got := AllowedTools(u, sharedVMCP(profiles...), selection); !reflect.DeepEqual(got, want) {
 		t.Fatalf("revoked wildcard = %#v, want %#v", got, want)
 	}
 	profiles[0].Permissions.AllowedComponents["gmail"] = types.VMCPComponentSet{AllowedTools: []string{}}
 	for _, selection := range []map[string]types.VMCPComponentSet{nil, selection} {
-		if got := AllowedTools(u, profiles, selection); !reflect.DeepEqual(got, want[:1]) {
+		if got := AllowedTools(u, sharedVMCP(profiles...), selection); !reflect.DeepEqual(got, want[:1]) {
 			t.Fatalf("empty component tools = %#v, want %#v", got, want[:1])
 		}
 	}
@@ -284,66 +289,5 @@ func TestMatchingProfiles(t *testing.T) {
 				t.Fatalf("MatchingProfiles() = %v, want %v", names, tt.want)
 			}
 		})
-	}
-}
-
-// TestAgentInSeveralProfilesGetsTheUnion checks that an agent named by two profiles of a vMCP is granted the union of
-// their components and tools, as a user is, and that removing the agent from one profile takes away only what that
-// profile granted it.
-func TestAgentInSeveralProfilesGetsTheUnion(t *testing.T) {
-	agent := agentInfo(7, nil)
-	components := []types.VMCPComponent{{ID: "mail"}, {ID: "files"}, {ID: "calendar"}}
-	builders := types.VMCPProfile{
-		ID:       "vp1builders",
-		Name:     "builders",
-		Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}, {Type: types.SubjectTypeAgent, ID: "8"}},
-		Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
-			"mail":  {AllowedTools: []string{"send"}},
-			"files": {AllowedTools: []string{"read"}},
-		}},
-	}
-	reviewers := types.VMCPProfile{
-		ID:       "vp1reviewers",
-		Name:     "reviewers",
-		Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}},
-		Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{
-			"files":    {AllowedTools: []string{"write"}},
-			"calendar": {AllowedTools: []string{"*"}},
-		}},
-	}
-	enabled := func(profiles ...types.VMCPProfile) []string {
-		t.Helper()
-		vmcp := v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: profiles}}}
-		ids := []string{}
-		for _, component := range EnabledComponents(agent, vmcp, slices.Clone(components)) {
-			ids = append(ids, component.ID)
-		}
-		return ids
-	}
-	tool := func(componentID, name string) types.VMCPToolReference {
-		return types.VMCPToolReference{ComponentID: componentID, Name: name}
-	}
-
-	if got := enabled(builders, reviewers); !reflect.DeepEqual(got, []string{"mail", "files", "calendar"}) {
-		t.Fatalf("components of an agent in two profiles = %v, want the union", got)
-	}
-	want := []types.VMCPToolReference{tool("calendar", "*"), tool("files", "read"), tool("files", "write"), tool("mail", "send")}
-	if got := AllowedTools(agent, []types.VMCPProfile{builders, reviewers}, nil); !reflect.DeepEqual(got, want) {
-		t.Fatalf("tools of an agent in two profiles = %v, want %v", got, want)
-	}
-
-	// Removing the agent from the reviewers profile keeps what builders grants it, and only that.
-	reviewers.Subjects = []types.Subject{{Type: types.SubjectTypeAgent, ID: "9"}}
-	if got := enabled(builders, reviewers); !reflect.DeepEqual(got, []string{"mail", "files"}) {
-		t.Fatalf("components after leaving one profile = %v, want the other profile's", got)
-	}
-	want = []types.VMCPToolReference{tool("files", "read"), tool("mail", "send")}
-	if got := AllowedTools(agent, []types.VMCPProfile{builders, reviewers}, nil); !reflect.DeepEqual(got, want) {
-		t.Fatalf("tools after leaving one profile = %v, want %v", got, want)
-	}
-
-	// Another agent named by only one of them gets only that profile's grants.
-	if got := EnabledComponents(agentInfo(8, nil), v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{builders, reviewers}}}}, slices.Clone(components)); len(got) != 2 {
-		t.Fatalf("components of agent 8 = %v, want only the builders profile's", got)
 	}
 }

@@ -60,7 +60,7 @@ func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection map[string
 	if vmcp.Spec.UserID != "" && vmcp.Spec.UserID == u.GetUID() {
 		return nil
 	}
-	grant := vmcpaccess.AllowedTools(u, vmcp.Spec.Manifest.Profiles, nil)
+	grant := vmcpaccess.AllowedTools(u, *vmcp, nil)
 	for _, tool := range types.ComponentToolReferences(selection) {
 		if vmcp.Spec.UserID != "" || !vmcpaccess.ToolGranted(grant, tool) {
 			return types.NewErrBadRequest("tool %q on component %q is not granted by the VMCP profiles", tool.Name, tool.ComponentID)
@@ -72,12 +72,14 @@ func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection map[string
 // UserCanReadVMCP applies the VMCP visibility model. A personal VMCP is only
 // visible to its owner, who is always a user: an agent never owns or reads one.
 // A shared VMCP is visible to users and agents matching at least one profile;
-// catalog access is intentionally irrelevant.
+// catalog access is intentionally irrelevant. An agent acting on behalf of a user
+// sees it as the agent does: when at least one profile names the agent
+// (vmcpaccess.CallerProfiles).
 func UserCanReadVMCP(u kuser.Info, vmcp *v1.VMCP) bool {
 	if vmcp.Spec.UserID != "" {
 		return !principal.ClaimsAgent(u) && vmcp.Spec.UserID == u.GetUID()
 	}
-	return userMatchesVMCPProfile(u, vmcp.Spec.Manifest.Profiles)
+	return len(vmcpaccess.CallerProfiles(u, *vmcp)) > 0
 }
 
 func UserCanConnectVMCP(u kuser.Info, vmcp *v1.VMCP) bool {
@@ -90,10 +92,6 @@ func UserCanManageVMCP(u kuser.Info, vmcp *v1.VMCP) bool {
 
 func UserCanReadVMCPInstance(u kuser.Info, instance *v1.VMCPInstance, vmcp *v1.VMCP) bool {
 	return IsVMCPAdministrator(u) || (instance.Spec.UserID == u.GetUID() && UserCanReadVMCP(u, vmcp))
-}
-
-func userMatchesVMCPProfile(u kuser.Info, profiles []types.VMCPProfile) bool {
-	return len(vmcpaccess.MatchingProfiles(u, profiles)) > 0
 }
 
 func (a *Authorizer) checkVMCP(req *http.Request, resources *Resources, u User) (bool, error) {

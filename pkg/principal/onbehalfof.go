@@ -11,6 +11,10 @@ const (
 	// OnBehalfOfExtra carries the ID of the user that an agent caller acts for, as its authenticator determined it.
 	// Code must use RecordOnBehalfOf and OnBehalfOf instead of this key.
 	OnBehalfOfExtra = "obot_on_behalf_of"
+	// DelegationExtra carries what the authenticator of an on-behalf-of caller established about the user: the
+	// delegation, and the user's groups and identity (pkg/agentprofile.RecordDelegation). It is stripped with
+	// OnBehalfOfExtra, so that no provider can supply it. Code must use pkg/agentprofile instead of this key.
+	DelegationExtra = "obot_delegation"
 
 	// delegatedOwnerUserPart separates the agent and the user in a DelegatedOwner's encoding.
 	delegatedOwnerUserPart = "/user:"

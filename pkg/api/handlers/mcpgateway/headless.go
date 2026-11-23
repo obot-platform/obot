@@ -70,21 +70,33 @@ func bareUnauthorizedResponse() *mcpResponse {
 	return mcpTextResponse(http.StatusUnauthorized, "MCP server requires authentication")
 }
 
+// agentFailure returns failure, about the vMCP with vmcpID, as the agent that calls req is told it: as it is, or for an
+// agent acting on behalf of a user, naming the vMCP when it is known, and with what the user can set up reported as
+// needing their approval (vmcpaccess.AgentReadinessFailure.ForUser). At a component of a vMCP, the caller is the
+// composite loopback, which acts on behalf of the same user.
+func agentFailure(req api.Context, vmcpID string, failure vmcpaccess.AgentReadinessFailure) vmcpaccess.AgentReadinessFailure {
+	if _, ok := principal.OnBehalfOf(req.User); ok {
+		failure.VMCPID = vmcpID
+		return failure.ForUser()
+	}
+	return failure
+}
+
 // agentConfigurationRequiredResponse is the 409 response to an agent whose connection to a vMCP component lacks
 // required configuration. Connect-time readiness normally refuses the agent first; this covers configuration that
 // goes missing in between.
-func agentConfigurationRequiredResponse(componentID string, missing []string) *mcpResponse {
+func agentConfigurationRequiredResponse(req api.Context, componentID string, missing []string) *mcpResponse {
 	failure := vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentConfigurationRequiredError,
 		Reasons: vmcpaccess.ConfigurationRequiredReasons(componentID, missing),
 	}
-	return agentReadinessResponse(failure)
+	return agentReadinessResponse(agentFailure(req, "", failure))
 }
 
 // agentOAuthRequiredResponse is the 409 response to an agent whose vMCP components ask for OAuth authorization, in
 // place of the challenge a user gets. It creates no MCPOAuthChallenge, and every challenge must belong to one of the
 // connection's components, as for a user.
-func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.AuthorizationError) (*mcpResponse, error) {
+func agentOAuthRequiredResponse(req api.Context, cfg mcp.ServerConfig, challenges []*component.AuthorizationError) (*mcpResponse, error) {
 	challenged, err := challengedComponents(cfg, challenges)
 	if err != nil {
 		return nil, err
@@ -101,7 +113,7 @@ func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.Au
 			failure.Reasons = append(failure.Reasons, reason)
 		}
 	}
-	return agentReadinessResponse(failure), nil
+	return agentReadinessResponse(agentFailure(req, cfg.AuditLogMetadata[mcp.AuditLogVMCPID], failure)), nil
 }
 
 // challengedComponents returns the components of cfg that challenges came from, in configuration order rather than

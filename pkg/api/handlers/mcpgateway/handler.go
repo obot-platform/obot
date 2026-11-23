@@ -350,8 +350,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			}
 
 			// In order for the loopback to work, we need to authenticate as a composite MCP server.
-			tokenContext := compositeLoopbackTokenContext(req.User, compositeAudienceURL, serverConfig.MCPServerName, authorizedMCPIDs, req.PathValue("mcp_id"), now)
-			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, tokenContext, now)
+			token, err = compositeLoopbackToken(req.Context(), h.tokenService, req.User, compositeAudienceURL, serverConfig.MCPServerName, authorizedMCPIDs, req.PathValue("mcp_id"), now)
 			if err != nil {
 				return err
 			}
@@ -432,7 +431,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		}
 		sessionSpec := v1.MCPClientSessionSpec{
 			ConnectionID: connectionID,
-			UserID:       req.User.GetUID(),
+			UserID:       callerSessionOwner(req.User, req.User.GetUID()),
 			MCPServerID:  cmp.Or(serverConfig.AuditLogMetadata["mcpID"], serverConfig.MCPServerName),
 		}
 		audit, err := newProxyAudit(req.Request, serverConfig.AuditLogMetadata, h.auditLogCollector)
@@ -600,7 +599,7 @@ func (h *Handler) Proxy(req api.Context) error {
 	ctx := context.WithValue(req.Context(), compositeAPIContextKey{}, req)
 	ctx = context.WithValue(ctx, upstreamCaptureConfigKey{}, serverConfig)
 	ctx = mmmcp.ContextWithConfig(ctx, cfg)
-	ctx = mmmcp.ContextWithConfigID(ctx, compositeConfigID(serverConfig))
+	ctx = mmmcp.ContextWithConfigID(ctx, compositeConfigID(serverConfig, req.User))
 	h.composite.HTTPHandler().ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
 
 	return nil
@@ -608,9 +607,21 @@ func (h *Handler) Proxy(req api.Context) error {
 
 // compositeConfigID identifies a composite's configuration to mmmcp, which keeps component sessions and discovered
 // catalogs per configuration. The connection name is the caller's own vMCP instance, and UserID is the caller's encoded
-// principal, so neither two callers nor a user and an agent with the same numeric ID ever share one.
-func compositeConfigID(serverConfig mcp.ServerConfig) string {
-	return fmt.Sprintf("%s++%s", serverConfig.MCPServerName, serverConfig.UserID)
+// principal, so neither two callers nor a user and an agent with the same numeric ID ever share one. An agent acting on
+// behalf of a user uses the agent's instance, but has a configuration of its own for each user
+// (callerSessionOwner), so that what it does for one user is never done in another user's sessions.
+func compositeConfigID(serverConfig mcp.ServerConfig, caller user.Info) string {
+	return fmt.Sprintf("%s++%s", serverConfig.MCPServerName, callerSessionOwner(caller, serverConfig.UserID))
+}
+
+// callerSessionOwner returns whom the MCP sessions and composite configuration of caller belong to: owner, its encoded
+// principal, or for an agent acting on behalf of a user, the pair of the agent and the user (principal.DelegatedOwner),
+// so that the agent's sessions for one user are never used for another user, or for the agent acting for itself.
+func callerSessionOwner(caller user.Info, owner string) string {
+	if delegated, ok := principal.DelegatedOwnerOf(caller); ok {
+		return delegated.String()
+	}
+	return owner
 }
 
 // isLoopbackHost reports whether a Host header value, with or without a port,
@@ -714,7 +725,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		if headlessCaller(req) {
 			// An agent reaches a server only as a vMCP component, through the composite loopback, and cannot enter
 			// configuration, so it is told what is missing rather than challenged.
-			agentConfigurationRequiredResponse(mcpServer.Spec.VMCPComponentID, missingConfig).write(req.ResponseWriter, nil)
+			agentConfigurationRequiredResponse(req, mcpServer.Spec.VMCPComponentID, missingConfig).write(req.ResponseWriter, nil)
 		} else {
 			mcpAuthRequiredResponse(req, true).write(req.ResponseWriter, nil)
 		}

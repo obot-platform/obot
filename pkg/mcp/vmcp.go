@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -107,9 +109,10 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 
 	// The vMCP's preconfigured OAuth for these components, in their order, which every caller's connections to them
 	// use. An agent cannot complete setup interactively, so it is refused with the reasons it is not ready rather than
-	// connected to a subset of its tools or challenged; its readiness selects the grants. A user is never refused for a
-	// grant: one that does not work is reported when the component is reached. Both are computed on every connect and
-	// never cached.
+	// connected to a subset of its tools or challenged; its readiness selects the grants. For an agent acting on behalf
+	// of a user, readiness is computed over the components of the vMCP profiles that name the agent, and what the user
+	// can set up is reported as needing their approval. A user is never refused for a grant: one that does not work is
+	// reported when the component is reached. Both are computed on every connect and never cached.
 	var grants []vmcpaccess.ComponentOAuthGrant
 	if principal.IsAgent(user) {
 		agentReadiness, err := sm.AgentReadiness(ctx, *vmcp, instance, user)
@@ -117,7 +120,11 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			return ServerConfig{}, err
 		}
 		if !agentReadiness.Readiness.Ready() {
-			return ServerConfig{}, &vmcpaccess.AgentNotReadyError{Readiness: agentReadiness.Readiness}
+			notReady := &vmcpaccess.AgentNotReadyError{Readiness: agentReadiness.Readiness}
+			if _, ok := principal.OnBehalfOf(user); ok {
+				notReady.VMCPID, notReady.OnBehalfOfUser = vmcp.Name, true
+			}
+			return ServerConfig{}, notReady
 		}
 		grants = agentReadiness.Grants
 	} else if vmcp.Spec.UserID == "" && sm.preconfiguredOAuth != nil {
@@ -282,12 +289,13 @@ func newOAuthGrantRef(grant vmcpaccess.ComponentOAuthGrant) *OAuthGrantRef {
 }
 
 // contributingProfileIDs returns the IDs of the profiles that grant the caller its permissions on a shared vMCP: every
-// profile that names it, for an agent as for a user. A personal vMCP has no profiles.
+// profile that names it, for an agent as for a user, and for an agent acting on behalf of a user, every profile that
+// names the agent (vmcpaccess.CallerProfiles). A personal vMCP has no profiles.
 func contributingProfileIDs(user kuser.Info, vmcp v1.VMCP) []string {
 	if vmcp.Spec.UserID != "" {
 		return nil
 	}
-	return vmcpaccess.ProfileIDs(vmcpaccess.MatchingProfiles(user, vmcp.Spec.Manifest.Profiles))
+	return vmcpaccess.ProfileIDs(vmcpaccess.CallerProfiles(user, vmcp))
 }
 
 // waitForVMCPInstanceConfiguration waits for the VMCPInstance controller to process
@@ -303,6 +311,12 @@ func (sm *SessionManager) waitForVMCPInstanceConfiguration(ctx context.Context, 
 		return vmcpaccess.ConfigurationCheckHash(vmcpaccess.EnabledComponents(u, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance)), syncHash)
 	}
 	want := checkHash(user)
+	if delegated, ok := principal.DelegatedOwnerOf(user); ok {
+		// An agent acting on behalf of a user connects through the agent's own instance, which the controller
+		// configures for the agent itself, with every profile that names it. Matching an agent reads nothing but its
+		// principal.
+		want = checkHash(gateway.AgentUserInfo(&gatewaytypes.Agent{ID: delegated.AgentID}, nil, nil))
+	}
 	if instance.Status.ConfigurationCheckHash == want {
 		return instance, nil
 	}

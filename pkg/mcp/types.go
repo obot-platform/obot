@@ -35,6 +35,11 @@ const (
 	AuditLogVMCPID      = "vmcpID"
 	AuditLogComponentID = "componentID"
 	AuditLogProfiles    = "profiles"
+
+	// AuditLogOnBehalfOf is the audit metadata of the decimal ID of the user an agent made a call on behalf of. The MCP
+	// gateway sets it from the caller it authenticated, and only an entry the gateway itself records is attributed
+	// with it: one an MCP server submits never is, whatever its metadata says.
+	AuditLogOnBehalfOf = "onBehalfOf"
 )
 
 var (

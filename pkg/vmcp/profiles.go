@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/subjects"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -27,7 +28,18 @@ func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *typ
 // ID, subjects:*, and their auth provider and Obot groups; agents match only the profiles that name their agent ID.
 // A caller named by several profiles is granted the union of what they grant (AllowedTools, EnabledComponents), an
 // agent as a user. A caller that is not a well-formed user or agent principal matches no profile.
+//
+// An agent acting on behalf of a user matches none here: it is granted only through the profiles of a shared vMCP that
+// name the agent, which CallerProfiles returns for it.
 func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
+	if _, ok := principal.OnBehalfOf(u); ok {
+		return nil
+	}
+	return subjectProfiles(u, profiles)
+}
+
+// subjectProfiles returns the profiles whose subjects name u, as MatchingProfiles does, for any caller.
+func subjectProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
 	caller, ok := subjects.CallerFromUserInfo(u)
 	if !ok {
 		return nil
@@ -41,15 +53,30 @@ func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPPr
 	return matching
 }
 
+// CallerProfiles returns the profiles of vmcp that grant u its permissions on it, in order. They are those whose
+// subjects name u (MatchingProfiles), except for an agent acting on behalf of a user: for it, they are the agent's own,
+// those that name the agent, and none of a personal vMCP. Access, components, tools, readiness and audit all start
+// here.
+func CallerProfiles(u kuser.Info, vmcp v1.VMCP) []types.VMCPProfile {
+	if _, ok := principal.OnBehalfOf(u); !ok {
+		return MatchingProfiles(u, vmcp.Spec.Manifest.Profiles)
+	}
+	if vmcp.Spec.UserID != "" {
+		return nil
+	}
+	return subjectProfiles(u, vmcp.Spec.Manifest.Profiles)
+}
+
 // AllowedTools returns component-scoped original names. Nil means unrestricted, while an
 // empty non-nil slice grants no tools. Instance selections can only narrow grants.
-// A name of "*" grants all tools enabled on that component.
-func AllowedTools(u kuser.Info, profiles []types.VMCPProfile, selection map[string]types.VMCPComponentSet) []types.VMCPToolReference {
+// A name of "*" grants all tools enabled on that component. The grant is the union of the
+// profiles of vmcp that apply to u (CallerProfiles).
+func AllowedTools(u kuser.Info, vmcp v1.VMCP, selection map[string]types.VMCPComponentSet) []types.VMCPToolReference {
 	var (
 		tools []types.VMCPToolReference
 		all   bool
 	)
-	for _, profile := range MatchingProfiles(u, profiles) {
+	for _, profile := range CallerProfiles(u, vmcp) {
 		all = all || profile.Permissions.AllowAllComponents
 		tools = append(tools, types.ComponentToolReferences(profile.Permissions.AllowedComponents)...)
 	}
@@ -96,7 +123,7 @@ func ToolGranted(grant []types.VMCPToolReference, tool types.VMCPToolReference) 
 func InstanceGrant(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPToolReference {
 	switch vmcp.Spec.UserID {
 	case "":
-		return AllowedTools(u, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.ComponentSet)
+		return AllowedTools(u, vmcp, instance.Spec.Manifest.ComponentSet)
 	case instance.Spec.UserID:
 		return types.ComponentToolReferences(instance.Spec.Manifest.ComponentSet)
 	}
@@ -122,7 +149,7 @@ func EnabledComponents(u kuser.Info, vmcp v1.VMCP, components []types.VMCPCompon
 	if vmcp.Spec.UserID != "" {
 		return components
 	}
-	matching := MatchingProfiles(u, vmcp.Spec.Manifest.Profiles)
+	matching := CallerProfiles(u, vmcp)
 	return slices.DeleteFunc(components, func(component types.VMCPComponent) bool {
 		return !slices.ContainsFunc(matching, func(profile types.VMCPProfile) bool { return ProfileGrantsComponent(profile, component.ID) })
 	})

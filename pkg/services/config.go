@@ -1034,6 +1034,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// non-user principals, so they must come after the UserDecorator.
 		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
 		authenticators = union.New(authenticators, gserver.NewDeviceAuthenticator(gatewayClient))
+		// Tokens with which an agent acts on behalf of a user, on the routes that accept them only. It runs ahead of
+		// the token service, which refuses those tokens everywhere.
+		authenticators = union.New(authenticators, gserver.NewDelegatedTokenAuthenticator(gatewayClient, persistentTokenServer))
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add bootstrap auth
@@ -1077,6 +1080,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 		// Tunnel authenticator
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
+
+		// Tokens with which an agent acts on behalf of a user, on the routes that accept them only, ahead of the token
+		// service, which refuses them everywhere. A refused one never reaches the "nobody" owner (see WithNoAuth).
+		authenticators = union.New(authenticators, gserver.NewDelegatedTokenAuthenticator(gatewayClient, persistentTokenServer))
 
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)

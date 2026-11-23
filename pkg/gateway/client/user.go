@@ -172,7 +172,12 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 	if err != nil {
 		return nil, err
 	}
+	return UserInfo(u, groupIDs), nil
+}
 
+// UserInfo returns the user.Info of u, a user read with its effective role (UserByIDWithEffectiveRole), in the auth
+// provider groups with groupIDs, as UserInfoByID builds it.
+func UserInfo(u *types.User, groupIDs []string) kuser.Info {
 	extra := map[string][]string{
 		"obot_groups":          u.Role.Groups(),
 		"auth_provider_groups": groupIDs,
@@ -185,7 +190,7 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 		UID:    fmt.Sprintf("%d", u.ID),
 		Groups: u.Role.Groups(),
 		Extra:  extra,
-	}, nil
+	}
 }
 
 // IdentityInfo loads the current identity of a stored owner, for evaluating access as that owner. For a user it is

@@ -27,16 +27,23 @@ const (
 
 // noAuthChain composes the authenticator chain of a server that does not authenticate callers, as pkg/services does,
 // from the credentials that chain honors that need no other service: the user decorator of the gateway's token
-// reviewer, the token service, and devices' credentials, all ended by WithNoAuth inside the admission check.
+// reviewer, the tokens with which agents act on behalf of users, the token service, and devices' credentials, all
+// ended by WithNoAuth inside the admission check.
 func noAuthChain(t *testing.T, s *Server, client *gatewayclient.Client) (*authn.AdmissionCheck, *persistent.TokenService) {
 	t.Helper()
 
 	tokenService := newChainTokenService(t, client)
+	return noAuthChainWith(s, client, tokenService), tokenService
+}
+
+// noAuthChainWith is noAuthChain with tokenService.
+func noAuthChainWith(s *Server, client *gatewayclient.Client, tokenService *persistent.TokenService) *authn.AdmissionCheck {
 	var credentials authenticator.Request = gatewayclient.NewUserDecorator(NewGatewayTokenReviewer(client, s.dispatcher), client, userLimitUnlimited{})
+	credentials = union.New(credentials, NewDelegatedTokenAuthenticator(client, tokenService))
 	credentials = union.New(credentials, tokenService)
 	credentials = union.New(credentials, NewDeviceEnrollmentAuthenticator(client))
 	credentials = union.New(credentials, NewDeviceAuthenticator(client))
-	return authn.NewAdmissionCheck(WithNoAuth(credentials, client, tokenService), nil), tokenService
+	return authn.NewAdmissionCheck(WithNoAuth(credentials, client, tokenService), nil)
 }
 
 // noAuthTestRequest returns a request to path with headers set.

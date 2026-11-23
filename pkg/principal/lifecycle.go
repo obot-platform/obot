@@ -34,6 +34,7 @@ func RecordUserStatus(extra map[string][]string, status types.UserStatus) {
 func RecordKind(extra map[string][]string, kind Kind) {
 	extra[KindExtra] = []string{string(kind)}
 	delete(extra, OnBehalfOfExtra)
+	delete(extra, DelegationExtra)
 }
 
 // RecordPrincipal records the kind of identity a principal acts for and its lifecycle status, as every authenticator

@@ -491,7 +491,7 @@ func newWireFixture(t *testing.T) *wireFixture {
 		ctx := context.WithValue(r.Context(), compositeAPIContextKey{}, req)
 		ctx = context.WithValue(ctx, upstreamCaptureConfigKey{}, serverConfig)
 		ctx = mmmcp.ContextWithConfig(ctx, cfg)
-		ctx = mmmcp.ContextWithConfigID(ctx, compositeConfigID(serverConfig))
+		ctx = mmmcp.ContextWithConfigID(ctx, compositeConfigID(serverConfig, req.User))
 		composite.HTTPHandler().ServeHTTP(w, r.WithContext(ctx))
 	}))
 	t.Cleanup(compositeLoopback.Close)

@@ -32,8 +32,10 @@ var (
 	// allowedOnBehalfOfRecorders are the functions outside this package, keyed by file and function name, that may
 	// record the user a caller acts for (RecordOnBehalfOf or OnBehalfOfExtra). Each must be an authenticator that opted
 	// in to tokens with which an agent acts on behalf of a user (persistent.TokenService.DecodeDelegatedToken), and must
-	// record it on an agent principal only, after its kind. There are none yet.
-	allowedOnBehalfOfRecorders = map[string]string{}
+	// record it on an agent principal only, after its kind.
+	allowedOnBehalfOfRecorders = map[string]string{
+		"pkg/gateway/server/delegated_auth.go: AuthenticateRequest": "the authenticator of delegated tokens, which records the user on the agent's principal after AgentUserInfo records its kind",
+	}
 )
 
 // sourceFile is a parsed non-test Go file of the repository, outside this package.

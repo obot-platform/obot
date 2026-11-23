@@ -26,6 +26,7 @@ func celEnv(target string) (*cel.Env, error) {
 		//   - principal.kind is "user" or "agent", and principal.id the bare decimal ID of that user or agent, so
 		//     principal.kind == "agent" tells agents apart without parsing user.id. Both are "" for a caller that is
 		//     not a principal. principal.id alone does not identify a caller: a user and an agent can share it.
+		//   - principal.on_behalf_of is the decimal ID of the user an agent acts for, and "" for any other caller.
 		common := []cel.EnvOption{
 			cel.Variable("user", cel.MapType(cel.StringType, cel.DynType)),
 			cel.Variable("principal", cel.MapType(cel.StringType, cel.StringType)),
@@ -99,7 +100,7 @@ func conditionVars(target string, identity Identity, vars map[string]any) map[st
 	}
 	out := map[string]any{
 		"user":      map[string]any{"id": identity.UserID, "groups": groups},
-		"principal": map[string]string{"kind": string(identity.Principal.Kind), "id": identity.Principal.ID},
+		"principal": map[string]string{"kind": string(identity.Principal.Kind), "id": identity.Principal.ID, "on_behalf_of": identity.OnBehalfOf.Principal.ID},
 		"headers":   map[string]string{},
 	}
 	if target == types.GuardrailTargetMCP {
