@@ -219,3 +219,55 @@ func TestEngineForwardsRequestParameters(t *testing.T) {
 		})
 	}
 }
+
+func TestEngineForwardsHaiku55AdaptiveThinking(t *testing.T) {
+	requests := make(chan map[string]json.RawMessage, 1)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		requests <- body
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-5-5","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}`)
+	}))
+	defer upstream.Close()
+
+	dataDir := t.TempDir()
+	modeldatatest.Write(t, dataDir)
+	ctx := t.Context()
+	e := New()
+	require.NoError(t, e.Start(ctx, testOptions(t, Options{DataDir: dataDir})))
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
+	mutate := testMutation(ctx, e, nil)
+	require.NoError(t, mutate(e.CreateProvider(ctx, testJSON(t, map[string]any{
+		"provider":       "anthropic",
+		"network_config": map[string]any{"base_url": upstream.URL, "allow_private_network": true},
+	}))))
+	require.NoError(t, mutate(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{
+		"name": "anthropic-key", "value": "sk-test", "models": []string{"*"}, "weight": 1,
+	}))))
+
+	send := func() map[string]json.RawMessage {
+		t.Helper()
+		code, resp := do(t, e, http.MethodPost, "/anthropic/v1/messages",
+			`{"model":"anthropic/claude-haiku-5-5","max_tokens":2048,"temperature":0.5,"output_config":{"effort":"xhigh"},"thinking":{"type":"adaptive"},"messages":[{"role":"user","content":"hi"}]}`)
+		require.Equal(t, http.StatusOK, code, resp)
+		select {
+		case body := <-requests:
+			return body
+		default:
+			t.Fatal("provider received no request")
+			return nil
+		}
+	}
+
+	sent := send()
+	var thinking map[string]any
+	require.NoError(t, json.Unmarshal(sent["thinking"], &thinking))
+	require.Equal(t, "adaptive", thinking["type"])
+	require.NotContains(t, thinking, "budget_tokens")
+	require.NotContains(t, sent, "temperature")
+	require.JSONEq(t, `{"effort":"xhigh"}`, string(sent["output_config"]))
+}

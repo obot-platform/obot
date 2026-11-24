@@ -270,7 +270,7 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 	}
 	for _, name := range blockedHeaders {
 		cfg := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{
-			provider: {ProviderConfig: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{name: ""}}}},
+			provider: {ProviderConfig: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]schemas.SecretVar{name: {}}}}},
 		}}
 		require.False(t, SubscriptionDestination(cfg, provider), name)
 		e.account.config.Store(cfg)

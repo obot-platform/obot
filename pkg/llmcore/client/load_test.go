@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/llmcore/client"
@@ -119,4 +120,54 @@ func TestMutateProviderDoesNotCreateMissingResource(t *testing.T) {
 	loaded, err := store.Load(t.Context())
 	require.NoError(t, err)
 	require.Empty(t, loaded.Config.Providers)
+}
+
+func TestProviderEditPreservesLegacyLiteralHeaders(t *testing.T) {
+	t.Setenv("OBOT_TEST_HEADER", "resolved-secret")
+	ctx := t.Context()
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	store := newStore(t, storage)
+	require.NoError(t, store.CreateProvider(ctx, "anthropic", client.Provider{}))
+	var rows v1.LLMGatewayProviderList
+	require.NoError(t, storage.List(ctx, &rows))
+	require.Len(t, rows.Items, 1)
+	row := &rows.Items[0]
+	row.Spec.Payload = `{"Config":{"network_config":{"extra_headers":{"X-Env":"env.OBOT_TEST_HEADER","X-Vault":"vault.path/to/header","X-Empty":""},"max_retries":2,"retry_backoff_initial":500}},"Keys":[{"id":"key-1","name":"original","value":{"value":"key-value","type":"plain_text"},"models":["*"],"blacklisted_models":[],"weight":1}]}`
+	require.NoError(t, storage.Update(ctx, row))
+
+	assertHeaders := func(p client.Provider) {
+		t.Helper()
+		headers := p.Config.NetworkConfig.ExtraHeaders
+		require.Equal(t, "env.OBOT_TEST_HEADER", headers["X-Env"].Val)
+		require.Equal(t, "vault.path/to/header", headers["X-Vault"].Val)
+		require.Contains(t, headers, "X-Empty")
+		require.Equal(t, 2, p.Config.NetworkConfig.MaxRetries)
+		require.Equal(t, 500*time.Millisecond, p.Config.NetworkConfig.RetryBackoffInitial)
+		require.Equal(t, "key-value", p.Keys[0].Value.GetValue())
+	}
+	require.NoError(t, store.MutateProvider(ctx, "anthropic", func(p *client.Provider) error {
+		assertHeaders(*p)
+		p.Keys[0].Name = "edited"
+		return nil
+	}))
+	p, err := store.GetProvider(ctx, "anthropic")
+	require.NoError(t, err)
+	assertHeaders(p)
+	require.Equal(t, "edited", p.Keys[0].Name)
+
+	// Decode the saved header object using the prior version's string map.
+	require.NoError(t, storage.Get(ctx, kclient.ObjectKeyFromObject(row), row))
+	var previous struct {
+		Config struct {
+			Network struct {
+				ExtraHeaders map[string]string `json:"extra_headers"`
+			} `json:"network_config"`
+		}
+	}
+	require.NoError(t, json.Unmarshal([]byte(row.Spec.Payload), &previous))
+	require.Equal(t, map[string]string{
+		"X-Env":   "env.OBOT_TEST_HEADER",
+		"X-Vault": "vault.path/to/header",
+		"X-Empty": "",
+	}, previous.Config.Network.ExtraHeaders)
 }

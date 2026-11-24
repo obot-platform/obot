@@ -30,7 +30,7 @@ func TestCoreConfigurationUsesCredentialEncryption(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store, err := llmcoreclient.New(storage, c)
 	require.NoError(t, err)
-	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{"X-Secret": "header-secret"}}}}))
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]schemas.SecretVar{"X-Secret": {Val: "header-secret"}}}}}))
 	require.NoError(t, store.PutKey(t.Context(), "openai", schemas.Key{ID: "key-1", Name: "test", Value: *schemas.NewSecretVar("provider-secret")}))
 	settingValue := json.RawMessage(`{"token":"setting-secret"}`)
 	require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
@@ -51,7 +51,7 @@ func TestCoreConfigurationUsesCredentialEncryption(t *testing.T) {
 	cfg, err := store.Load(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, "provider-secret", cfg.Config.Keys[schemas.OpenAI][0].Value.GetValue())
-	require.Equal(t, "header-secret", cfg.Config.Providers[schemas.OpenAI].NetworkConfig.ExtraHeaders["X-Secret"])
+	require.Equal(t, "header-secret", cfg.Config.Providers[schemas.OpenAI].NetworkConfig.ExtraHeaders["X-Secret"].Val)
 	require.JSONEq(t, string(settingValue), string(cfg.Config.Settings["sensitive"]))
 
 	_, err = c.OpenGatewayConfig(t.Context(), "key/wrong", []byte(provider.Spec.Payload))
