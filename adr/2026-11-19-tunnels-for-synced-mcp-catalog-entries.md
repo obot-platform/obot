@@ -13,18 +13,22 @@
 
 Today, automating tunnel setup requires creating the MCP catalog entry outside Git because the catalog API rejects tunnel assignments for synced entries.
 The goal is to keep the entry definition in Git while administrators provision the tunnel, run the tunnel agent, and attach the tunnel through their infrastructure automation.
+
 Catalog sync reads definitions from the configured Git repository and creates or updates catalog entries in Obot.
-Administrators provision MCP tunnels separately because their identities and credentials are specific to an Obot deployment.
+Administrators provision MCP tunnels separately because their identities and credentials are specific to an Obot deployment. This provisioning API already exists and is available in the Terraform provider.
+
+The missing piece is automated tunnel assingment.
 A tunnel assignment links an existing MCP tunnel to an MCP catalog entry, telling Obot which tunnel to use to reach that entry’s remote MCP server.
-Direct-destination validation can also reject a private fixed URL before an entry exists to receive a tunnel assignment.
+Direct-destination validation can also reject a private fixed URL before an entry exists to receive a tunnel assignment. This is solved by the proposed `tunnelRequired: true` setting on the catalog entry.
 
 ## Decision
 
-Git owns the remote destination and may declare `remoteConfig.tunnelRequired: true`.
-Synced remote entries with an explicit `entryKey` and a literal HTTP(S) `fixedURL` are eligible for tunnel assignment.
-Eligible entries without the flag support optional tunnel assignments.
-Git rejects concrete tunnel IDs.
-Entries using `tunnelRequired` must set `minObotVersion` to the first release supporting it or later and be published only to installations that enforce that version gate.
+- Synced remote entries with an explicit `entryKey` and a literal `fixedURL` are eligible for tunnel assignment.
+- Git owns the remote destination and may declare `remoteConfig.tunnelRequired: true`.
+- Entries without the flag still support optional tunnel assignments.
+- Git rejects concrete tunnel IDs.
+- Entries using `tunnelRequired` must set `minObotVersion` to the first release supporting it or later and be published only to installations that enforce that version gate.
+- A new API endpoint is added to support tunnel assignment by the Terraform provider. Since we cannot reference the catalog entry's ID, we use the source URL and `entryKey` to identify the target catalog entry.
 
 ### Tunnel assignment identity and approval
 
