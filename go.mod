@@ -3,6 +3,7 @@ module github.com/obot-platform/obot
 go 1.27.4
 
 replace (
+	github.com/mark3labs/mcp-go => github.com/maximhq/mcp-go v0.0.0-20261102181017-b7da3bc145a1 // Bifrost needs this fork's MCP APIs. Go ignores dependency replace directives.
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )
@@ -412,5 +413,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.1 // indirect
 )
-
-replace github.com/mark3labs/mcp-go => github.com/maximhq/mcp-go v0.0.0-20261102181017-b7da3bc145a1
