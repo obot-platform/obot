@@ -17,7 +17,7 @@ The goal is to keep the entry definition in Git while administrators provision t
 Catalog sync reads definitions from the configured Git repository and creates or updates catalog entries in Obot.
 Administrators provision MCP tunnels separately because their identities and credentials are specific to an Obot deployment. This provisioning API already exists and is available in the Terraform provider.
 
-The missing piece is automated tunnel assingment.
+The missing piece is automated tunnel assignment.
 A tunnel assignment links an existing MCP tunnel to an MCP catalog entry, telling Obot which tunnel to use to reach that entry’s remote MCP server.
 Direct-destination validation can also reject a private fixed URL before an entry exists to receive a tunnel assignment. This is solved by the proposed `tunnelRequired: true` setting on the catalog entry.
 
@@ -28,7 +28,7 @@ Direct-destination validation can also reject a private fixed URL before an entr
 - Entries without the flag still support optional tunnel assignments.
 - Git rejects concrete tunnel IDs.
 - Entries using `tunnelRequired` must set `minObotVersion` to the first release supporting it or later and be published only to installations that enforce that version gate.
-- A new API endpoint is added to support tunnel assignment by the Terraform provider. Since we cannot reference the catalog entry's ID, we use the source URL and `entryKey` to identify the target catalog entry.
+- A new API endpoint is added to support tunnel assignment by the Terraform provider. The API resolves the entry by catalog ID, source URL, and `entryKey`, giving Terraform a stable lookup across eligible renames.
 
 ### Tunnel assignment identity and approval
 
