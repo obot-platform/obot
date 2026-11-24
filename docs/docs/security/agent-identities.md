@@ -5,6 +5,8 @@ description: Give automation its own identity, API keys, policy grants, and audi
 
 An agent identity is a non-human identity for automation, such as a CI job, a scheduled task, or a service that calls MCP servers and models with no user present. An administrator creates the agent, grants it access through policies, and issues API keys that authenticate as the agent. The agent's access and audit history belong to the agent, not to the person who created it, and the upstream OAuth accounts it uses are preconfigured on the vMCP.
 
+An agent can also act on behalf of the people who use it, once each of them approves it. See [Agents acting on behalf of users](./agents-on-behalf-of-users.md).
+
 ## How agents differ from other identities {#concepts}
 
 | | Agent identity | User | User API key |
@@ -18,8 +20,8 @@ Agents differ from users in these ways:
 
 - **No roles, groups, or sign-in.** An agent is never an administrator or an auditor, can't use the Obot UI, and never matches a group subject or **All Obot Users**. Its access comes only from the policies that name it by ID.
 - **Independent of people.** Each agent records the administrator who created it, but that person grants it nothing. Changing or deleting that user doesn't change the agent.
-- **Headless.** Agents use only the configuration that a vMCP or its catalog entry fixes for everyone. When a vMCP component needs upstream OAuth, an administrator [preconfigures](../mcp-gateway/server-types.md#preconfigured-oauth) it ahead of time, with one account that every user and agent of the vMCP uses. An agent is never asked to sign in. When setup is missing, the agent gets a `409` that names what is missing.
-- **Limited routes.** An agent key reaches only the LLM gateway, skill discovery and download, and vMCP connections. It never reaches the Obot admin API, user routes, or device APIs, whatever its scopes.
+- **Headless.** Agents use only the configuration that a vMCP or its catalog entry fixes for everyone. When a vMCP component needs upstream OAuth, an administrator [preconfigures](../mcp-gateway/server-types.md#preconfigured-oauth) it ahead of time, with one account that every user and agent of the vMCP uses. An agent is never asked to sign in. When setup is missing, the agent gets a `409` that names what is missing. Acting on behalf of a user, it can also use the values and accounts that the user [set up through it](./agents-on-behalf-of-users.md#users).
+- **Limited routes.** An agent key reaches only the LLM gateway, skill discovery and download, vMCP connections, and the two routes with which it [asks users for approval and gets tokens](./agents-on-behalf-of-users.md#example) to act for them. It never reaches the Obot admin API, user routes, or device APIs, whatever its scopes.
 
 Agent identities aren't the same thing as user API keys. A user API key acts as its user, with that user's roles and grants. Before agent identities existed, user API keys were called *agent identities* and *agent authorization scopes* in the UI. They're now under **Identity & Access > API Keys**. See [Agent authorization scopes](../functionality/agent-auth-scopes.md).
 
@@ -110,7 +112,7 @@ The agent's page shows:
 
 - **Access**: every vMCP profile, LLM gateway policy and skill access rule that names the agent.
 - **Problems**: a key with LLM access but no LLM gateway policy that names the agent, so every LLM request is refused; or a key with skill access but no skill access rule, so the agent sees no skills.
-- **vMCP readiness**: for each vMCP with a profile that names the agent, whether it can connect now, and if not, what is missing, with a link to the component's settings in the vMCP designer. Components whose [preconfigured OAuth](../mcp-gateway/server-types.md#preconfigured-oauth) works are marked **Preconfigured**. Readiness covers the components that the agent's profiles grant, and runs the same checks as a connection, at the moment you look.
+- **vMCP readiness**: for each vMCP with a profile that names the agent, whether it can connect now, and if not, what is missing, with a link to the component's settings in the vMCP designer. Components whose [preconfigured OAuth](../mcp-gateway/server-types.md#preconfigured-oauth) works are marked **Preconfigured**, and what a user supplies when the agent [acts on their behalf](./agents-on-behalf-of-users.md) is marked **OBO**. Readiness covers the components that the agent's profiles grant, and runs the same checks as a connection, at the moment you look.
 
 The same information is in the API (`GET /api/agents/{agent_id}/access`, `GET /api/agents/{agent_id}/vmcps`, and `GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness`). See the [reference](../reference/agent-identities.md#api).
 
@@ -169,7 +171,6 @@ Leave the database as it is. The tables and columns that agent identities added 
 
 - **No agent groups or agent wildcard.** Name agents one by one, in every policy.
 - **No personal vMCPs.** Agents can use only shared vMCPs that administrators publish, through vMCP profiles.
-- **No delegation.** An agent always acts as itself, never on behalf of a user. It can't use a user's credentials.
 - **No user daily token limits.** Users' personal daily token limits, including the per-user limit of the *Daily token limit* budget, don't apply to agents. Agents get the budget's own limits. Budgets that exempt administrators never exempt an agent.
 - **Agent IDs in catalog YAML are per deployment.** Catalog-synced vMCPs can name agents by ID, but an ID names a different agent, or none, in another deployment, and `obot mcp validate-catalog` can't check that it exists. See [Catalog-synced vMCPs](../mcp-gateway/agent-setup.md#catalog-vmcps).
 - **No configuration for agents.** Agents get only values that the vMCP or its catalog entry fixes for everyone. A component that needs a value a user would enter, including a configurable server URL the vMCP doesn't fix, keeps agents off the vMCP until the value is fixed or the component is no longer granted. See [Configuration](../mcp-gateway/agent-setup.md#configuration).

@@ -281,6 +281,11 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "security/agents-on-behalf-of-users",
+					"label": "Agents acting for users"
+				},
+				{
+					"type": "doc",
 					"id": "security/policy-coverage",
 					"label": "Roles and access policies"
 				},

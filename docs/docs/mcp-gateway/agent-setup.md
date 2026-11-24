@@ -28,7 +28,7 @@ Every component the agent can use must be fully set up. If any needs a value age
 
 ## Configuration {#configuration}
 
-Agents never enter configuration, and nothing enters it for them. A component's server gets, for an agent, only the values fixed for everyone:
+Agents never enter configuration, and nothing enters it for them. A component's server gets, for an agent acting for itself, only the values fixed for everyone:
 
 - values the vMCP fixes (the **Fixed** policy), including values from Kubernetes Secrets;
 - values the catalog entry sets, including its Secret bindings.
@@ -42,6 +42,8 @@ To fix a component that blocks agents, do one of these:
 
 - Set the value as **Fixed** on the vMCP, or set it in the catalog entry. It then applies to everyone who uses the vMCP, users included.
 - Stop granting the component in the profiles that name agents, if the agents don't need it.
+
+An agent [acting on behalf of a user](../security/agents-on-behalf-of-users.md) can also use the values the user enters, and the upstream accounts they connect, through the agent. Values fixed on the vMCP, and the vMCP's [preconfigured OAuth](./server-types.md#preconfigured-oauth), still take precedence. Readiness covers only the agent acting for itself.
 
 ## Upstream OAuth {#oauth}
 
@@ -59,7 +61,7 @@ An agent that isn't granted the component never reaches it, so it never uses the
 
 ## Check readiness {#readiness}
 
-To see whether an agent can connect, open the agent under **Identity & Access > Agents**. **vMCP readiness** lists every vMCP that has a profile naming the agent, and what is missing for the components the agent's profiles grant: a value to fix on the vMCP or the catalog entry, or OAuth to authorize. Each one links to the component's settings in the vMCP designer. Components whose preconfigured OAuth works are listed as **Preconfigured**. Readiness runs the same checks as a connection. A component that none of the agent's profiles grants doesn't count. A vMCP with no profile that names the agent isn't listed, because the agent isn't granted it.
+To see whether an agent can connect, open the agent under **Identity & Access > Agents**. **vMCP readiness** lists every vMCP that has a profile naming the agent, and what is missing for the components the agent's profiles grant: a value to fix on the vMCP or the catalog entry, or OAuth to authorize. Each one links to the component's settings in the vMCP designer. Components whose preconfigured OAuth works are listed as **Preconfigured**. A value that users enter, or OAuth that isn't preconfigured, is marked **OBO**: a user supplies it when the agent [acts on their behalf](../security/agents-on-behalf-of-users.md), or you can set it for everyone on the vMCP instead. A vMCP that lacks only such things is marked **OBO** instead of **Not ready**. Preconfigured OAuth that no longer works keeps the vMCP **Not ready**, because only an administrator can fix it. Readiness runs the same checks as a connection. A component that none of the agent's profiles grants doesn't count. A vMCP with no profile that names the agent isn't listed, because the agent isn't granted it.
 
 When an agent connects to a vMCP that isn't ready, it gets `409 Conflict` with the reasons. It never gets an OAuth challenge or a sign-in link. See [Errors](../reference/agent-identities.md#errors).
 

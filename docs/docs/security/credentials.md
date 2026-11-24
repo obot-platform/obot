@@ -8,6 +8,8 @@ Obot credentials serve different connections. Manage them according to their own
 |---|---|
 | Client API key | [Agent authorization scopes](../functionality/agent-auth-scopes.md), under **Identity & Access > API Keys**; deleting a scope invalidates its keys |
 | Agent API key | [Agent identities](./agent-identities.md#create-a-key); revoking a key, or disabling or deleting its agent, invalidates it |
+| Delegated tokens, approval codes and secrets | [Agents acting on behalf of users](./agents-on-behalf-of-users.md); revoking the approval, revoking the minting key, or disabling or deleting the agent or the user ends the tokens ([details](#agent-delegations)) |
+| Setup through an agent | Values and upstream accounts a user sets up through an agent; the user clears or disconnects them, or revoking the approval, or deleting the agent, the user or the vMCP deletes them ([details](#agent-delegations)) |
 | Preconfigured upstream OAuth | [Preconfigured OAuth](../mcp-gateway/server-types.md#preconfigured-oauth) on a shared vMCP's component, one account that every user and agent of the vMCP uses; **Revoke**, removing the component, or deleting the vMCP deletes it ([details](#preconfigured-oauth)) |
 | Upstream MCP OAuth application | [Static OAuth](../mcp-gateway/server-configuration.md#static-oauth); changing application credentials can interrupt use |
 | Shared or user-supplied MCP configuration | [vMCP configuration policies](../mcp-gateway/server-types.md#virtual-mcps-configuration-policies) |
@@ -32,6 +34,20 @@ It's deleted when:
 - the vMCP is deleted.
 
 Deleting an agent, or changing the vMCP's profiles, deletes nothing. Deleting preconfigured OAuth doesn't revoke its tokens at the provider. Revoke them there too if they may have leaked.
+
+## Agents acting on behalf of users {#agent-delegations}
+
+When a user approves an [agent to act on their behalf](./agents-on-behalf-of-users.md), Obot keeps these credentials:
+
+| Credential | How it's kept | How it ends |
+|---|---|---|
+| Delegated token | A JWT that Obot signs and doesn't store. It lasts 15 minutes and names the delegation and the agent key that minted it. | Refused on its next request when the user or an administrator revokes the approval, the minting key is revoked or expires, or the agent or the user is disabled or deleted, and when no user access entry matches the user. Other replicas apply it within 15 seconds. |
+| Approval secret | The agent keeps the secret in its own session. Obot stores only its SHA-256 digest. | With the approval request, after 10 minutes |
+| Approval code | Obot stores only its SHA-256 digest. | Once it's redeemed, or presented with a wrong secret, and after 2 minutes. Expired requests and their codes are deleted periodically. |
+| Values a user enters through an agent | A credential of the user's setup through that agent, encrypted like users' own configuration (`credentials.obot.obot.ai` below) | When the user clears them under **Agents acting for you**, revokes the agent, or an administrator revokes the approval, or the agent, the user or the vMCP is deleted |
+| Upstream accounts a user connects through an agent | Rows of the gateway database's MCP OAuth tokens, encrypted like users' tokens (`mcpoauthtokens.obot.obot.ai` below) | The same, or when the user disconnects the account. An account the provider refuses to refresh is removed. |
+
+The setup a user does through an agent is owned by `agent:<agentID>/user:<userID>`. It's kept apart from the user's own setup and from the agent's, and nothing can authenticate as that owner. Administrators can't see the values. Revoking or deleting it in Obot doesn't revoke an upstream account at its provider: users revoke it there too if its tokens may have leaked.
 
 ## Create an API key {#agent-auth-scopes-creating-an-agent-authorization-scope}
 

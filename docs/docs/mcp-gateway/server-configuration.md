@@ -43,6 +43,8 @@ For entries managed in Obot, edit the catalog entry or server, open **Advanced C
 | `X-Obot-IDP-User-Id` | User ID assigned by the authentication provider. Omitted when unavailable or ambiguous across linked identities. |
 | `X-Obot-IDP-Groups` | Comma-separated list of stored IdP group IDs, including provider prefixes, sorted and deduplicated. Excludes Obot roles and group display names. Omitted when empty. |
 
+When an [agent acts on behalf of a user](../security/agents-on-behalf-of-users.md#policy), the user headers describe the agent, and each selected one of `X-Obot-User-Id`, `X-Obot-User-Name` and `X-Obot-User-Email` comes with its counterpart for the user: `X-Obot-On-Behalf-Of-User-Id`, `X-Obot-On-Behalf-Of-User-Name` (the user's display name) and `X-Obot-On-Behalf-Of-User-Email`. The counterparts can't be selected on their own, and Obot removes any copy a client sends.
+
 For API-key requests, the user and IdP fields describe the key owner, not an autonomous agent. Group memberships reflect Obot's stored provider or SCIM data. They are not a live query to the identity provider. Names, email addresses, and group memberships can disclose internal information, so select only what the destination needs.
 
 For example, the groups header might contain:

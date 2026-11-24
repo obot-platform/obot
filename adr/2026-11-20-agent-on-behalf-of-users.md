@@ -39,8 +39,18 @@ directly. Their own setup and the setup they do through an agent must stay separ
 - **Mode is dynamic in the sense that matters.** For each component, a value or
   grant that an administrator fixed on the vMCP (shared) is used when it exists.
   Otherwise the user's setup through this agent is used.
-  - A key-only connection never has a user, so it can't fall back to one. Its 409
-    says that a user approval would supply the missing setup.
+  - A key-only connection never has a user, so it can't fall back to one. Its 409 is
+    the service-account one, unchanged (`agent_configuration_required` or
+    `agent_oauth_required`). Only a connection on behalf of a user gets
+    `agent_user_approval_required`.
+  - The key-only 409 still tells the agent whether a user's approval would help: its
+    readiness reasons. `configuration_required` (a value users enter) and
+    `oauth_required` (an upstream account, where the vMCP has no preconfigured OAuth
+    for the component) are setup a user can supply through the agent, so the agent
+    can ask a user to approve it and then act for them. `oauth_invalid` is a broken
+    preconfigured account that only an administrator can fix, so the agent doesn't
+    ask the user. The docs recommend this pattern: act on your own key until a vMCP
+    needs something only the user can supply.
 
 ### Agent profiles
 
@@ -52,7 +62,8 @@ routes.
 An agent has profiles, managed by administrators only. A profile says only which users
 the agent may act for.
 
-- **Subjects.** Users, groups and All Obot Users. Agents are never subjects. A user
+- **Subjects.** Users, groups (auth provider groups and Obot groups) and All Obot
+  Users. Agents are never subjects. A user
   that no profile of the agent matches can't approve the agent, and can't be acted
   for.
 - **Effective access on behalf of a user** is exactly the agent's own grants: the vMCP
@@ -79,6 +90,9 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
      - `secretHash`: the S256 hash of the secret (required)
      - `loginHint` (optional): a convenience that pre-fills the Obot sign-in. It's
        not a security check.
+     - `delegationID` (optional): a delegation of the agent to approve again, such as
+       after a `409 agent_user_approval_required`. Only that delegation's user can
+       approve the request.
    - Obot returns a delegation request ID, a one-time approval URL and an expiry. An
      approval link expires after 10 minutes.
    - **Return URLs are restricted.** An administrator sets the allowed return URL
@@ -89,10 +103,11 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
    - Obot checks that a profile of the agent matches them.
    - The consent page shows the agent and everything it will be able to do for them:
      its own grants. **It's shown on every approval.**
-   - The user then sets up every vMCP the agent is granted, **all at once**, with the
-     existing consent flow (configuration and component OAuth, as
-     `vmcp_consent.go` does for users). Components that the vMCP fully fixes, or
-     that the vMCP's preconfigured OAuth covers, are skipped.
+   - The user then sets up every vMCP the agent is granted, **all at once**, through
+     the setup API (below). It reuses the user configuration form and the user
+     component OAuth flow, with the pair as owner, rather than `vmcp_consent.go`.
+     Components that the vMCP fully fixes, or that the vMCP's preconfigured OAuth
+     covers, are skipped.
    - On a later approval, the page asks for what's missing. It also shows what's
      already set up through the agent, with set or unset status but never the
      values, and lets the user change it: replace or clear a value, or reconnect an
@@ -335,7 +350,7 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
   - listing and revoking delegations, for users and administrators
   - the setup API, during approval and afterwards
   - the new 409 code
-- A new approval and consent page in the UI, which reuses the vMCP consent and
+- A new approval and consent page in the UI, which reuses the user configuration form and
   component OAuth steps. Also new: agent profile editors and a "Agents acting for
   you" page.
 - Authentication accepts delegated tokens, and checks on every request that an agent
@@ -359,4 +374,4 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
 - [Agent identities ADR](2026-11-17-agent-identities.md)
 - [RFC 8693: OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693) (the `act` claim)
 - [RFC 8628: OAuth 2.0 Device Authorization Grant](https://www.rfc-editor.org/rfc/rfc8628), which the approval flow resembles
-- `pkg/jwt/persistent` (token service), `pkg/api/handlers/mcpgateway/oauth/vmcp_consent.go` (vMCP consent and setup), `pkg/principal` (owner encoding)
+- `pkg/jwt/persistent` (token service), `pkg/api/handlers/agentdelegation.go` and `pkg/api/handlers/agentdelegationsetup.go` (approval, tokens and the setup API), `pkg/api/handlers/mcpgateway/oauth/delegatedsetup.go` (upstream OAuth through an agent), `pkg/principal` (owner encoding)
