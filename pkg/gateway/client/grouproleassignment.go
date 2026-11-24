@@ -108,16 +108,20 @@ func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string
 	return &assignment, nil
 }
 
-// Lock group rows in the same order as refreshes that need different strengths for different groups.
 func lockRoleGroups(tx *gorm.DB, groupIDs []string, strength string) error {
+	return lockGroupRows(tx.Where("id IN ?", groupIDs), strength)
+}
+
+// Lock group rows in the same order as refreshes that need different strengths for different groups.
+func lockGroupRows(groups *gorm.DB, strength string) error {
 	order := "id"
-	if tx.Name() == "postgres" {
+	if groups.Name() == "postgres" {
 		// Match Go's byte order for refreshes that acquire their locks in several batches.
 		order = `id COLLATE "C"`
 	}
 	var ids []string
-	return tx.Model(new(types.Group)).Clauses(clause.Locking{Strength: strength}).
-		Where("id IN ?", groupIDs).Order(order).Pluck("id", &ids).Error
+	return groups.Model(new(types.Group)).Clauses(clause.Locking{Strength: strength}).
+		Order(order).Pluck("id", &ids).Error
 }
 
 func elevatedGroupMembers(tx *gorm.DB) *gorm.DB {

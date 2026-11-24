@@ -141,8 +141,7 @@ func TestPostgresMembershipAdditionsShareGroupLock(t *testing.T) {
 
 func TestPostgresSCIMGroupDeletionSerializesWithRoleEdit(t *testing.T) {
 	c := newPostgresLifecycleTestClient(t)
-	ctx, cancel := context.WithTimeout(t.Context(), 12*time.Second)
-	defer cancel()
+	ctx := t.Context()
 
 	conn, _ := createTestSCIMConnection(t, c, false)
 	group, err := c.CreateSCIMGroup(ctx, conn, SCIMGroupInput{DisplayName: "Admins"})
@@ -151,11 +150,38 @@ func TestPostgresSCIMGroupDeletionSerializesWithRoleEdit(t *testing.T) {
 	require.NoError(t, err)
 	setSCIMConnectionState(t, c, conn, types.SCIMConnectionStateEnforced)
 
+	requirePostgresGroupDeletionSerializesWithRoleEdit(t, c, group.GroupID, func(ctx context.Context) error {
+		return c.DeleteSCIMGroup(ctx, conn, group.ID)
+	})
+}
+
+func TestPostgresAuthProviderGroupDataDeletionSerializesWithRoleEdit(t *testing.T) {
+	c := newPostgresLifecycleTestClient(t)
+	group := types.Group{
+		ID:                    "entra/engineering",
+		AuthProviderNamespace: "default",
+		AuthProviderName:      "entra-auth-provider",
+		Name:                  "Engineering",
+	}
+	require.NoError(t, c.db.WithContext(t.Context()).Create(&group).Error)
+	_, err := c.CreateGroupRoleAssignment(t.Context(), group.ID, apitypes.RoleBasic, "")
+	require.NoError(t, err)
+
+	requirePostgresGroupDeletionSerializesWithRoleEdit(t, c, group.ID, func(ctx context.Context) error {
+		return c.DeleteAuthProviderGroupData(ctx, group.AuthProviderNamespace, group.AuthProviderName, "entra/")
+	})
+}
+
+func requirePostgresGroupDeletionSerializesWithRoleEdit(t *testing.T, c *Client, groupID string, deleteGroup func(context.Context) error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 12*time.Second)
+	defer cancel()
+
 	pauseCtx, deletedMapping, release := pausePostgresGroupWrite(ctx, t,
 		c.db.WithContext(ctx).Callback().Delete().After("gorm:delete").Register, "group_role_assignments")
 	deleted := make(chan error, 1)
 	go func() {
-		deleted <- c.DeleteSCIMGroup(pauseCtx, conn, group.ID)
+		deleted <- deleteGroup(pauseCtx)
 	}()
 
 	var deletePID int
@@ -168,7 +194,7 @@ func TestPostgresSCIMGroupDeletionSerializesWithRoleEdit(t *testing.T) {
 	}
 	edited := make(chan error, 1)
 	go func() {
-		_, err := c.UpdateGroupRoleAssignment(ctx, group.GroupID, apitypes.RoleAdmin, "", true)
+		_, err := c.UpdateGroupRoleAssignment(ctx, groupID, apitypes.RoleAdmin, "", true)
 		edited <- err
 	}()
 	waitForPostgresGroupWriteBlock(ctx, t, c, deletePID)

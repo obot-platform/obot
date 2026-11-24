@@ -1120,6 +1120,11 @@ func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNam
 // deleteAuthProviderGroupDataTx deletes an auth provider's groups, and the memberships and group role assignments of
 // group IDs with its group ID prefix, and resets when its identities' groups were last checked.
 func deleteAuthProviderGroupDataTx(tx *gorm.DB, authProviderNamespace, authProviderName, groupIDPrefix string) error {
+	const providerGroupScope = "auth_provider_namespace = ? AND auth_provider_name = ?"
+	// Role edits lock group rows before updating assignments. Cleanup must acquire those locks in the same order.
+	if err := lockGroupRows(tx.Where(providerGroupScope, authProviderNamespace, authProviderName), clause.LockingStrengthUpdate); err != nil {
+		return fmt.Errorf("lock cached groups for deletion: %w", err)
+	}
 	if err := tx.Where("substr(group_name, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
 		return fmt.Errorf("delete group role assignments: %w", err)
 	}
@@ -1127,7 +1132,7 @@ func deleteAuthProviderGroupDataTx(tx *gorm.DB, authProviderNamespace, authProvi
 		return fmt.Errorf("delete group memberships: %w", err)
 	}
 	if err := tx.
-		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+		Where(providerGroupScope, authProviderNamespace, authProviderName).
 		Delete(&types.Group{}).Error; err != nil {
 		return fmt.Errorf("delete cached groups: %w", err)
 	}
