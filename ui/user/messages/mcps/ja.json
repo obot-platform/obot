@@ -1207,5 +1207,16 @@
 	"mcps_inject_headers_user_name": "認証されたアカウントのユーザー名。表示名ではありません。変更される場合があります。",
 	"mcps_inject_headers_user_email": "認証されたプリンシパルのメールアドレス。取得できない場合は省略されます。アドレスの検証済み状態を保証するものではありません。",
 	"mcps_inject_headers_idp_user_id": "認証プロバイダーが割り当てたユーザー識別子。API キーではキー所有者を識別します。取得できない場合や、複数の連携 ID から特定できない場合は省略されます。",
-	"mcps_inject_headers_idp_groups": "Obot に保存された呼び出し元の IdP グループ ID のカンマ区切りのリスト。プロバイダーのプレフィックスを含みます。API キーでは所有者の所属を使用します。Obot のロールやグループ表示名は含まず、空の場合は省略されます。"
+	"mcps_inject_headers_idp_groups": "Obot に保存された呼び出し元の IdP グループ ID のカンマ区切りのリスト。プロバイダーのプレフィックスを含みます。API キーでは所有者の所属を使用します。Obot のロールやグループ表示名は含まず、空の場合は省略されます。",
+	"mcps_list_tools_request": "コーディングエージェントが {name} のツールの一覧を Obot に要求しました。",
+	"mcps_list_tools_explanation": "一覧表示すると、Obot の他の場所でツールを一覧表示する場合と同様に、カタログの設定でサーバーが一時的に起動されます。このリクエストを自分で開始した場合にのみ続行してください。",
+	"mcps_list_tools_confirm": "起動してツールを一覧表示",
+	"mcps_list_tools_decline": "拒否",
+	"mcps_list_tools_done": "{count} 個のツールを一覧表示しました。ターミナルに戻ってください。obot コマンドが結果を受け取っています。",
+	"mcps_list_tools_declined": "拒否しました。何も起動されていません。",
+	"mcps_list_tools_unavailable": "このリクエストは期限切れか、すでに応答済みです。obot コマンドをもう一度実行してください。",
+	"mcps_list_tools_failed": "ツールを一覧表示できませんでした: {error}。obot コマンドに通知されたため、エージェントにも伝わります。",
+	"mcps_list_tools_other_entry": "このリクエストは別の MCP サーバー向けのため、ここでは応答できません。obot コマンドをもう一度実行してください。",
+	"mcps_list_tools_delivery_pending": "Obot は結果をまだ受信確認していません。サーバーを再起動せずに、結果の送信を再試行してください。",
+	"mcps_list_tools_retry_delivery": "結果の送信を再試行"
 }

@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/obot-platform/obot/pkg/localagents"
 	"github.com/obot-platform/obot/pkg/skillformat"
@@ -709,6 +713,8 @@ func useSetupTestHome(t *testing.T) string {
 	if err := os.Setenv("PATH", t.TempDir()); err != nil {
 		t.Fatal(err)
 	}
+	// Setup tests use made-up Obot URLs, so they don't look up the user's role.
+	stubSetupAdmin(t, false)
 	t.Cleanup(func() {
 		if hadHome {
 			_ = os.Setenv("HOME", oldHome)
@@ -740,4 +746,83 @@ func setupProgressEvents(t *testing.T, data []byte) []setupProgressEvent {
 		events = append(events, event)
 	}
 	return events
+}
+
+func stubSetupAdmin(t *testing.T, admin bool) {
+	t.Helper()
+	original := setupIsAdmin
+	setupIsAdmin = func(context.Context, *apiclient.Client) (bool, error) { return admin, nil }
+	t.Cleanup(func() { setupIsAdmin = original })
+}
+
+// Admins and owners get the obot-author-vmcps skill; other users don't.
+func TestSetupInstallsAdminSkillsOnlyForAdmins(t *testing.T) {
+	for _, admin := range []bool{true, false} {
+		t.Run(fmt.Sprintf("admin=%v", admin), func(t *testing.T) {
+			restore := useRootTestEnv(t)
+			defer restore()
+			home := useSetupTestHome(t)
+			stubSetupAdmin(t, admin)
+
+			setup := &Setup{
+				URL:     "https://obot.example.com/",
+				Clients: "agents",
+				Yes:     true,
+				root: setupTestRoot(func(context.Context, string, apiclient.TokenFetchOptions) (string, error) {
+					return "token", nil
+				}),
+			}
+			cmd := setupTestCommand(t, nil, &bytes.Buffer{}, &bytes.Buffer{})
+			if err := setup.Run(cmd, nil); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := os.Stat(filepath.Join(home, ".agents", "skills", "obot-author-vmcps", skillformat.SkillMainFile))
+			if installed := err == nil; installed != admin {
+				t.Fatalf("obot-author-vmcps installed = %v, want %v", installed, admin)
+			}
+		})
+	}
+}
+
+func TestIsAdmin(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		groups []string
+		want   bool
+	}{
+		{
+			name:   "owner",
+			groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupAuthenticated},
+			want:   true,
+		},
+		{
+			name:   "admin",
+			groups: []string{types.GroupAdmin, types.GroupAuthenticated},
+			want:   true,
+		},
+		{
+			name:   "basic user",
+			groups: []string{types.GroupBasic, types.GroupAuthenticated},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/me" || r.Header.Get("Authorization") != "Bearer token" {
+					http.Error(w, "unexpected request", http.StatusBadRequest)
+					return
+				}
+				_ = json.NewEncoder(w).Encode(types.User{Username: "user", Groups: tt.groups})
+			}))
+			t.Cleanup(server.Close)
+
+			got, err := isAdmin(t.Context(), (&apiclient.Client{BaseURL: server.URL + "/api"}).WithToken("token"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("isAdmin() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

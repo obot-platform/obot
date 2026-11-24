@@ -6,6 +6,10 @@ description: Use the Obot CLI to discover skills and MCP servers. Load this skil
 # Obot
 
 Use the local `obot` CLI for Obot skill discovery, skill installation, and MCP server discovery.
+{{- if .Admin }}
+
+To create or change vMCPs and MCP server catalog entries in an Obot catalog source, load the `obot-author-vmcps` skill.
+{{- end }}
 
 These instructions are rendered for `{{ .AgentID }}`.
 

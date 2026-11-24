@@ -352,6 +352,9 @@ func (c *Client) runPendingStateCleanup(ctx context.Context) {
 		if err := c.CleanupExpiredMCPOAuthPendingStates(ctx, pendingStateTTL); err != nil {
 			slog.Error("Failed to cleanup expired MCP OAuth pending states", "error", err)
 		}
+		if err := c.CleanupExpiredToolListRequests(ctx); err != nil {
+			slog.Error("Failed to cleanup expired tool list requests", "error", err)
+		}
 
 		timer.Reset(pendingStateTTL)
 	}

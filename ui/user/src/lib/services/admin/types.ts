@@ -1165,6 +1165,21 @@ export interface ModelAccessPolicy extends Omit<ModelAccessPolicyManifest, 'id'>
 
 // Model proxy
 
+/** A request, usually from the obot CLI, to list a catalog entry's tools. Listing launches the
+ * entry's server, so the user who made the request confirms it on the entry's Tools tab. */
+export interface ToolListRequest {
+	id: string;
+	entryID: string;
+	entryName?: string;
+	entryIcon?: string;
+	catalogID?: string;
+	status: 'pending' | 'completed' | 'failed';
+	tools?: { id?: string; name: string; description?: string }[];
+	error?: string;
+	expiresAt?: string;
+	url: string;
+}
+
 export interface RegistrySettings {
 	anonymousAccessEnabled: boolean;
 }

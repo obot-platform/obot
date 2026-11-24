@@ -547,7 +547,7 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 // SetNonDeployServerStatus sets the deployment status for servers that don't have a corresponding deployment.
 func (h *Handler) SetNonDeployServerStatus(req router.Request, _ router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
-	if mcpServer.Spec.Manifest.Runtime == types.RuntimeRemote {
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeRemote || mcpServer.Spec.Manifest.Runtime == types.RuntimeBuiltin {
 		mcpServer.Status.DeploymentStatus = "Available"
 		mcpServer.Status.DeploymentAvailableReplicas = nil
 		mcpServer.Status.DeploymentReadyReplicas = nil

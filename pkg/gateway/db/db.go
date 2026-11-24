@@ -172,6 +172,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.MCPOAuthPendingState{},
 		types.MCPOAuthChallenge{},
 		types.MCPOAuthAttemptBudget{},
+		types.ToolListRequest{},
 		types.MCPAuditLog{},
 		types.MCPAuditLogBody{},
 		types.TempSetupUser{},

@@ -233,6 +233,7 @@
 	"vmcps_mcp_servers_in_named": "MCP Servers in {name}",
 	"vmcps_mcp_servers_settings": "MCP Servers Settings",
 	"vmcps_modify_tools": "Modify Tools",
+	"vmcps_builtin_tools_use_profiles": "{name}'s tools are built into Obot and can't be changed. To choose who gets which of its tools, use this vMCP's profiles.",
 	"vmcps_n_more": "+{count} more",
 	"vmcps_n_more_servers": "{count} more servers",
 	"vmcps_name_required": "Name is required",

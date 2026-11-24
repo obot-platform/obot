@@ -134,6 +134,13 @@ func TestComputeUsage(t *testing.T) {
 		want     types.EntitlementsUsage
 	}{
 		{
+			name: "a built-in component uses no compute",
+			objs: []kclient.Object{
+				testVMCP("vmcp1", testComponent("admin", types.RuntimeBuiltin, false, types.MCPResourceRequests{})),
+				testInstance("instance1", "vmcp1"),
+			},
+		},
+		{
 			name: "a multi-user component runs once for its vMCP",
 			objs: []kclient.Object{
 				testVMCP("vmcp1", shared),

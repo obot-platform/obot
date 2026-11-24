@@ -76,7 +76,12 @@ func DecodeCatalogFile[T any](path string) ([]T, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+	return DecodeCatalogContents[T](contents)
+}
 
+// DecodeCatalogContents decodes the contents of a catalog file, which hold one
+// item or a list of items. It reports whether the contents are a list.
+func DecodeCatalogContents[T any](contents []byte) ([]T, bool, error) {
 	// Strict decoding into any detects the shape and rejects duplicate keys, not unknown fields.
 	var shape any
 	if err := yaml.UnmarshalStrict(contents, &shape); err != nil {

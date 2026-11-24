@@ -10,6 +10,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
@@ -35,7 +36,7 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		if entry, ok := obj.(*v1.MCPServerCatalogEntry); ok {
 			entries = append(entries, entry)
 			if entry.Spec.Manifest.EntryKey != "" {
-				ref := sourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
+				ref := catalogvalidation.SourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
 				entriesByRef[ref] = entry
 			}
 		} else if vmcp, ok := obj.(*v1.VMCP); ok {
@@ -69,7 +70,7 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 				return nil, nil, nil, fmt.Errorf("failed to recover vMCP component catalog reference: %w", err)
 			}
 			if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
-				existing.Spec.ComponentCatalogReferences[component.ID] = sourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
+				existing.Spec.ComponentCatalogReferences[component.ID] = catalogvalidation.SourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
 			}
 		}
 
@@ -137,7 +138,7 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		}
 
 		staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&vmcp.Spec.Manifest, previousConfiguration)
-		if err := validateCatalogVMCPStaticConfiguration(vmcp.Spec.Manifest, staticConfiguration); err != nil {
+		if err := catalogvalidation.ValidateVMCPStaticConfiguration(vmcp.Spec.Manifest, staticConfiguration); err != nil {
 			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
 			continue
 		}
@@ -157,32 +158,16 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 	return entries, retained, syncErrors, nil
 }
 
-// validateCatalogVMCPStaticConfiguration rejects required fixed configuration
-// without a value. Catalog synced vMCPs cannot be configured through the API,
-// so a missing value would otherwise leave the vMCP unusable.
-func validateCatalogVMCPStaticConfiguration(manifest types.VMCPManifest, staticConfiguration map[string]string) error {
-	var errs []error
-	for _, component := range manifest.Components {
-		for _, key := range vmcpconfig.MissingRequiredConfiguration(component, staticConfiguration, false) {
-			if _, configurationKey, ok := vmcpconfig.ParseConfigurationKey(key); ok {
-				key = configurationKey
-			}
-			errs = append(errs, fmt.Errorf("component %q required configuration %q must set a fixed value or secretBinding", component.Name, key))
-		}
-	}
-	return errors.Join(errs...)
-}
-
 func resolveCatalogVMCPComponents(vmcp *v1.VMCP, existing *v1.VMCP, sourceURL string, entriesByRef map[string]*v1.MCPServerCatalogEntry, versionSkippedRefs map[string]struct{}) error {
 	sourceID := mcp.SourceIDForURL(sourceURL)
 	vmcp.Spec.ComponentCatalogReferences = make(map[string]string)
 	for index := range vmcp.Spec.Manifest.Components {
 		component := &vmcp.Spec.Manifest.Components[index]
-		refSourceID, entryKey, _, valid := parseSourceRef(sourceID, component.MCPServerCatalogEntryID)
+		refSourceID, entryKey, _, valid := catalogvalidation.ParseSourceRef(sourceID, component.MCPServerCatalogEntryID)
 		if !valid {
 			return fmt.Errorf("invalid component catalog entry reference %q", component.MCPServerCatalogEntryID)
 		}
-		reference := sourceRef(refSourceID, entryKey)
+		reference := catalogvalidation.SourceRef(refSourceID, entryKey)
 		entry := entriesByRef[reference]
 		if _, skipped := versionSkippedRefs[reference]; entry == nil && skipped {
 			return fmt.Errorf("component %q: %w", component.MCPServerCatalogEntryID, errComponentVersionSkipped)

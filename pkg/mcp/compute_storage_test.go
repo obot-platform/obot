@@ -103,6 +103,21 @@ func TestStorageAdmitsComputeWithinTheSubscription(t *testing.T) {
 		t.Error("Create() of the instance that fits didn't take the lock")
 	}
 
+	// A built-in component deploys nothing even when the subscription is full.
+	vmcp.Spec.Manifest.Components = append(vmcp.Spec.Manifest.Components, types.VMCPComponent{
+		ID:   "admin",
+		Name: "admin",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:       types.RuntimeBuiltin,
+				BuiltinConfig: &types.BuiltinRuntimeConfig{Name: "obot-admin"},
+			},
+		},
+	})
+	if err := c.Update(t.Context(), vmcp); err != nil {
+		t.Fatalf("adding a built-in at the limit: %v", err)
+	}
+
 	// The second doesn't, and isn't stored.
 	err = c.Create(t.Context(), instance("instance2"))
 	if _, refused := mcp.ComputeLimitRefusal(err); !refused {

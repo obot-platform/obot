@@ -5,7 +5,11 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import { m } from '$lib/i18n';
-	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
+	import {
+		isBuiltinComponent,
+		type VMcpToolDialog,
+		type VMcpToolFlow
+	} from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
 	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
 	import { goto } from '$lib/url';
@@ -353,12 +357,18 @@
 		<button class="btn btn-secondary w-full" onclick={() => flow.editDetails()}>
 			{readonly ? m.vmcps_view_details() : m.vmcps_edit_details()}
 		</button>
-		<button
-			class="btn btn-secondary w-full"
-			onclick={() => flow.modifyToolsFromActions(Boolean(readonly))}
-		>
-			{readonly ? m.vmcps_view_tools() : m.vmcps_modify_tools()}
-		</button>
+		{#if isBuiltinComponent(flow.configuringComponent)}
+			<p class="text-muted-content text-center text-sm">
+				{m.vmcps_builtin_tools_use_profiles({ name: flow.configuringComponent?.name ?? '' })}
+			</p>
+		{:else}
+			<button
+				class="btn btn-secondary w-full"
+				onclick={() => flow.modifyToolsFromActions(Boolean(readonly))}
+			>
+				{readonly ? m.vmcps_view_tools() : m.vmcps_modify_tools()}
+			</button>
+		{/if}
 		{#if flow.canSeeComponentConfiguration}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
 				{readonly ? m.vmcps_view_configuration() : m.vmcps_change_configuration()}

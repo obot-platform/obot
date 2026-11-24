@@ -18,6 +18,12 @@ var (
 		"files/skills/obot-search-skills/SKILL.md.tmpl",
 		"files/skills/obot-search-mcp-servers/SKILL.md.tmpl",
 		"files/skills/obot-install-skill/SKILL.md.tmpl",
+		"files/skills/obot-author-vmcps/SKILL.md.tmpl",
+	}
+	// adminSkills are installed only for admins and owners: they use the Obot Admin MCP server,
+	// which refuses everyone else.
+	adminSkills = map[string]bool{
+		"obot-author-vmcps": true,
 	}
 )
 
@@ -26,6 +32,8 @@ var (
 type TemplateData struct {
 	AgentID            string
 	InstallDestination string
+	// Admin is true when the user is an admin or owner, who get the admin skills too.
+	Admin bool
 }
 
 // SkillAsset is one rendered skill file relative to a client skills
@@ -62,12 +70,15 @@ func RenderAgentSkills(data TemplateData) ([]SkillAsset, error) {
 
 	assets := make([]SkillAsset, 0, len(fileSkillTemplates))
 	for _, templatePath := range fileSkillTemplates {
+		skillName := path.Base(path.Dir(templatePath))
+		if adminSkills[skillName] && !data.Admin {
+			continue
+		}
 		content, err := renderTemplate(templatePath, data)
 		if err != nil {
 			return nil, err
 		}
 
-		skillName := path.Base(path.Dir(templatePath))
 		assets = append(assets, SkillAsset{
 			SkillName: skillName,
 			RelPath:   path.Join(skillName, "SKILL.md"),

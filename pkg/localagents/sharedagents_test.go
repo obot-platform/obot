@@ -12,7 +12,7 @@ import (
 func TestSharedAgentsInstallBootstrapWritesExpectedSkills(t *testing.T) {
 	home := t.TempDir()
 
-	result, err := NewSharedAgents().InstallBootstrap(t.Context(), home)
+	result, err := NewSharedAgents().InstallBootstrap(t.Context(), home, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,11 +20,11 @@ func TestSharedAgentsInstallBootstrapWritesExpectedSkills(t *testing.T) {
 	if result.AgentID != SharedAgentsID {
 		t.Fatalf("AgentID = %q, want %q", result.AgentID, SharedAgentsID)
 	}
-	if len(result.Installed) != 4 {
-		t.Fatalf("Installed count = %d, want 4: %#v", len(result.Installed), result.Installed)
+	if len(result.Installed) != 5 {
+		t.Fatalf("Installed count = %d, want 5: %#v", len(result.Installed), result.Installed)
 	}
 
-	for _, name := range []string{"obot", "obot-search-skills", "obot-search-mcp-servers", "obot-install-skill"} {
+	for _, name := range []string{"obot", "obot-search-skills", "obot-search-mcp-servers", "obot-install-skill", "obot-author-vmcps"} {
 		content := readFile(t, filepath.Join(home, ".agents", "skills", name, skillformat.SkillMainFile))
 		if !strings.Contains(content, "Obot") && !strings.Contains(content, "obot") {
 			t.Fatalf("%s content did not look like an Obot bootstrap skill:\n%s", name, content)
@@ -43,7 +43,7 @@ func TestSharedAgentsInstallBootstrapOverwritesExistingContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := NewSharedAgents().InstallBootstrap(t.Context(), home); err != nil {
+	if _, err := NewSharedAgents().InstallBootstrap(t.Context(), home, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -91,5 +91,25 @@ func TestSharedAgentsInstallSkillWritesSanitizedDirectory(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0755 {
 		t.Fatalf("script mode = %v, want 0755", info.Mode().Perm())
+	}
+}
+
+// Only admins and owners get the skills that use the Obot Admin MCP server.
+func TestSharedAgentsInstallBootstrapLeavesOutAdminSkillsForOthers(t *testing.T) {
+	home := t.TempDir()
+
+	result, err := NewSharedAgents().InstallBootstrap(t.Context(), home, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Installed) != 4 {
+		t.Fatalf("Installed count = %d, want 4: %#v", len(result.Installed), result.Installed)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".agents", "skills", "obot-author-vmcps")); !os.IsNotExist(err) {
+		t.Fatalf("obot-author-vmcps installed for a non-admin: %v", err)
+	}
+	content := readFile(t, filepath.Join(home, ".agents", "skills", "obot", skillformat.SkillMainFile))
+	if strings.Contains(content, "obot-author-vmcps") {
+		t.Fatalf("the obot skill points a non-admin at obot-author-vmcps:\n%s", content)
 	}
 }

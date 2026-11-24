@@ -783,7 +783,7 @@ export interface VMCPInstanceList {
 
 // MCP runtime
 
-export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'vmcp' | 'openapi';
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'vmcp' | 'openapi' | 'builtin';
 
 export interface OpenAPISource {
 	url?: string;

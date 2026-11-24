@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/obot-platform/obot/pkg/adminmcp"
+
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
@@ -258,6 +260,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 
 	if err := c.mcpCatalogHandler.SetUpDefaultSystemMCPCatalog(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to set up default system mcp catalog: %w", err))
+	}
+
+	if err := adminmcp.EnsureBuiltinEntry(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to set up the Obot Admin catalog entry: %w", err))
 	}
 
 	if err := c.reconcileNetworkPolicyProvider(ctx); err != nil {

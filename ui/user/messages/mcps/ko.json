@@ -1207,5 +1207,16 @@
 	"mcps_inject_headers_user_name": "인증된 계정의 사용자 이름이며 표시 이름이 아닙니다. 변경될 수 있습니다.",
 	"mcps_inject_headers_user_email": "인증된 주체에 포함된 이메일 주소입니다. 사용할 수 없으면 생략되며, 주소가 검증되었음을 보장하지 않습니다.",
 	"mcps_inject_headers_idp_user_id": "인증 공급자가 할당한 사용자 식별자입니다. API 키의 경우 키 소유자를 식별합니다. 사용할 수 없거나 연결된 여러 ID 중 하나를 특정할 수 없으면 생략됩니다.",
-	"mcps_inject_headers_idp_groups": "Obot에 저장된 호출자의 IdP 그룹 ID를 공급자 접두사를 포함한 쉼표로 구분된 목록으로 전달합니다. API 키는 소유자의 그룹을 사용합니다. Obot 역할 및 그룹 표시 이름은 제외하며 비어 있으면 생략됩니다."
+	"mcps_inject_headers_idp_groups": "Obot에 저장된 호출자의 IdP 그룹 ID를 공급자 접두사를 포함한 쉼표로 구분된 목록으로 전달합니다. API 키는 소유자의 그룹을 사용합니다. Obot 역할 및 그룹 표시 이름은 제외하며 비어 있으면 생략됩니다.",
+	"mcps_list_tools_request": "코딩 에이전트가 Obot에 {name}의 도구 목록을 요청했습니다.",
+	"mcps_list_tools_explanation": "목록을 표시하면 Obot의 다른 곳에서 도구 목록을 표시할 때와 마찬가지로 카탈로그 구성으로 서버가 잠시 실행됩니다. 이 요청을 직접 시작한 경우에만 계속하세요.",
+	"mcps_list_tools_confirm": "실행하고 도구 목록 표시",
+	"mcps_list_tools_decline": "거절",
+	"mcps_list_tools_done": "도구 {count}개를 가져왔습니다. 터미널로 돌아가세요. obot 명령이 결과를 받았습니다.",
+	"mcps_list_tools_declined": "거절했습니다. 아무것도 실행되지 않았습니다.",
+	"mcps_list_tools_unavailable": "이 요청은 만료되었거나 이미 응답되었습니다. obot 명령을 다시 실행하세요.",
+	"mcps_list_tools_failed": "도구 목록을 가져올 수 없습니다: {error}. obot 명령에 알렸으므로 에이전트도 확인할 수 있습니다.",
+	"mcps_list_tools_other_entry": "이 요청은 다른 MCP 서버에 대한 것이므로 여기서 응답할 수 없습니다. obot 명령을 다시 실행하세요.",
+	"mcps_list_tools_delivery_pending": "Obot이 아직 결과를 확인하지 못했습니다. 서버를 다시 시작하지 않고 결과 전송을 다시 시도하세요.",
+	"mcps_list_tools_retry_delivery": "결과 전송 다시 시도"
 }

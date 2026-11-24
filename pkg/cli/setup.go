@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -39,6 +40,11 @@ const (
 	setupErrorClientInstallFailed   setupErrorCode = "client_install_failed"
 	setupErrorAuthInvalid           setupErrorCode = "auth_invalid"
 	setupErrorUnknown               setupErrorCode = "unknown"
+)
+
+var (
+	// setupIsAdmin reports whether the client's user is an admin or owner; tests replace it.
+	setupIsAdmin = isAdmin
 )
 
 type Setup struct {
@@ -133,9 +139,10 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 	if err := progress.emit(setupProgressEvent{Type: setupProgressAuthStarted, URL: appURL}); err != nil {
 		return err
 	}
-	if _, err := s.root.Client.GetToken(ctx, apiclient.TokenFetchOptions{
+	token, err := s.root.Client.GetToken(ctx, apiclient.TokenFetchOptions{
 		Scopes: types.DefaultCLIAPIKeyScopes(),
-	}); err != nil {
+	})
+	if err != nil {
 		return setupErrorf(setupAuthErrorCode(err), "authenticate with Obot: %w", err)
 	}
 	if err := progress.emit(setupProgressEvent{Type: setupProgressAuthCompleted, URL: appURL}); err != nil {
@@ -170,13 +177,20 @@ func (s *Setup) run(cmd *cobra.Command, progress setupProgressWriter) error {
 		return setupErrorf(setupErrorClientDetectionFailed, "failed to get user home dir: %w", err)
 	}
 
+	// Admins and owners also get the skills that use the Obot Admin MCP server. If the role can't be
+	// read, setup carries on without them.
+	admin, err := setupIsAdmin(ctx, s.root.Client.WithToken(token))
+	if err != nil && !progress.json {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Couldn't check your Obot role, so admin skills aren't installed: %v\n", err)
+	}
+
 	var installed []localagents.InstallResult
 	var installErrs []error
 	for _, target := range localagents.SetupTargets() {
 		if !selection.clientIDs[target.ID()] {
 			continue
 		}
-		result, err := target.InstallBootstrap(ctx, home)
+		result, err := target.InstallBootstrap(ctx, home, admin)
 		if err != nil {
 			installErrs = append(installErrs, setupErrorf(setupErrorClientInstallFailed, "install bootstrap for %s: %w", target.DisplayName(), err))
 			continue
@@ -533,4 +547,13 @@ func promptLine(cmd *cobra.Command, prompt string) (string, error) {
 			return "", err
 		}
 	}
+}
+
+// isAdmin reports whether the client's user is an admin or owner.
+func isAdmin(ctx context.Context, client *apiclient.Client) (bool, error) {
+	user, err := client.GetMe(ctx)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(user.Groups, types.GroupAdmin) || slices.Contains(user.Groups, types.GroupOwner), nil
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import CatalogEntryRequestForm from '$lib/components/admin/CatalogEntryRequestForm.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
@@ -13,13 +13,13 @@
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { isConnectorsNavigation } from '../../utils';
-	import { untrack, type Component } from 'svelte';
+	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let catalogEntry = $state(untrack(() => data.catalogEntry));
+	let catalogEntry = $derived(data.catalogEntry);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isSourcedEntry = $derived(
@@ -87,13 +87,15 @@
 			/>
 		{/if}
 
-		<McpServerEntryForm
+		<CatalogEntryRequestForm
 			entry={catalogEntry}
 			type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'hosted'}
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={serverScopeID}
 			entity={serverScopeEntity}
 			limitViews={preview ? ['overview', 'tools'] : undefined}
+			toolListRequestID={data.toolListRequestID ?? undefined}
+			toolListRequest={data.toolListRequest}
 		/>
 	</div>
 </Layout>

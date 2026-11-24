@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/obot-platform/obot/pkg/version"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/yaml"
 )
@@ -209,4 +210,19 @@ func ValidateManifest(ctx context.Context, entry types.MCPServerCatalogEntryMani
 		mcp.ValidateSecretBindingsCatalogEntry(entry, options.GitManaged, false, options.MCPBackend),
 		mcp.ValidateTemplateReferencesCatalogEntry(entry),
 	)
+}
+
+// ValidateVMCPStaticConfiguration rejects required administrator configuration
+// that neither the source nor the vMCP's retained credential can supply.
+func ValidateVMCPStaticConfiguration(manifest types.VMCPManifest, values map[string]string) error {
+	var errs []error
+	for _, component := range manifest.Components {
+		for _, key := range vmcpconfig.MissingRequiredConfiguration(component, values, false) {
+			if _, configurationKey, ok := vmcpconfig.ParseConfigurationKey(key); ok {
+				key = configurationKey
+			}
+			errs = append(errs, fmt.Errorf("component %q required configuration %q must set a fixed value or secretBinding", component.Name, key))
+		}
+	}
+	return errors.Join(errs...)
 }

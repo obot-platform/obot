@@ -387,6 +387,20 @@ func (c *Client) listAuthGroupsFromCache(ctx context.Context, authProviderNamesp
 	return result, nil
 }
 
+// GroupResolution records whether a display group was backed by a directory or cache row.
+type GroupResolution struct {
+	types.Group
+	Status GroupResolutionStatus
+}
+
+type GroupResolutionStatus string
+
+const (
+	GroupResolved   GroupResolutionStatus = "found"
+	GroupMissing    GroupResolutionStatus = "missing"
+	GroupUnverified GroupResolutionStatus = "unverified"
+)
+
 // ResolveAuthGroups looks up specific groups by ID, which is what the UI needs to render a name for
 // a group that already has a role or policy attached.
 //
@@ -397,8 +411,22 @@ func (c *Client) listAuthGroupsFromCache(ctx context.Context, authProviderNamesp
 // For a provider that SCIM manages, the groups table holds its groups, and the provider is never
 // asked.
 func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, ids []string) ([]types.Group, error) {
+	results, err := c.ResolveAuthGroupStatuses(ctx, authProviderURL, authProviderNamespace, authProviderName, ids)
+	if err != nil {
+		return nil, err
+	}
+	groups := make([]types.Group, 0, len(results))
+	for _, result := range results {
+		groups = append(groups, result.Group)
+	}
+	return groups, nil
+}
+
+// ResolveAuthGroupStatuses retains the distinction between a known group, an
+// authoritative miss, and an unavailable directory for authoring callers.
+func (c *Client) ResolveAuthGroupStatuses(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, ids []string) ([]GroupResolution, error) {
 	if len(ids) == 0 {
-		return []types.Group{}, nil
+		return nil, nil
 	}
 
 	var cached []types.Group
@@ -415,6 +443,7 @@ func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderURL, authPro
 		byID[group.ID] = group
 	}
 
+	unknown := GroupUnverified
 	missing := missingGroupIDs(ids, byID)
 	if len(missing) > 0 && authProviderURL != "" {
 		// A failed lookup fails the resolution rather than falling back to the directory.
@@ -424,18 +453,23 @@ func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderURL, authPro
 		}
 		if conn != nil {
 			authProviderURL = ""
+			unknown = GroupMissing
 		}
 	}
 
 	if len(missing) > 0 && authProviderURL != "" {
 		fetched, err := c.resolveAuthGroupsFromProvider(ctx, authProviderURL, authProviderNamespace, authProviderName, missing)
-		if err != nil {
+		switch {
+		case errors.Is(err, errors.ErrUnsupported):
+		// No authoritative directory to check.
+		case err != nil:
 			// Resolution is best effort. A missing name degrades to the ID, which is still
 			// identifiable, and failing the whole page over it would be worse.
 			slog.Warn("failed to resolve groups from auth provider, falling back to ids",
 				"authProviderName", authProviderName, "authProviderNamespace", authProviderNamespace,
 				"groups", len(missing), "error", err)
-		} else {
+		default:
+			unknown = GroupMissing
 			for _, group := range fetched {
 				byID[group.ID] = group
 			}
@@ -444,18 +478,18 @@ func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderURL, authPro
 		}
 	}
 
-	resolved := make([]types.Group, 0, len(ids))
+	resolved := make([]GroupResolution, 0, len(ids))
 	for _, id := range ids {
 		if group, ok := byID[id]; ok {
-			resolved = append(resolved, group)
+			resolved = append(resolved, GroupResolution{Group: group, Status: GroupResolved})
 			continue
 		}
-		resolved = append(resolved, types.Group{
+		resolved = append(resolved, GroupResolution{Status: unknown, Group: types.Group{
 			ID:                    id,
 			AuthProviderName:      authProviderName,
 			AuthProviderNamespace: authProviderNamespace,
 			Name:                  id,
-		})
+		}})
 	}
 
 	return resolved, nil
@@ -483,8 +517,7 @@ func missingGroupIDs(ids []string, resolved map[string]types.Group) []string {
 
 // resolveAuthGroupsFromProvider asks the auth provider to name the given group IDs.
 //
-// A provider that does not implement the route answers 404, which is reported as no results rather
-// than as an error: github, google and local have no directory to ask, and an Obot running against
+// A provider that does not implement the route answers 404, which leaves missing IDs unverified: github, google and local have no directory to ask, and an Obot running against
 // an older provider image should degrade to IDs rather than log an outage on every page load.
 func (c *Client) resolveAuthGroupsFromProvider(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, ids []string) ([]types.Group, error) {
 	u, err := url.Parse(authProviderURL + "/obot-get-auth-groups")
@@ -510,7 +543,7 @@ func (c *Client) resolveAuthGroupsFromProvider(ctx context.Context, authProvider
 	if resp.StatusCode == http.StatusNotFound {
 		slog.Debug("auth provider does not support group resolution, using ids",
 			"authProviderName", authProviderName, "authProviderNamespace", authProviderNamespace)
-		return nil, nil
+		return nil, errors.ErrUnsupported
 	}
 
 	if resp.StatusCode != http.StatusOK {

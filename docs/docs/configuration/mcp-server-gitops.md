@@ -122,6 +122,17 @@ Both commands validate entries against the Obot version of the CLI. An entry who
 
 The previous names, `validate-catalog-yaml` and `validate-system-catalog-yaml`, remain available as compatibility aliases with the same flags and YAML default.
 
+For checks against a running Obot instance, connect a coding agent to a vMCP that includes the
+Obot Admin built-in server and call `validate_catalog_files` with the catalog source URL and the exact
+contents of every changed file. Include new entry definitions referenced by those files. The tool
+checks current entry references, retained configuration, Secret bindings, and profile access after
+defaults are applied. OpenAPI source URLs may be fetched using the instance's network policy;
+validation saves nothing and launches no MCP servers. Revalidate if the referenced state changes
+before the files are applied. Each call accepts at most 50 files and 200 catalog items,
+imports at most 10 OpenAPI sources (including failed imports), retains at most 8 MiB of
+imported schemas, and has a one-minute deadline. Split larger changes into smaller batches,
+including the entry definitions each batch references.
+
 ## Converting Legacy Catalog Configuration
 
 Use `obot mcp convert-catalog` to migrate legacy `env`, header, and `serverUserType` fields to the current `config` schema in place:
@@ -211,7 +222,7 @@ profiles:
           allowedTools: null # Allow all enabled tools for this component.
 ```
 
-A component's `configuration` sets a policy for each of its entry's configuration fields: `fixed`, `userAllowed`, or `prohibited`. A `fixed` field can use `secretBinding` instead of a clear-text `value` so Obot reads the value from a Kubernetes Secret when the component server starts:
+A component's `configuration` sets a policy for each of its entry's configuration fields: `fixed`, `userAllowed`, or `prohibited`. For shared credentials, use a Kubernetes `secretBinding` on a `fixed` field so Obot reads the value from a Secret when the component server starts. Keep tokens, passwords, and keys out of catalog source files and Git history:
 
 ```yaml
 components:
@@ -226,7 +237,9 @@ components:
           key: gitlab_key     # Key within that Secret
 ```
 
-vMCP secret bindings follow the same rules as [catalog entry secret bindings](#kubernetes-secret-bindings) and are only available in Git catalog sources. A binding cannot be combined with `value`, and the entry's field must not define a static `value`. Catalog synced vMCPs cannot be configured through the Obot UI or API, so sync reports an error and does not create the vMCP when a required `fixed` field has neither a `value` nor a `secretBinding`.
+vMCP secret bindings follow the same rules as [catalog entry secret bindings](#kubernetes-secret-bindings) and require the Kubernetes MCP runtime backend. A binding cannot be combined with `value`, and the entry's field must not define a static `value`. Catalog-synced vMCP definitions cannot be configured through the Obot UI or API. Sync reports an error when a required `fixed` field has no binding, literal value, or retained credential for the same vMCP and component ID. Use `userAllowed` for configuration each user supplies on their own connection.
+
+Literal `value` fields remain supported for compatibility and for non-sensitive configuration. Obot does not recommend supplying credentials through this Git mechanism. Moving a literal into Obot's credential store during sync does not remove it from the repository or its history.
 
 When replacing a migrated composite with a catalog vMCP, keep the same `entryKey` and catalog source. Migration and sync use these to generate the same vMCP ID, preserving existing connections and credentials. Sync marks the vMCP as `adopted` when it takes over management. If the original entry had no `entryKey`, retain its name as the vMCP's `displayName` for matching.
 
@@ -307,11 +320,12 @@ env:
 
 #### Static values
 
-A field with a `value` is static configuration: users are not asked for it. Obot stores static values
-in its encrypted credential store and omits them from the catalog entry returned by the API, so they
-are not visible to users who can connect to the entry. The value is still clear text in the Git
-repository; use a [secret binding](#kubernetes-secret-bindings) for secrets that should not be
-committed. Removing a `value` from the source removes it from the entry on the next sync.
+A field with a `value` is static configuration: users are not asked for it. Use this for non-sensitive
+settings. Obot moves static values into its credential store and omits them from the catalog entry
+returned by the API. Application-level encryption depends on the instance's
+[encryption configuration](../security/credentials.md). The source value remains clear text in Git;
+Obot recommends [Kubernetes secret bindings](#kubernetes-secret-bindings) for credentials.
+Removing a `value` from the source removes it from the entry on the next sync.
 
 #### Selectable configuration values
 
@@ -467,18 +481,28 @@ Secret bindings let you wire an env var, header, or file to a key in an external
 
 Secret bindings are only available when Obot is using the Kubernetes MCP runtime backend.
 
+Use bindings for credentials in catalog entries and vMCP component configuration. Manage Secret values
+outside the catalog repository. If the instance uses another runtime backend or has no suitable Secret,
+ask an administrator to arrange credential provisioning before publishing the definition.
+
 The referenced Kubernetes Secret must be in the Obot server namespace and must have the [configured allowed secret-binding label](./server-configuration.md).
 
 Obot checks this label when resolving bound values. If the Secret is missing the label, the binding is treated the same as a missing Secret or key. Required bound fields are reported as missing configuration.
+
+When authoring files with the Obot Admin MCP server, call `list_secret_bindings({})`. It returns the
+available Secret names and nonempty key names using the same namespace and allowed-label filtering
+as the UI's Secret picker. It never returns Secret values. `available: false` means Kubernetes bindings
+are unavailable; `available: true` with an empty `secrets` list means no usable Secrets are available yet.
 
 #### Basic env var binding
 
 The resolved value is injected into the MCP server pod as an environment variable — this works for `npx`, `uvx`, and `containerized` runtimes (not `remote`, which uses header bindings instead).
 
 ```yaml
-env:
+config:
   - key: API_KEY
     name: API Key
+    usage: env
     required: true
     sensitive: true
     description: Bound to a pre-existing Kubernetes Secret — no user input needed.
@@ -494,13 +518,13 @@ env:
 
 #### File binding
 
-When `file: true` the secret value is written to a file under `/files/` and the env var is set to the file path. This is useful for secrets that applications expect to read from the filesystem.
+With `usage: file`, the secret value is written to a file under `/files/` and the env var is set to the file path. This is useful for secrets that applications expect to read from the filesystem.
 
 ```yaml
-env:
+config:
   - key: TLS_CERT
     name: TLS Certificate
-    file: true
+    usage: file
     required: true
     sensitive: true
     description: PEM certificate; mounted as a file at the path stored in TLS_CERT.
@@ -513,14 +537,13 @@ The application reads the certificate path from `os.Getenv("TLS_CERT")` and open
 
 #### Dynamic file binding
 
-Adding `dynamicFile: true` (requires `file: true`) allows the mounted file to update **without restarting the pod** when the source Kubernetes Secret changes. The application is responsible for watching/re-reading the file for changes. This only has an effect when `file: true`.
+With `usage: dynamicFile`, the mounted file can update **without restarting the pod** when the source Kubernetes Secret changes. The application is responsible for watching/re-reading the file for changes.
 
 ```yaml
-env:
+config:
   - key: API_CREDENTIALS
     name: API Credentials File
-    file: true
-    dynamicFile: true
+    usage: dynamicFile
     required: true
     sensitive: true
     description: Credentials file updated in-place when the Secret rotates — no pod restart needed.
@@ -529,9 +552,7 @@ env:
       key: credentials.json
 ```
 
-**Constraints:**
-- `dynamicFile` is ignored unless `file: true`.
-- `file` and `dynamicFile` are not supported on header bindings.
+Use `usage: header` for header bindings; `file` and `dynamicFile` apply to environment-variable file paths.
 
 #### Header binding (remote servers)
 
@@ -541,14 +562,15 @@ For `remote` runtime servers, bind an outbound HTTP header to a Kubernetes Secre
 runtime: remote
 remoteConfig:
   fixedURL: https://api.example.com/mcp
-  headers:
-    - key: Authorization
-      name: API Token
-      required: true
-      sensitive: true
-      secretBinding:
-        name: api-token-secret
-        key: token
+config:
+  - key: Authorization
+    name: API Token
+    usage: header
+    required: true
+    sensitive: true
+    secretBinding:
+      name: api-token-secret
+      key: token
 ```
 
 ### OpenAPI schemas

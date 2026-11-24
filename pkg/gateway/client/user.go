@@ -137,6 +137,23 @@ func (c *Client) UserByID(ctx context.Context, id string) (*types.User, error) {
 	return u, c.decryptUser(ctx, u)
 }
 
+// UsersByIDs returns the users with the given ids that exist and aren't deleted, in one query.
+func (c *Client) UsersByIDs(ctx context.Context, ids []uint) ([]types.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var users []types.User
+	if err := c.db.WithContext(ctx).Where("id IN ? AND deleted_at IS NULL", ids).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	for i := range users {
+		if err := c.decryptUser(ctx, &users[i]); err != nil {
+			return nil, err
+		}
+	}
+	return users, nil
+}
+
 // UserByIDIncludeDeleted returns a user by ID including soft-deleted users (for audit purposes)
 func (c *Client) UserByIDIncludeDeleted(ctx context.Context, id string) (*types.User, error) {
 	u := new(types.User)

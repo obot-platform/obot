@@ -2520,3 +2520,57 @@ func TestReleaseOutdatedLegacyComponentsKeepsGoingPastARefusal(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadComponentSnapshotsRejectsBuiltinToolOverrides(t *testing.T) {
+	entry := vmcpCatalogEntryForTest("entry")
+	entry.Spec.Manifest.Runtime = types.RuntimeBuiltin
+	entry.Spec.Manifest.BuiltinConfig = &types.BuiltinRuntimeConfig{Name: "obot-admin"}
+	for _, tt := range []struct {
+		name          string
+		toolOverrides []types.ToolOverride
+		toolPrefix    string
+		groups        []string
+		wantError     string
+	}{
+		{
+			name: "no tool overrides",
+		},
+		{
+			// A power user's own vMCP can't include a server that would refuse them.
+			name:      "added by a non-admin",
+			groups:    types.RolePowerUserPlus.Groups(),
+			wantError: "only admins and owners can add built-in MCP server",
+		},
+		{
+			name:       "tool prefix",
+			toolPrefix: "admin_",
+		},
+		{
+			name:          "tool overrides",
+			toolOverrides: []types.ToolOverride{{Name: "list_catalogs", Enabled: true}},
+			wantError:     "use the vMCP's profiles",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := newVMCPTestStorage(entry.DeepCopy())
+			manifest := testVMCPManifest()
+			manifest.Components[0].ID = "component"
+			manifest.Components[0].ToolOverrides = tt.toolOverrides
+			manifest.Components[0].ToolPrefix = tt.toolPrefix
+			groups := tt.groups
+			if groups == nil {
+				groups = []string{types.GroupAdmin}
+			}
+			err := vmcpHandlerForTest(t, storage).loadComponentSnapshots(api.Context{
+				Request: httptest.NewRequest(http.MethodPost, "/api/vmcps", nil),
+				Storage: storage,
+				User:    &user.DefaultInfo{UID: "user-1", Groups: groups},
+			}, &manifest, "", nil, true)
+			if tt.wantError != "" {
+				require.ErrorContains(t, err, tt.wantError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
