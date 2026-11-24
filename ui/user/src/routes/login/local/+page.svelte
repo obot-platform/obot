@@ -24,7 +24,8 @@
 		if (!browser) return '';
 		const saved = sessionStorage.getItem(emailKey);
 		sessionStorage.removeItem(emailKey);
-		return error ? (saved ?? '') : '';
+		// An agent's approval link can carry a login hint, which pre-fills the email.
+		return error ? (saved ?? '') : (params?.get('login_hint') ?? '');
 	}
 	let email = $state(savedEmail());
 </script>

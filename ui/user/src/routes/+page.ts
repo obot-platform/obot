@@ -36,7 +36,14 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 
 	if (authProviders.length === 1 && authProviders[0].id === CommonAuthProviderIds.LOCAL) {
 		const rd = url.searchParams.get('rd') || url.pathname;
-		throw redirect(302, '/login/local?rd=' + encodeURIComponent(rd));
+		// An agent's approval link can carry a login hint, which pre-fills the sign-in.
+		const loginHint = url.searchParams.get('login_hint');
+		throw redirect(
+			302,
+			'/login/local?rd=' +
+				encodeURIComponent(rd) +
+				(loginHint ? '&login_hint=' + encodeURIComponent(loginHint) : '')
+		);
 	}
 
 	return {

@@ -4,8 +4,8 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AgentIdentitiesService } from '$lib/services';
+	import { delegationTimes } from '$lib/services/agent-identities/helpers';
 	import type { AgentDelegation } from '$lib/services/agent-identities/types';
-	import { formatTimeAgo } from '$lib/time';
 	import { untrack } from 'svelte';
 
 	interface Props {
@@ -28,9 +28,7 @@
 		delegations.map((d) => ({
 			id: d.id,
 			user: userName(d),
-			firstApprovedAt: formatTimeAgo(d.firstApprovedAt).relativeTime,
-			lastApprovedAt: formatTimeAgo(d.lastApprovedAt).relativeTime,
-			lastUsedAt: d.lastUsedAt ? formatTimeAgo(d.lastUsedAt).relativeTime : m.core_never_used()
+			...delegationTimes(d)
 		}))
 	);
 

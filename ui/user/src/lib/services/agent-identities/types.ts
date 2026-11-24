@@ -143,3 +143,91 @@ export interface AgentDelegation {
 	// When the agent last got a token from the delegation.
 	lastUsedAt?: string;
 }
+
+// An agent's request to act on behalf of the signed-in user, as the user who can approve it sees it
+// (GET /api/agent-delegation-requests/{id}): the agent, and what it will be able to do for them.
+export interface AgentDelegationApprovalRequest {
+	id: string;
+	agent: AgentDelegation['agent'];
+	expiresAt: string;
+	// The user's existing delegation of the agent, if they approved it before. Approving again keeps it.
+	delegationID?: string;
+	access: AgentDelegationAccess;
+}
+
+// What an agent may do for a user one of its profiles matches: the agent's own grants, which are the
+// same for every such user.
+export interface AgentDelegationAccess {
+	vmcps: { vmcpID: string; vmcpDisplayName?: string; profiles: { id: string; name: string }[] }[];
+	modelAccessPolicies: AgentIdentityPolicyAccess[];
+	skillAccessRules: AgentIdentityPolicyAccess[];
+}
+
+// Where to send the user's browser after they approve or cancel a request. Only the server builds it.
+export interface AgentDelegationRedirect {
+	redirectURL: string;
+}
+
+// The setup API is the same while a user approves a request and afterwards, for one of their
+// delegations; only the prefix of its routes differs.
+export type AgentDelegationSetupScope =
+	| { kind: 'request'; requestId: string }
+	| { kind: 'delegation'; delegationId: string };
+
+export type AgentDelegationSetupOAuthState =
+	| 'notRequired'
+	| 'preconfigured'
+	| 'connected'
+	| 'needsAuthorization';
+
+// What a user has set up through an agent, and still needs to, for each vMCP the agent may use for
+// them. It never carries a value or a token.
+export interface AgentDelegationSetup {
+	vmcps: AgentDelegationSetupVMCP[];
+}
+
+export interface AgentDelegationSetupVMCP {
+	vmcpID: string;
+	displayName?: string;
+	ready: boolean;
+	components: AgentDelegationSetupComponent[];
+}
+
+export interface AgentDelegationSetupComponent {
+	componentID: string;
+	name?: string;
+	// The component needs nothing from the user: the vMCP fixes it, the vMCP's preconfigured OAuth
+	// covers it, or it needs nothing at all.
+	covered: boolean;
+	coveredBy?: 'fixed' | 'preconfiguredOAuth' | 'nothing';
+	ready: boolean;
+	reasons?: AgentReadinessReason[];
+	configuration: AgentDelegationSetupField[];
+	oauth: AgentDelegationSetupOAuthState;
+}
+
+// A value the user enters for a component. `set` says whether they set it through the agent; the value
+// itself is never returned.
+export interface AgentDelegationSetupField {
+	key: string;
+	name: string;
+	description: string;
+	sensitive: boolean;
+	required: boolean;
+	usage: string;
+	options?: { name: string; value: string; description?: string }[];
+	set: boolean;
+}
+
+// The body that sets (a string) or clears (null) values, by component ID and key. Keys left out stay
+// as they are.
+export interface AgentDelegationSetupConfiguration {
+	components: Record<string, Record<string, string | null>>;
+}
+
+export interface AgentDelegationSetupOAuth {
+	authURL: string;
+	// The provider only redirects to a localhost callback, so authURL is Obot's local login URL, which
+	// `obot mcp login` opens.
+	localhostCallback?: boolean;
+}

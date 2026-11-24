@@ -1,5 +1,6 @@
 import { m } from '$lib/i18n';
-import type { AgentIdentity, AgentIdentityStatus, AgentAPIKey } from './types';
+import { formatTimeAgo } from '$lib/time';
+import type { AgentDelegation, AgentIdentity, AgentIdentityStatus, AgentAPIKey } from './types';
 
 // Agents appear in the audit and usage APIs as the storage encoding of a principal, "agent:<id>",
 // next to users' plain IDs. It must never be looked up as a user.
@@ -50,6 +51,16 @@ export function agentDisplayName(
 	return name || m.audit_usage_agent_fallback_name({ id: agentId });
 }
 
+// delegationTimes says when a delegation was first and last approved, and last used, as the lists and
+// the user's page of a delegation show it.
+export function delegationTimes(d: AgentDelegation) {
+	return {
+		firstApprovedAt: formatTimeAgo(d.firstApprovedAt).relativeTime,
+		lastApprovedAt: formatTimeAgo(d.lastApprovedAt).relativeTime,
+		lastUsedAt: d.lastUsedAt ? formatTimeAgo(d.lastUsedAt).relativeTime : m.core_never_used()
+	};
+}
+
 // The part of an agent profile form that a validation error of the server (400 "invalid profiles: ...") is about.
 export type ProfileErrorField = 'name' | 'subjects';
 
@@ -64,4 +75,24 @@ export function profileError(reason: string): { field?: ProfileErrorField; text:
 	if (/^(duplicate agent profile name|name\b)/.test(text)) return { field: 'name', text };
 	if (/subject/i.test(text)) return { field: 'subjects', text };
 	return { text };
+}
+
+// agentApprovalSignInPath is the normal sign-in for a signed-out user who opens an agent's approval
+// page at url: it returns them to the page, and passes on the agent's login hint, which pre-fills the
+// sign-in. The hint is a convenience, never a check of who approves.
+export function agentApprovalSignInPath(url: URL): string {
+	const params = new URLSearchParams({ rd: url.pathname + url.search });
+	const hint = url.searchParams.get('login_hint');
+	if (hint) params.set('login_hint', hint);
+	return `/?${params}`;
+}
+
+// isWebURL reports whether a URL the server returned is a web page the browser may be sent to.
+export function isWebURL(url: string): boolean {
+	try {
+		const parsed = new URL(url, window.location.origin);
+		return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+	} catch {
+		return false;
+	}
 }

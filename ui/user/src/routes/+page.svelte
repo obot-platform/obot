@@ -2,6 +2,7 @@
 	import { browser } from '$app/env';
 	import Logo from '$lib/components/Logo.svelte';
 	import { m } from '$lib/i18n';
+	import { navigateTo } from '$lib/navigation';
 	import { type PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -22,6 +23,11 @@
 		}
 		return '/';
 	});
+	// An agent's approval link can carry a login hint, which is passed on to the provider's sign-in.
+	// It is a convenience, never a check of who signs in.
+	let loginHint = $derived(
+		browser ? new URL(window.location.href).searchParams.get('login_hint') : null
+	);
 </script>
 
 <svelte:head>
@@ -73,9 +79,13 @@
 							disabled={provider.requiresActivation}
 							onclick={() => {
 								localStorage.setItem('preAuthRedirect', window.location.href);
-								window.location.href = `/oauth2/start?rd=${encodeURIComponent(
-									overrideRedirect !== null ? overrideRedirect : rd
-								)}&obot-auth-provider=${provider.namespace}/${provider.id}`;
+								navigateTo(
+									`/oauth2/start?rd=${encodeURIComponent(
+										overrideRedirect !== null ? overrideRedirect : rd
+									)}&obot-auth-provider=${provider.namespace}/${provider.id}${
+										loginHint ? `&login_hint=${encodeURIComponent(loginHint)}` : ''
+									}`
+								);
 							}}
 						>
 							{#if provider.icon}

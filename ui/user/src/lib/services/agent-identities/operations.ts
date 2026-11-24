@@ -5,6 +5,13 @@ import type {
 	AgentAPIKeyCreateRequest,
 	AgentAPIKeyCreateResponse,
 	AgentDelegation,
+	AgentDelegationApprovalRequest,
+	AgentDelegationRedirect,
+	AgentDelegationSetup,
+	AgentDelegationSetupConfiguration,
+	AgentDelegationSetupOAuth,
+	AgentDelegationSetupScope,
+	AgentDelegationSetupVMCP,
 	AgentIdentity,
 	AgentIdentityAccess,
 	AgentIdentityManifest,
@@ -107,4 +114,110 @@ export async function listAdminAuditEvents(params: {
 	const query = new URLSearchParams({ ...params, limit: String(params.limit) });
 	const response = (await doGet(`/admin-audit-events?${query}`)) as AdminAuditEventList;
 	return { ...response, items: response.items ?? [] };
+}
+
+// The routes a signed-in user approves an agent's request on. Errors are left to the approval page,
+// which shows the server's message in place of the consent.
+
+export async function getAgentDelegationRequest(
+	requestId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<AgentDelegationApprovalRequest> {
+	return (await doGet(`/agent-delegation-requests/${encodeURIComponent(requestId)}`, {
+		...opts,
+		dontLogErrors: true
+	})) as AgentDelegationApprovalRequest;
+}
+
+export async function approveAgentDelegationRequest(
+	requestId: string
+): Promise<AgentDelegationRedirect> {
+	return (await doPost(
+		`/agent-delegation-requests/${encodeURIComponent(requestId)}/approve`,
+		{},
+		{ dontLogErrors: true }
+	)) as AgentDelegationRedirect;
+}
+
+export async function cancelAgentDelegationRequest(
+	requestId: string
+): Promise<AgentDelegationRedirect> {
+	return (await doPost(
+		`/agent-delegation-requests/${encodeURIComponent(requestId)}/cancel`,
+		{},
+		{ dontLogErrors: true }
+	)) as AgentDelegationRedirect;
+}
+
+// The signed-in user's own delegations: the agents that may act on their behalf.
+export async function listMyAgentDelegations(opts?: {
+	fetch?: Fetcher;
+}): Promise<AgentDelegation[]> {
+	const response = (await doGet('/me/agent-delegations', opts)) as ItemsResponse<AgentDelegation>;
+	return response.items ?? [];
+}
+
+// Revoking ends the agent's access for the user, and deletes what they set up through it.
+export async function revokeMyAgentDelegation(delegationId: string): Promise<void> {
+	await doDelete(`/me/agent-delegations/${encodeURIComponent(delegationId)}`);
+}
+
+function setupPath(scope: AgentDelegationSetupScope) {
+	return scope.kind === 'request'
+		? `/agent-delegation-requests/${encodeURIComponent(scope.requestId)}/setup`
+		: `/me/agent-delegations/${encodeURIComponent(scope.delegationId)}/setup`;
+}
+
+function setupComponentPath(scope: AgentDelegationSetupScope, vmcpId: string, componentId: string) {
+	return `${setupPath(scope)}/vmcps/${encodeURIComponent(vmcpId)}/components/${encodeURIComponent(componentId)}/oauth`;
+}
+
+export async function getAgentDelegationSetup(
+	scope: AgentDelegationSetupScope,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<AgentDelegationSetup> {
+	const setup = (await doGet(setupPath(scope), {
+		...opts,
+		dontLogErrors: true
+	})) as AgentDelegationSetup;
+	return { vmcps: setup.vmcps ?? [] };
+}
+
+// Sets or clears values for a vMCP through the agent, and returns the vMCP's setup.
+export async function configureAgentDelegationSetup(
+	scope: AgentDelegationSetupScope,
+	vmcpId: string,
+	configuration: AgentDelegationSetupConfiguration
+): Promise<AgentDelegationSetupVMCP> {
+	return (await doPut(
+		`${setupPath(scope)}/vmcps/${encodeURIComponent(vmcpId)}/configuration`,
+		configuration,
+		{ dontLogErrors: true }
+	)) as AgentDelegationSetupVMCP;
+}
+
+// Starts connecting the user's upstream account for a component through the agent. The provider's
+// callback returns the browser to the page that started it.
+export async function startAgentDelegationSetupOAuth(
+	scope: AgentDelegationSetupScope,
+	vmcpId: string,
+	componentId: string
+): Promise<AgentDelegationSetupOAuth> {
+	return (await doPost(
+		setupComponentPath(scope, vmcpId, componentId),
+		{},
+		{ dontLogErrors: true }
+	)) as AgentDelegationSetupOAuth;
+}
+
+// Disconnects the user's upstream account for a component through the agent, and returns the vMCP's
+// setup.
+export async function disconnectAgentDelegationSetupOAuth(
+	scope: AgentDelegationSetupScope,
+	vmcpId: string,
+	componentId: string
+): Promise<AgentDelegationSetupVMCP> {
+	return (await doDelete(setupComponentPath(scope, vmcpId, componentId), {
+		dontLogErrors: true
+	})) as AgentDelegationSetupVMCP;
 }
