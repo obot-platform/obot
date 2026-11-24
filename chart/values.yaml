@@ -147,6 +147,9 @@ secret:
   # secret.OBOT_SERVER_LICENSE_KEY -- A license key for Obot Enterprise. If set here, it cannot be set in the UI.
   OBOT_SERVER_LICENSE_KEY: ""
 
+  # secret.OBOT_SERVER_LICENSE_FILE -- The contents of an offline license file, which licenses an air-gapped installation. Requires config.OBOT_SERVER_AIRGAP. If set here, the license cannot be changed in the UI.
+  OBOT_SERVER_LICENSE_FILE: ""
+
 # config - Non-sensitive configuration variables for the Obot deployment. These values are converted to a ConfigMap and used via envFrom.
 config:
   # Egress audit records are retained for 90 days; 0 disables cleanup.

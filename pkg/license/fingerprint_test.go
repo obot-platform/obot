@@ -42,7 +42,7 @@ func TestHasValidLicenseWithoutEntitlements(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	provider, err := newProvider(t.Context(), nil, Config{LicenseKey: "valid-license"}, upstream.URL)
+	provider, err := newProvider(t.Context(), nil, Config{LicenseKey: "valid-license"}, upstream.URL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

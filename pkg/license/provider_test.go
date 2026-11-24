@@ -121,7 +121,7 @@ func newTestProvider(ctx context.Context, t *testing.T, gatewayClient *gatewaycl
 
 	provider, err := newProvider(ctx, gatewayClient, Config{
 		LicenseKey: "license-key",
-	}, url)
+	}, url, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestRequireEntitlement(t *testing.T) {
 
 	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	}, server.URL)
+	}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestRequireEntitlementMissing(t *testing.T) {
 
 	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	}, server.URL)
+	}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestNewProviderContinuesWhenInitialRefreshFails(t *testing.T) {
 
 	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	}, server.URL)
+	}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created despite refresh failure: %v", err)
 	}
@@ -308,7 +308,7 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 
 	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	}, server.URL)
+	}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestValidateRefreshesEntitlements(t *testing.T) {
 
 	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	}, server.URL)
+	}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -394,7 +394,7 @@ func TestValidateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 
 	provider, err := newProvider(ctx, nil, Config{
 		LicenseKey: "license-key",
-	}, server.URL)
+	}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -446,11 +446,11 @@ func TestProviderRefreshesDatabaseLicenseAcrossReplicas(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	gatewayClient := newTestLicenseGatewayClient(t)
-	replicaOne, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	replicaOne, err := newProvider(ctx, gatewayClient, Config{}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected first provider to be created: %v", err)
 	}
-	replicaTwo, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	replicaTwo, err := newProvider(ctx, gatewayClient, Config{}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected second provider to be created: %v", err)
 	}
@@ -532,7 +532,7 @@ func TestSetLicenseKeyWaitsForRefreshBeforeCommitting(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -596,7 +596,7 @@ func TestRemoveLicenseKeyWaitsForRefreshBeforeClearingState(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -704,11 +704,11 @@ func TestRemoveLicenseKeyFallsBackToCommunityLicense(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			gatewayClient := newTestLicenseGatewayClient(t)
-			replicaOne, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+			replicaOne, err := newProvider(ctx, gatewayClient, Config{}, server.URL, nil)
 			if err != nil {
 				t.Fatalf("expected first provider to be created: %v", err)
 			}
-			replicaTwo, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+			replicaTwo, err := newProvider(ctx, gatewayClient, Config{}, server.URL, nil)
 			if err != nil {
 				t.Fatalf("expected second provider to be created: %v", err)
 			}
@@ -770,7 +770,7 @@ func TestRejectedLicenseKeyStaysInEffectUntilRemoved(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}
@@ -1016,7 +1016,7 @@ func TestSetLicenseKeyRequiresKeygenVerdict(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL, nil)
 	if err != nil {
 		t.Fatalf("expected provider to be created: %v", err)
 	}

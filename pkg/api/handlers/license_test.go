@@ -109,6 +109,87 @@ func TestUpdateLicenseMapsCheckFailureToBadGateway(t *testing.T) {
 	requireHTTPError(t, err, http.StatusBadGateway)
 }
 
+func TestUpdateLicenseFile(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name     string
+		body     string
+		setError error
+		wantCode int
+		wantText string
+	}{
+		{
+			name:     "key and file",
+			body:     `{"licenseKey":"license-key","licenseFile":"-----BEGIN LICENSE FILE-----"}`,
+			wantCode: http.StatusBadRequest,
+			wantText: "exactly one of licenseKey or licenseFile is required",
+		},
+		{
+			name:     "neither",
+			body:     `{}`,
+			wantCode: http.StatusBadRequest,
+			wantText: "exactly one of licenseKey or licenseFile is required",
+		},
+		{
+			name:     "rejected file",
+			body:     `{"licenseFile":"-----BEGIN LICENSE FILE-----"}`,
+			setError: &license.FileError{Message: "the license file isn't signed"},
+			wantCode: http.StatusBadRequest,
+			wantText: "the license file isn't signed",
+		},
+		{
+			name:     "license file as a key",
+			body:     `{"licenseKey":"-----BEGIN LICENSE FILE-----"}`,
+			setError: license.ErrLicenseFileAsKey,
+			wantCode: http.StatusBadRequest,
+			wantText: "send it as licenseFile",
+		},
+		{
+			name:     "license key in an air gap",
+			body:     `{"licenseKey":"license-key"}`,
+			setError: license.ErrAirgap,
+			wantCode: http.StatusBadRequest,
+			wantText: "air-gapped installations are licensed with a license file",
+		},
+		{
+			name:     "license file without an air gap",
+			body:     `{"licenseFile":"-----BEGIN LICENSE FILE-----"}`,
+			setError: license.ErrNotAirgap,
+			wantCode: http.StatusBadRequest,
+			wantText: "license files are only used by air-gapped installations",
+		},
+		{
+			name: "valid file",
+			body: `{"licenseFile":"-----BEGIN LICENSE FILE-----"}`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			provider := &fakeCommunityLicenseProvider{setError: tt.setError}
+			err := NewLicenseHandler(provider, nil).Update(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        httptest.NewRequest(http.MethodPut, "/api/license", strings.NewReader(tt.body)),
+				User:           &user.DefaultInfo{},
+			})
+			if tt.wantCode == 0 {
+				if err != nil {
+					t.Fatalf("Update() error = %v", err)
+				}
+				if provider.lastInstalledKey != "-----BEGIN LICENSE FILE-----" {
+					t.Fatalf("installed %q, want the license file", provider.lastInstalledKey)
+				}
+				return
+			}
+			requireHTTPError(t, err, tt.wantCode)
+			if !strings.Contains(err.Error(), tt.wantText) {
+				t.Fatalf("Update() error = %v, want %q", err, tt.wantText)
+			}
+		})
+	}
+}
+
 func TestCheckLicenseSignalsAfterSuccessfulValidation(t *testing.T) {
 	for _, tt := range []struct {
 		name         string

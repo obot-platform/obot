@@ -157,6 +157,11 @@ func normalizeLicenseFile(contents string) string {
 	return strings.TrimSpace(strings.TrimPrefix(contents, "\ufeff"))
 }
 
+// isLicenseFile reports whether a value is a license file rather than a license key.
+func isLicenseFile(value string) bool {
+	return strings.HasPrefix(normalizeLicenseFile(value), licenseFileBeginArmor)
+}
+
 // expired reports whether f has reached its expiry at now. A file without one never expires.
 func (f licenseFile) expired(now time.Time) bool {
 	return f.Expiry != nil && !now.Before(*f.Expiry)

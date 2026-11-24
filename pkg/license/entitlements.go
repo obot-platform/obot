@@ -114,26 +114,25 @@ func (p *Provider) Entitlements(ctx context.Context) (types.Entitlements, error)
 		return types.Entitlements{}, err
 	}
 
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	current := p.currentEntitlements()
 
 	var entitlements types.Entitlements
 	for _, feature := range features {
-		if _, ok := p.entitlements[keygen.EntitlementCode(feature.code)]; ok {
+		if _, ok := current[keygen.EntitlementCode(feature.code)]; ok {
 			*feature.feature(&entitlements) = true
 		}
 	}
-	entitlements.Users = p.resourceLimit(userLimitEntitlementUsersSuffix, gatewayclient.DefaultUserLimit)
-	entitlements.Devices = p.resourceLimit(deviceLimitEntitlementDevicesSuffix, gatewayclient.DefaultDeviceLimit)
+	entitlements.Users = resourceLimit(current, userLimitEntitlementUsersSuffix, gatewayclient.DefaultUserLimit)
+	entitlements.Devices = resourceLimit(current, deviceLimitEntitlementDevicesSuffix, gatewayclient.DefaultDeviceLimit)
 	return entitlements, nil
 }
 
-// resourceLimit adds up the license's OBOT_ENTERPRISE_<number><entitlementSuffix> entitlements. OBOT_ENTERPRISE
-// without any is unlimited, and a license with neither gets defaultMaximum. The caller must hold p.lock.
-func (p *Provider) resourceLimit(entitlementSuffix string, defaultMaximum int64) *int64 {
+// resourceLimit adds up the OBOT_ENTERPRISE_<number><entitlementSuffix> entitlements in current. OBOT_ENTERPRISE
+// without any is unlimited, and a license with neither gets defaultMaximum.
+func resourceLimit(current map[keygen.EntitlementCode]struct{}, entitlementSuffix string, defaultMaximum int64) *int64 {
 	var maximum int64
 	var isEnterpriseEdition bool
-	for entitlement := range p.entitlements {
+	for entitlement := range current {
 		code := string(entitlement)
 		if code == EnterpriseEntitlement {
 			isEnterpriseEdition = true

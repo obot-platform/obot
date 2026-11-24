@@ -32,6 +32,10 @@ type LicenseProvider interface {
 	LicenseKeyViaConfiguration() bool
 	SetLicenseKey(context.Context, string) error
 	SetCommunityLicenseKey(context.Context, string) error
+	SetLicenseFile(context.Context, string) error
+	LicenseFile(context.Context) (bool, *time.Time, error)
+	LicenseFileError() string
+	Airgap() bool
 	RemoveLicenseKey(context.Context) error
 	Validate(context.Context) error
 	HasValidLicense(context.Context) (bool, error)
@@ -54,10 +58,17 @@ type LicenseStatus struct {
 	Enterprise             bool                  `json:"enterprise"`
 	Entitlements           apitypes.Entitlements `json:"entitlements"`
 	ManualCheckAvailableAt *time.Time            `json:"manualCheckAvailableAt,omitempty"`
+	LicenseFile            bool                  `json:"licenseFile"`
+	ExpiresAt              *time.Time            `json:"expiresAt,omitempty"`
+	// LicenseFileError is why the license file in effect grants nothing, for admins.
+	LicenseFileError string `json:"licenseFileError,omitempty"`
+	// Airgap is set for an air-gapped installation, which only license files license.
+	Airgap bool `json:"airgap,omitempty"`
 }
 
 type LicenseUpdate struct {
-	LicenseKey string `json:"licenseKey"`
+	LicenseKey  string `json:"licenseKey"`
+	LicenseFile string `json:"licenseFile"`
 }
 
 func NewLicenseHandler(licenseProvider LicenseProvider, communityIssuer upgrade.CommunityLicenseIssuer) *LicenseHandler {
@@ -81,13 +92,31 @@ func (h *LicenseHandler) Update(req api.Context) error {
 		return err
 	}
 	input.LicenseKey = strings.TrimSpace(input.LicenseKey)
-	if input.LicenseKey == "" {
-		return apitypes.NewErrBadRequest("licenseKey is required")
+	input.LicenseFile = strings.TrimSpace(input.LicenseFile)
+	// A license key is checked with Keygen and a license file is verified locally, so the caller picks one.
+	if (input.LicenseKey == "") == (input.LicenseFile == "") {
+		return apitypes.NewErrBadRequest("exactly one of licenseKey or licenseFile is required")
 	}
 
-	if err := h.licenseProvider.SetLicenseKey(req.Context(), input.LicenseKey); err != nil {
+	var err error
+	if input.LicenseFile != "" {
+		err = h.licenseProvider.SetLicenseFile(req.Context(), input.LicenseFile)
+	} else {
+		err = h.licenseProvider.SetLicenseKey(req.Context(), input.LicenseKey)
+	}
+	if err != nil {
+		if fileErr, ok := errors.AsType[*license.FileError](err); ok {
+			// The message is safe to return, it never includes material from the file.
+			return apitypes.NewErrBadRequest("%s", fileErr.Message)
+		}
 		if errors.Is(err, license.ErrLicenseKeyViaConfiguration) {
 			return apitypes.NewErrBadRequest("license key is configured at startup and cannot be updated via the API")
+		}
+		if errors.Is(err, license.ErrLicenseFileAsKey) {
+			return apitypes.NewErrBadRequest("licenseKey holds a license file, send it as licenseFile")
+		}
+		if errors.Is(err, license.ErrAirgap) || errors.Is(err, license.ErrNotAirgap) {
+			return apitypes.NewErrBadRequest("%s", err.Error())
 		}
 		if errors.Is(err, license.ErrInvalidLicense) {
 			return apitypes.NewErrBadRequest("license key is invalid")
@@ -221,17 +250,27 @@ func (h *LicenseHandler) status(req api.Context) (LicenseStatus, error) {
 	if err != nil {
 		return LicenseStatus{}, err
 	}
+	licenseFile, expiresAt, err := h.licenseProvider.LicenseFile(req.Context())
+	if err != nil {
+		return LicenseStatus{}, err
+	}
 	status := LicenseStatus{
 		LicenseKey:             displayLicenseKey(licenseKey, req.UserIsAdmin()),
 		Locked:                 h.licenseProvider.LicenseKeyViaConfiguration(),
 		Enterprise:             enterprise,
 		Entitlements:           entitlements,
 		ManualCheckAvailableAt: h.manualLicenseCheckAvailableAt(),
+		LicenseFile:            licenseFile,
+		ExpiresAt:              expiresAt,
+		Airgap:                 h.licenseProvider.Airgap(),
+	}
+	if req.UserIsAdmin() {
+		status.LicenseFileError = h.licenseProvider.LicenseFileError()
 	}
 
 	if status.Locked {
 		status.Source = "config"
-	} else if licenseKey != "" {
+	} else if licenseKey != "" || licenseFile {
 		status.Source = "database"
 	}
 
