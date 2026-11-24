@@ -40,6 +40,26 @@ func TestProviderQueueDefaults(t *testing.T) {
 	require.Error(t, testMutation(ctx, e, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 1}}), false)), "validate effective defaults against the requested queue size")
 }
 
+func TestCreateProviderKeepsLiteralHeaders(t *testing.T) {
+	t.Setenv("OBOT_TEST_PROVIDER_HEADER", "resolved-secret")
+	cfg := llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{}}
+	_, err := createProvider(t.Context(), &cfg, []byte(`{
+		"provider": "openai",
+		"network_config": {
+			"Extra_Headers": {"X-Env": "first", "X-Vault": "vault.path/to/header"},
+			"extra_headers": {"X-Env": "env.OBOT_TEST_PROVIDER_HEADER"},
+			"retry_backoff_initial": 500
+		}
+	}`))
+	require.NoError(t, err)
+	network := cfg.Providers[schemas.OpenAI].NetworkConfig
+	require.Equal(t, map[string]schemas.SecretVar{
+		"X-Env":   {Val: "env.OBOT_TEST_PROVIDER_HEADER", SecretType: schemas.SecretTypePlainText},
+		"X-Vault": {Val: "vault.path/to/header", SecretType: schemas.SecretTypePlainText},
+	}, network.ExtraHeaders)
+	require.Equal(t, 500*time.Millisecond, network.RetryBackoffInitial)
+}
+
 func TestOmittedQueueStillServesInference(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	up := mockOpenAI(t)

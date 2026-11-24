@@ -55,16 +55,20 @@ func decodeProviderNetwork(data json.RawMessage, network *schemas.NetworkConfig)
 	if len(data) == 0 {
 		return nil
 	}
+	// Decode the header field directly so encoding/json merges case variants
+	// in input order. Later values for the same header replace earlier ones.
+	var literal struct {
+		Headers map[string]string `json:"extra_headers"`
+	}
+	if err := json.Unmarshal(data, &literal); err != nil {
+		return fmt.Errorf("decode provider extra headers: %w", err)
+	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
-	var headers map[string]string
-	for name, raw := range fields {
+	for name := range fields {
 		if strings.EqualFold(name, "extra_headers") {
-			if err := json.Unmarshal(raw, &headers); err != nil {
-				return fmt.Errorf("decode provider extra headers: %w", err)
-			}
 			delete(fields, name)
 		}
 	}
@@ -77,9 +81,9 @@ func decodeProviderNetwork(data json.RawMessage, network *schemas.NetworkConfig)
 	if err := json.Unmarshal(normalized, network); err != nil {
 		return err
 	}
-	if headers != nil {
-		network.ExtraHeaders = make(map[string]schemas.SecretVar, len(headers))
-		for name, value := range headers {
+	if literal.Headers != nil {
+		network.ExtraHeaders = make(map[string]schemas.SecretVar, len(literal.Headers))
+		for name, value := range literal.Headers {
 			network.ExtraHeaders[name] = schemas.SecretVar{Val: value, SecretType: schemas.SecretTypePlainText}
 		}
 	}
