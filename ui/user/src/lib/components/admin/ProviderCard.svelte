@@ -34,7 +34,7 @@
 		// The configure action is fetching, so the button waits instead of opening early.
 		configureLoading?: boolean;
 		isComingSoon?: boolean;
-		licenseKey?: string;
+		hasLicense?: boolean;
 		// Settings saved as a replacement while another provider still serves logins.
 		staged?: boolean;
 	}
@@ -53,7 +53,7 @@
 		disableConfigureReason,
 		configureLoading,
 		isComingSoon,
-		licenseKey,
+		hasLicense,
 		staged
 	}: Props = $props();
 
@@ -146,7 +146,7 @@
 			{#if isLicenseRequired}
 				{#if provider.configured}
 					<TriangleAlert class="size-4 text-warning" />
-					{licenseKey ? m.models_providers_license_invalid() : m.models_providers_license_missing()}
+					{hasLicense ? m.models_providers_license_invalid() : m.models_providers_license_missing()}
 				{:else}
 					<CircleAlert class="size-4 text-muted-content" />
 					{m.models_providers_registration_required()}

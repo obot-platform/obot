@@ -5,7 +5,9 @@
 	import { localState } from '$lib/runes/localState.svelte';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import { license, profile, version } from '$lib/stores';
+	import { hasLicense } from '$lib/stores/license.svelte';
 	import { connectionsBlocked, planLimitViolationTypes } from '$lib/utils';
+	import { tokenExpiryState } from '../scim/tokenExpiry';
 	import LicenseResolveDialog from './LicenseResolveDialog.svelte';
 	import { ShieldAlert, X } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -18,7 +20,12 @@
 	const { warnUserLimit, fallback }: Props = $props();
 
 	let resolveLicenseDialog = $state<ReturnType<typeof LicenseResolveDialog>>();
-	let licenseKey = $derived(license.current.licenseKey);
+	let licenseInstalled = $derived(hasLicense(license.current));
+	// An expired license file is why the violations appear, so the banner says so rather than "invalid".
+	let licenseFileExpired = $derived(
+		Boolean(license.current.licenseFile) &&
+			tokenExpiryState(license.current.expiresAt) === 'expired'
+	);
 
 	const DISMISS_USER_LIMIT_BANNER_KEY = '@obot/dismiss-user-limit-banner';
 	const dismissedAt = localState<number | undefined>(DISMISS_USER_LIMIT_BANNER_KEY, undefined, {
@@ -149,9 +156,11 @@
 						{m.platform_license_notice_plan_missing_feature()}
 					{:else if profile.current.hasAdminAccess?.()}
 						{m.platform_license_notice_status_prefix()}<b class="font-semibold uppercase"
-							>{licenseKey
-								? m.platform_license_notice_status_invalid()
-								: m.platform_license_notice_status_missing()}</b
+							>{licenseFileExpired
+								? m.platform_license_notice_status_expired()
+								: licenseInstalled
+									? m.platform_license_notice_status_invalid()
+									: m.platform_license_notice_status_missing()}</b
 						>{m.platform_license_notice_status_suffix()}
 					{:else}
 						{MCP_CONNECTION_INVALID_LICENSE_MESSAGE}

@@ -253,6 +253,24 @@ describe('VMcpTester', () => {
 		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
 	});
 
+	it('does not offer Community registration in an air-gapped installation', async () => {
+		await renderVMcpTester(
+			{
+				models: [],
+				defaultModelAliases: [],
+				license: { ...getLicenseResponse, airgap: true },
+				version: { hasModelProvider: false, hasValidLicense: false }
+			},
+			{ tab: 'chat' }
+		);
+
+		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Unlock MCP Inspector Chat', exact: true }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Register' })).not.toBeInTheDocument();
+	});
+
 	it('keeps the default model alias message when a model provider is configured', async () => {
 		await renderVMcpTester(
 			{

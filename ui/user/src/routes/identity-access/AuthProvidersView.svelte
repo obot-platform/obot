@@ -27,6 +27,7 @@
 	} from '$lib/services/admin/types.js';
 	import { notifications, license, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
+	import { canRegisterCommunity, hasLicense } from '$lib/stores/license.svelte';
 	import { clearUrlParams, resolve } from '$lib/url';
 	import { TriangleAlert, Info, CircleAlert, ArrowLeft, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
@@ -782,7 +783,7 @@
 								deconfigureAuthProviderDialog?.open();
 							}}
 					readonly={isReadonly}
-					licenseKey={license.current.licenseKey}
+					hasLicense={hasLicense(license.current)}
 				/>
 			{/each}
 		</div>
@@ -1129,8 +1130,8 @@
 
 <LicenseProviderDialog
 	bind:provider={licenseRequiredProvider}
-	allowSignup={!licenseRequiredProvider?.configured}
-	licenseKey={license.current.licenseKey}
+	allowSignup={!licenseRequiredProvider?.configured && canRegisterCommunity(license.current)}
+	hasLicense={hasLicense(license.current)}
 	endpoint={AdminService.createCommunityLicense}
 	onSubmit={handleCommunitySubmit}
 	signUpMessage={m.identity_access_auth_providers_signup_message()}

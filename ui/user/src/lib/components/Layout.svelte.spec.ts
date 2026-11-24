@@ -556,6 +556,27 @@ describe('Layout.svelte', () => {
 		});
 	});
 
+	describe('license violation banner with an expired license file', () => {
+		const day = 24 * 60 * 60 * 1000;
+
+		it('says the license file expired', async () => {
+			await renderLayout(
+				[Group.ADMIN],
+				{
+					licenseEntitlementViolations: [
+						{ type: 'authProvider', namespace: 'default', name: 'okta-auth-provider' }
+					]
+				},
+				{ licenseFile: true, expiresAt: new Date(Date.now() - day).toISOString() }
+			);
+
+			await expect.element(page.getByText('expired', { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Resolve', exact: true }).first())
+				.toBeVisible();
+		});
+	});
+
 	describe('community signup banner', () => {
 		const copy = COMMUNITY_SIGNUP_BANNER_COPY;
 
@@ -566,6 +587,12 @@ describe('Layout.svelte', () => {
 			const register = page.getByRole('link', { name: 'Register', exact: true });
 			await expect.element(register).toBeVisible();
 			await expect.element(register).toHaveAttribute('href', '/admin/platform?view=license');
+		});
+
+		it('does not show for an air-gapped installation', async () => {
+			await renderLayout([Group.ADMIN], {}, { airgap: true });
+
+			await expect.element(page.getByText(copy, { exact: true })).not.toBeInTheDocument();
 		});
 
 		it('does not show for basic users', async () => {

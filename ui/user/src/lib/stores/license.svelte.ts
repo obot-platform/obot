@@ -33,4 +33,15 @@ function initialize(license?: License) {
 	}
 }
 
+// A license file in effect leaves licenseKey empty, so check both to tell a license is installed.
+export function hasLicense(license: License): boolean {
+	return Boolean(license.licenseKey) || Boolean(license.licenseFile);
+}
+
+// Registering for a Community license contacts Obot's services, so the server refuses it for an air-gapped
+// installation.
+export function canRegisterCommunity(license: License): boolean {
+	return !license.airgap;
+}
+
 export default store;

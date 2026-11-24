@@ -11,7 +11,7 @@
 
 	interface Props {
 		provider?: BaseProvider;
-		licenseKey?: string;
+		hasLicense?: boolean;
 		allowSignup?: boolean;
 		onSubmit?: (response: unknown) => Promise<void> | void;
 		endpoint?: (data: CommunityLicenseEnrollment) => Promise<unknown>;
@@ -20,7 +20,7 @@
 
 	let {
 		provider = $bindable(),
-		licenseKey,
+		hasLicense,
 		allowSignup,
 		onSubmit,
 		endpoint,
@@ -60,7 +60,7 @@
 				{#if provider?.configured}
 					<TriangleAlert class="size-4 text-warning" />
 					<h4 class="font-semibold text-base">
-						{licenseKey ? m.platform_license_notice_invalid() : m.platform_license_notice_missing()}
+						{hasLicense ? m.platform_license_notice_invalid() : m.platform_license_notice_missing()}
 					</h4>
 				{:else}
 					<CircleAlert class="size-4 text-muted-content" />

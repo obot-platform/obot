@@ -689,6 +689,14 @@ export interface License {
 	enterprise: boolean;
 	entitlements: Entitlements;
 	manualCheckAvailableAt?: string;
+	// True while the license in effect comes from a license file, which leaves licenseKey empty.
+	licenseFile?: boolean;
+	// The effective expiry of a license file in effect, in RFC 3339.
+	expiresAt?: string;
+	// Why the license file in effect grants nothing, when it couldn't be read or verified. Only admins get it.
+	licenseFileError?: string;
+	// Set for an air-gapped installation, which only license files license.
+	airgap?: boolean;
 	// A billed environment answers with its billing status instead: the entitlements and the fields below, without
 	// the license's own fields above. Usage, subscription and syncError are for admin readers.
 	usage?: EntitlementsUsage;
@@ -698,7 +706,9 @@ export interface License {
 }
 
 export interface LicenseManifest {
-	licenseKey: string;
+	licenseKey?: string;
+	// The contents of a license file, sent instead of licenseKey.
+	licenseFile?: string;
 }
 
 export interface CommunityLicenseEnrollment {

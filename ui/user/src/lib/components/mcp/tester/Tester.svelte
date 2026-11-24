@@ -23,6 +23,7 @@
 		type TesterStatus
 	} from '$lib/services/mcp/tester.svelte';
 	import { license, profile, version } from '$lib/stores';
+	import { canRegisterCommunity } from '$lib/stores/license.svelte';
 	import { resolve, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { KeyRound, MessageSquarePlus, RotateCw, TriangleAlert } from '@lucide/svelte';
 	import { onDestroy, untrack, type Snippet } from 'svelte';
@@ -354,7 +355,7 @@
 				{#if activeSection === 'chat'}
 					{#if chatAvailable && chat}
 						<Chat {chat} {session} />
-					{:else if !hasCommunityOrEnterprise && profile.current.isAdmin?.()}
+					{:else if !hasCommunityOrEnterprise && profile.current.isAdmin?.() && canRegisterCommunity(license.current)}
 						<CommunitySignupPanel
 							class="mt-4 md:w-md w-full"
 							labelledBy="mcp-tester-community-signup-heading"

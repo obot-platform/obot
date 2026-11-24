@@ -14,7 +14,7 @@
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService, type License, type SubscriptionStatus } from '$lib/services';
 	import { notifications, license as licenseStore, profile, version } from '$lib/stores';
-	import { emptyLicense } from '$lib/stores/license.svelte';
+	import { canRegisterCommunity, emptyLicense } from '$lib/stores/license.svelte';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { validateVersionUserLimit } from '$lib/utils';
 	import {
@@ -46,6 +46,9 @@
 
 	let updateLicenseDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updateLicenseKey = $state('');
+	// Why the last dropped or uploaded license file wasn't installed.
+	let licenseFileError = $state('');
+	let licenseFileInput = $state<HTMLInputElement>();
 	let updating = $state(false);
 	let updateError = $state('');
 
@@ -65,6 +68,8 @@
 		}
 	);
 	let hasLicenseKey = $derived(Boolean(license.licenseKey) && !isCommunityEdition);
+	// A license key or file an administrator installed, which a registered Community key isn't.
+	let hasOwnLicense = $derived(hasLicenseKey || Boolean(license.licenseFile));
 	let canManage = $derived(
 		billing &&
 			Boolean(subscription?.selfService) &&
@@ -308,6 +313,50 @@
 		updateLicenseDialog?.open();
 	}
 
+	// Without this the browser opens a dropped file instead of handing it to the page.
+	// Only an air-gapped installation takes a dropped license file.
+	function allowLicenseFileDrop(event: DragEvent) {
+		if (license.airgap && event.dataTransfer?.types.includes('Files')) event.preventDefault();
+	}
+
+	// dropLicenseFile installs a license file dropped anywhere on the page of an air-gapped installation.
+	async function dropLicenseFile(event: DragEvent) {
+		const file = event.dataTransfer?.files?.[0];
+		if (!license.airgap || !file) return;
+		event.preventDefault();
+		if (billing || isAdminReadonly || updating) return;
+		await installLicenseFile(file);
+	}
+
+	// uploadLicenseFile installs the license file picked with Upload License File, the way to install one without
+	// dragging. It clears the input so the same file can be picked again.
+	async function uploadLicenseFile(event: Event & { currentTarget: HTMLInputElement }) {
+		const file = event.currentTarget.files?.[0];
+		event.currentTarget.value = '';
+		if (file) await installLicenseFile(file);
+	}
+
+	// installLicenseFile sends a license file to the server, which only accepts one that verifies and is in effect, so
+	// there's nothing to confirm first. A refused file leaves the license unchanged and shows why on the license card.
+	// On success, reload so every view picks up the new license and its entitlements, not just this one.
+	async function installLicenseFile(file: File) {
+		if (license.locked) {
+			licenseFileError = m.platform_license_locked();
+			return;
+		}
+
+		updating = true;
+		licenseFileError = '';
+		try {
+			await AdminService.updateLicense({ licenseFile: await file.text() }, { dontLogErrors: true });
+			reloadPage();
+		} catch (err) {
+			licenseFileError = parseErrorContent(err).message;
+		} finally {
+			updating = false;
+		}
+	}
+
 	async function updateLicense() {
 		updating = true;
 		updateError = '';
@@ -336,7 +385,11 @@
 </script>
 
 <!-- Re-enable the button when the browser restores this page after billing. -->
-<svelte:window onpageshow={() => (opening = false)} />
+<svelte:window
+	onpageshow={() => (opening = false)}
+	ondragover={allowLicenseFileDrop}
+	ondrop={dropLicenseFile}
+/>
 
 <div class="flex h-full w-full flex-col gap-4 @container" in:fade={{ duration }}>
 	{#if showUserLimitNotice}
@@ -437,7 +490,7 @@
 				>
 					{statusLabels[subscription.status]?.() ?? subscription.status}
 				</span>
-			{:else if !billing && hasLicenseKey}
+			{:else if !billing && hasOwnLicense}
 				<span
 					class={twMerge(
 						'badge badge-soft badge-sm',
@@ -458,11 +511,25 @@
 			{/if}
 		{:else}
 			<p class="text-sm">{edition}</p>
-			{#if hasLicenseKey}
+			{#if license.licenseFile}
+				<p class="text-sm text-muted-content">{m.platform_license_file()}</p>
+				{#if license.expiresAt}
+					<p class="text-sm text-muted-content">
+						{m.platform_license_file_expires({
+							date: new Date(license.expiresAt).toLocaleDateString(getLocale(), {
+								dateStyle: 'medium'
+							})
+						})}
+					</p>
+				{/if}
+			{:else if hasLicenseKey}
 				<p class="font-mono text-sm text-muted-content">{license.licenseKey}</p>
 			{/if}
 			{#if license.locked}
 				<p class="text-sm text-muted-content">{m.platform_license_managed_by_configuration()}</p>
+			{/if}
+			{#if license.licenseFileError}
+				<p class="text-sm text-error">{license.licenseFileError}</p>
 			{/if}
 		{/if}
 		{#if !isAdminReadonly && (canManage || !billing)}
@@ -482,21 +549,46 @@
 						{m.platform_billing_manage()}
 					</button>
 				{:else}
-					<div
-						use:tooltip={{
-							text: license.locked ? m.platform_license_locked() : undefined,
-							classes: ['text-xs']
-						}}
-					>
-						<button
-							class="btn btn-secondary btn-sm"
-							onclick={openUpdateLicenseDialog}
-							disabled={license.locked}
+					<!-- An air-gapped installation can't check a license key, so it takes a license file instead. -->
+					{#if license.airgap}
+						<div
+							use:tooltip={{
+								text: license.locked ? m.platform_license_locked() : undefined,
+								classes: ['text-xs']
+							}}
 						>
-							{updateLicenseTitle}
-						</button>
-					</div>
-					{#if hasLicenseKey}
+							<button
+								class="btn btn-secondary btn-sm"
+								onclick={() => licenseFileInput?.click()}
+								disabled={license.locked || updating}
+							>
+								{m.platform_license_upload_file()}
+							</button>
+							<input
+								bind:this={licenseFileInput}
+								type="file"
+								class="hidden"
+								aria-label={m.platform_license_file()}
+								onchange={uploadLicenseFile}
+							/>
+						</div>
+					{:else}
+						<div
+							use:tooltip={{
+								text: license.locked ? m.platform_license_locked() : undefined,
+								classes: ['text-xs']
+							}}
+						>
+							<button
+								class="btn btn-secondary btn-sm"
+								onclick={openUpdateLicenseDialog}
+								disabled={license.locked}
+							>
+								{updateLicenseTitle}
+							</button>
+						</div>
+					{/if}
+					{#if hasOwnLicense}
 						<div
 							use:tooltip={{
 								text: license.locked ? m.platform_license_locked() : undefined,
@@ -514,6 +606,20 @@
 					{/if}
 				{/if}
 			</div>
+		{/if}
+		{#if !billing && !isAdminReadonly}
+			{#if licenseFileError}
+				<div
+					in:slide={{ duration: 150, axis: 'y' }}
+					class="alert alert-error alert-soft mt-3"
+					role="alert"
+				>
+					{licenseFileError}
+				</div>
+			{/if}
+			{#if license.airgap && !license.locked}
+				<p class="mt-3 text-xs font-light text-muted-content">{m.platform_license_drop_file()}</p>
+			{/if}
 		{/if}
 	</section>
 
@@ -602,7 +708,7 @@
 		{/if}
 	</div>
 
-	{#if !billing && !isAdminReadonly && !hasLicenseKey && !isCommunityEdition}
+	{#if !billing && !isAdminReadonly && !hasOwnLicense && !isCommunityEdition && canRegisterCommunity(license)}
 		<CommunitySignupPanel as="aside" class="mx-auto md:max-w-md" labelledBy="community-cta-heading">
 			<div class="flex flex-col gap-4 p-4 sm:p-6">
 				<BetaLogo class="mx-auto" />
