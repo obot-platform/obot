@@ -9,6 +9,8 @@ export const TOKEN_USAGE_PARAMS = {
 	END: 'end',
 	MODEL: 'model',
 	USER: 'user',
+	// The users agents acted for, by ID.
+	ON_BEHALF_OF: 'on_behalf_of',
 	API_KEY: 'api_key',
 	TOKEN_TYPE: 'token_type',
 	GROUP_BY: 'group_by'

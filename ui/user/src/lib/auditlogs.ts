@@ -71,6 +71,18 @@ export function auditLogAgentID(row: {
 	return row.principal?.kind === 'agent' && row.principal.id ? row.principal.id : undefined;
 }
 
+// auditLogAgentActorLabel names the agent a row is attributed to: "<agent> for <user>" when it acted on behalf of a
+// user.
+export function auditLogAgentActorLabel(
+	agentName: string,
+	onBehalfOf: { kind: string; id: string } | undefined,
+	userName: (userID: string) => string
+): string {
+	return onBehalfOf?.kind === 'user' && onBehalfOf.id
+		? m.identity_access_agent_for_user({ agent: agentName, user: userName(onBehalfOf.id) })
+		: m.audit_usage_agent_actor({ name: agentName });
+}
+
 export function toAuditLogFilterSelectOption(
 	option: AuditLogFilterOption,
 	getUserDisplayName?: (userID: string) => string,

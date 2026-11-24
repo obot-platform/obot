@@ -46,6 +46,7 @@
 	type AuditLogExportMultiSelectFilterKey =
 		| 'api_key_id'
 		| 'actor'
+		| 'on_behalf_of'
 		| 'operation'
 		| 'mcp_server'
 		| 'tool'
@@ -70,6 +71,7 @@
 	type LLMAuditLogExportMultiSelectFilterKey =
 		| 'api_key_id'
 		| 'user_id'
+		| 'on_behalf_of'
 		| 'user_agent'
 		| 'client_session_id'
 		| 'model_provider'
@@ -125,6 +127,13 @@
 				filterKey: 'api_key_id',
 				title: m.audit_usage_exports_filter_title_api_keys(),
 				description: m.audit_usage_exports_filter_desc_api_keys_used()
+			},
+			// As are the users agents acted for.
+			{
+				filterKey: 'on_behalf_of',
+				title: m.identity_access_on_behalf_of(),
+				description: m.identity_access_on_behalf_of_description(),
+				useUserDisplayNames: true
 			},
 			// Single-source filters. Shown only when exactly one log source is selected.
 			{
@@ -223,6 +232,12 @@
 				useUserDisplayNames: true
 			},
 			{
+				filterKey: 'on_behalf_of',
+				title: m.identity_access_on_behalf_of(),
+				description: m.identity_access_on_behalf_of_description(),
+				useUserDisplayNames: true
+			},
+			{
 				filterKey: 'model_provider',
 				title: m.audit_usage_exports_filter_title_model_providers(),
 				description: m.audit_usage_exports_filter_desc_list_model_providers()
@@ -292,6 +307,7 @@
 			tool: '',
 			client: '',
 			user_id: '',
+			on_behalf_of: '',
 			mcp_id: '',
 			mcp_server_display_name: '',
 			mcp_server_catalog_entry_name: '',
@@ -326,6 +342,7 @@
 
 	let mcpFiltersIds = [
 		'actor',
+		'on_behalf_of',
 		'operation',
 		'mcp_server',
 		'tool',
@@ -352,6 +369,7 @@
 	let llmFiltersIds = [
 		'api_key_id',
 		'user_id',
+		'on_behalf_of',
 		'user_agent',
 		'client_session_id',
 		'model_provider',
@@ -386,6 +404,7 @@
 				form.filters = {
 					api_key_id: join(filters.apiKeyIDs),
 					user_id: join(filters.userIDs),
+					on_behalf_of: join(filters.onBehalfOf),
 					model_provider: join(filters.modelProviders),
 					target_model: join(filters.targetModels),
 					request_path: join(filters.requestPaths),
@@ -410,6 +429,7 @@
 					tool: join(filters.tools),
 					outcome: join(filters.outcomes),
 					client: join(filters.clients),
+					on_behalf_of: join(filters.onBehalfOf),
 					user_id: join(filters.userIDs),
 					mcp_id: join(filters.mcpIDs),
 					mcp_server_display_name: join(filters.mcpServerDisplayNames),
@@ -607,6 +627,7 @@
 					llmFilters: {
 						apiKeyIDs: splitNumbers(form.filters.api_key_id),
 						userIDs: split(form.filters.user_id),
+						onBehalfOf: split(form.filters.on_behalf_of),
 						modelProviders: split(form.filters.model_provider),
 						targetModels: split(form.filters.target_model),
 						requestPaths: split(form.filters.request_path),
@@ -644,6 +665,7 @@
 					tools: split(form.filters.tool),
 					outcomes: split(form.filters.outcome),
 					clients: split(form.filters.client),
+					onBehalfOf: split(form.filters.on_behalf_of),
 					userIDs: split(form.filters.user_id),
 					mcpIDs: split(form.filters.mcp_id),
 					mcpServerDisplayNames: split(form.filters.mcp_server_display_name),

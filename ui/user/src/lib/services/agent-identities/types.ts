@@ -131,3 +131,15 @@ export interface PrincipalRef {
 	kind: 'user' | 'agent';
 	id: string;
 }
+
+// A user's approval for an agent to act on their behalf (apiclient/types/agentdelegation.go). Administrators list
+// the delegations of an agent, never what the user set up through it.
+export interface AgentDelegation {
+	id: string;
+	agent: { id: string; displayName: string; description?: string; status: AgentIdentityStatus };
+	user: { id: string; email?: string; displayName?: string; status?: string };
+	firstApprovedAt: string;
+	lastApprovedAt: string;
+	// When the agent last got a token from the delegation.
+	lastUsedAt?: string;
+}

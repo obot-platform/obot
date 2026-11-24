@@ -52,7 +52,7 @@ export function eventTypeParamFromSourceTypes(sourceTypes: readonly string[]): s
 // invalidates source-specific selections. Free-text and API-key filters apply to every source.
 export function clearSourceScopedFilters(filters: Record<string, unknown>) {
 	for (const key of Object.keys(filters)) {
-		if (key !== 'query' && key !== 'api_key_id') {
+		if (key !== 'query' && key !== 'api_key_id' && key !== 'on_behalf_of') {
 			filters[key] = '';
 		}
 	}
@@ -69,7 +69,8 @@ export const COMMON_FILTER_KEYS = [
 	'client'
 ] as const;
 
-const ALL_SOURCE_FILTER_KEYS = new Set(['api_key_id']);
+// on_behalf_of narrows either vocabulary, whatever the sources, like api_key_id.
+const ALL_SOURCE_FILTER_KEYS = new Set(['api_key_id', 'on_behalf_of']);
 
 // Decide whether a single filter is usable for the currently selected source(s). The backend
 // enforces the same split, so the forms only ever show (and fetch options for) filters it accepts:

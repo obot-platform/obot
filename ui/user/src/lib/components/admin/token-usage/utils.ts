@@ -210,6 +210,18 @@ export function tokenUsageActorKey(row: TokenUsage): string | undefined {
 	return agentId ? agentActorValue(agentId) : undefined;
 }
 
+// The key that usage is grouped by, which is the actor's key, and for an agent that acted for a user also the user:
+// "agent:<id>><user id>". The user is how the group reads "<agent> for <user>".
+const ON_BEHALF_OF_SEPARATOR = '>';
+
+export function tokenUsageGroupKey(row: TokenUsage): string | undefined {
+	const key = tokenUsageActorKey(row);
+	if (key && parseAgentActor(key) && row.onBehalfOf?.kind === 'user' && row.onBehalfOf.id) {
+		return `${key}${ON_BEHALF_OF_SEPARATOR}${row.onBehalfOf.id}`;
+	}
+	return key;
+}
+
 // actorLabel names an actor key. An "agent:<id>" key is an agent, which is never looked up as a user.
 export function actorLabel(
 	users: Map<string, OrgUser>,
@@ -226,10 +238,22 @@ export function getUserLabels(
 	userKeys: string[],
 	agents?: Map<string, AgentLookup>
 ): Map<string, string> {
+	// An agent that acted for a user reads "<agent> for <user>".
+	const forUserLabel = (k: string) => {
+		const [agentKey, userId] = k.split(ON_BEHALF_OF_SEPARATOR);
+		return m.identity_access_agent_for_user({
+			agent: agentDisplayName(agents, parseAgentActor(agentKey) ?? agentKey),
+			user: getUserDisplayName(users, userId)
+		});
+	};
 	const simpleLabels = new Map(
 		userKeys.map((k) => [
 			k,
-			parseAgentActor(k) ? actorLabel(users, k, agents) : getUserDisplayName(users, k)
+			k.includes(ON_BEHALF_OF_SEPARATOR)
+				? forUserLabel(k)
+				: parseAgentActor(k)
+					? actorLabel(users, k, agents)
+					: getUserDisplayName(users, k)
 		])
 	);
 	const displayCounts = new Map<string, number>();

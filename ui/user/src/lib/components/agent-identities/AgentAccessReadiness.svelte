@@ -85,6 +85,20 @@
 		);
 	}
 
+	// Whether a user supplies what the reason is about when the agent acts on their behalf: a value
+	// users enter, or their own upstream account for a component without preconfigured OAuth. Such a
+	// component is the user's to set up (OBO), not a problem, though an administrator can still set it
+	// for everyone on the vMCP. Preconfigured OAuth that no longer works (oauth_invalid) is used in
+	// place of the user's account, so only an administrator can fix it.
+	function userSupplied(reason: AgentReadinessReason) {
+		return reason.code === 'configuration_required' || reason.code === 'oauth_required';
+	}
+
+	// A vMCP the agent can't use for itself, but can on behalf of users once they supply the rest.
+	function onlyUserSupplied(item: AgentVMCPReadiness) {
+		return !item.ready && item.reasons.length > 0 && item.reasons.every(userSupplied);
+	}
+
 	function reasonLabel(vmcpID: string, reason: AgentReadinessReason): string {
 		const component = componentName(vmcpID, reason.componentID);
 		switch (reason.code) {
@@ -171,6 +185,10 @@
 										<CircleCheck class="size-3" />
 										{m.identity_access_agents_readiness_ready()}
 									</span>
+								{:else if onlyUserSupplied(item)}
+									<span class="badge badge-info badge-soft badge-sm">
+										{m.identity_access_agents_readiness_obo()}
+									</span>
 								{:else}
 									<span class="badge badge-warning badge-soft badge-sm">
 										{m.identity_access_agents_readiness_not_ready()}
@@ -186,10 +204,22 @@
 								<ul class="text-xs">
 									{#each item.reasons as reason, index (index)}
 										<li class="flex flex-col">
-											<span class="text-warning">{reasonLabel(item.vmcpID, reason)}</span>
-											<a class="link w-fit" href={resolve(reasonHref(item, reason))}
-												>{m.identity_access_agents_reason_open_vmcp()}</a
-											>
+											{#if userSupplied(reason)}
+												<span class="flex items-start justify-between gap-2">
+													<span>{reasonLabel(item.vmcpID, reason)}</span>
+													<span class="badge badge-info badge-soft badge-sm shrink-0">
+														{m.identity_access_agents_readiness_obo()}
+													</span>
+												</span>
+												<a class="link w-fit" href={resolve(reasonHref(item, reason))}
+													>{m.identity_access_agents_reason_open_vmcp_instead()}</a
+												>
+											{:else}
+												<span class="text-warning">{reasonLabel(item.vmcpID, reason)}</span>
+												<a class="link w-fit" href={resolve(reasonHref(item, reason))}
+													>{m.identity_access_agents_reason_open_vmcp()}</a
+												>
+											{/if}
 										</li>
 									{/each}
 								</ul>

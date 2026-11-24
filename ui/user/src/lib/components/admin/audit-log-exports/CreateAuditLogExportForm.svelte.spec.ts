@@ -134,3 +134,55 @@ test('offers the admin change type with only its own filters, and sends them', a
 	await expect.element(page.getByCSS('#admin_action')).toHaveTextContent('agent.key.revoke');
 	await expect.element(page.getByLabelText('Resource IDs')).toHaveValue('7,12');
 });
+
+afterEach(() => {
+	for (const key of ['actor', 'user_id', 'on_behalf_of']) {
+		(appPage.url as URL).searchParams.delete(key);
+	}
+});
+
+// Submits a form filled in with a name and a bucket, and returns what was sent.
+async function submitExport(logType: 'mcp' | 'llm') {
+	let body: Record<string, unknown> | undefined;
+	worker.use(
+		http.get('/api/mcp-audit-logs/filter-options/:filter', () =>
+			HttpResponse.json({ options: [] })
+		),
+		http.get('/api/llm-audit-logs/filter-options/:filter', () =>
+			HttpResponse.json({ options: [] })
+		),
+		http.post('/api/audit-log-exports', async ({ request }) => {
+			body = (await request.json()) as Record<string, unknown>;
+			return HttpResponse.json({ ...body, id: 'export-1' });
+		})
+	);
+	await preparePageData();
+	const onSubmit = vi.fn();
+	await render(CreateAuditLogExportForm, { onCancel: vi.fn(), onSubmit, logType });
+	await page.getByLabelText('Export Name').fill('For a user');
+	await page.getByLabelText('Bucket Name').fill('audit-logs');
+	// Clicking the element itself always submits the form; see the first test.
+	(
+		page.getByRole('button', { name: 'Create Export', exact: true }).element() as HTMLElement
+	).click();
+	await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+	return body;
+}
+
+test('carries the on-behalf-of filter from the MCP audit logs into the export', async () => {
+	(appPage.url as URL).searchParams.set('actor', 'agent:7');
+	(appPage.url as URL).searchParams.set('on_behalf_of', '3,4');
+
+	const body = await submitExport('mcp');
+
+	expect(body?.filters).toMatchObject({ actors: ['agent:7'], onBehalfOf: ['3', '4'] });
+});
+
+test('carries the on-behalf-of filter from the LLM audit logs into the export', async () => {
+	(appPage.url as URL).searchParams.set('user_id', 'agent:7');
+	(appPage.url as URL).searchParams.set('on_behalf_of', '3');
+
+	const body = await submitExport('llm');
+
+	expect(body?.llmFilters).toMatchObject({ userIDs: ['agent:7'], onBehalfOf: ['3'] });
+});

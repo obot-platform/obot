@@ -10,7 +10,7 @@ import {
 	type TokenGroupBy,
 	type TokenType
 } from './constants';
-import { aggregateTimelineDataByBucket, getUserLabels, tokenUsageActorKey } from './utils';
+import { aggregateTimelineDataByBucket, getUserLabels, tokenUsageGroupKey } from './utils';
 
 export type TokenUsageTimelineItem = TokenUsageWithCategory & {
 	bucketTokens?: number;
@@ -111,7 +111,7 @@ export function computeMainTimelineData(
 	agents?: Map<string, AgentLookup>
 ): TokenUsageTimelineItem[] {
 	if (group === TOKEN_GROUP_BY.USERS) {
-		const keyOf = (r: TokenUsage) => tokenUsageActorKey(r) ?? TOKEN_USAGE_CATEGORY.UNKNOWN;
+		const keyOf = (r: TokenUsage) => tokenUsageGroupKey(r) ?? TOKEN_USAGE_CATEGORY.UNKNOWN;
 		const userKeys = [...new Set(filtered.map(keyOf))].sort();
 		const userKeyToLabel = getUserLabels(users, userKeys, agents);
 		return filtered.map((r) => toTimelineItem(r, userKeyToLabel.get(keyOf(r)) ?? keyOf(r)));

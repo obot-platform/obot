@@ -102,7 +102,8 @@
 	let rawFilterOptions: RawFilterOptions = $state({} as RawFilterOptions);
 
 	function formatFilterOptions(filterId: FilterKey, options: AuditLogFilterOption[]) {
-		if (['user_id', 'user_ids'].includes(filterId)) {
+		// on_behalf_of names the users agents acted for, by ID, like the user filters.
+		if (['user_id', 'user_ids', 'on_behalf_of'].includes(filterId)) {
 			return (
 				options
 					// Agents have no user ID, so their rows would offer an empty one.

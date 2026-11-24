@@ -146,6 +146,8 @@ export interface AuditLogExportFilterResponse {
 	tools?: string[];
 	outcomes?: string[];
 	clients?: string[];
+	// The users agents acted for, which narrows the other filters whatever the sources.
+	onBehalfOf?: string[];
 	// Single-source filters.
 	userIDs?: string[];
 	mcpIDs?: string[];
@@ -175,6 +177,8 @@ export type AuditLogExportFilters = {
 	tools?: string[];
 	outcomes?: string[];
 	clients?: string[];
+	// The users agents acted for, which narrows the other filters whatever the sources.
+	onBehalfOf?: string[];
 	// Single-source filters.
 	userIDs?: string[];
 	mcpIDs?: string[];
@@ -229,6 +233,8 @@ export interface ScheduledAuditLogExport {
 export type LLMAuditLogExportFilters = {
 	apiKeyIDs?: number[];
 	userIDs?: string[];
+	// The users agents acted for, which narrows the other filters.
+	onBehalfOf?: string[];
 	modelProviders?: string[];
 	targetModels?: string[];
 	requestPaths?: string[];
@@ -787,6 +793,8 @@ export interface LLMAuditLog {
 	// userID is empty for a request made by an agent, which is named by principal and agentDisplayName.
 	userID: string;
 	principal?: PrincipalRef;
+	// onBehalfOf is the user an agent made the request for, when it acted for one.
+	onBehalfOf?: PrincipalRef;
 	agentDisplayName?: string;
 }
 
@@ -810,6 +818,10 @@ export type LLMAuditLogURLFilters = {
 	user_agent?: string | null;
 	user_id?: string | null;
 	actor_kind?: string | null; // "user" or "agent"
+	// With a user_id, also lists the requests agents made on the user's behalf.
+	include_on_behalf_of?: string | null;
+	// Lists only the requests agents made on behalf of these users, which every other filter narrows.
+	on_behalf_of?: string | null;
 };
 
 // MCP capacity
@@ -1437,6 +1449,8 @@ export interface TokenUsage {
 	// userID is empty for usage by an agent, which is named by principal.
 	userID?: string;
 	principal?: PrincipalRef;
+	// onBehalfOf is the user an agent made the requests for, when it acted for one.
+	onBehalfOf?: PrincipalRef;
 	model?: string;
 	apiKeyID?: number;
 	apiKeyName?: string;
@@ -1516,6 +1530,10 @@ export interface TokenUsageStats {
 
 export interface TokenUsageStatsFilters {
 	userIDs?: string[];
+	// Also counts the requests agents made on behalf of userIDs.
+	includeOnBehalfOf?: boolean;
+	// Counts only the requests agents made on behalf of these users.
+	onBehalfOf?: string[];
 	models?: string[];
 	apiKeyIDs?: string[];
 }

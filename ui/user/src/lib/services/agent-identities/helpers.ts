@@ -49,3 +49,19 @@ export function agentDisplayName(
 	}
 	return name || m.audit_usage_agent_fallback_name({ id: agentId });
 }
+
+// The part of an agent profile form that a validation error of the server (400 "invalid profiles: ...") is about.
+export type ProfileErrorField = 'name' | 'subjects';
+
+// profileError splits the server's error about a profile into the reason, without what the server puts before it
+// ("invalid ...:" and the name of the entry, which the form already shows), and the field of the form the reason
+// names, if any, so the error is shown next to it. The entry's name is taken out first, since it is free text that
+// can hold any word.
+export function profileError(reason: string): { field?: ProfileErrorField; text: string } {
+	const text = reason
+		.replace(/^invalid (profiles|allowedReturnHosts):\s*/, '')
+		.replace(/^agent profile "(?:[^"\\]|\\.)*":\s*/, '');
+	if (/^(duplicate agent profile name|name\b)/.test(text)) return { field: 'name', text };
+	if (/subject/i.test(text)) return { field: 'subjects', text };
+	return { text };
+}

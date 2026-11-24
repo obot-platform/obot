@@ -7,6 +7,7 @@
 		getAuditLogAPIKeyMaskedKey
 	} from '$lib/auditlogs';
 	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
+	import AgentForUser from '$lib/components/agent-identities/AgentForUser.svelte';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { m } from '$lib/i18n';
 	import { type LLMAuditLog } from '$lib/services';
@@ -155,12 +156,19 @@
 {#snippet twoLine(
 	primary: string | number | undefined,
 	secondary?: string | number,
-	agent?: boolean
+	agent?: boolean,
+	forUser?: { agentId: string; agentName: string; userName: string }
 )}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
 			<div class="flex min-w-0 flex-1 flex-col justify-center py-2 leading-tight">
-				<div class="truncate">{primary ?? '—'}</div>
+				<div class="truncate">
+					{#if forUser}
+						<AgentForUser {...forUser} />
+					{:else}
+						{primary ?? '—'}
+					{/if}
+				</div>
 				{#if secondary !== undefined && secondary !== ''}
 					<div class="text-muted-content mt-1 flex items-center gap-1 text-xs">
 						<span class="truncate">{secondary}</span>
@@ -313,7 +321,14 @@
 						onclick={() => onSelectRow?.(d)}
 					>
 						{@render timestampCell(formatAuditLogTableTimestamp(d.createdAt), d)}
-						{#if apiKey}
+						{#if agentId && d.onBehalfOf?.kind === 'user' && d.onBehalfOf.id}
+							<!-- An agent that acted for a user reads "<agent> for <user>". -->
+							{@render twoLine(undefined, apiKey ? apiKeyLabel : m.audit_usage_agent(), false, {
+								agentId,
+								agentName: actor,
+								userName: getUserDisplayName(d.onBehalfOf.id)
+							})}
+						{:else if apiKey}
 							{@render twoLine(apiKeyLabel, actor, Boolean(agentId))}
 						{:else if agentId}
 							{@render twoLine(actor, m.audit_usage_agent())}

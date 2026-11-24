@@ -2187,6 +2187,8 @@ export async function getTokenUsageStats(
 ): Promise<TokenUsageStats> {
 	const params = new URLSearchParams(tokenUsageQueryString(timeRange));
 	for (const id of filters.userIDs ?? []) params.append('user_id', id);
+	if (filters.includeOnBehalfOf) params.set('include_on_behalf_of', 'true');
+	for (const id of filters.onBehalfOf ?? []) params.append('on_behalf_of', id);
 	for (const model of filters.models ?? []) params.append('model', model);
 	for (const id of filters.apiKeyIDs ?? []) params.append('api_key_id', id);
 	return (await doGet(`/token-usage-stats?${params}`, opts)) as TokenUsageStats;

@@ -6,6 +6,7 @@
 		buildPillSearchParamFilters,
 		buildSearchParamFiltersArray,
 		auditLogActorKindLabel,
+		auditLogAgentActorLabel,
 		auditLogAgentID,
 		getAuditLogAPIKeyFilterOptionLabel,
 		isAuditLogAPIKeyFilterOption
@@ -13,10 +14,12 @@
 	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import IncludeOnBehalfOfToggle from '$lib/components/admin/audit-logs/IncludeOnBehalfOfToggle.svelte';
 	import LlmAuditLogsTable from '$lib/components/admin/audit-logs/LlmAuditLogsTable.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
+	import { parseMultiValue } from '$lib/multiValue';
 	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
@@ -52,6 +55,8 @@
 	const supportedFilters: SupportedFilter[] = [
 		'api_key_id',
 		'user_id',
+		// The users agents acted for: with an agent as the user, what that agent requested for them.
+		'on_behalf_of',
 		'actor_kind',
 		'client_session_id',
 		'hide_models_requests',
@@ -149,6 +154,15 @@
 	);
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
 
+	// Requests that agents made for a user are only listed with the user when asked for, and only a filter on a user
+	// can ask: an agent has none.
+	const hasUserFilter = $derived(
+		parseMultiValue(pillsSearchParamFilters.user_id).some((id) => !parseAgentActor(id))
+	);
+	const includeOnBehalfOf = $derived(
+		hasUserFilter && page.url.searchParams.get('include_on_behalf_of') === 'true'
+	);
+
 	const timeRangeFilters = $derived.by(() => {
 		if (startTimeOverride && endTimeOverride) {
 			return { startTime: startTimeOverride, endTime: endTimeOverride };
@@ -167,6 +181,7 @@
 	const filters = $derived<LLMAuditLogURLFilters>({
 		...pillsSearchParamFilters,
 		...propsFilters,
+		...(includeOnBehalfOf ? { include_on_behalf_of: 'true' } : {}),
 		start_time: timeRangeFilters.startTime.toISOString(),
 		end_time: timeRangeFilters.endTime.toISOString(),
 		limit: pageLimit,
@@ -289,6 +304,7 @@
 		if (_key === 'served_provider') return m.audit_usage_audit_logs_model_filter_served_provider();
 		if (_key === 'response_status') return m.core_status();
 		if (_key === 'user_id') return m.core_col_user();
+		if (_key === 'on_behalf_of') return m.identity_access_on_behalf_of();
 		if (_key === 'actor_kind') return m.audit_usage_actor_kind();
 		if (_key === 'user_agent') return m.audit_usage_audit_logs_user_agent();
 		if (_key === 'client_session_id')
@@ -321,7 +337,7 @@
 					)
 				: value.toString();
 		}
-		if (label === 'user_id') return userIdLabel(value + '');
+		if (label === 'user_id' || label === 'on_behalf_of') return userIdLabel(value + '');
 		if (label === 'actor_kind') return auditLogActorKindLabel(value + '');
 		if (label === 'hide_models_requests')
 			return value === 'true'
@@ -400,6 +416,9 @@
 		</div>
 	</div>
 
+	{#if hasUserFilter}
+		<IncludeOnBehalfOfToggle />
+	{/if}
 	{#if hasFilterPills}
 		<FilterPills
 			{pillsSearchParamFilters}
@@ -428,7 +447,9 @@
 			selectedAuditLog = {
 				...d,
 				user: agentId
-					? m.audit_usage_agent_actor({ name: agentName(agentId, d.agentDisplayName) })
+					? auditLogAgentActorLabel(agentName(agentId, d.agentDisplayName), d.onBehalfOf, (id) =>
+							getUserDisplayName(usersMap, id)
+						)
 					: getUserDisplayName(usersMap, d.userID)
 			};
 			rightSidebar?.showPopover();
@@ -529,6 +550,7 @@
 			endpoint={async (filterId, opts) => {
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,
+					...(includeOnBehalfOf ? { include_on_behalf_of: 'true' } : {}),
 					query,
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime.toISOString()

@@ -76,26 +76,35 @@ describe('AgentAccessReadiness', () => {
 		mockAgent([notReady]);
 		render(AgentAccessReadiness, { agentId: '7' });
 
-		// Agents get only the values the vMCP or its catalog entry fix, so that is where it is fixed, or the
-		// component stops being granted to the agent.
+		// A value users enter, and their own account, are supplied by the user when the agent acts on
+		// their behalf; an administrator can still set them for everyone on the vMCP instead.
 		await expect
 			.element(
 				page.getByText(
-					"gmail needs TENANT, which agents can't set: fix it on the vMCP or its catalog entry, or stop granting gmail to the agent"
+					'gmail needs TENANT, which the user supplies when the agent acts on their behalf'
 				)
 			)
 			.toBeVisible();
-		const links = page.getByRole('link', { name: "Fix in the component's settings on the vMCP" });
 		await expect
-			.element(links.first())
+			.element(
+				page.getByText(
+					"gmail uses the user's own account, which they connect when the agent acts on their behalf"
+				)
+			)
+			.toBeVisible();
+		const instead = page.getByRole('link', {
+			name: "Or set it for everyone in the component's settings on the vMCP"
+		});
+		await expect
+			.element(instead.first())
 			.toHaveAttribute('href', '/vmcps/vmcp1mail?component=gmail&settings=configuration');
 		await expect
-			.element(links.nth(1))
+			.element(instead.nth(1))
 			.toHaveAttribute('href', '/vmcps/vmcp1mail?component=gmail&settings=oauth');
 		// An invalid grant is fixed by authorizing the component's preconfigured OAuth again, never in a
 		// profile.
 		await expect
-			.element(links.nth(2))
+			.element(page.getByRole('link', { name: "Fix in the component's settings on the vMCP" }))
 			.toHaveAttribute('href', '/vmcps/vmcp1mail?component=calendar&settings=oauth');
 		await expect.element(page.getByRole('link', { name: /profile/ })).not.toBeInTheDocument();
 		await expect.element(page.getByRole('link', { name: /agent setup/i })).not.toBeInTheDocument();
@@ -106,7 +115,11 @@ describe('AgentAccessReadiness', () => {
 		render(AgentAccessReadiness, { agentId: '7' });
 
 		await expect
-			.element(page.getByRole('link', { name: "Fix in the component's settings on the vMCP" }))
+			.element(
+				page.getByRole('link', {
+					name: "Or set it for everyone in the component's settings on the vMCP"
+				})
+			)
 			.toHaveAttribute('href', '/vmcps/vmcp1mail');
 	});
 
@@ -134,16 +147,16 @@ describe('AgentAccessReadiness', () => {
 		render(AgentAccessReadiness, { agentId: '7' });
 
 		await expect
-			.element(page.getByText(/^Gmail needs TENANT, which agents can't set/))
+			.element(page.getByText(/^Gmail needs TENANT, which the user supplies/))
 			.toBeVisible();
-		await expect.element(page.getByText('Gmail needs OAuth authorization')).toBeVisible();
+		await expect.element(page.getByText(/^Gmail uses the user's own account/)).toBeVisible();
 		await expect
 			.element(page.getByText(/The preconfigured OAuth for Calendar no longer works/))
 			.toBeVisible();
 		await expect.element(page.getByText(/^gmail /)).not.toBeInTheDocument();
 
 		// A component the vMCP no longer has keeps its ID.
-		await expect.element(page.getByText('gone needs OAuth authorization')).toBeVisible();
+		await expect.element(page.getByText(/^gone uses the user's own account/)).toBeVisible();
 	});
 
 	// Only components with working preconfigured OAuth are listed: a broken one is a reason instead.
@@ -167,13 +180,44 @@ describe('AgentAccessReadiness', () => {
 		await expect.element(page.getByRole('link')).not.toBeInTheDocument();
 	});
 
-	it('marks no component as preconfigured when none is', async () => {
-		mockAgent([notReady]);
-		mockMailVMCP();
+	// Everything missing is something the user supplies when the agent acts for them, so the vMCP
+	// and each such component are labeled OBO rather than as problems.
+	it('labels a vMCP OBO when users supply everything it lacks', async () => {
+		mockAgent([
+			{
+				...notReady,
+				reasons: [
+					{ code: 'configuration_required', componentID: 'gmail', field: 'TENANT' },
+					{ code: 'oauth_required', componentID: 'drive' }
+				]
+			}
+		]);
 		render(AgentAccessReadiness, { agentId: '7' });
 
+		const obo = page.getByText('OBO', { exact: true });
+		// One for the vMCP and one for each component.
+		await expect.element(obo.first()).toBeVisible();
+		await expect.element(obo.nth(2)).toBeVisible();
+		await expect.element(obo.nth(3)).not.toBeInTheDocument();
+		await expect.element(page.getByText('Not ready', { exact: true })).not.toBeInTheDocument();
 		await expect
-			.element(page.getByText(/The preconfigured OAuth for Calendar no longer works/))
+			.element(page.getByRole('link', { name: "Fix in the component's settings on the vMCP" }))
+			.not.toBeInTheDocument();
+	});
+
+	// Broken preconfigured OAuth is used in place of the user's account, so only an administrator can
+	// fix it: the vMCP is not ready, and the component is not listed as preconfigured.
+	it('keeps a vMCP not ready when its preconfigured OAuth is broken alongside what users supply', async () => {
+		mockAgent([notReady]);
+		render(AgentAccessReadiness, { agentId: '7' });
+
+		await expect.element(page.getByText('Not ready', { exact: true })).toBeVisible();
+		// Only the components users supply are labeled OBO; the vMCP is not.
+		const obo = page.getByText('OBO', { exact: true });
+		await expect.element(obo.nth(1)).toBeVisible();
+		await expect.element(obo.nth(2)).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText(/The preconfigured OAuth for calendar no longer works/))
 			.toBeVisible();
 		await expect.element(page.getByText('Preconfigured', { exact: true })).not.toBeInTheDocument();
 	});

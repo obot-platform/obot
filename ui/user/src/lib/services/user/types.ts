@@ -218,6 +218,8 @@ export interface AuditLogEvent {
 		id?: string;
 		/** The agent's name when the actor is an agent, also after the agent is deleted. */
 		displayName?: string;
+		/** The user an agent acted for, when the actor is an agent that acted for one. The agent is still the actor. */
+		onBehalfOf?: { kind: 'user' | 'agent'; id: string };
 		/** Redacted authentication credential identifier when the actor is a known user or agent. */
 		credentialID?: string;
 		/** Current lifecycle state of the API key represented by credentialID, or by id for credential actors. */
@@ -283,6 +285,10 @@ export type AuditLogURLFilters = {
 	// underlying column per source in the backend and can be combined across sources.
 	actor?: string | null; // matches an Obot user id, "agent:<id>" for an agent, or an enrolled device id
 	actor_kind?: string | null; // "user" or "agent"
+	// With an actor that is a user, also lists the calls agents made on the user's behalf.
+	include_on_behalf_of?: string | null;
+	// Lists only the calls agents made on behalf of these users, which every other filter narrows.
+	on_behalf_of?: string | null;
 	operation?: string | null; // MCP call type; local-agent tool calls are implicitly tools/call
 	mcp_server?: string | null; // MCP server (id/display name) or a local-agent row's MCP parent
 	tool?: string | null; // MCP call identifier or local-agent action name
@@ -340,6 +346,8 @@ export type McpAuditLogUsageFilters = {
 	mcp_server_catalog_entry_names?: string;
 	mcp_server_display_names?: string;
 	user_ids?: string;
+	// Counts only the calls agents made on behalf of these users.
+	on_behalf_of?: string;
 	start_time?: string | null;
 	end_time?: string | null;
 };
@@ -350,6 +358,8 @@ export type McpServerOrInstanceAuditLogStatsFilters = {
 export type UsageStatsFilters = {
 	mcp_id?: string;
 	user_ids?: string;
+	// Counts only the calls agents made on behalf of these users.
+	on_behalf_of?: string;
 	mcp_server_display_names?: string;
 	mcp_server_catalog_entry_names?: string;
 	start_time?: string | null;

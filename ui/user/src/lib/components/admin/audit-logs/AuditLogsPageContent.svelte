@@ -4,6 +4,7 @@
 	import { columnResize } from '$lib/actions/resize';
 	import {
 		auditLogActorKindLabel,
+		auditLogAgentActorLabel,
 		buildPillSearchParamFilters,
 		buildSearchParamFiltersArray,
 		getAuditLogAPIKeyFilterOptionLabel,
@@ -13,6 +14,7 @@
 	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogEventDetails from '$lib/components/admin/audit-logs/AuditLogEventDetails.svelte';
+	import IncludeOnBehalfOfToggle from '$lib/components/admin/audit-logs/IncludeOnBehalfOfToggle.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import { getLocale, m } from '$lib/i18n';
@@ -159,6 +161,8 @@
 	const unifiedFilters: SupportedFilter[] = [
 		'event_type',
 		'actor',
+		// The users agents acted for: with an agent as the actor, what that agent did for them.
+		'on_behalf_of',
 		'actor_kind',
 		'operation',
 		'mcp_server',
@@ -194,8 +198,12 @@
 		const filters: SupportedFilter[] = [source, 'api_key_id', ...remainingFilters];
 		return filters.filter(
 			(key) =>
-				// Basic users see only their own activity, so there is no kind of actor to choose.
-				!(key === 'actor_kind' && isBasicUser(profile.current.groups)) &&
+				// Basic users see only their own activity, so there is no kind of actor to choose, and no one
+				// acted on behalf of the actor they are pinned to.
+				!(
+					(key === 'actor_kind' || key === 'on_behalf_of') &&
+					isBasicUser(profile.current.groups)
+				) &&
 				!(isServerScoped && (key === 'mcp_server' || key === 'event_type')) &&
 				!(isApiKeyScoped && key === 'api_key_id')
 		);
@@ -260,6 +268,8 @@
 		}
 		if (key === 'actor_kind') return auditLogActorKindLabel(value);
 		if (key === 'actor') return withDisabledMarker(actorDisplay(value), users.get(value));
+		if (key === 'on_behalf_of')
+			return withDisabledMarker(getUserDisplayName(users, value), users.get(value));
 		if (key === 'duration') return durationBucketLabel(value);
 		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
 		if (key === 'event_type') {
@@ -322,6 +332,18 @@
 	);
 
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
+
+	// Calls that agents made for a user are only listed with the user when asked for, and only a filter on a user can
+	// ask: an agent or a device has none.
+	const hasUserActor = $derived(
+		!isBasicUser(profile.current.groups) &&
+			parseMultiValue(pillsSearchParamFilters.actor).some(
+				(actor) => users.has(actor) || /^\d+$/.test(actor)
+			)
+	);
+	const includeOnBehalfOf = $derived(
+		hasUserActor && page.url.searchParams.get('include_on_behalf_of') === 'true'
+	);
 
 	// Filters to be used in the audit logs slideover
 	// Exclude filters that are set via props and not undefined
@@ -389,6 +411,7 @@
 			...propsFilters,
 			...(forcedEventType ? { event_type: forcedEventType } : {}),
 			...(duration ? durationToProcessingParams(String(duration)) : {}),
+			...(includeOnBehalfOf ? { include_on_behalf_of: 'true' } : {}),
 			start_time: timeRangeFilters.startTime.toISOString(),
 			end_time: timeRangeFilters.endTime?.toISOString(),
 			limit: pageLimit,
@@ -484,6 +507,7 @@
 		if (_key === 'api_key_id') return m.audit_usage_audit_logs_filter_api_key();
 		if (_key === 'actor') return m.audit_usage_audit_logs_actor();
 		if (_key === 'actor_kind') return m.audit_usage_actor_kind();
+		if (_key === 'on_behalf_of') return m.identity_access_on_behalf_of();
 		if (_key === 'operation') return m.audit_usage_audit_logs_operation();
 		if (_key === 'mcp_server') return m.audit_usage_audit_logs_filter_identifier_mcp_server();
 		if (_key === 'mcp_id') return m.audit_usage_audit_logs_filter_server_id();
@@ -662,6 +686,9 @@
 			</div>
 		</div>
 	</div>
+	{#if hasUserActor}
+		<IncludeOnBehalfOfToggle />
+	{/if}
 	{#if hasFilterPills}
 		{@render filters()}
 	{/if}
@@ -753,7 +780,11 @@
 					d.actor.actorType === 'user' && d.actor.id
 						? getUserDisplayName(users, d.actor.id)
 						: d.actor.actorType === 'agent' && d.actor.id
-							? m.audit_usage_agent_actor({ name: agentName(d.actor.id, d.actor.displayName) })
+							? auditLogAgentActorLabel(
+									agentName(d.actor.id, d.actor.displayName),
+									d.actor.onBehalfOf,
+									(id) => getUserDisplayName(users, id)
+								)
 							: '';
 				// Fetch full audit log details with request/response bodies
 				try {
@@ -838,6 +869,7 @@
 				const response = await UserService.listAuditLogFilterOptions(filterId, {
 					...rest,
 					...(duration ? durationToProcessingParams(String(duration)) : {}),
+					...(includeOnBehalfOf ? { include_on_behalf_of: 'true' } : {}),
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime?.toISOString(),
 					query,

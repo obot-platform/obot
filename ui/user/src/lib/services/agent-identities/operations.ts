@@ -4,6 +4,7 @@ import type {
 	AgentAPIKey,
 	AgentAPIKeyCreateRequest,
 	AgentAPIKeyCreateResponse,
+	AgentDelegation,
 	AgentIdentity,
 	AgentIdentityAccess,
 	AgentIdentityManifest,
@@ -35,11 +36,13 @@ export async function createAgent(manifest: AgentIdentityManifest): Promise<Agen
 }
 
 // The update replaces all metadata, so it takes the full manifest.
+// dontLogErrors is for a form that shows the server's validation errors next to the fields they name.
 export async function updateAgent(
 	id: string,
-	manifest: AgentIdentityManifest
+	manifest: AgentIdentityManifest,
+	opts?: { dontLogErrors?: boolean }
 ): Promise<AgentIdentity> {
-	return (await doPut(`/agents/${id}`, manifest)) as AgentIdentity;
+	return (await doPut(`/agents/${id}`, manifest, opts)) as AgentIdentity;
 }
 
 export async function deleteAgent(id: string): Promise<void> {
@@ -61,6 +64,16 @@ export async function getAgentAccess(id: string): Promise<AgentIdentityAccess> {
 export async function listAgentVMCPReadiness(id: string): Promise<AgentVMCPReadiness[]> {
 	const response = (await doGet(`/agents/${id}/vmcps`)) as ItemsResponse<AgentVMCPReadiness>;
 	return response.items ?? [];
+}
+
+export async function listAgentDelegations(id: string): Promise<AgentDelegation[]> {
+	const response = (await doGet(`/agents/${id}/delegations`)) as ItemsResponse<AgentDelegation>;
+	return response.items ?? [];
+}
+
+// Revoking ends the agent's access for the user, and deletes what the user set up through the agent.
+export async function revokeAgentDelegation(id: string, delegationId: string): Promise<void> {
+	await doDelete(`/agents/${id}/delegations/${delegationId}`);
 }
 
 export async function listAgentAPIKeys(

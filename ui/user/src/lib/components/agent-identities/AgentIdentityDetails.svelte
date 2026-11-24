@@ -18,14 +18,18 @@
 	import type {
 		AgentAPIKey,
 		AgentAPIKeyCreateResponse,
-		AgentIdentity
+		AgentIdentity,
+		AgentIdentityManifest
 	} from '$lib/services/agent-identities/types';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import AgentAccessReadiness from './AgentAccessReadiness.svelte';
+	import AgentDelegations from './AgentDelegations.svelte';
 	import AgentHistory from './AgentHistory.svelte';
+	import AgentProfilesTab from './AgentProfilesTab.svelte';
 	import CreateAgentKeyDialog from './CreateAgentKeyDialog.svelte';
 	import { Bot, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		agent: AgentIdentity;
@@ -49,6 +53,7 @@
 	let displayName = $state(untrack(() => initialAgent.displayName));
 	let description = $state(untrack(() => initialAgent.description ?? ''));
 	let showRevoked = $state(false);
+	let selectedTab = $state<'keys' | 'profiles' | 'delegations'>('keys');
 	let saving = $state(false);
 	let busy = $state(false);
 	let showValidation = $state(false);
@@ -96,15 +101,10 @@
 		if (!displayName.trim()) return;
 		saving = true;
 		try {
-			// The update replaces the whole manifest, so the agent profiles and the allowed return hosts are sent back
-			// unchanged.
-			const updated = await AgentIdentitiesService.updateAgent(agent.id, {
+			await saveManifest({
 				displayName: displayName.trim(),
-				description: description.trim() || undefined,
-				profiles: agent.profiles ?? [],
-				allowedReturnHosts: agent.allowedReturnHosts ?? []
+				description: description.trim() || undefined
 			});
-			agent = { ...agent, ...updated };
 			displayName = agent.displayName;
 			description = agent.description ?? '';
 			showValidation = false;
@@ -113,6 +113,33 @@
 		} finally {
 			saving = false;
 		}
+	}
+
+	// The update replaces the whole manifest, so what isn't being changed is sent back as it was saved: the agent
+	// profiles and the allowed return hosts with a new name, and the saved name and description, not what is typed in
+	// the form above, with a new list. It throws when the server refuses it.
+	async function saveManifest(
+		change: Partial<AgentIdentityManifest>,
+		opts?: { dontLogErrors?: boolean }
+	) {
+		const updated = await AgentIdentitiesService.updateAgent(
+			agent.id,
+			{
+				displayName: agent.displayName,
+				description: agent.description,
+				profiles: agent.profiles ?? [],
+				allowedReturnHosts: agent.allowedReturnHosts ?? [],
+				...change
+			},
+			opts
+		);
+		// The server leaves out a list that is empty, which a merge would not clear.
+		agent = {
+			...agent,
+			...updated,
+			profiles: updated.profiles,
+			allowedReturnHosts: updated.allowedReturnHosts
+		};
 	}
 
 	async function toggleStatus() {
@@ -252,65 +279,88 @@
 		</form>
 	</section>
 
-	<section class="paper flex flex-col gap-3 p-4" aria-labelledby="agent-keys-title">
-		<div class="flex flex-wrap items-center justify-between gap-2">
-			<h2 id="agent-keys-title" class="text-lg font-semibold">
-				{m.identity_access_api_keys_tab()}
-			</h2>
-			<div class="flex items-center gap-4">
-				<label class="flex items-center gap-2 text-sm">
-					<input type="checkbox" class="checkbox checkbox-xs" bind:checked={showRevoked} />
-					{m.identity_access_agents_show_revoked()}
-				</label>
-				{#if !readonly && agent.status !== 'deleted'}
-					<button class="btn btn-primary text-sm" onclick={() => createKeyDialog?.open()}>
-						<Plus class="size-4" />
-						{m.identity_access_create_api_key()}
-					</button>
-				{/if}
-			</div>
-		</div>
-		{#if tableData.length === 0}
-			<p class="text-muted-content py-4 text-center text-sm">
-				{m.identity_access_agents_keys_none()}
-			</p>
-		{:else}
-			<Table
-				data={tableData}
-				fields={['name', 'mask', 'lastUsedAt', 'expiresAt', 'state']}
-				headers={[
-					{ title: m.core_name(), property: 'name' },
-					{ title: m.identity_access_agents_col_key(), property: 'mask' },
-					{ title: m.identity_access_api_keys_col_last_used(), property: 'lastUsedAt' },
-					{ title: m.identity_access_api_keys_col_expires(), property: 'expiresAt' },
-					{ title: m.core_status(), property: 'state' }
-				]}
+	<div role="tablist" class="tabs tabs-box tabs-sm self-start">
+		{#each [['keys', m.identity_access_api_keys_tab()], ['profiles', m.identity_access_agent_profiles_tab()], ['delegations', m.identity_access_delegations_tab()]] as const as [value, label] (value)}
+			<button
+				role="tab"
+				class={twMerge('tab', selectedTab === value && 'tab-active')}
+				aria-selected={selectedTab === value}
+				onclick={() => (selectedTab = value)}
 			>
-				{#snippet onRenderColumn(property, d)}
-					{#if property === 'mask'}
-						<span class="whitespace-nowrap">{d.mask}</span>
-					{:else if property === 'lastUsedAt'}
-						{d.lastUsedDisplay}
-					{:else if property === 'expiresAt'}
-						{d.expiresDisplay}
-					{:else}
-						{d[property as keyof typeof d]}
-					{/if}
-				{/snippet}
-				{#snippet actions(d)}
-					{#if !readonly && !isRevoked(d)}
-						<button
-							class="btn btn-error btn-soft btn-sm"
-							disabled={busy}
-							onclick={() => (revokingKey = keys.find((key) => key.id === d.id))}
-						>
-							{m.identity_access_agents_revoke()}
+				{label}
+			</button>
+		{/each}
+	</div>
+
+	{#if selectedTab === 'keys'}
+		<section class="paper flex flex-col gap-3 p-4" aria-labelledby="agent-keys-title">
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<h2 id="agent-keys-title" class="text-lg font-semibold">
+					{m.identity_access_api_keys_tab()}
+				</h2>
+				<div class="flex items-center gap-4">
+					<label class="flex items-center gap-2 text-sm">
+						<input type="checkbox" class="checkbox checkbox-xs" bind:checked={showRevoked} />
+						{m.identity_access_agents_show_revoked()}
+					</label>
+					{#if !readonly && agent.status !== 'deleted'}
+						<button class="btn btn-primary text-sm" onclick={() => createKeyDialog?.open()}>
+							<Plus class="size-4" />
+							{m.identity_access_create_api_key()}
 						</button>
 					{/if}
-				{/snippet}
-			</Table>
-		{/if}
-	</section>
+				</div>
+			</div>
+			{#if tableData.length === 0}
+				<p class="text-muted-content py-4 text-center text-sm">
+					{m.identity_access_agents_keys_none()}
+				</p>
+			{:else}
+				<Table
+					data={tableData}
+					fields={['name', 'mask', 'lastUsedAt', 'expiresAt', 'state']}
+					headers={[
+						{ title: m.core_name(), property: 'name' },
+						{ title: m.identity_access_agents_col_key(), property: 'mask' },
+						{ title: m.identity_access_api_keys_col_last_used(), property: 'lastUsedAt' },
+						{ title: m.identity_access_api_keys_col_expires(), property: 'expiresAt' },
+						{ title: m.core_status(), property: 'state' }
+					]}
+				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'mask'}
+							<span class="whitespace-nowrap">{d.mask}</span>
+						{:else if property === 'lastUsedAt'}
+							{d.lastUsedDisplay}
+						{:else if property === 'expiresAt'}
+							{d.expiresDisplay}
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
+					{#snippet actions(d)}
+						{#if !readonly && !isRevoked(d)}
+							<button
+								class="btn btn-error btn-soft btn-sm"
+								disabled={busy}
+								onclick={() => (revokingKey = keys.find((key) => key.id === d.id))}
+							>
+								{m.identity_access_agents_revoke()}
+							</button>
+						{/if}
+					{/snippet}
+				</Table>
+			{/if}
+		</section>
+	{:else if selectedTab === 'profiles'}
+		<AgentProfilesTab
+			{agent}
+			{readonly}
+			onSave={(change) => saveManifest(change, { dontLogErrors: true })}
+		/>
+	{:else}
+		<AgentDelegations agentId={agent.id} agentName={agent.displayName} {readonly} />
+	{/if}
 
 	<AgentAccessReadiness agentId={agent.id} {refreshKey} />
 	<AgentHistory agentId={agent.id} keyIds={keys.map((key) => key.id)} {refreshKey} />

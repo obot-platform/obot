@@ -79,6 +79,7 @@
 			tool: '',
 			client: '',
 			user_id: '',
+			on_behalf_of: '',
 			mcp_id: '',
 			mcp_server_display_name: '',
 			mcp_server_catalog_entry_name: '',
@@ -148,6 +149,7 @@
 				form.filters = {
 					api_key_id: filters.apiKeyIDs?.join(',') ?? '',
 					user_id: filters.userIDs ? filters.userIDs.join(',') : '',
+					on_behalf_of: filters.onBehalfOf?.join(',') ?? '',
 					model_provider: filters.modelProviders ? filters.modelProviders.join(',') : '',
 					target_model: filters.targetModels ? filters.targetModels.join(',') : '',
 					request_path: filters.requestPaths ? filters.requestPaths.join(',') : '',
@@ -171,6 +173,7 @@
 					tool: filters.tools?.join(',') ?? '',
 					outcome: filters.outcomes?.join(',') ?? '',
 					client: filters.clients?.join(',') ?? '',
+					on_behalf_of: filters.onBehalfOf?.join(',') ?? '',
 					user_id: filters.userIDs ? filters.userIDs.join(',') : '',
 					mcp_id: filters.mcpIDs ? filters.mcpIDs.join(',') : '',
 					mcp_server_display_name: filters.mcpServerDisplayNames
@@ -212,6 +215,7 @@
 					? ({
 							api_key_id: 'api_key_id',
 							user_id: 'user_id',
+							on_behalf_of: 'on_behalf_of',
 							user_agent: 'user_agent',
 							client_session_id: 'client_session_id',
 							model_provider: 'model_provider',
@@ -229,6 +233,7 @@
 							tool: 'tool',
 							outcome: 'outcome',
 							client: 'client',
+							on_behalf_of: 'on_behalf_of',
 							user_id: 'user_id',
 							mcp_id: 'mcp_id',
 							mcp_server_display_name: 'mcp_server_display_name',
@@ -266,6 +271,7 @@
 
 	let mcpFiltersIds = [
 		'actor',
+		'on_behalf_of',
 		'operation',
 		'mcp_server',
 		'tool',
@@ -292,6 +298,7 @@
 	let llmFiltersIds = [
 		'api_key_id',
 		'user_id',
+		'on_behalf_of',
 		'user_agent',
 		'client_session_id',
 		'model_provider',
@@ -352,6 +359,7 @@
 			| 'tool'
 			| 'client'
 			| 'user_id'
+			| 'on_behalf_of'
 			| 'mcp_id'
 			| 'mcp_server_display_name'
 			| 'call_type'
@@ -398,6 +406,16 @@
 					label: m.audit_usage_exports_filter_title_users(),
 					description: m.audit_usage_exports_filter_desc_csv_user_ids(),
 					options: toStringFilterSelectOptions(filtersOptions['user_id'], resolveUserDisplayName)
+				},
+				{
+					fieldId: 'on_behalf_of',
+					filterKey: 'on_behalf_of',
+					label: m.identity_access_on_behalf_of(),
+					description: m.identity_access_on_behalf_of_description(),
+					options: toStringFilterSelectOptions(
+						filtersOptions['on_behalf_of'],
+						resolveUserDisplayName
+					)
 				},
 				{
 					fieldId: 'model_provider',
@@ -502,6 +520,14 @@
 				label: m.audit_usage_exports_filter_title_api_keys(),
 				description: m.audit_usage_exports_filter_desc_api_keys_used(),
 				options: filtersOptions['api_key_id']?.map?.(sameLabel) ?? []
+			},
+			// As are the users agents acted for.
+			{
+				fieldId: 'on_behalf_of',
+				filterKey: 'on_behalf_of',
+				label: m.identity_access_on_behalf_of(),
+				description: m.identity_access_on_behalf_of_description(),
+				options: toStringFilterSelectOptions(filtersOptions['on_behalf_of'], resolveUserDisplayName)
 			},
 			// Single-source filters. Shown only when exactly one log source is selected.
 			{
@@ -665,6 +691,7 @@
 					llmFilters: {
 						apiKeyIDs: splitNumbers(form.filters.api_key_id),
 						userIDs: split(form.filters.user_id),
+						onBehalfOf: split(form.filters.on_behalf_of),
 						modelProviders: split(form.filters.model_provider),
 						targetModels: split(form.filters.target_model),
 						requestPaths: split(form.filters.request_path),
@@ -712,6 +739,7 @@
 					tools: split(form.filters.tool),
 					outcomes: split(form.filters.outcome),
 					clients: split(form.filters.client),
+					onBehalfOf: split(form.filters.on_behalf_of),
 					userIDs: form.filters.user_id ? form.filters.user_id.split(',').map((s) => s.trim()) : [],
 					mcpIDs: form.filters.mcp_id ? form.filters.mcp_id.split(',').map((s) => s.trim()) : [],
 					mcpServerDisplayNames: form.filters.mcp_server_display_name
