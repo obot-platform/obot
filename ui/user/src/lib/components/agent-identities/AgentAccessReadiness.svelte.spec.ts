@@ -16,8 +16,28 @@ const notReady: AgentVMCPReadiness = {
 		{ code: 'configuration_required', componentID: 'gmail', field: 'TENANT' },
 		{ code: 'oauth_required', componentID: 'gmail' },
 		{ code: 'oauth_invalid', componentID: 'calendar' }
-	]
+	],
+	preconfiguredComponents: []
 };
+
+// The vMCP editor's names for the components of vmcp1mail.
+function mockMailVMCP() {
+	worker.use(
+		http.get('/api/vmcps/vmcp1mail', () =>
+			HttpResponse.json({
+				id: 'vmcp1mail',
+				components: [
+					{ id: 'gmail', name: 'Gmail' },
+					{ id: 'drive', name: 'Drive' },
+					{
+						mcpServerCatalogEntryID: 'calendar',
+						catalogEntry: { manifest: { name: 'Calendar' } }
+					}
+				]
+			})
+		)
+	);
+}
 
 function mockAgent(readiness: AgentVMCPReadiness[]) {
 	worker.use(
@@ -52,7 +72,7 @@ describe('AgentAccessReadiness', () => {
 		await expect.element(page.getByText('Everyone', { exact: true })).not.toBeInTheDocument();
 	});
 
-	it("links each reason to the vMCP's agent setup, at the component or button it is about", async () => {
+	it("links each reason to the component's settings in the vMCP editor, at the part it is about", async () => {
 		mockAgent([notReady]);
 		render(AgentAccessReadiness, { agentId: '7' });
 
@@ -65,27 +85,29 @@ describe('AgentAccessReadiness', () => {
 				)
 			)
 			.toBeVisible();
-		const links = page.getByRole('link', { name: "Fix in the vMCP's agent setup" });
+		const links = page.getByRole('link', { name: "Fix in the component's settings on the vMCP" });
 		await expect
 			.element(links.first())
-			.toHaveAttribute(
-				'href',
-				`/vmcps/vmcp1mail?view=agent-setup#${encodeURIComponent('agent-component-gmail')}`
-			);
+			.toHaveAttribute('href', '/vmcps/vmcp1mail?component=gmail&settings=configuration');
 		await expect
 			.element(links.nth(1))
-			.toHaveAttribute(
-				'href',
-				`/vmcps/vmcp1mail?view=agent-setup#${encodeURIComponent('agent-oauth-gmail')}`
-			);
-		// An invalid grant is fixed by authorizing it again on the vMCP, never in a profile.
+			.toHaveAttribute('href', '/vmcps/vmcp1mail?component=gmail&settings=oauth');
+		// An invalid grant is fixed by authorizing the component's preconfigured OAuth again, never in a
+		// profile.
 		await expect
 			.element(links.nth(2))
-			.toHaveAttribute(
-				'href',
-				`/vmcps/vmcp1mail?view=agent-setup#${encodeURIComponent('agent-oauth-calendar')}`
-			);
+			.toHaveAttribute('href', '/vmcps/vmcp1mail?component=calendar&settings=oauth');
 		await expect.element(page.getByRole('link', { name: /profile/ })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('link', { name: /agent setup/i })).not.toBeInTheDocument();
+	});
+
+	it('links a reason about no component to the vMCP editor', async () => {
+		mockAgent([{ ...notReady, reasons: [{ code: 'oauth_required' }] }]);
+		render(AgentAccessReadiness, { agentId: '7' });
+
+		await expect
+			.element(page.getByRole('link', { name: "Fix in the component's settings on the vMCP" }))
+			.toHaveAttribute('href', '/vmcps/vmcp1mail');
 	});
 
 	it('names components as the vMCP does, falling back to their IDs', async () => {
@@ -116,11 +138,43 @@ describe('AgentAccessReadiness', () => {
 			.toBeVisible();
 		await expect.element(page.getByText('Gmail needs OAuth authorization')).toBeVisible();
 		await expect
-			.element(page.getByText(/The OAuth grant for Calendar no longer works/))
+			.element(page.getByText(/The preconfigured OAuth for Calendar no longer works/))
 			.toBeVisible();
 		await expect.element(page.getByText(/^gmail /)).not.toBeInTheDocument();
 
 		// A component the vMCP no longer has keeps its ID.
 		await expect.element(page.getByText('gone needs OAuth authorization')).toBeVisible();
+	});
+
+	// Only components with working preconfigured OAuth are listed: a broken one is a reason instead.
+	it('lists the components whose OAuth is preconfigured, named as the vMCP does', async () => {
+		mockAgent([
+			{
+				...notReady,
+				ready: true,
+				reasons: [],
+				preconfiguredComponents: ['drive']
+			}
+		]);
+		mockMailVMCP();
+		render(AgentAccessReadiness, { agentId: '7' });
+
+		await expect.element(page.getByText('Ready', { exact: true })).toBeVisible();
+		// The vMCP is loaded for the names even though no reason names a component.
+		await expect.element(page.getByText('Drive', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Preconfigured', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('drive', { exact: true })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('link')).not.toBeInTheDocument();
+	});
+
+	it('marks no component as preconfigured when none is', async () => {
+		mockAgent([notReady]);
+		mockMailVMCP();
+		render(AgentAccessReadiness, { agentId: '7' });
+
+		await expect
+			.element(page.getByText(/The preconfigured OAuth for Calendar no longer works/))
+			.toBeVisible();
+		await expect.element(page.getByText('Preconfigured', { exact: true })).not.toBeInTheDocument();
 	});
 });

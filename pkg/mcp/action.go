@@ -30,10 +30,12 @@ var (
 	actionEnvVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 )
 
-// AgentOAuthGrantError reports that the agent OAuth grant a vMCP holds for a component cannot be used: it was marked
-// invalid, or the component's upstream URL is not the one it was authorized for. The agent is refused the component
-// rather than connected without the grant, until an administrator authorizes it again on the vMCP.
-type AgentOAuthGrantError struct {
+// PreconfiguredOAuthError reports that the preconfigured OAuth a vMCP holds for a component cannot be used by an
+// agent: it was marked invalid, or the component's upstream URL is not the one it was authorized for. The agent is
+// refused the component rather than connected without the grant, until an administrator authorizes it again on the
+// vMCP. A user's connection is never refused this way: it takes the grant whatever its state, and the token store
+// refuses one that does not work when the connection asks it for a token (applyPreconfiguredOAuth).
+type PreconfiguredOAuthError struct {
 	VMCPID      string
 	ComponentID string
 	Reason      string
@@ -69,13 +71,13 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id s
 	case instance.Name != "":
 		server, config, missingConfig, err := sm.serverFromMCPServerInstance(ctx, instance, userID, allowMissingConfig)
 		if err == nil {
-			err = sm.applyAgentOAuthGrant(ctx, user, server, &config)
+			err = sm.applyPreconfiguredOAuth(ctx, user, server, &config)
 		}
 		return instance.Name, server, config, missingConfig, err
 	case server.Name != "":
 		config, missingConfig, err := sm.serverConfigForAction(ctx, server, userID, allowMissingConfig)
 		if err == nil {
-			err = sm.applyAgentOAuthGrant(ctx, user, server, &config)
+			err = sm.applyPreconfiguredOAuth(ctx, user, server, &config)
 		}
 		return server.Name, server, config, missingConfig, err
 	default:
@@ -83,25 +85,33 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id s
 	}
 }
 
-func (e *AgentOAuthGrantError) Error() string {
-	return fmt.Sprintf("the agent OAuth grant of vMCP %q for component %q cannot be used: %s", e.VMCPID, e.ComponentID, e.Reason)
+func (e *PreconfiguredOAuthError) Error() string {
+	return fmt.Sprintf("the preconfigured OAuth of vMCP %q for component %q cannot be used: %s", e.VMCPID, e.ComponentID, e.Reason)
 }
 
-// applyAgentOAuthGrant makes the connection of an agent, user, to a vMCP component's server use the agent OAuth grant
-// that the vMCP holds for the component (vmcpaccess.AgentOAuthGrantStore.SelectGrants), if a profile naming the agent
-// grants it the component. This is where the token of every agent request to a component is chosen, for shared and
-// dedicated component servers alike, since both reach the component hop through here; the caller's own encoded owner
-// stays the connection's UserID, so sessions, caches and audit stay the agent's own. Users' connections are unchanged.
+// applyPreconfiguredOAuth makes the connection of user, a user or an agent, to a vMCP component's server use the OAuth
+// that the vMCP preconfigures for the component (vmcpaccess.PreconfiguredOAuthStore.SelectGrants), if it holds one.
+// This is where the token of every request to a component is chosen, for shared and dedicated component servers alike,
+// since both reach the component hop through here, and so the one place that decides whose account a request acts as
+// upstream. The caller's own encoded owner stays the connection's UserID, so sessions, caches and audit stay the
+// caller's own; only the token (ServerConfig.OAuthTokenKey) is the grant's.
 //
-// A grant is used only for the URL it was authorized for, which config.URL, the URL this connection reaches, must
-// equal. A grant that is invalid or bound to another URL fails the connection with AgentOAuthGrantError: the agent
-// never sends a grant to an upstream it was not authorized for. Without any grant, or for a component that no profile
-// naming the agent grants, the connection uses no token (ServerConfig.OAuthTokenKey), and an upstream that asks for
-// one is reported to the agent as needing OAuth.
-func (sm *SessionManager) applyAgentOAuthGrant(ctx context.Context, user kuser.Info, server v1.MCPServer, config *ServerConfig) error {
-	if !principal.IsAgent(user) || config.Runtime != types.RuntimeRemote || server.Spec.VMCPComponentID == "" || sm.agentOAuthGrants == nil {
+// For a user, a held grant replaces their own OAuth for the component whatever its state: the user is never asked to
+// authorize the component (ServerConfig.OAuthGrant is how every prompt for it knows), and their own token for it, if
+// they have one, is not used. A grant that does not work, or that is bound to another URL than config.URL, the URL
+// this connection reaches, gives no token (the token store refuses it, as mcp.ErrOAuthGrantInvalid), and the user is
+// told that an administrator must authorize it again, never prompted. Without a grant, the user's own token is used, as
+// it always was. Only a personal vMCP's components are never looked up: a personal vMCP holds no grants.
+//
+// For an agent, only the components that the profiles naming it grant use the vMCP's grants. A grant that is invalid or
+// bound to another URL fails the connection with PreconfiguredOAuthError: the agent never sends a grant to an upstream
+// it was not authorized for, and never connects without it. Without a grant, the connection uses no token, and an
+// upstream that asks for one is reported to the agent as needing OAuth.
+func (sm *SessionManager) applyPreconfiguredOAuth(ctx context.Context, user kuser.Info, server v1.MCPServer, config *ServerConfig) error {
+	if config.Runtime != types.RuntimeRemote || server.Spec.VMCPComponentID == "" || sm.preconfiguredOAuth == nil {
 		return nil
 	}
+	agent := principal.IsAgent(user)
 	vmcpID := server.Spec.VMCPID
 	if server.Spec.VMCPInstanceID != "" {
 		var instance v1.VMCPInstance
@@ -114,17 +124,26 @@ func (sm *SessionManager) applyAgentOAuthGrant(ctx context.Context, user kuser.I
 	if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: server.Namespace, Name: vmcpID}, &vmcp); err != nil {
 		return fmt.Errorf("get vMCP of component server %q: %w", server.Name, err)
 	}
-	// Only the components that the profiles naming the agent grant use the vMCP's grants, as only they are enabled for
-	// it. A component the vMCP no longer has is enabled for no one, and the vMCP controller deletes its grant with it.
-	components := vmcpaccess.EnabledComponents(user, vmcp, vmcpaccess.ComponentsForInstance(vmcp, v1.VMCPInstance{}))
+	if vmcp.Spec.UserID != "" {
+		return nil
+	}
+	components := vmcpaccess.ComponentsForInstance(vmcp, v1.VMCPInstance{})
+	if agent {
+		// Only the components that the profiles naming the agent grant use the vMCP's grants, as only they are enabled
+		// for it. A user reaches a component only through their own connection to it, which exists only for the
+		// components enabled for them, and the composite loopback that reaches it here carries none of the user's groups
+		// to match profiles with again; an agent is matched by its ID alone.
+		components = vmcpaccess.EnabledComponents(user, vmcp, components)
+	}
+	// A component the vMCP no longer has is enabled for no one, and the vMCP controller deletes its grant with it.
 	index := slices.IndexFunc(components, func(c types.VMCPComponent) bool { return c.ID == server.Spec.VMCPComponentID })
 	if index < 0 {
 		return nil
 	}
 	component := components[index]
-	// The grant is selected again for every connection, so that it is checked when it is used. Its URL is checked below
-	// against the one the connection reaches.
-	grants, err := sm.agentOAuthGrants.SelectGrants(ctx, vmcp, []types.VMCPComponent{component})
+	// The grant is selected again for every connection, so that it is checked when it is used. Its URL is checked below,
+	// for an agent, and by the token store, for everyone, against the one the connection reaches.
+	grants, err := sm.preconfiguredOAuth.SelectGrants(ctx, vmcp, []types.VMCPComponent{component})
 	if err != nil {
 		return err
 	}
@@ -132,11 +151,12 @@ func (sm *SessionManager) applyAgentOAuthGrant(ctx context.Context, user kuser.I
 	switch {
 	case !grant.Held():
 		return nil
+	case !agent:
 	case !grant.Usable():
-		return &AgentOAuthGrantError{VMCPID: vmcp.Name, ComponentID: component.ID, Reason: grant.InvalidReason}
+		return &PreconfiguredOAuthError{VMCPID: vmcp.Name, ComponentID: component.ID, Reason: grant.InvalidReason}
 	case grant.URL != config.URL:
 		// config.URL is the authority.
-		return &AgentOAuthGrantError{VMCPID: vmcp.Name, ComponentID: component.ID, Reason: vmcpaccess.GrantTargetMismatch}
+		return &PreconfiguredOAuthError{VMCPID: vmcp.Name, ComponentID: component.ID, Reason: vmcpaccess.GrantTargetMismatch}
 	}
 	config.OAuthGrant = newOAuthGrantRef(grant)
 	return nil
@@ -171,7 +191,7 @@ func (sm *SessionManager) ServerForAction(ctx context.Context, id string, user k
 
 	serverConfig, _, err := sm.serverConfigForAction(ctx, server, userID, false)
 	if err == nil {
-		err = sm.applyAgentOAuthGrant(ctx, user, server, &serverConfig)
+		err = sm.applyPreconfiguredOAuth(ctx, user, server, &serverConfig)
 	}
 	return server, serverConfig, err
 }

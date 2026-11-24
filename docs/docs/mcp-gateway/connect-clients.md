@@ -9,7 +9,7 @@ For new connections, use a [vMCP](./server-types.md), even when it exposes only 
 ### Connect to a vMCP {#virtual-mcps-connect-to-a-vmcp}
 
 
-Paste the vMCP's connection URL into the AI client's MCP server settings. On first connection, sign in to Obot, supply any requested configuration, and authorize any remote services that require OAuth. Obot saves this setup for your user account.
+Paste the vMCP's connection URL into the AI client's MCP server settings. On first connection, sign in to Obot, supply any requested configuration, and authorize any remote services that require OAuth. Obot saves this setup for your user account. You aren't asked to authorize a service whose OAuth an administrator [preconfigured](./server-types.md#preconfigured-oauth) for everyone: your requests to it use the account the administrator authorized.
 
 To set up a connection in the UI:
 

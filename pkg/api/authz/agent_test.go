@@ -142,18 +142,19 @@ var (
 			method: http.MethodGet,
 			path:   "/api/agents/7/vmcps/" + agentTestVMCP + "/readiness",
 		},
+		// The vMCP's preconfigured OAuth, which agents use but only administrators authorize and revoke, and read-only
+		// administrators and auditors read.
 		{
 			method: http.MethodGet,
-			path:   "/api/vmcps/" + agentTestVMCP + "/agent-setup",
+			path:   "/api/vmcps/" + agentTestVMCP + "/components/component/preconfigured-oauth",
 		},
-		// The vMCP's agent OAuth grants, which agents use but only administrators authorize and revoke.
 		{
 			method: http.MethodPost,
-			path:   "/api/vmcps/" + agentTestVMCP + "/agent-oauth/component",
+			path:   "/api/vmcps/" + agentTestVMCP + "/components/component/preconfigured-oauth",
 		},
 		{
 			method: http.MethodDelete,
-			path:   "/api/vmcps/" + agentTestVMCP + "/agent-oauth/component",
+			path:   "/api/vmcps/" + agentTestVMCP + "/components/component/preconfigured-oauth",
 		},
 		{
 			method: http.MethodPost,

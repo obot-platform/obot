@@ -19,11 +19,12 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// The agent OAuth grants of vMCPs are MCP OAuth tokens whose owner (UserID) is a principal.AgentOAuthGrantOwner and
-// whose MCPID names a vMCP component. Many agents, on every replica, use one grant, so these methods differ from the
-// per-user ones in three ways: a grant is written with an ID chosen beforehand and with who authorized it, a grant can
-// be marked invalid for everyone at once, and refreshing one is serialized across replicas
-// (WithMCPOAuthRefreshLock). None of them triggers an MCPServer: no MCPServer is named by a grant's MCPID.
+// The preconfigured OAuth grants of vMCPs are MCP OAuth tokens whose owner (UserID) is a
+// principal.PreconfiguredOAuthOwner and whose MCPID names a vMCP component. Everyone who reaches the component through
+// the vMCP, on every replica, uses one grant, so these methods differ from the per-user ones in three ways: a grant is
+// written with an ID chosen beforehand and with who authorized it, a grant can be marked invalid for everyone at once,
+// and refreshing one is serialized across replicas (WithMCPOAuthRefreshLock). None of them triggers an MCPServer: no
+// MCPServer is named by a grant's MCPID.
 
 const (
 	// mcpOAuthRefreshHolders is how many shared grants a process refreshes at once, each holding one database
@@ -32,8 +33,8 @@ const (
 )
 
 var (
-	// ErrNotAgentOAuthGrant refuses to write a grant for an owner that is not a vMCP's agent OAuth grant owner.
-	ErrNotAgentOAuthGrant = errors.New("owner is not a vMCP agent OAuth grant owner")
+	// ErrNotPreconfiguredOAuth refuses to write a grant for an owner that is not a vMCP's preconfigured OAuth grant owner.
+	ErrNotPreconfiguredOAuth = errors.New("owner is not a vMCP preconfigured OAuth grant owner")
 )
 
 // MCPOAuthRefresh is a shared grant being refreshed while its refresh lock is held (WithMCPOAuthRefreshLock). It reads
@@ -57,10 +58,11 @@ type keyedLock struct {
 	users int
 }
 
-// requireAgentOAuthGrantOwner returns ErrNotAgentOAuthGrant for an owner that is not a vMCP's agent OAuth grant owner.
-func requireAgentOAuthGrantOwner(owner string) error {
-	if _, ok := principal.ParseAgentOAuthGrantOwner(owner); !ok {
-		return fmt.Errorf("%w: %q", ErrNotAgentOAuthGrant, owner)
+// requirePreconfiguredOAuthOwner returns ErrNotPreconfiguredOAuth for an owner that is not a vMCP's preconfigured OAuth
+// grant owner.
+func requirePreconfiguredOAuthOwner(owner string) error {
+	if _, ok := principal.ParsePreconfiguredOAuthOwner(owner); !ok {
+		return fmt.Errorf("%w: %q", ErrNotPreconfiguredOAuth, owner)
 	}
 	return nil
 }
@@ -70,11 +72,11 @@ func requireAgentOAuthGrantOwner(owner string) error {
 // invalid is valid again. grantID identifies the new grant; the caller chooses it, so that it can record the grant
 // before writing it, and delete exactly it if the write must be undone (DeleteMCPOAuthGrants).
 func (c *Client) ReplaceMCPOAuthGrant(ctx context.Context, owner, mcpID, url, grantID, authorizedBy string, oauthConf *oauth2.Config, token *oauth2.Token) error {
-	if err := requireAgentOAuthGrantOwner(owner); err != nil {
+	if err := requirePreconfiguredOAuthOwner(owner); err != nil {
 		return err
 	}
 	if grantID == "" || authorizedBy == "" {
-		return fmt.Errorf("a vMCP agent OAuth grant needs an ID and the administrator who authorized it")
+		return fmt.Errorf("a vMCP preconfigured OAuth grant needs an ID and the administrator who authorized it")
 	}
 	now := time.Now()
 	t := &types.MCPOAuthToken{
@@ -129,10 +131,11 @@ func (c *Client) DeleteMCPOAuthGrants(ctx context.Context, owner, mcpID string, 
 	return c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ? AND mcp_id = ? AND grant_id IN ?", owner, mcpID, grantIDs).Error
 }
 
-// DeleteMCPOAuthGrantsForOwner deletes every token of owner, with one statement. Only a vMCP's agent OAuth grant owner
-// is accepted, so it can never delete the tokens of a user or an agent. Deleting what is already gone succeeds.
+// DeleteMCPOAuthGrantsForOwner deletes every token of owner, with one statement. Only a vMCP's preconfigured OAuth
+// grant owner is accepted, so it can never delete the tokens of a user or an agent. Deleting what is already gone
+// succeeds.
 func (c *Client) DeleteMCPOAuthGrantsForOwner(ctx context.Context, owner string) error {
-	if err := requireAgentOAuthGrantOwner(owner); err != nil {
+	if err := requirePreconfiguredOAuthOwner(owner); err != nil {
 		return err
 	}
 	return c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ?", owner).Error
@@ -171,15 +174,15 @@ func (c *Client) MCPOAuthGrantDiscoveryRevision(ctx context.Context, keys []type
 	return utils.Digest([]any{"mcp-oauth-grants/v1", entries}), nil
 }
 
-// CreateMCPOAuthGrantPendingState stores the pending authorization of a vMCP's agent OAuth grant, bound to the
+// CreateMCPOAuthGrantPendingState stores the pending authorization of a vMCP's preconfigured OAuth grant, bound to the
 // administrator who started it (initiatorUserID, their encoded principal) and to the definition of the component it
 // is for (definitionHash). The callback refuses anyone else, and a component whose definition changed.
 func (c *Client) CreateMCPOAuthGrantPendingState(ctx context.Context, owner, mcpID, mcpURL, tunnelName, initiatorUserID, definitionHash, state, verifier, resourceURL string, oauthConf *oauth2.Config) error {
-	if err := requireAgentOAuthGrantOwner(owner); err != nil {
+	if err := requirePreconfiguredOAuthOwner(owner); err != nil {
 		return err
 	}
 	if initiatorUserID == "" || definitionHash == "" {
-		return fmt.Errorf("a pending vMCP agent OAuth grant must be bound to its administrator and component definition")
+		return fmt.Errorf("a pending vMCP preconfigured OAuth grant must be bound to its administrator and component definition")
 	}
 	ps := &types.MCPOAuthPendingState{
 		HashedState:          fmt.Sprintf("%x", sha256.Sum256([]byte(state))),
@@ -216,9 +219,9 @@ func (r *MCPOAuthRefresh) Save(ctx context.Context, url, grantID string, oauthCo
 	return r.client.saveMCPOAuthTokenIn(ctx, r.db, r.owner, r.mcpID, url, "", oauthConf, token, &grantID, "")
 }
 
-// Invalidate marks the grant grantID invalid, for every agent that uses it, with reason, which must never carry a
-// token. A grant authorized since has another ID and is left alone. It reports whether it marked the grant: false when
-// the grant is gone, replaced, or already invalid.
+// Invalidate marks the grant grantID invalid, for everyone who uses it, with reason, which must never carry a token. A
+// grant authorized since has another ID and is left alone. It reports whether it marked the grant: false when the
+// grant is gone, replaced, or already invalid.
 func (r *MCPOAuthRefresh) Invalidate(grantID, reason string) (bool, error) {
 	result := r.db.Model(&types.MCPOAuthToken{}).
 		Where("user_id = ? AND mcp_id = ? AND grant_id = ? AND invalidated_at IS NULL", r.owner, r.mcpID, grantID).
@@ -227,21 +230,21 @@ func (r *MCPOAuthRefresh) Invalidate(grantID, reason string) (bool, error) {
 		return false, result.Error
 	}
 	// Nobody asked for this: the provider refused the grant. It is recorded as the system's change, with the change
-	// itself when r.db is a transaction, so that every agent that stopped working because of it can be explained.
-	if vmcpID, ok := principal.ParseAgentOAuthGrantOwner(r.owner); ok {
+	// itself when r.db is a transaction, so that every connection that stopped working because of it can be explained.
+	if vmcpID, ok := principal.ParsePreconfiguredOAuthOwner(r.owner); ok {
 		componentID, _ := strings.CutPrefix(r.mcpID, vmcpID+"/")
 		// A savepoint inside a transaction, so that a failed write cannot abort the transaction that holds the lock.
 		if err := r.db.Transaction(func(tx *gorm.DB) error {
 			return recordAdminAuditEventTx(tx, AdminAuditEventInput{
 				Actor:        types.AdminAuditActorSystem,
-				Action:       types.AdminAuditActionVMCPAgentOAuthInvalidate,
+				Action:       types.AdminAuditActionVMCPPreconfiguredOAuthInvalidate,
 				ResourceKind: types.AdminAuditResourceVMCP,
 				ResourceID:   vmcpID,
 				Details:      map[string]any{"componentID": componentID, "grantID": grantID, "reason": reason},
 			})
 		}); err != nil {
 			// The grant is invalid whether or not this is recorded, and the caller must go on to refuse it.
-			slog.Error("Failed to record the invalidation of a vMCP agent OAuth grant", "vmcp", vmcpID, "component", componentID, "error", err)
+			slog.Error("Failed to record the invalidation of a vMCP preconfigured OAuth grant", "vmcp", vmcpID, "component", componentID, "error", err)
 		}
 	}
 	return true, nil

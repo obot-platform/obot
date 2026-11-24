@@ -94,10 +94,10 @@ type wireCaller struct {
 	bearer string
 }
 
-// wireFixture is a shared vMCP whose one component is a shared remote server that takes a user-supplied X-Token
-// header, with a profile for agent 7, one for agent 8 and one for every user, and the vMCP's one agent OAuth grant for
-// the component, which both agents use. Agent 7, agent 8 and user 7 are each connected, and each connection carries
-// its own X-Token value.
+// wireFixture is a shared vMCP whose one component is a shared remote server that takes a user-supplied X-Token header,
+// with a profile for agent 7, one for agent 8 and one for every user, and the vMCP's one preconfigured OAuth grant for
+// the component, which both agents use. Agent 7, agent 8 and user 7 are each connected, and each connection carries its
+// own X-Token value.
 //
 // It serves the whole path a caller's MCP request takes, each hop over HTTP: an outer gateway that resolves the
 // caller's vMCP configuration with the session manager and mints its composite loopback token; the composite
@@ -314,11 +314,12 @@ func newWireFixture(t *testing.T) *wireFixture {
 			bearer: "vmcp-grant",
 		},
 		{
-			// The user with agent 7's numeric ID.
+			// The user with agent 7's numeric ID, who holds a token of their own for the component, which the vMCP's
+			// preconfigured OAuth replaces.
 			name:   "user 7",
 			outer:  &user.DefaultInfo{UID: "7", Name: "alice", Groups: []string{types.GroupAuthenticated}, Extra: userExtra},
 			token:  "user-seven-value",
-			bearer: "user-seven-own",
+			bearer: "vmcp-grant",
 		},
 	}
 	objects := []kclient.Object{vmcp, shared}
@@ -391,7 +392,7 @@ func newWireFixture(t *testing.T) *wireFixture {
 	// The grant an administrator authorized once on the vMCP for the component, which every agent granted the component
 	// uses, and the user's own token for the user's connection.
 	conf := &oauth2.Config{ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: "https://provider.test/token"}}
-	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), principal.AgentOAuthGrantOwner(vmcp.Name), vmcpaccess.AgentOAuthGrantMCPID(vmcp.Name, wireComponent), upstream.server.URL, "grant-vmcp", "1",
+	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), principal.PreconfiguredOAuthOwner(vmcp.Name), vmcpaccess.PreconfiguredOAuthMCPID(vmcp.Name, wireComponent), upstream.server.URL, "grant-vmcp", "1",
 		conf, &oauth2.Token{AccessToken: "vmcp-grant", TokenType: "Bearer", Expiry: time.Now().Add(time.Hour)}))
 	require.NoError(t, gateway.ReplaceMCPOAuthToken(t.Context(), "7", callers[2].connection, upstream.server.URL, "", conf,
 		&oauth2.Token{AccessToken: "user-seven-own", TokenType: "Bearer", Expiry: time.Now().Add(time.Hour)}))
@@ -440,8 +441,8 @@ func newWireFixture(t *testing.T) *wireFixture {
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 		&rest.Config{Host: "http://kubernetes.invalid"}, cluster, cluster, storageClient, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)
-	grants := vmcpaccess.NewAgentOAuthGrantStore(gateway)
-	manager.SetAgentOAuthGrants(grants)
+	grants := vmcpaccess.NewPreconfiguredOAuthStore(gateway)
+	manager.SetPreconfiguredOAuth(grants)
 	handler = &Handler{ctx: t.Context(), mcpSessionManager: manager, globalTokenStore: globalTokens, auditLogCollector: new(recordingProxyAuditCollector)}
 
 	composite, err := mmmcp.New(t.Context(), &mmmcpconfig.Config{}, mmmcp.Options{
@@ -621,10 +622,10 @@ func (f *wireFixture) challenges(t *testing.T) []gatewaytypes.MCPOAuthChallenge 
 
 // TestSharedComponentHeadersOnTheWire runs agents and a user through the whole vMCP path at once, each over its own
 // stateful MCP session, to a shared component whose only user-supplied input is an optional header. The upstream must
-// see each caller's header value, and the OAuth token selected for it, only on that caller's requests: no value with
-// the vMCP's one agent OAuth grant for both agents, since agents are never given a value a user would enter, and the
-// value of user 7, whose numeric ID is agent 7's, with the user's own token. Every request the upstream receives
-// carries exactly one caller's pair.
+// see each caller's header value, and the OAuth token selected for it, only on that caller's requests: the vMCP's one
+// preconfigured OAuth grant for every caller, with no value for both agents, since agents are never given a value a
+// user would enter, and the value of user 7, whose numeric ID is agent 7's, never the user's own token. Every request
+// the upstream receives carries exactly one caller's pair.
 func TestSharedComponentHeadersOnTheWire(t *testing.T) {
 	f := newWireFixture(t)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
@@ -681,7 +682,8 @@ func TestSharedComponentHeadersOnTheWire(t *testing.T) {
 // refusing the vMCP's grant: with a 401 challenge, and then with an insufficient_scope challenge. Each time the agent's
 // request is answered with a 409 that names the component's grant as invalid, with no profile, since the fix is on the
 // vMCP, without a challenge header, and no MCP OAuth challenge or pending authorization is stored. A user on the same
-// component, in the same situation, is challenged, and the challenge is stored for the user's connection.
+// component, in the same situation, is told that an administrator must authorize it again, and is not challenged; once
+// the preconfigured OAuth is revoked, the user's own token is used, and the user is challenged as before.
 func TestAgentMidSessionUpstreamRefusal(t *testing.T) {
 	f := newWireFixture(t)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
@@ -730,20 +732,41 @@ func TestAgentMidSessionUpstreamRefusal(t *testing.T) {
 	seen, err := whoami(ctx, session)
 	require.NoError(t, err)
 	require.Equal(t, "Bearer vmcp-grant", seen["authorization"])
-	stored, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.AgentOAuthGrantOwner(wireVMCP), vmcpaccess.AgentOAuthGrantMCPID(wireVMCP, wireComponent), f.upstream.server.URL)
+	stored, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.PreconfiguredOAuthOwner(wireVMCP), vmcpaccess.PreconfiguredOAuthMCPID(wireVMCP, wireComponent), f.upstream.server.URL)
 	require.NoError(t, err)
 	require.Nil(t, stored.InvalidatedAt)
 
-	// A user in the same situation is challenged, and the challenge is stored for the user's connection.
+	// A user in the same situation is told that an administrator must authorize the component again, never challenged
+	// to authorize it themselves, and nothing is stored for them.
 	userCaller := f.callers["user 7"]
 	userSession, userResponses := f.connect(t, userCaller)
+	seen, err = whoami(ctx, userSession)
+	require.NoError(t, err)
+	require.Equal(t, "Bearer vmcp-grant", seen["authorization"])
+	f.upstream.refusal.Store(&wireRefusal{status: http.StatusUnauthorized, challenge: `Bearer resource_metadata="https://provider.test/metadata", error="invalid_token"`})
+	_, err = whoami(ctx, userSession)
+	require.Error(t, err)
+	last := userResponses.last(t)
+	require.Equal(t, http.StatusConflict, last.status, last.body)
+	require.Empty(t, last.challenge, "the user was challenged for the vMCP's preconfigured OAuth")
+	var failure preconfiguredOAuthFailure
+	require.NoError(t, json.Unmarshal([]byte(last.body), &failure), last.body)
+	require.Equal(t, preconfiguredOAuthInvalidError, failure.Error)
+	require.Equal(t, []string{wireComponent}, failure.ComponentIDs)
+	requireNoOAuthState(t, f.db)
+	f.upstream.refusal.Store(nil)
+
+	// Once the preconfigured OAuth is revoked, the user's own token is used again, and a refusal challenges the user as
+	// before, with the challenge stored for the user's connection.
+	require.NoError(t, f.gateway.DeleteMCPOAuthGrantsForOwner(t.Context(), principal.PreconfiguredOAuthOwner(wireVMCP)))
+	userSession, userResponses = f.connect(t, userCaller)
 	seen, err = whoami(ctx, userSession)
 	require.NoError(t, err)
 	require.Equal(t, "Bearer user-seven-own", seen["authorization"])
 	f.upstream.refusal.Store(&wireRefusal{status: http.StatusUnauthorized, challenge: `Bearer resource_metadata="https://provider.test/metadata", error="invalid_token"`})
 	_, err = whoami(ctx, userSession)
 	require.Error(t, err)
-	last := userResponses.last(t)
+	last = userResponses.last(t)
 	require.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, last.status, last.body)
 	require.NotEmpty(t, last.challenge, "the user was not challenged")
 	challenges := f.challenges(t)

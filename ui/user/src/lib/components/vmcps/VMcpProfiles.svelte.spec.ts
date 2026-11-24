@@ -1172,11 +1172,12 @@ describe('VMcpProfiles.svelte', () => {
 		});
 	});
 
-	// Agent setup belongs to the vMCP (VMcpAgentSetup), never to a profile.
-	describe('agent setup', () => {
+	// Preconfigured OAuth belongs to a component of the vMCP, in its settings in the vMCP editor, and
+	// serves everyone who uses the vMCP: a profile, even one that names an agent, holds none.
+	describe('preconfigured OAuth', () => {
 		const buildBot = { id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 };
 
-		function setupVMcp() {
+		function agentProfileVMcp() {
 			const vmcp = createVMcp('vmcp-setup');
 			vmcp.profiles = [
 				{
@@ -1189,31 +1190,27 @@ describe('VMcpProfiles.svelte', () => {
 			return vmcp;
 		}
 
-		it('shows no agent setup in the editor of a profile that names an agent', async () => {
-			const setup = vi.fn();
+		it('shows no OAuth to authorize in the editor of a profile that names an agent', async () => {
+			const oauthRead = vi.fn();
 			worker.use(
 				http.get('/api/agents', () => HttpResponse.json({ items: [buildBot] })),
-				http.get('/api/vmcps/vmcp-setup/agent-setup', () => {
-					setup();
-					return HttpResponse.json({ vmcpID: 'vmcp-setup', components: [] });
-				}),
-				http.get('/api/vmcps/vmcp-setup/profiles/vp1stable/status', () => {
-					setup();
+				http.get('/api/vmcps/vmcp-setup/components/:componentID/preconfigured-oauth', () => {
+					oauthRead();
 					return HttpResponse.json({});
 				})
 			);
-			render(VMcpProfiles, { vmcp: setupVMcp(), toolFlow: toolFlowStub() });
+			render(VMcpProfiles, { vmcp: agentProfileVMcp(), toolFlow: toolFlowStub() });
 
 			await page.getByRole('button', { name: 'Edit Bots' }).click();
 			await expect.element(page.getByLabelText('Name')).toHaveValue('Bots');
 			await expect.element(page.getByText('Build bot', { exact: true })).toBeVisible();
 			await expect
-				.element(page.getByRole('heading', { name: 'Agent setup' }))
+				.element(page.getByRole('heading', { name: 'Preconfigured OAuth' }))
 				.not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Authorize', exact: true }))
 				.not.toBeInTheDocument();
-			expect(setup).not.toHaveBeenCalled();
+			expect(oauthRead).not.toHaveBeenCalled();
 		});
 	});
 });

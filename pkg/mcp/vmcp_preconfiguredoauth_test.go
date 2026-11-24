@@ -86,12 +86,13 @@ func grantVMCP(name string, staticOAuth bool) (*v1.VMCP, *v1.MCPServer, *v1.MCPS
 	return vmcp, one, two
 }
 
-// grantKey returns the key of the token of the vMCP's agent OAuth grant for component one.
+// grantKey returns the key of the token of the vMCP's preconfigured OAuth grant for component one.
 func grantKey(vmcpID string) (owner, mcpID string) {
-	return principal.AgentOAuthGrantOwner(vmcpID), vmcpaccess.AgentOAuthGrantMCPID(vmcpID, "one")
+	return principal.PreconfiguredOAuthOwner(vmcpID), vmcpaccess.PreconfiguredOAuthMCPID(vmcpID, "one")
 }
 
-// storeGrant stores the vMCP's agent OAuth grant for component one, authorized once by an administrator for url.
+// storeGrant stores the vMCP's preconfigured OAuth grant for component one, authorized once by an administrator for
+// url.
 func storeGrant(t *testing.T, gateway *gatewayclient.Client, vmcpID, url, grantID string) {
 	t.Helper()
 	owner, mcpID := grantKey(vmcpID)
@@ -115,23 +116,26 @@ func invalidateGrant(t *testing.T, gateway *gatewayclient.Client, vmcpID, grantI
 // revokeGrant deletes the vMCP's grant for component one, as an administrator's revocation does.
 func revokeGrant(t *testing.T, gateway *gatewayclient.Client, vmcpID string) {
 	t.Helper()
-	require.NoError(t, gateway.DeleteMCPOAuthGrantsForOwner(t.Context(), principal.AgentOAuthGrantOwner(vmcpID)))
+	require.NoError(t, gateway.DeleteMCPOAuthGrantsForOwner(t.Context(), principal.PreconfiguredOAuthOwner(vmcpID)))
 }
 
-// newGrantTestManager returns a session manager over storageClient whose agent OAuth grants are stored in gateway.
-func newGrantTestManager(storageClient storage.Client, gateway *gatewayclient.Client) (*SessionManager, *vmcpaccess.AgentOAuthGrantStore) {
-	grants := vmcpaccess.NewAgentOAuthGrantStore(gateway)
+// newGrantTestManager returns a session manager over storageClient whose preconfigured OAuth grants are stored in
+// gateway.
+func newGrantTestManager(storageClient storage.Client, gateway *gatewayclient.Client) (*SessionManager, *vmcpaccess.PreconfiguredOAuthStore) {
+	grants := vmcpaccess.NewPreconfiguredOAuthStore(gateway)
 	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort, remoteURLValidationConfig: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true}}
-	manager.SetAgentOAuthGrants(grants)
+	manager.SetPreconfiguredOAuth(grants)
 	return manager, grants
 }
 
-// TestAgentComponentConnectionsUseTheVMCPGrant checks the token every connection to a vMCP component uses: an agent's
-// uses the vMCP's one grant for the component when a profile naming the agent grants it the component, the same grant
-// whichever profile does, and none for a component that no profile naming it grants; it is refused when the grant broke,
-// and refused a grant authorized for another upstream; a user's uses the user's own token as before; and neither ever
-// reads the other's.
-func TestAgentComponentConnectionsUseTheVMCPGrant(t *testing.T) {
+// TestComponentConnectionsUseThePreconfiguredOAuth checks the token every connection to a vMCP component uses, for
+// agents and users on the same vMCP. An agent's uses the vMCP's one grant for the component when a profile naming the
+// agent grants it the component, the same grant whichever profile does, and none for a component that no profile
+// naming it grants; it is refused when the grant broke, and refused a grant authorized for another upstream. A user's
+// uses the vMCP's grant whenever the vMCP holds one, working or not, in place of the user's own token, so that the user
+// is never asked to authorize the component, and the user's own token once the grant is revoked. No one ever reads
+// another caller's own token.
+func TestComponentConnectionsUseThePreconfiguredOAuth(t *testing.T) {
 	vmcp, one, two := grantVMCP("vmcp1grants", false)
 	callers := []struct {
 		name   string
@@ -141,6 +145,7 @@ func TestAgentComponentConnectionsUseTheVMCPGrant(t *testing.T) {
 		{name: "agent eight", caller: asAgent(8, 12)},
 		{name: "agent nine", caller: asAgent(9, 13)},
 		{name: "user seven", caller: principaltest.AsUser(&kuser.DefaultInfo{UID: "7"})},
+		{name: "user other", caller: principaltest.AsUser(&kuser.DefaultInfo{UID: "102"})},
 	}
 	objects := []kclient.Object{vmcp, one, two}
 	connections := map[string]string{}
@@ -178,14 +183,15 @@ func TestAgentComponentConnectionsUseTheVMCPGrant(t *testing.T) {
 		gatewayClient:             gateway,
 		remoteURLValidationConfig: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true},
 	}
-	sm.SetAgentOAuthGrants(vmcpaccess.NewAgentOAuthGrantStore(gateway))
+	sm.SetPreconfiguredOAuth(vmcpaccess.NewPreconfiguredOAuthStore(gateway))
 	t.Cleanup(sm.Close)
 
-	// The user and agent seven each hold a token keyed by themselves for their own connection. Neither is a grant.
+	// The users and agent seven each hold a token keyed by themselves for their own connection. None is a grant.
 	for _, owner := range []struct {
 		userID, connection string
 	}{
 		{userID: "7", connection: connections["user seven"]},
+		{userID: "102", connection: connections["user other"]},
 		{userID: "agent:7", connection: connections["agent seven"]},
 	} {
 		require.NoError(t, gateway.ReplaceMCPOAuthToken(t.Context(), owner.userID, owner.connection, grantComponentURL, "", &oauth2.Config{ClientID: "own"}, &oauth2.Token{AccessToken: "own-" + owner.userID}))
@@ -219,54 +225,73 @@ func TestAgentComponentConnectionsUseTheVMCPGrant(t *testing.T) {
 	requireRefused := func(name string) {
 		t.Helper()
 		_, err := connect(name)
-		grantErr, ok := errors.AsType[*AgentOAuthGrantError](err)
-		require.True(t, ok, "%s connect error = %v, want an AgentOAuthGrantError", name, err)
+		grantErr, ok := errors.AsType[*PreconfiguredOAuthError](err)
+		require.True(t, ok, "%s connect error = %v, want an PreconfiguredOAuthError", name, err)
 		require.Equal(t, vmcp.Name, grantErr.VMCPID, name)
 		require.Equal(t, "one", grantErr.ComponentID, name)
 	}
-	// The user is unaffected throughout: the user's own token, for the user's own connection.
-	requireUser := func() {
+	// requireUsers requires that each user's connection uses the vMCP's grant, if preconfigured, and otherwise the
+	// user's own token, for the user's own connection: never another user's, and never an agent's.
+	requireUsers := func(preconfigured bool) {
 		t.Helper()
-		cfg, err := connect("user seven")
-		require.NoError(t, err)
-		require.Nil(t, cfg.OAuthGrant)
-		owner, mcpID, ok := cfg.OAuthTokenKey()
-		require.True(t, ok)
-		require.Equal(t, "7", owner)
-		require.Equal(t, connections["user seven"], mcpID)
+		for name, uid := range map[string]string{"user seven": "7", "user other": "102"} {
+			cfg, err := connect(name)
+			require.NoError(t, err, name)
+			owner, mcpID, ok := cfg.OAuthTokenKey()
+			require.True(t, ok, name)
+			require.Equal(t, uid, cfg.UserID, name)
+			if preconfigured {
+				require.Equal(t, &OAuthGrantRef{ComponentID: "one", Owner: grantOwner, MCPID: grantMCPID}, cfg.OAuthGrant, name)
+				require.Equal(t, grantOwner, owner, name)
+				require.Equal(t, grantMCPID, mcpID, name)
+				continue
+			}
+			require.Nil(t, cfg.OAuthGrant, name)
+			require.Equal(t, uid, owner, name)
+			require.Equal(t, connections[name], mcpID, name)
+		}
 	}
 
-	// No grant: agents use no token at all, never one keyed by themselves.
+	// No grant: agents use no token at all, never one keyed by themselves, and users their own.
 	requireGrant("agent seven", false)
 	requireGrant("agent eight", false)
 	requireGrant("agent nine", false)
-	requireUser()
+	requireUsers(false)
 
-	// One grant, authorized once on the vMCP, is used by every agent that a profile grants the component, whichever
-	// profile that is, and by no agent that no profile naming it grants the component.
+	// One grant, authorized once on the vMCP, is used by every user, and by every agent that a profile grants the
+	// component, whichever profile that is, and by no agent that no profile naming it grants the component.
 	storeGrant(t, gateway, vmcp.Name, grantComponentURL, "grant-one")
 	requireGrant("agent seven", true)
 	requireGrant("agent eight", true)
 	requireGrant("agent nine", false)
-	requireUser()
+	requireUsers(true)
 
-	// A broken grant refuses every agent that uses it, and only them.
+	// A broken grant refuses every agent that uses it, and only them. Users keep it, so they are never asked to
+	// authorize the component themselves: the token store refuses it, and the gateway tells them an administrator must
+	// authorize it again.
 	invalidateGrant(t, gateway, vmcp.Name, "grant-one")
 	requireRefused("agent seven")
 	requireRefused("agent eight")
 	requireGrant("agent nine", false)
+	requireUsers(true)
 
-	// Once revoked, no agent uses any.
+	// Once revoked, no agent uses any, and users use their own tokens again, which were never deleted.
 	revokeGrant(t, gateway, vmcp.Name)
 	requireGrant("agent seven", false)
 	requireGrant("agent eight", false)
+	requireUsers(false)
+	for name, uid := range map[string]string{"user seven": "7", "user other": "102"} {
+		_, err := gateway.GetMCPOAuthToken(t.Context(), uid, connections[name], grantComponentURL)
+		require.NoError(t, err, "%s lost their own token", name)
+	}
 
-	// A grant authorized for another upstream is never sent to this one.
+	// A grant authorized for another upstream is never sent to this one: agents are refused, and users keep it, so the
+	// token store refuses it for them.
 	storeGrant(t, gateway, vmcp.Name, "https://elsewhere.example.com/mcp", "grant-elsewhere")
 	requireRefused("agent seven")
 	requireRefused("agent eight")
 	requireGrant("agent nine", false)
-	requireUser()
+	requireUsers(true)
 }
 
 // TestAgentConnectUsesTheVMCPGrant checks connect-time readiness and the composite configuration with the vMCP's agent
@@ -337,11 +362,43 @@ func TestAgentConnectUsesTheVMCPGrant(t *testing.T) {
 	require.Equal(t, failure(types.AgentReadinessOAuthRequired), refused(asAgent(8, 12)))
 	connectVMCP(t, manager, vmcp.Name, asAgent(9, 13))
 
-	// A user connects as before: no grant is ever selected for them.
+	// Once revoked, a user connects with no grant, and so with their own OAuth for the component.
 	cfg = connectVMCP(t, manager, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}))
 	require.Equal(t, []string{"one", "two"}, componentIDs(cfg))
 	require.Nil(t, cfg.Components[0].OAuthGrant)
 	require.Equal(t, grantUsers, cfg.AuditLogMetadata[AuditLogProfiles])
+}
+
+// TestUserConnectUsesThePreconfiguredOAuth checks the composite configuration of a user's connection to a vMCP: a
+// component the vMCP preconfigures OAuth for names the vMCP's grant, working or not, so that the user is never asked to
+// authorize it and a failure is reported as the administrator's to fix; a component without one names none, so the
+// user's own OAuth is used and prompted for as before. A user is never refused the vMCP for its grant.
+func TestUserConnectUsesThePreconfiguredOAuth(t *testing.T) {
+	vmcp, one, two := grantVMCP("vmcp1userconnect", true)
+	storageClient := newVMCPTestStorage(vmcp, one, two)
+	runVMCPInstanceController(t, storageClient, vmcp.DeepCopy())
+	gateway := newGrantTestGateway(t)
+	manager, _ := newGrantTestManager(storageClient, gateway)
+	owner, mcpID := grantKey(vmcp.Name)
+	grant := &OAuthGrantRef{ComponentID: "one", Owner: owner, MCPID: mcpID}
+	requireComponentGrants := func(label string, want *OAuthGrantRef) {
+		t.Helper()
+		for _, uid := range []string{"7", "102"} {
+			cfg := connectVMCP(t, manager, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: uid}))
+			require.Len(t, cfg.Components, 2, "%s: user %s", label, uid)
+			require.Equal(t, "one", cfg.Components[0].ComponentID)
+			require.Equal(t, want, cfg.Components[0].OAuthGrant, "%s: user %s", label, uid)
+			require.Nil(t, cfg.Components[1].OAuthGrant, "%s: user %s", label, uid)
+		}
+	}
+
+	requireComponentGrants("no grant", nil)
+	storeGrant(t, gateway, vmcp.Name, grantComponentURL, "grant-one")
+	requireComponentGrants("the vMCP's grant", grant)
+	invalidateGrant(t, gateway, vmcp.Name, "grant-one")
+	requireComponentGrants("the vMCP's grant broken", grant)
+	revokeGrant(t, gateway, vmcp.Name)
+	requireComponentGrants("revoked", nil)
 }
 
 // TestAgentReadinessReportAgreesWithConnect checks that what the readiness API reports, which is computed with the
@@ -361,6 +418,20 @@ func TestAgentReadinessReportAgreesWithConnect(t *testing.T) {
 	reason := func(componentID, code, field string) []vmcpaccess.ReadinessReason {
 		return []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: code, Field: field}}
 	}
+	// requirePreconfigured requires that readiness lists component one as preconfigured exactly for the agents granted
+	// it while the vMCP's grant for it works: seven and eight, and never nine.
+	requirePreconfigured := func(label string, working bool) {
+		t.Helper()
+		for _, id := range []uint{7, 8, 9} {
+			report, err := manager.AgentReadiness(t.Context(), *currentVMCP(t, storageClient, vmcp.Name), nil, asAgent(id, 10+id))
+			require.NoError(t, err)
+			want := []string{}
+			if working && id != 9 {
+				want = []string{"one"}
+			}
+			require.Equal(t, want, report.PreconfiguredComponents(), "%s: agent %d", label, id)
+		}
+	}
 
 	reasons := agree("no grant", map[uint]bool{7: false, 8: false, 9: true})
 	require.Equal(t, reason("one", types.AgentReadinessOAuthRequired, ""), reasons["agent:7"])
@@ -369,6 +440,7 @@ func TestAgentReadinessReportAgreesWithConnect(t *testing.T) {
 	// One authorization on the vMCP makes every agent granted the component ready.
 	storeGrant(t, gateway, vmcp.Name, grantComponentURL, "grant-one")
 	agree("the vMCP's grant", map[uint]bool{7: true, 8: true, 9: true})
+	requirePreconfigured("the vMCP's grant", true)
 
 	// Component two now needs a value agents cannot be given: only the agents granted it are kept out.
 	updateGrantVMCP(t, storageClient, vmcp.Name, func(current *v1.VMCP) {
@@ -392,6 +464,7 @@ func TestAgentReadinessReportAgreesWithConnect(t *testing.T) {
 	reasons = agree("the vMCP's grant broken", map[uint]bool{7: false, 8: false, 9: false})
 	require.Equal(t, reason("one", types.AgentReadinessOAuthInvalid, ""), reasons["agent:7"])
 	require.Equal(t, reason("one", types.AgentReadinessOAuthInvalid, ""), reasons["agent:8"])
+	requirePreconfigured("the vMCP's grant broken", false)
 
 	revokeGrant(t, gateway, vmcp.Name)
 	reasons = agree("the vMCP's grant revoked", map[uint]bool{7: false, 8: false, 9: false})
@@ -401,6 +474,7 @@ func TestAgentReadinessReportAgreesWithConnect(t *testing.T) {
 	storeGrant(t, gateway, vmcp.Name, "https://elsewhere.example.com/mcp", "grant-elsewhere")
 	reasons = agree("a grant authorized for another upstream", map[uint]bool{7: false, 8: false, 9: false})
 	require.Equal(t, reason("one", types.AgentReadinessOAuthInvalid, ""), reasons["agent:8"])
+	requirePreconfigured("a grant authorized for another upstream", false)
 }
 
 // currentVMCP returns the vMCP with name as stored.
@@ -469,6 +543,12 @@ func requireReadinessAgreesWithConnect(t *testing.T, manager *SessionManager, vm
 		}
 		require.Equal(t, connectReasons, report.Readiness.Reasons, "%s: %s", label, caller.GetUID())
 		require.Equal(t, ready[id], report.Readiness.Ready(), "%s: %s: %v", label, caller.GetUID(), report.Readiness.Reasons)
+		// A component readiness lists as preconfigured is one whose OAuth keeps the connect from nothing.
+		for _, componentID := range report.PreconfiguredComponents() {
+			require.False(t, slices.ContainsFunc(connectReasons, func(reason vmcpaccess.ReadinessReason) bool {
+				return reason.ComponentID == componentID && reason.Code != types.AgentReadinessConfigurationRequired
+			}), "%s: %s: %s is preconfigured, but the connect refused its OAuth", label, caller.GetUID(), componentID)
+		}
 		reasons[caller.GetUID()] = report.Readiness.Reasons
 	}
 	return reasons
@@ -489,15 +569,13 @@ func TestAgentReadinessReportAgreesWithConnectForLateChallenges(t *testing.T) {
 		t.Helper()
 		return requireReadinessAgreesWithConnect(t, manager, vmcp, label, map[uint]bool{7: ready, 8: ready, 9: true})
 	}
-	// requiresOAuth reports whether the vMCP's agent setup, which agent readiness agrees with, counts component one as
-	// requiring OAuth.
+	// requiresOAuth reports whether component one's preconfigured OAuth state, which agent readiness agrees with,
+	// counts it as requiring OAuth.
 	requiresOAuth := func() bool {
 		t.Helper()
-		setup, err := vmcpaccess.AgentSetup(t.Context(), grants, *vmcp)
+		status, err := grants.Status(t.Context(), *vmcp, "one")
 		require.NoError(t, err)
-		require.Equal(t, "one", setup.Components[0].ComponentID)
-		require.NotNil(t, setup.Components[0].OAuth)
-		return setup.Components[0].OAuth.Required
+		return status.State != types.VMCPPreconfiguredOAuthNotRequired
 	}
 
 	agree("no grant", true)

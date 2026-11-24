@@ -113,11 +113,10 @@ type SessionManager struct {
 
 	webhookHelper *WebhookHelper
 
-	// agentOAuthGrants holds the agent OAuth grants of vMCPs, which agents' connections to vMCP components use, and
-	// which decide, with the configuration the vMCP fixes, whether an agent can connect to a vMCP
-	// (vmcpaccess.AgentReadiness).
-	// Without it, agents use no OAuth token at all, and cannot connect to a vMCP.
-	agentOAuthGrants *vmcpaccess.AgentOAuthGrantStore
+	// preconfiguredOAuth holds the preconfigured OAuth grants of vMCPs, which agents' connections to vMCP components use,
+	// and which decide, with the configuration the vMCP fixes, whether an agent can connect to a vMCP
+	// (vmcpaccess.AgentReadiness). Without it, agents use no OAuth token at all, and cannot connect to a vMCP.
+	preconfiguredOAuth *vmcpaccess.PreconfiguredOAuthStore
 }
 
 type RemoteMCPURLValidationConfig struct {
@@ -228,10 +227,10 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 	return sm, nil
 }
 
-// SetAgentOAuthGrants sets the store of vMCPs' agent OAuth grants, which agents' connections to vMCP components use,
-// and which agent readiness reads. Set it before the session manager serves connections.
-func (sm *SessionManager) SetAgentOAuthGrants(grants *vmcpaccess.AgentOAuthGrantStore) {
-	sm.agentOAuthGrants = grants
+// SetPreconfiguredOAuth sets the store of vMCPs' preconfigured OAuth grants, which agents' connections to vMCP
+// components use, and which agent readiness reads. Set it before the session manager serves connections.
+func (sm *SessionManager) SetPreconfiguredOAuth(grants *vmcpaccess.PreconfiguredOAuthStore) {
+	sm.preconfiguredOAuth = grants
 }
 
 func (sm *SessionManager) MCPRuntimeBackend() string {

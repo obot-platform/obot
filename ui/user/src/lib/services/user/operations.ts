@@ -70,8 +70,8 @@ import {
 	type VMCPManifest,
 	type VMCPConfiguration,
 	type VMCPConfigurationPresence,
-	type VMCPAgentOAuthAuthorization,
-	type VMCPAgentSetup,
+	type VMCPPreconfiguredOAuth,
+	type VMCPPreconfiguredOAuthAuthorization,
 	type Skill
 } from './types';
 
@@ -175,41 +175,40 @@ export async function deleteVMCP(id: string, opts?: { fetch?: Fetcher }): Promis
 	await doDelete(`/vmcps/${id}`, opts);
 }
 
-// Agent setup of a vMCP: what agents need, and the OAuth grants an administrator authorizes once per
-// component for every agent of the vMCP. These routes are admin-only. Errors are returned to the caller,
-// which shows them beside the control that failed.
-function agentOAuthPath(vmcpID: string, componentID: string): string {
-	return `/vmcps/${encodeURIComponent(vmcpID)}/agent-oauth/${encodeURIComponent(componentID)}`;
+// The preconfigured OAuth of one remote component of a shared vMCP. Admins, owners and auditors read
+// it; only admins and owners authorize and revoke it. Errors are returned to the caller, which shows
+// them beside the control that failed.
+function preconfiguredOAuthPath(vmcpID: string, componentID: string): string {
+	return `/vmcps/${encodeURIComponent(vmcpID)}/components/${encodeURIComponent(componentID)}/preconfigured-oauth`;
 }
 
-export async function getVMCPAgentSetup(
+export async function getVMCPPreconfiguredOAuth(
 	vmcpID: string,
+	componentID: string,
 	opts?: { signal?: AbortSignal }
-): Promise<VMCPAgentSetup> {
-	return (await doGet(`/vmcps/${encodeURIComponent(vmcpID)}/agent-setup`, {
+): Promise<VMCPPreconfiguredOAuth> {
+	return (await doGet(preconfiguredOAuthPath(vmcpID, componentID), {
 		...opts,
 		dontLogErrors: true
-	})) as VMCPAgentSetup;
+	})) as VMCPPreconfiguredOAuth;
 }
 
-export async function authorizeVMCPAgentOAuth(
+export async function authorizeVMCPPreconfiguredOAuth(
 	vmcpID: string,
 	componentID: string
-): Promise<VMCPAgentOAuthAuthorization> {
+): Promise<VMCPPreconfiguredOAuthAuthorization> {
 	return (await doPost(
-		agentOAuthPath(vmcpID, componentID),
+		preconfiguredOAuthPath(vmcpID, componentID),
 		{},
 		{ dontLogErrors: true }
-	)) as VMCPAgentOAuthAuthorization;
+	)) as VMCPPreconfiguredOAuthAuthorization;
 }
 
-export async function revokeVMCPAgentOAuth(
+export async function revokeVMCPPreconfiguredOAuth(
 	vmcpID: string,
 	componentID: string
-): Promise<VMCPAgentSetup> {
-	return (await doDelete(agentOAuthPath(vmcpID, componentID), {
-		dontLogErrors: true
-	})) as VMCPAgentSetup;
+): Promise<void> {
+	await doDelete(preconfiguredOAuthPath(vmcpID, componentID), { dontLogErrors: true });
 }
 
 export async function triggerVMCPUpdate(

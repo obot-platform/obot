@@ -218,10 +218,10 @@ func TestComponentTargetChecksTheTemplateHost(t *testing.T) {
 // TestAgentReadinessComparesGrantURLsWithTheAgentsURL checks that readiness refuses the vMCP's grant when it was
 // authorized for another URL than the one agents' connections reach, as the MCP gateway does: changing the URL the vMCP
 // fixes after the grant was authorized makes it unusable, for every agent granted the component, until it is
-// authorized again. The vMCP's agent setup reports the same.
+// authorized again. The component's preconfigured OAuth state reports the same.
 func TestAgentReadinessComparesGrantURLsWithTheAgentsURL(t *testing.T) {
 	f := newTargetFixture(t)
-	grants := vmcpaccess.NewAgentOAuthGrantStore(f.gateway)
+	grants := vmcpaccess.NewPreconfiguredOAuthStore(f.gateway)
 	grants.SetComponentTargets(f.sm)
 	readiness := func(agent kuser.Info) []vmcpaccess.ReadinessReason {
 		t.Helper()
@@ -232,21 +232,16 @@ func TestAgentReadinessComparesGrantURLsWithTheAgentsURL(t *testing.T) {
 		require.NoError(t, err)
 		return result.Readiness.Reasons
 	}
-	hostedSetup := func() types.VMCPAgentSetupComponent {
+	// hostedOAuth is the hosted component's preconfigured OAuth state, as an administrator reads it.
+	hostedOAuth := func() types.VMCPPreconfiguredOAuth {
 		t.Helper()
-		setup, err := vmcpaccess.AgentSetup(t.Context(), grants, f.vmcp(t))
+		status, err := grants.Status(t.Context(), f.vmcp(t), "hosted")
 		require.NoError(t, err)
-		for _, component := range setup.Components {
-			if component.ComponentID == "hosted" {
-				return component
-			}
-		}
-		t.Fatalf("agent setup does not list the hosted component: %+v", setup)
-		return types.VMCPAgentSetupComponent{}
+		return status
 	}
 	authorize := func(url string) {
 		t.Helper()
-		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), principal.AgentOAuthGrantOwner(f.key.Name), vmcpaccess.AgentOAuthGrantMCPID(f.key.Name, "hosted"), url, "grant-"+url, "1",
+		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), principal.PreconfiguredOAuthOwner(f.key.Name), vmcpaccess.PreconfiguredOAuthMCPID(f.key.Name, "hosted"), url, "grant-"+url, "1",
 			&oauth2.Config{ClientID: "client"}, &oauth2.Token{AccessToken: "token", Expiry: time.Now().Add(time.Hour)}))
 	}
 
@@ -256,27 +251,24 @@ func TestAgentReadinessComparesGrantURLsWithTheAgentsURL(t *testing.T) {
 	require.Empty(t, readiness(asAgent(8, 12)))
 
 	// Changing the URL the vMCP fixes after the grant was authorized makes the grant unusable for both, and the agent
-	// setup says so, without the URL.
+	// component's preconfigured OAuth state says so, without the URL.
 	const moved = "https://tenant.example.com/moved"
 	f.fixURL(t, moved)
 	invalid := []vmcpaccess.ReadinessReason{{ComponentID: "hosted", Code: types.AgentReadinessOAuthInvalid}}
 	require.Equal(t, invalid, readiness(asAgent(7, 11)))
 	require.Equal(t, invalid, readiness(asAgent(8, 12)))
-	hosted := hostedSetup()
-	require.False(t, hosted.Ready)
-	require.Contains(t, hosted.Reasons, invalid[0])
-	require.NotNil(t, hosted.OAuth)
-	require.Equal(t, types.VMCPAgentOAuthInvalid, hosted.OAuth.State)
-	require.Equal(t, vmcpaccess.GrantTargetMismatch, hosted.OAuth.InvalidReason)
-	require.NotContains(t, hosted.OAuth.InvalidReason, "tenant.example.com")
-	require.Empty(t, hosted.OAuth.Target, "a configured URL is returned")
-	require.Equal(t, targetHostname, hosted.OAuth.TargetHostname)
+	hosted := hostedOAuth()
+	require.Equal(t, types.VMCPPreconfiguredOAuthInvalid, hosted.State)
+	require.Equal(t, vmcpaccess.GrantTargetMismatch, hosted.InvalidReason)
+	require.NotContains(t, hosted.InvalidReason, "tenant.example.com")
+	require.Empty(t, hosted.Target, "a configured URL is returned")
+	require.Equal(t, targetHostname, hosted.TargetHostname)
 
 	// Authorizing it again for the URL the vMCP now fixes fixes it for both.
 	authorize(moved)
 	require.Empty(t, readiness(asAgent(7, 11)))
 	require.Empty(t, readiness(asAgent(8, 12)))
-	require.Equal(t, types.VMCPAgentOAuthAuthorized, hostedSetup().OAuth.State)
+	require.Equal(t, types.VMCPPreconfiguredOAuthAuthorized, hostedOAuth().State)
 }
 
 // TestComponentHopRefusesAGrantForAnotherURL connects agent 7 to its dedicated server of a hostname-constrained
@@ -284,9 +276,9 @@ func TestAgentReadinessComparesGrantURLsWithTheAgentsURL(t *testing.T) {
 // component and not the URL, and never used; the grant for the URL the vMCP fixes is used.
 func TestComponentHopRefusesAGrantForAnotherURL(t *testing.T) {
 	f := newTargetFixture(t)
-	grants := vmcpaccess.NewAgentOAuthGrantStore(f.gateway)
+	grants := vmcpaccess.NewPreconfiguredOAuthStore(f.gateway)
 	grants.SetComponentTargets(f.sm)
-	f.sm.SetAgentOAuthGrants(grants)
+	f.sm.SetPreconfiguredOAuth(grants)
 	f.sm.backend = &kubernetesBackend{}
 	f.sm.baseURL = "https://obot.example.com"
 	f.sm.remoteURLValidationConfig = RemoteMCPURLValidationConfig{AllowLocalhostMCP: true}
@@ -311,7 +303,7 @@ func TestComponentHopRefusesAGrantForAnotherURL(t *testing.T) {
 		Name:    server.Name,
 		Secrets: map[string]string{"__url": targetFixedURL},
 	}))
-	owner, mcpID := principal.AgentOAuthGrantOwner(f.key.Name), vmcpaccess.AgentOAuthGrantMCPID(f.key.Name, "hosted")
+	owner, mcpID := principal.PreconfiguredOAuthOwner(f.key.Name), vmcpaccess.PreconfiguredOAuthMCPID(f.key.Name, "hosted")
 	authorize := func(url string) {
 		t.Helper()
 		require.NoError(t, f.gateway.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, url, "grant-"+url, "1",
@@ -323,8 +315,8 @@ func TestComponentHopRefusesAGrantForAnotherURL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 	_, _, err = f.sm.ServerForAction(ctx, server.Name, asAgent(7, 11))
-	grantErr, ok := errors.AsType[*AgentOAuthGrantError](err)
-	require.True(t, ok, "connect error = %v, want an AgentOAuthGrantError", err)
+	grantErr, ok := errors.AsType[*PreconfiguredOAuthError](err)
+	require.True(t, ok, "connect error = %v, want an PreconfiguredOAuthError", err)
 	require.Equal(t, f.key.Name, grantErr.VMCPID)
 	require.Equal(t, "hosted", grantErr.ComponentID)
 	require.Equal(t, vmcpaccess.GrantTargetMismatch, grantErr.Reason)

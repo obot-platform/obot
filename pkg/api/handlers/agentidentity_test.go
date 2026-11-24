@@ -599,7 +599,7 @@ func TestDisabledAgentGetsKeysThatWaitForEnable(t *testing.T) {
 
 // TestAgentRoutesServeTheNoAuthOwner checks that without authentication, where every request is the "nobody" owner's
 // (authn.NoAuth), every route of agents is authorized for that owner, as it is for any owner: the admin API, the
-// readiness routes, and the vMCP agent setup and agent OAuth routes. The handlers do not depend on whether
+// readiness routes, and the vMCP preconfigured OAuth routes. The handlers do not depend on whether
 // authentication is enabled, and the admin API serves the owner as the creator of the agents it creates.
 func TestAgentRoutesServeTheNoAuthOwner(t *testing.T) {
 	f := newAgentIdentityFixture(t)
@@ -615,7 +615,7 @@ func TestAgentRoutesServeTheNoAuthOwner(t *testing.T) {
 		routes = append(routes, pattern)
 	}
 	NewAgentIdentityHandler(&mcp.SessionManager{}).RegisterRoutes(collect)
-	NewVMCPAgentOAuthHandler(nil, nil).RegisterRoutes(collect)
+	NewVMCPPreconfiguredOAuthHandler(nil, nil).RegisterRoutes(collect)
 	require.Len(t, routes, 17)
 	authorizer := authz.NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 	for _, pattern := range routes {

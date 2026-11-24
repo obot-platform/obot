@@ -212,10 +212,9 @@ func (a agentVMCP) fix(t *testing.T, h *harness.Harness, value string) {
 
 // TestAgentVMCPSetup checks, against a running server, that an agent reaches a shared vMCP only through its profiles
 // and an MCP-scoped key, gets a 409 that names the component whose required value a user would enter, instead of a
-// challenge, that readiness and the vMCP's agent setup agree with the connect path, that profiles hold nothing for
-// agents, that an agent may be named by a second profile, that fixing the value on the vMCP makes the agent ready, and
-// that deleting the agent leaves the profiles' subjects in place. It never starts the component, so it needs no MCP
-// runtime.
+// challenge, that readiness agrees with the connect path, that profiles hold nothing for agents, that an agent may be
+// named by a second profile, that fixing the value on the vMCP makes the agent ready, and that deleting the agent leaves
+// the profiles' subjects in place. It never starts the component, so it needs no MCP runtime.
 func TestAgentVMCPSetup(t *testing.T) {
 	h := harness.New(t)
 	a := newAgentVMCP(t, h, "agent-setup")
@@ -255,12 +254,6 @@ func TestAgentVMCPSetup(t *testing.T) {
 		h.Get(t, "/api/agents/"+a.agent.ID+"/vmcps/"+a.vmcp.ID+"/readiness", &readiness)
 		if readiness.Ready || !slices.Contains(readiness.Reasons, want) {
 			t.Fatalf("readiness before the value is fixed: %+v", readiness)
-		}
-		var setup types.VMCPAgentSetup
-		h.Get(t, "/api/vmcps/"+a.vmcp.ID+"/agent-setup", &setup)
-		idx := slices.IndexFunc(setup.Components, func(c types.VMCPAgentSetupComponent) bool { return c.ComponentID == a.componentID })
-		if idx < 0 || setup.Components[idx].Ready || !slices.Equal(setup.Components[idx].Reasons, []types.AgentReadinessReason{want}) {
-			t.Fatalf("the vMCP's agent setup does not name the missing configuration: %+v", setup)
 		}
 	})
 
@@ -302,18 +295,19 @@ func TestAgentVMCPSetup(t *testing.T) {
 	t.Run("fixing the value on the vMCP makes the agent ready", func(t *testing.T) {
 		a.fix(t, h, value)
 
-		resp := h.RequestAs(t, http.MethodGet, "/api/vmcps/"+a.vmcp.ID+"/agent-setup", "", nil)
+		resp := h.RequestAs(t, http.MethodGet, "/api/agents/"+a.agent.ID+"/vmcps/"+a.vmcp.ID+"/readiness", "", nil)
 		if resp.StatusCode != http.StatusOK || strings.Contains(string(resp.Body), value) {
-			t.Fatalf("agent setup: got %d, and it must never contain the value\nbody: %s", resp.StatusCode, resp.Body)
+			t.Fatalf("readiness: got %d, and it must never contain the value\nbody: %s", resp.StatusCode, resp.Body)
 		}
 		var readiness types.AgentVMCPReadiness
 		h.Get(t, "/api/agents/"+a.agent.ID+"/vmcps/"+a.vmcp.ID+"/readiness", &readiness)
 		if !readiness.Ready {
 			t.Fatalf("agent is not ready after the value was fixed: %+v", readiness)
 		}
-		// Agents can't reach their vMCP's setup, or authorize its OAuth.
-		requireStatus(t, h, http.MethodGet, "/api/vmcps/"+a.vmcp.ID+"/agent-setup", a.mcpKey, http.StatusForbidden)
-		requireStatus(t, h, http.MethodPost, "/api/vmcps/"+a.vmcp.ID+"/agent-oauth/"+a.componentID, a.mcpKey, http.StatusForbidden)
+		// Agents can't read, authorize or revoke their vMCP's preconfigured OAuth.
+		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodDelete} {
+			requireStatus(t, h, method, "/api/vmcps/"+a.vmcp.ID+"/components/"+a.componentID+"/preconfigured-oauth", a.mcpKey, http.StatusForbidden)
+		}
 	})
 
 	t.Run("delete keeps the profile's subject", func(t *testing.T) {

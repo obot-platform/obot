@@ -72,14 +72,14 @@ type MCPOAuthToken struct {
 	Expiry             time.Time
 	ExpiresIn          int64
 
-	// AuthorizedBy and AuthorizedAt record who authorized a vMCP's agent OAuth grant (UserID is a
-	// principal.AgentOAuthGrantOwner), and when: the encoded principal of the administrator. They are empty for
+	// AuthorizedBy and AuthorizedAt record who authorized a vMCP's preconfigured OAuth grant (UserID is a
+	// principal.PreconfiguredOAuthOwner), and when: the encoded principal of the administrator. They are empty for
 	// everyone else's tokens, and a refresh keeps them.
 	AuthorizedBy string
 	AuthorizedAt *time.Time
-	// InvalidatedAt and InvalidReason record that a vMCP's agent OAuth grant stopped working, such as when its refresh
-	// token was refused (invalid_grant). Every agent that uses the grant is refused until an administrator authorizes
-	// it again, which replaces the row and clears them. They never carry a token.
+	// InvalidatedAt and InvalidReason record that a vMCP's preconfigured OAuth grant stopped working, such as when its
+	// refresh token was refused (invalid_grant). Everyone who uses the grant is refused until an administrator
+	// authorizes it again, which replaces the row and clears them. They never carry a token.
 	InvalidatedAt *time.Time
 	InvalidReason string
 
@@ -87,7 +87,8 @@ type MCPOAuthToken struct {
 }
 
 // MCPOAuthGrantMetadata is what is known about a stored MCP OAuth token without its secrets: none of its tokens or
-// client credentials. It is read for vMCPs' agent OAuth grants, to select one for an agent and to report its state.
+// client credentials. It is read for vMCPs' preconfigured OAuth grants, to select one for a connection and to report
+// its state.
 type MCPOAuthGrantMetadata struct {
 	MCPID         string
 	UserID        string
@@ -134,8 +135,8 @@ type MCPOAuthPendingState struct {
 	Encrypted          bool
 	CreatedAt          time.Time
 
-	// GrantInitiatorUserID and GrantDefinitionHash bind the pending authorization of a vMCP's agent OAuth grant
-	// (UserID is a principal.AgentOAuthGrantOwner): the callback is accepted only from the administrator who started
+	// GrantInitiatorUserID and GrantDefinitionHash bind the pending authorization of a vMCP's preconfigured OAuth grant
+	// (UserID is a principal.PreconfiguredOAuthOwner): the callback is accepted only from the administrator who started
 	// it, and only while the component still has the definition it was started for. Both are empty for every other
 	// authorization.
 	GrantInitiatorUserID string

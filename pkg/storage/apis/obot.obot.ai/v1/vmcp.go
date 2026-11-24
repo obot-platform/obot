@@ -62,14 +62,15 @@ type VMCPSpec struct {
 type VMCPStatus struct {
 	Ready      bool                  `json:"ready,omitempty"`
 	Components []VMCPComponentStatus `json:"components,omitempty"`
-	// AgentOAuthGrants record the OAuth grants that administrators authorize on the vMCP for agents, one per component
-	// (pkg/vmcp agent OAuth grants). The grants are in the gateway database, never here. Each grant is recorded before
-	// it is stored, so the vMCP controller deletes every one it may have stored when its component leaves the
-	// manifest, and the store deletes exactly the recorded ones when an administrator revokes it.
-	AgentOAuthGrants []VMCPAgentOAuthGrant `json:"agentOAuthGrants,omitempty"`
-	// ComponentOAuth records, by component ID, whether the remote components that agents reach ask for OAuth, as the
-	// vMCP controller last found by probing them without any credential. Agent readiness and the vMCP's agent setup
-	// read it, and never probe. It never holds a URL.
+	// PreconfiguredOAuth records the OAuth grants that administrators preconfigure for the vMCP's remote components,
+	// one per component, which everyone who reaches the component through the vMCP uses (pkg/vmcp
+	// PreconfiguredOAuthStore). The grants are in the gateway database, never here. Each grant is recorded before it is
+	// stored, so the vMCP controller deletes every one it may have stored when its component leaves the manifest, and
+	// the store deletes exactly the recorded ones when an administrator revokes it.
+	PreconfiguredOAuth []VMCPPreconfiguredOAuthGrant `json:"preconfiguredOAuth,omitempty"`
+	// ComponentOAuth records, by component ID, whether the remote components of a shared vMCP ask for OAuth, as the
+	// vMCP controller last found by probing them without any credential. Agent readiness and the preconfigured OAuth
+	// state read it, and never probe. It never holds a URL.
 	ComponentOAuth map[string]VMCPComponentOAuth `json:"componentOAuth,omitempty"`
 }
 
@@ -93,8 +94,8 @@ type VMCPComponentOAuth struct {
 	Failures int `json:"failures,omitempty"`
 }
 
-// VMCPAgentOAuthGrant records the agent OAuth grants that may be stored for one component of a vMCP.
-type VMCPAgentOAuthGrant struct {
+// VMCPPreconfiguredOAuthGrant records the preconfigured OAuth grants that may be stored for one component of a vMCP.
+type VMCPPreconfiguredOAuthGrant struct {
 	ComponentID string `json:"componentID"`
 	// GrantIDs identify the grants that may be stored for the component: the one last published, and any being
 	// written since. Only one is stored at a time, and it has one of these IDs.

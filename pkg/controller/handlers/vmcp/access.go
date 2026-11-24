@@ -25,15 +25,16 @@ type Handler struct {
 	userInfo    func(context.Context, principal.Principal) (kuser.Info, error)
 	acrHelper   *accesscontrolrule.Helper
 	credentials credentialClient
-	// agentOAuthGrants deletes the agent OAuth grants of components removed from a vMCP, and of a vMCP being deleted.
-	agentOAuthGrants agentOAuthGrantCollector
+	// preconfiguredOAuth deletes the preconfigured OAuth grants of components removed from a vMCP, and of a vMCP being
+	// deleted.
+	preconfiguredOAuth preconfiguredOAuthCollector
 	// componentOAuth probes remote components for whether they ask for OAuth (ProbeComponentOAuth).
 	componentOAuth ComponentOAuthProber
 	// now is the clock of the probes' schedule. Nil is time.Now.
 	now func() time.Time
 }
 
-type agentOAuthGrantCollector interface {
+type preconfiguredOAuthCollector interface {
 	DeleteRemovedComponentGrants(ctx context.Context, vmcp *v1.VMCP) (bool, error)
 	DeleteVMCPGrants(ctx context.Context, vmcp v1.VMCP) error
 }
@@ -44,10 +45,10 @@ type credentialClient interface {
 	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
 }
 
-func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, agentOAuthGrants *vmcpconfig.AgentOAuthGrantStore) *Handler {
+func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, preconfiguredOAuth *vmcpconfig.PreconfiguredOAuthStore) *Handler {
 	handler := &Handler{userInfo: gatewayClient.IdentityInfo, acrHelper: acrHelper, credentials: gatewayClient}
-	if agentOAuthGrants != nil {
-		handler.agentOAuthGrants = agentOAuthGrants
+	if preconfiguredOAuth != nil {
+		handler.preconfiguredOAuth = preconfiguredOAuth
 	}
 	return handler
 }

@@ -33,8 +33,9 @@ const (
 	componentOAuthProbeConcurrency = 4
 )
 
-// ComponentOAuthProber probes remote MCP servers for whether they ask for OAuth, and resolves the URL that an agent's
-// connection to a component reaches. The MCP session manager implements it.
+// ComponentOAuthProber probes remote MCP servers for whether they ask for OAuth, and resolves the URL that a
+// component's preconfigured OAuth is bound to (vmcpconfig.ComponentTargetResolver). The MCP session manager implements
+// it.
 type ComponentOAuthProber interface {
 	vmcpconfig.ComponentTargetResolver
 	ProbeOAuthRequirement(ctx context.Context, url, tunnelName string) (bool, error)
@@ -61,18 +62,19 @@ func (h *Handler) SetComponentOAuthProber(prober ComponentOAuthProber) {
 	h.componentOAuth = prober
 }
 
-// ProbeComponentOAuth learns whether the remote components that agents reach ask for OAuth, by probing them without any
+// ProbeComponentOAuth learns whether the remote components of a shared vMCP ask for OAuth, by probing them without any
 // credential, and records what it finds in the vMCP's status (v1.VMCPStatus.ComponentOAuth), where agent readiness and
-// the vMCP's agent setup read it (vmcpconfig.ProbedOAuthRequirement). That is how a server that asks for OAuth, with
-// dynamic client registration rather than static OAuth, is known to need a grant before an agent connects to it.
-// Probes never run on a request.
+// the components' preconfigured OAuth state read it (vmcpconfig.ProbedOAuthRequirement). That is how a server that asks
+// for OAuth, with dynamic client registration rather than static OAuth, is known to need preconfigured OAuth before an
+// agent connects to it, and is shown to an administrator as needing authorization. Probes never run on a request.
 //
-// It probes each remote component that any profile naming an agent grants (vmcpconfig.AgentGrantedComponents) and that
-// is probed at all (vmcpconfig.ComponentOAuthProbed), at the URL agents reach: the URL its definition fixes, or the one
-// built from the values the vMCP and the catalog entry fix (vmcpconfig.ResolveComponentTarget). A component is probed:
+// It probes every remote component of a shared vMCP (vmcpconfig.PreconfigurableComponents), whichever profiles grant
+// it, that is probed at all (vmcpconfig.ComponentOAuthProbed), at the URL its preconfigured OAuth would be bound to:
+// the URL its definition fixes, or the one built from the values the vMCP and the catalog entry fix
+// (vmcpconfig.ResolveComponentTarget). A component is probed:
 //
-//   - when it is first seen, or its target changes (vmcpconfig.ComponentOAuthTargetHash): a component was added or
-//     granted, its definition changed, or the values its URL is built from changed;
+//   - when it is first seen, or its target changes (vmcpconfig.ComponentOAuthTargetHash): a component was added, its
+//     definition changed, or the values its URL is built from changed;
 //   - componentOAuthRecheckInterval after it was last probed successfully, to notice a server that starts or stops
 //     asking for OAuth;
 //   - after a probe that failed, once a wait that doubles with each failure in a row, from componentOAuthRetryBase up
@@ -120,7 +122,7 @@ func (h *Handler) ProbeComponentOAuth(req router.Request, resp router.Response) 
 			}
 			next[job.componentID] = record
 			// The error may hold the URL, which may come from the vMCP's fixed configuration.
-			slog.Warn("Failed to learn whether a vMCP component asks for OAuth; agents are not kept from it for that", "vmcp", vmcp.Name, "component", job.componentID,
+			slog.Warn("Failed to learn whether a vMCP component asks for OAuth; it counts as not requiring OAuth until a probe succeeds", "vmcp", vmcp.Name, "component", job.componentID,
 				"failures", record.Failures, "nextProbe", nextComponentOAuthProbe(record), "error", vmcpconfig.RedactURL(job.err.Error(), job.url))
 			continue
 		}
@@ -205,18 +207,14 @@ func (h *Handler) runComponentOAuthProbes(ctx context.Context, jobs []componentO
 	wg.Wait()
 }
 
-// componentOAuthTargets returns, by component ID, the URLs of vmcp's components to probe (ProbeComponentOAuth): those
-// that any profile naming an agent grants (vmcpconfig.AgentGrantedComponents), which only a shared vMCP has, since
-// agents connect to no other. A component whose URL lacks a value that the vMCP and the catalog entry do not fix, or
-// whose fixed URL is refused, is skipped: configuration readiness reports it.
+// componentOAuthTargets returns, by component ID, the URLs of vmcp's components to probe (ProbeComponentOAuth): every
+// remote component of a shared vMCP (vmcpconfig.PreconfigurableComponents). A personal vMCP has none: its owner
+// authorizes their own connection. A component whose URL lacks a value that the vMCP and the catalog entry do not fix,
+// or whose fixed URL is refused, is skipped: no preconfigured OAuth can be bound to it, and configuration readiness
+// reports it to agents.
 func (h *Handler) componentOAuthTargets(ctx context.Context, vmcp v1.VMCP) (map[string]componentOAuthTarget, error) {
-	components := vmcpconfig.AgentGrantedComponents(vmcp)
-	if len(components) == 0 {
-		return nil, nil
-	}
-
 	result := map[string]componentOAuthTarget{}
-	for _, component := range components {
+	for _, component := range vmcpconfig.PreconfigurableComponents(vmcp) {
 		remote := component.CatalogEntry.Manifest.RemoteConfig
 		if component.ID == "" || remote == nil || !vmcpconfig.ComponentOAuthProbed(component) {
 			continue

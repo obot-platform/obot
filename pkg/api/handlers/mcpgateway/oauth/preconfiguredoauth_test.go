@@ -84,14 +84,14 @@ type lateProbe struct {
 
 // agentGrantFixture is a shared vMCP with a remote component that requires OAuth and a local one, a profile for agent
 // 7, one for agent 8 and one for every user, each granting every component, and the handlers that authorize the
-// vMCP's agent OAuth grants.
+// vMCP's preconfigured OAuth grants.
 type agentGrantFixture struct {
 	provider *agentGrantProvider
 	storage  kclient.WithWatch
 	// db is the gateway's database, for a test to age a pending authorization.
 	db      *gorm.DB
 	gateway *gatewayclient.Client
-	grants  *vmcpconfig.AgentOAuthGrantStore
+	grants  *vmcpconfig.PreconfiguredOAuthStore
 	factory *MCPOAuthHandlerFactory
 	handler *handler
 	key     kclient.ObjectKey
@@ -288,10 +288,10 @@ func newAgentGrantFixture(t *testing.T) *agentGrantFixture {
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)
-	grants := vmcpconfig.NewAgentOAuthGrantStore(gateway)
+	grants := vmcpconfig.NewPreconfiguredOAuthStore(gateway)
 	grants.SetComponentTargets(manager)
 	factory := NewMCPOAuthHandlerFactory("http://obot.example", manager, storage, gateway, tokens, "", true)
-	factory.SetAgentOAuthGrants(grants)
+	factory.SetPreconfiguredOAuth(grants)
 	return &agentGrantFixture{
 		provider: provider,
 		storage:  storage,
@@ -332,20 +332,6 @@ func (f *agentGrantFixture) update(t *testing.T, change func(*v1.VMCP)) {
 	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
 }
 
-// recordProbe records in the vMCP's status that the controller's probe of the remote component found it asks for
-// OAuth, as the controller does in the background.
-func (f *agentGrantFixture) recordProbe(t *testing.T) {
-	t.Helper()
-	var vmcp v1.VMCP
-	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
-	component := vmcpconfig.ComponentsForInstance(vmcp, v1.VMCPInstance{})[0]
-	vmcp.Status.ComponentOAuth = map[string]v1.VMCPComponentOAuth{agentGrantRemote: {
-		TargetHash: vmcpconfig.ComponentOAuthTargetHash(vmcp, component),
-		Required:   v1.VMCPComponentOAuthRequired,
-	}}
-	require.NoError(t, f.storage.Status().Update(t.Context(), &vmcp))
-}
-
 // deleteVMCP starts the deletion of the vMCP, which its finalizer holds back, as the vMCP controller's does.
 func (f *agentGrantFixture) deleteVMCP(t *testing.T) {
 	t.Helper()
@@ -357,8 +343,8 @@ func (f *agentGrantFixture) deleteVMCP(t *testing.T) {
 // attempt.
 func (f *agentGrantFixture) start(t *testing.T, caller kuser.Info, componentID string) (string, error) {
 	t.Helper()
-	req, _ := f.request(caller, http.MethodPost, "/api/vmcps/"+f.key.Name+"/agent-oauth/"+componentID)
-	authorization, err := f.factory.StartAgentOAuthGrant(req, f.key.Name, componentID)
+	req, _ := f.request(caller, http.MethodPost, "/api/vmcps/"+f.key.Name+"/components/"+componentID+"/preconfigured-oauth")
+	authorization, err := f.factory.StartPreconfiguredOAuth(req, f.key.Name, componentID)
 	if err != nil {
 		return "", err
 	}
@@ -379,20 +365,11 @@ func (f *agentGrantFixture) callback(caller kuser.Info, state string) (*httptest
 	return recorder, f.handler.oauthCallback(req)
 }
 
-// authorizeRemote authorizes the vMCP's grant for the remote component as administrator 1, end to end.
-func (f *agentGrantFixture) authorizeRemote(t *testing.T) {
-	t.Helper()
-	state, err := f.start(t, administrator("1"), agentGrantRemote)
-	require.NoError(t, err)
-	_, err = f.callback(administrator("1"), state)
-	require.NoError(t, err)
-}
-
 // storedGrant returns the access token, the administrator and the URL of the vMCP's grant for the remote component,
 // and whether it holds one.
 func (f *agentGrantFixture) storedGrant(t *testing.T) (string, string, string, bool) {
 	t.Helper()
-	token, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.AgentOAuthGrantOwner(f.key.Name), vmcpconfig.AgentOAuthGrantMCPID(f.key.Name, agentGrantRemote), f.provider.mcpURL())
+	token, err := f.gateway.GetMCPOAuthToken(t.Context(), principal.PreconfiguredOAuthOwner(f.key.Name), vmcpconfig.PreconfiguredOAuthMCPID(f.key.Name, agentGrantRemote), f.provider.mcpURL())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", "", "", false
 	}
@@ -400,20 +377,16 @@ func (f *agentGrantFixture) storedGrant(t *testing.T) (string, string, string, b
 	return token.AccessToken, token.AuthorizedBy, token.URL, true
 }
 
-// setup returns the vMCP's agent setup, as its route reports it, by component ID.
-func (f *agentGrantFixture) setup(t *testing.T) (map[string]types.VMCPAgentSetupComponent, string) {
+// oauth returns the remote component's preconfigured OAuth state, as its route reports it, and its JSON.
+func (f *agentGrantFixture) oauth(t *testing.T) (types.VMCPPreconfiguredOAuth, string) {
 	t.Helper()
 	var vmcp v1.VMCP
 	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
-	setup, err := vmcpconfig.AgentSetup(t.Context(), f.grants, vmcp)
+	status, err := f.grants.Status(t.Context(), vmcp, agentGrantRemote)
 	require.NoError(t, err)
-	raw, err := json.Marshal(setup)
+	raw, err := json.Marshal(status)
 	require.NoError(t, err)
-	byID := map[string]types.VMCPAgentSetupComponent{}
-	for _, component := range setup.Components {
-		byID[component.ComponentID] = component
-	}
-	return byID, string(raw)
+	return status, string(raw)
 }
 
 // readiness reports whether agent id can use the vMCP, as its connect decides, for the vMCP as it is stored, without
@@ -443,13 +416,13 @@ func (f *agentGrantFixture) requireNoPending(t *testing.T) {
 	require.Zero(t, pending, "a refused start left a pending authorization")
 }
 
-// TestAgentOAuthGrantAuthorization checks the whole authorization of a vMCP's agent OAuth grant: it is started for the
-// vMCP's component, never for the administrator; its callback is refused to anyone but the administrator who started
-// it, who must still be one; it stores one grant for the vMCP's component, with who authorized it, which every agent
-// granted the component uses; its attempt cannot be used again; and authorizing again replaces the grant.
-func TestAgentOAuthGrantAuthorization(t *testing.T) {
+// TestPreconfiguredOAuthAuthorization checks the whole authorization of a vMCP's preconfigured OAuth grant: it is started
+// for the vMCP's component, never for the administrator; its callback is refused to anyone but the administrator who
+// started it, who must still be one; it stores one grant for the vMCP's component, with who authorized it, which every
+// agent granted the component uses; its attempt cannot be used again; and authorizing again replaces the grant.
+func TestPreconfiguredOAuthAuthorization(t *testing.T) {
 	f := newAgentGrantFixture(t)
-	owner, mcpID := principal.AgentOAuthGrantOwner(f.key.Name), vmcpconfig.AgentOAuthGrantMCPID(f.key.Name, agentGrantRemote)
+	owner, mcpID := principal.PreconfiguredOAuthOwner(f.key.Name), vmcpconfig.PreconfiguredOAuthMCPID(f.key.Name, agentGrantRemote)
 	state, err := f.start(t, administrator("1"), agentGrantRemote)
 	require.NoError(t, err)
 	require.Zero(t, f.provider.operations.Load(), "an authorization ran an MCP operation")
@@ -462,7 +435,7 @@ func TestAgentOAuthGrantAuthorization(t *testing.T) {
 	require.Equal(t, mcpID, pending.MCPID)
 	require.Equal(t, f.provider.mcpURL(), pending.URL)
 	require.Equal(t, "1", pending.GrantInitiatorUserID)
-	require.Equal(t, vmcpconfig.AgentOAuthGrantDefinitionHash(vmcp.Spec.Manifest.Components[0]), pending.GrantDefinitionHash)
+	require.Equal(t, vmcpconfig.PreconfiguredOAuthDefinitionHash(vmcp.Spec.Manifest.Components[0]), pending.GrantDefinitionHash)
 
 	// Another administrator, the initiating user without the administrator role, and an agent, even one the vMCP's
 	// profiles name, cannot complete it, and it stays available to its administrator.
@@ -504,21 +477,18 @@ func TestAgentOAuthGrantAuthorization(t *testing.T) {
 		require.NoError(t, err)
 		var stored v1.VMCP
 		require.NoError(t, f.storage.Get(t.Context(), f.key, &stored))
-		require.Equal(t, []v1.VMCPAgentOAuthGrant{{ComponentID: agentGrantRemote, GrantIDs: []string{token.GrantID}}}, stored.Status.AgentOAuthGrants)
+		require.Equal(t, []v1.VMCPPreconfiguredOAuthGrant{{ComponentID: agentGrantRemote, GrantIDs: []string{token.GrantID}}}, stored.Status.PreconfiguredOAuth)
 	}
 	requireOneGrant()
 	for _, id := range []uint{7, 8} {
 		require.Empty(t, f.readiness(t, id), "agent %d", id)
 	}
 
-	// The vMCP's agent setup names who authorized it and for which target, never its tokens.
-	setup, raw := f.setup(t)
-	require.True(t, setup[agentGrantRemote].Ready)
-	require.NotNil(t, setup[agentGrantRemote].OAuth)
-	require.Equal(t, types.VMCPAgentOAuthAuthorized, setup[agentGrantRemote].OAuth.State)
-	require.True(t, setup[agentGrantRemote].OAuth.Required)
-	require.Equal(t, "1", setup[agentGrantRemote].OAuth.AuthorizedBy)
-	require.Equal(t, f.provider.mcpURL(), setup[agentGrantRemote].OAuth.Target)
+	// The component's preconfigured OAuth state names who authorized it and for which target, never its tokens.
+	oauth, raw := f.oauth(t)
+	require.Equal(t, types.VMCPPreconfiguredOAuthAuthorized, oauth.State)
+	require.Equal(t, "1", oauth.AuthorizedBy)
+	require.Equal(t, f.provider.mcpURL(), oauth.Target)
 	require.NotContains(t, raw, agentGrantAccess)
 	require.NotContains(t, raw, agentGrantRefresh)
 
@@ -528,7 +498,7 @@ func TestAgentOAuthGrantAuthorization(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	require.Equal(t, "1", events[0].ActorUserID)
-	require.Equal(t, gatewaytypes.AdminAuditActionVMCPAgentOAuthAuthorize, events[0].Action)
+	require.Equal(t, gatewaytypes.AdminAuditActionVMCPPreconfiguredOAuthAuthorize, events[0].Action)
 	require.Equal(t, gatewaytypes.AdminAuditResourceVMCP, events[0].ResourceKind)
 	require.Equal(t, f.key.Name, events[0].ResourceID)
 	require.Empty(t, events[0].ParentID)
@@ -558,10 +528,10 @@ func TestAgentOAuthGrantAuthorization(t *testing.T) {
 	requireOneGrant()
 }
 
-// TestAgentOAuthGrantAuthorizationByTheNoAuthOwner checks that without authentication, the "nobody" owner that every
-// request is (authn.NoAuth) can authorize a vMCP's agent OAuth grant: the attempt is bound to that owner's ID, and its
-// callback, which is that owner's request too, completes it and stores the grant as authorized by that owner.
-func TestAgentOAuthGrantAuthorizationByTheNoAuthOwner(t *testing.T) {
+// TestPreconfiguredOAuthAuthorizationByTheNoAuthOwner checks that without authentication, the "nobody" owner that every
+// request is (authn.NoAuth) can authorize a vMCP's preconfigured OAuth grant: the attempt is bound to that owner's ID,
+// and its callback, which is that owner's request too, completes it and stores the grant as authorized by that owner.
+func TestPreconfiguredOAuthAuthorizationByTheNoAuthOwner(t *testing.T) {
 	f := newAgentGrantFixture(t)
 	// The no auth authenticator reads the default role setting, which the fixture's gateway client has no storage for,
 	// so the owner is created through another client of the same database.
@@ -598,10 +568,10 @@ func TestAgentOAuthGrantAuthorizationByTheNoAuthOwner(t *testing.T) {
 	require.Equal(t, nobody.GetUID(), authorizedBy)
 }
 
-// TestAgentOAuthGrantCallbackRevalidates checks that a callback stores nothing when what it was started for changed in
-// between: the component was deleted, no profile that names an agent grants it any more, the vMCP is being deleted, or
-// the component's upstream URL or definition changed.
-func TestAgentOAuthGrantCallbackRevalidates(t *testing.T) {
+// TestPreconfiguredOAuthCallbackRevalidates checks that a callback stores nothing when what it was started for changed in
+// between: the component was deleted, the vMCP is being deleted, or the component's upstream URL or definition
+// changed. Which profiles grant the component never matters: any remote component can be authorized.
+func TestPreconfiguredOAuthCallbackRevalidates(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
 		change func(t *testing.T, f *agentGrantFixture)
@@ -614,30 +584,6 @@ func TestAgentOAuthGrantCallbackRevalidates(t *testing.T) {
 				f.update(t, func(vmcp *v1.VMCP) { vmcp.Spec.Manifest.Components = vmcp.Spec.Manifest.Components[1:] })
 			},
 			code: http.StatusNotFound,
-		},
-		{
-			name: "no profile that names an agent grants the component",
-			change: func(t *testing.T, f *agentGrantFixture) {
-				t.Helper()
-				f.update(t, func(vmcp *v1.VMCP) {
-					for i := range vmcp.Spec.Manifest.Profiles[:2] {
-						vmcp.Spec.Manifest.Profiles[i].Permissions = types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{agentGrantLocal: {}}}
-					}
-				})
-			},
-			code: http.StatusBadRequest,
-		},
-		{
-			name: "no profile names an agent",
-			change: func(t *testing.T, f *agentGrantFixture) {
-				t.Helper()
-				f.update(t, func(vmcp *v1.VMCP) {
-					for i := range vmcp.Spec.Manifest.Profiles[:2] {
-						vmcp.Spec.Manifest.Profiles[i].Subjects = []types.Subject{{Type: types.SubjectTypeUser, ID: "3"}}
-					}
-				})
-			},
-			code: http.StatusBadRequest,
 		},
 		{
 			name: "vMCP being deleted",
@@ -684,32 +630,8 @@ func TestAgentOAuthGrantCallbackRevalidates(t *testing.T) {
 	}
 }
 
-// TestAgentOAuthGrantNeedsOneAgentGranted checks that a component is authorized while any profile that names an agent
-// grants it: agent 7's profile stops granting the component, and the grant is still authorized for agent 8, who alone
-// uses it, while agent 7's readiness no longer covers the component.
-func TestAgentOAuthGrantNeedsOneAgentGranted(t *testing.T) {
-	f := newAgentGrantFixture(t)
-	f.update(t, func(vmcp *v1.VMCP) {
-		vmcp.Spec.Manifest.Profiles[0].Permissions = types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{agentGrantLocal: {}}}
-	})
-	f.authorizeRemote(t)
-	_, _, _, ok := f.storedGrant(t)
-	require.True(t, ok)
-	require.Empty(t, f.readiness(t, 8))
-	require.Empty(t, f.readiness(t, 7))
-
-	// Revoking it keeps agent 8, who is granted the component, which the controller's probe found asks for OAuth, from
-	// it, and leaves agent 7, who is not, ready.
-	f.recordProbe(t)
-	_, revoked, err := f.grants.Revoke(t.Context(), f.storage, f.key, agentGrantRemote)
-	require.NoError(t, err)
-	require.True(t, revoked)
-	require.Equal(t, []types.AgentReadinessReason{{ComponentID: agentGrantRemote, Code: types.AgentReadinessOAuthRequired}}, f.readiness(t, 8))
-	require.Empty(t, f.readiness(t, 7))
-}
-
-// TestAgentOAuthGrantStartRefusals checks which authorizations are refused before anything is stored.
-func TestAgentOAuthGrantStartRefusals(t *testing.T) {
+// TestPreconfiguredOAuthStartRefusals checks which authorizations are refused before anything is stored.
+func TestPreconfiguredOAuthStartRefusals(t *testing.T) {
 	for _, tt := range []struct {
 		name      string
 		caller    kuser.Info
@@ -718,32 +640,6 @@ func TestAgentOAuthGrantStartRefusals(t *testing.T) {
 		code      int
 		wantErr   string
 	}{
-		{
-			name:   "no profile that names an agent grants the component",
-			caller: administrator("1"),
-			change: func(t *testing.T, f *agentGrantFixture) {
-				t.Helper()
-				f.update(t, func(vmcp *v1.VMCP) {
-					for i := range vmcp.Spec.Manifest.Profiles[:2] {
-						vmcp.Spec.Manifest.Profiles[i].Permissions = types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{agentGrantLocal: {}}}
-					}
-				})
-			},
-			component: agentGrantRemote,
-			code:      http.StatusBadRequest,
-			wantErr:   `no profile that names an agent grants component "` + agentGrantRemote + `"`,
-		},
-		{
-			name:   "only the profile for every user grants the component",
-			caller: administrator("1"),
-			change: func(t *testing.T, f *agentGrantFixture) {
-				t.Helper()
-				f.update(t, func(vmcp *v1.VMCP) { vmcp.Spec.Manifest.Profiles = vmcp.Spec.Manifest.Profiles[2:] })
-			},
-			component: agentGrantRemote,
-			code:      http.StatusBadRequest,
-			wantErr:   "no profile that names an agent grants component",
-		},
 		{
 			name:   "personal vMCP",
 			caller: administrator("1"),
@@ -785,24 +681,9 @@ func TestAgentOAuthGrantStartRefusals(t *testing.T) {
 			component: agentGrantRemote,
 			code:      http.StatusNotFound,
 		},
-		{
-			name:      "not an administrator",
-			caller:    administrator("1", types.GroupBasic, types.GroupAuthenticated),
-			component: agentGrantRemote,
-			code:      http.StatusForbidden,
-		},
-		{
-			name:      "auditor",
-			caller:    administrator("1", types.GroupAuditor, types.GroupAuthenticated),
-			component: agentGrantRemote,
-			code:      http.StatusForbidden,
-		},
-		{
-			name:      "power user plus",
-			caller:    administrator("1", types.GroupPowerUserPlus, types.GroupPowerUser, types.GroupAuthenticated),
-			component: agentGrantRemote,
-			code:      http.StatusForbidden,
-		},
+		// Which users reach the start is pkg/api/authz's to decide (TestVMCPPreconfiguredOAuthAuthorization): only
+		// administrators and owners. The start still refuses any caller that is not a user, since a grant records the
+		// user who authorized it.
 		{
 			name:      "agent a profile names",
 			caller:    agentGrantAgent(7),
@@ -853,7 +734,7 @@ func TestAgentOAuthGrantStartRefusals(t *testing.T) {
 	f.requireNoPending(t)
 }
 
-// TestAgentOAuthGrantStartWithoutAnInitializeChallenge starts the vMCP's grant for a component whose server lets anyone
+// TestPreconfiguredOAuthStartWithoutAnInitializeChallenge starts the vMCP's grant for a component whose server lets anyone
 // initialize and list its tools, at a URL the catalog fixes and at one the vMCP fixes:
 //
 //   - one that only challenges when a tool is called starts from the protected resource metadata it publishes, bound
@@ -865,7 +746,7 @@ func TestAgentOAuthGrantStartRefusals(t *testing.T) {
 //
 // Every start's probes are unauthenticated and end their session, a refused start leaves no pending authorization, and
 // no error carries a URL that comes from the vMCP's fixed configuration.
-func TestAgentOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
+func TestPreconfiguredOAuthStartWithoutAnInitializeChallenge(t *testing.T) {
 	for _, configured := range []bool{false, true} {
 		for _, tt := range []struct {
 			name string
@@ -907,9 +788,8 @@ func TestAgentOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
 				f.provider.late.Store(tt.mode)
 				requireRequired := func(want bool) {
 					t.Helper()
-					setup, _ := f.setup(t)
-					require.NotNil(t, setup[agentGrantRemote].OAuth)
-					require.Equal(t, want, setup[agentGrantRemote].OAuth.Required)
+					oauth, _ := f.oauth(t)
+					require.Equal(t, want, oauth.State != types.VMCPPreconfiguredOAuthNotRequired, oauth.State)
 					for _, id := range []uint{7, 8} {
 						if want {
 							require.Empty(t, f.readiness(t, id), "agent %d", id)
@@ -920,10 +800,10 @@ func TestAgentOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
 
 				ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 				defer cancel()
-				req, _ := f.request(administrator("1"), http.MethodPost, "/api/vmcps/"+f.key.Name+"/agent-oauth/"+agentGrantRemote)
+				req, _ := f.request(administrator("1"), http.MethodPost, "/api/vmcps/"+f.key.Name+"/components/"+agentGrantRemote+"/preconfigured-oauth")
 				req.Request = req.WithContext(ctx)
 				started := time.Now()
-				authorization, err := f.factory.StartAgentOAuthGrant(req, f.key.Name, agentGrantRemote)
+				authorization, err := f.factory.StartPreconfiguredOAuth(req, f.key.Name, agentGrantRemote)
 				require.Less(t, time.Since(started), 10*time.Second)
 				requireUnauthenticatedProbes(t, f.provider.lateProbes())
 
@@ -948,7 +828,7 @@ func TestAgentOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
 				state := parsed.Query().Get("state")
 				pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
 				require.NoError(t, err)
-				require.Equal(t, principal.AgentOAuthGrantOwner(f.key.Name), pending.UserID)
+				require.Equal(t, principal.PreconfiguredOAuthOwner(f.key.Name), pending.UserID)
 				require.Equal(t, f.provider.mcpURL(), pending.URL)
 				require.Equal(t, "1", pending.GrantInitiatorUserID)
 
@@ -997,11 +877,11 @@ func (f *agentGrantFixture) fix(t *testing.T, values map[string]string) {
 	}))
 }
 
-// TestAgentOAuthGrantsForFixedURLs authorizes the vMCP's grant for a remote component whose upstream URL comes from the
+// TestPreconfiguredOAuthsForFixedURLs authorizes the vMCP's grant for a remote component whose upstream URL comes from the
 // vMCP's fixed configuration, a hostname-constrained one and a URL template: the grant is bound to the URL that agents
 // reach, and every agent granted the component is ready with it. A URL nothing fixes is refused, and a grant for a URL
 // that changed since, before or after the callback, is refused.
-func TestAgentOAuthGrantsForFixedURLs(t *testing.T) {
+func TestPreconfiguredOAuthsForFixedURLs(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
 		remote func(base string) *types.RemoteCatalogConfig
@@ -1060,10 +940,10 @@ func TestAgentOAuthGrantsForFixedURLs(t *testing.T) {
 			for _, id := range []uint{7, 8} {
 				require.Empty(t, f.readiness(t, id), "agent %d", id)
 			}
-			setup, raw := f.setup(t)
-			require.Equal(t, types.VMCPAgentOAuthAuthorized, setup[agentGrantRemote].OAuth.State)
-			require.Empty(t, setup[agentGrantRemote].OAuth.Target)
-			require.Equal(t, vmcpconfig.URLHostname(base), setup[agentGrantRemote].OAuth.TargetHostname)
+			oauth, raw := f.oauth(t)
+			require.Equal(t, types.VMCPPreconfiguredOAuthAuthorized, oauth.State)
+			require.Empty(t, oauth.Target)
+			require.Equal(t, vmcpconfig.URLHostname(base), oauth.TargetHostname)
 			require.NotContains(t, raw, base+"/fixed")
 
 			// The URL the vMCP fixes changes while another authorization waits for its callback: the callback is refused,
@@ -1077,9 +957,8 @@ func TestAgentOAuthGrantsForFixedURLs(t *testing.T) {
 			require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 
 			// The grant was authorized for the old URL, which agents reach no more: it is invalid, for every agent.
-			setup, _ = f.setup(t)
-			require.Equal(t, types.VMCPAgentOAuthInvalid, setup[agentGrantRemote].OAuth.State)
-			require.False(t, setup[agentGrantRemote].Ready)
+			oauth, _ = f.oauth(t)
+			require.Equal(t, types.VMCPPreconfiguredOAuthInvalid, oauth.State)
 			for _, id := range []uint{7, 8} {
 				require.Equal(t, []types.AgentReadinessReason{{ComponentID: agentGrantRemote, Code: types.AgentReadinessOAuthInvalid}}, f.readiness(t, id), "agent %d", id)
 			}
@@ -1102,10 +981,10 @@ func agentWithGroups(id uint, groups ...string) kuser.Info {
 
 // startRelay starts, as caller, the authorization of the vMCP's grant for the fixture's remote component, whose
 // provider only redirects to a localhost callback. It returns the response and the state of the pending attempt.
-func (f *agentGrantFixture) startRelay(t *testing.T, caller kuser.Info) (types.VMCPAgentOAuthAuthorization, string, error) {
+func (f *agentGrantFixture) startRelay(t *testing.T, caller kuser.Info) (types.VMCPPreconfiguredOAuthAuthorization, string, error) {
 	t.Helper()
-	req, _ := f.request(caller, http.MethodPost, "/api/vmcps/"+f.key.Name+"/agent-oauth/"+agentGrantRemote)
-	authorization, err := f.factory.StartAgentOAuthGrant(req, f.key.Name, agentGrantRemote)
+	req, _ := f.request(caller, http.MethodPost, "/api/vmcps/"+f.key.Name+"/components/"+agentGrantRemote+"/preconfigured-oauth")
+	authorization, err := f.factory.StartPreconfiguredOAuth(req, f.key.Name, agentGrantRemote)
 	if err != nil {
 		return authorization, "", err
 	}
@@ -1127,12 +1006,12 @@ func (f *agentGrantFixture) readRelay(t *testing.T, state string) (types.MCPLoca
 	return login, recorder.Body.String()
 }
 
-// TestAgentOAuthGrantThroughTheLocalhostRelay authorizes the vMCP's grant for a component whose provider only redirects
+// TestPreconfiguredOAuthThroughTheLocalhostRelay authorizes the vMCP's grant for a component whose provider only redirects
 // to a localhost callback, through the same relay as a user's own connection: the start returns the local login URL,
 // `obot mcp login` reads the attempt and relays the provider's callback to Obot in the administrator's browser, and the
 // grant is stored for the vMCP's component. Only the initiating administrator completes it, once, and the grant is then
 // refreshed like any other, with no redirect.
-func TestAgentOAuthGrantThroughTheLocalhostRelay(t *testing.T) {
+func TestPreconfiguredOAuthThroughTheLocalhostRelay(t *testing.T) {
 	f := newAgentGrantFixture(t)
 	f.setRemote(t, &types.RemoteCatalogConfig{FixedURL: f.provider.mcpURL(), LocalhostCallbackEnabled: true, LocalhostCallbackPath: "/relay/callback"})
 
@@ -1146,7 +1025,7 @@ func TestAgentOAuthGrantThroughTheLocalhostRelay(t *testing.T) {
 	// The attempt is the vMCP's, bound to its administrator, with the relay's loopback-only redirect.
 	pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
 	require.NoError(t, err)
-	owner, mcpID := principal.AgentOAuthGrantOwner(f.key.Name), vmcpconfig.AgentOAuthGrantMCPID(f.key.Name, agentGrantRemote)
+	owner, mcpID := principal.PreconfiguredOAuthOwner(f.key.Name), vmcpconfig.PreconfiguredOAuthMCPID(f.key.Name, agentGrantRemote)
 	require.Equal(t, owner, pending.UserID)
 	require.Equal(t, "1", pending.GrantInitiatorUserID)
 	require.True(t, localLoginState(pending))
@@ -1212,9 +1091,9 @@ func TestAgentOAuthGrantThroughTheLocalhostRelay(t *testing.T) {
 	require.Equal(t, "1", refreshed.AuthorizedBy)
 }
 
-// TestAgentOAuthGrantRelayRefusals checks that a relayed attempt that expired, whose redirect is not the relay's
+// TestPreconfiguredOAuthRelayRefusals checks that a relayed attempt that expired, whose redirect is not the relay's
 // loopback callback, or whose component changed since it started is refused, and stores nothing.
-func TestAgentOAuthGrantRelayRefusals(t *testing.T) {
+func TestPreconfiguredOAuthRelayRefusals(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
 		change func(t *testing.T, f *agentGrantFixture)

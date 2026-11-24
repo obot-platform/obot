@@ -191,9 +191,10 @@ func TestProbeOAuthRequirementIsBounded(t *testing.T) {
 // without static OAuth that uses dynamic client registration and challenges initialize, from the vMCP controller's
 // probe of it to the agent's connection. Before the probe, nothing shows that it needs OAuth, so every agent is ready.
 // Once the controller has probed it, readiness and connect both refuse every agent granted the component while the
-// vMCP holds no grant for it, with oauth_required, and the vMCP's agent setup says the component requires OAuth; one
-// grant, authorized on the vMCP, makes them all ready. An agent whose profiles do not grant the component is ready
-// throughout. The status of the vMCP holds no URL. Users connect as before throughout.
+// vMCP holds no grant for it, with oauth_required, and the component's preconfigured OAuth state says it needs
+// authorization; one grant, authorized on the vMCP, makes them all ready. An agent whose profiles do not grant the
+// component is ready throughout. The status of the vMCP holds no URL. Users are never refused, and use the grant once
+// the vMCP holds it.
 func TestAgentReadinessReportAgreesWithConnectForProbedOAuth(t *testing.T) {
 	upstream := newLateChallengeUpstream(t, "initialize", false, nil)
 	vmcp, one, two := grantVMCP("vmcp1agreeprobe", false)
@@ -209,14 +210,16 @@ func TestAgentReadinessReportAgreesWithConnectForProbedOAuth(t *testing.T) {
 		require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), current))
 		return current
 	}
-	requireUser := func() {
+	// requireUser requires that a user connects, never refused, with the vMCP's grant for the component when it holds
+	// one, and otherwise with none, so with their own OAuth.
+	requireUser := func(preconfigured bool) {
 		t.Helper()
 		cfg := connectVMCP(t, manager, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}))
-		require.Nil(t, cfg.Components[0].OAuthGrant)
+		require.Equal(t, preconfigured, cfg.Components[0].OAuthGrant != nil)
 	}
 
 	requireReadinessAgreesWithConnect(t, manager, stored(), "not probed yet", map[uint]bool{7: true, 8: true, 9: true})
-	requireUser()
+	requireUser(false)
 
 	handler := vmcphandler.New(gateway, nil, nil)
 	handler.SetComponentOAuthProber(manager)
@@ -236,14 +239,12 @@ func TestAgentReadinessReportAgreesWithConnectForProbedOAuth(t *testing.T) {
 	required := []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthRequired}}
 	require.Equal(t, required, reasons["agent:7"])
 	require.Equal(t, required, reasons["agent:8"])
-	setup, err := vmcpaccess.AgentSetup(t.Context(), grants, *probed)
+	status, err := grants.Status(t.Context(), *probed, "one")
 	require.NoError(t, err)
-	require.Equal(t, "one", setup.Components[0].ComponentID)
-	require.True(t, setup.Components[0].OAuth.Required)
-	require.Equal(t, required, setup.Components[0].Reasons)
-	requireUser()
+	require.Equal(t, types.VMCPPreconfiguredOAuthNeedsAuthorization, status.State)
+	requireUser(false)
 
 	storeGrant(t, gateway, vmcp.Name, upstream.mcpURL(), "grant-one")
 	requireReadinessAgreesWithConnect(t, manager, probed, "the vMCP authorized", map[uint]bool{7: true, 8: true, 9: true})
-	requireUser()
+	requireUser(true)
 }

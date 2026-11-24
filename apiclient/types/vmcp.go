@@ -259,57 +259,41 @@ type VMCPConfigurationPresence struct {
 	ConfiguredFields []string `json:"configuredFields"`
 }
 
-// VMCPAgentSetup is what agents need from a shared vMCP before they can use it, for each component that a profile
-// naming an agent grants. It is the vMCP's alone: profiles hold no data for agents. It never carries a configuration
-// value or a token.
-type VMCPAgentSetup struct {
-	VMCPID string `json:"vmcpID"`
-	// Components are the components that at least one profile naming an agent (VMCPProfile.IsAgentCapable) grants, in
-	// manifest order. It is empty when no profile names an agent.
-	Components []VMCPAgentSetupComponent `json:"components"`
-}
-
-// VMCPAgentSetupComponent is the setup for agents of one component of a vMCP.
-type VMCPAgentSetupComponent struct {
-	ComponentID string `json:"componentID"`
-	// Ready reports that nothing about the component keeps an agent that is granted it from the vMCP: Reasons is empty.
-	Ready bool `json:"ready"`
-	// Reasons are why the component keeps every agent that is granted it from the vMCP, as agent readiness reports
-	// them: AgentReadinessConfigurationRequired for each required key that agents cannot be given, because neither the
-	// vMCP nor the catalog entry fixes it, and AgentReadinessOAuthRequired or AgentReadinessOAuthInvalid when the
-	// component needs OAuth and the vMCP holds no working grant for it. They never carry a value.
-	Reasons []AgentReadinessReason `json:"reasons"`
-	// OAuth is the vMCP's agent OAuth grant for the component. It is set only for a remote component, the only kind
-	// that can hold one.
-	OAuth *VMCPAgentOAuthStatus `json:"oauth,omitempty"`
-}
-
 const (
-	// VMCPAgentOAuthAuthorized is the state of a vMCP's agent OAuth grant that agents can use.
-	VMCPAgentOAuthAuthorized = "authorized"
-	// VMCPAgentOAuthMissing is the state of a component that the vMCP holds no agent OAuth grant for.
-	VMCPAgentOAuthMissing = "missing"
-	// VMCPAgentOAuthInvalid is the state of a vMCP's agent OAuth grant that no longer works: the provider refused to
-	// refresh it, or the component's target changed since it was authorized. An administrator must authorize it again.
-	VMCPAgentOAuthInvalid = "invalid"
+	// VMCPPreconfiguredOAuthNotRequired is the state of a remote component that the vMCP holds no preconfigured OAuth
+	// for, and that is not known to need OAuth: its catalog entry does not require static OAuth, and Obot's background
+	// probe, which connects without credentials, has not found that it asks for OAuth. An administrator can still
+	// authorize it: a probe that failed, or has not run yet, counts as not required.
+	VMCPPreconfiguredOAuthNotRequired = "not_required"
+	// VMCPPreconfiguredOAuthNeedsAuthorization is the state of a remote component that the vMCP holds no preconfigured
+	// OAuth for, and that is known to need OAuth. Users authorize it with their own accounts, and agents cannot use it,
+	// until an administrator authorizes it.
+	VMCPPreconfiguredOAuthNeedsAuthorization = "needs_authorization"
+	// VMCPPreconfiguredOAuthAuthorized is the state of a vMCP's preconfigured OAuth for a component that works.
+	VMCPPreconfiguredOAuthAuthorized = "authorized"
+	// VMCPPreconfiguredOAuthInvalid is the state of a vMCP's preconfigured OAuth for a component that no longer works:
+	// the provider refused to refresh it, or the component's upstream URL changed since it was authorized. An
+	// administrator must authorize it again, or revoke it so users authorize the component themselves.
+	VMCPPreconfiguredOAuthInvalid = "invalid"
 )
 
-// VMCPAgentOAuthStatus is the OAuth grant a vMCP holds for one component, which every agent that a profile of the
-// vMCP grants the component uses. It describes the grant, never its tokens.
-type VMCPAgentOAuthStatus struct {
-	// Required reports that the component is known to need OAuth: a remote server that requires administrator static
-	// OAuth, one that the vMCP holds a grant for, working or not, or one that Obot's background probe, which connects
-	// without credentials, found asks for OAuth. A probe that failed, or has not run yet, counts as not required.
-	Required bool `json:"required"`
-	// State is VMCPAgentOAuthAuthorized, VMCPAgentOAuthMissing or VMCPAgentOAuthInvalid.
+// VMCPPreconfiguredOAuth is the OAuth an administrator preconfigured for one remote component of a shared vMCP: one
+// account, which everyone who reaches the component through the vMCP uses upstream, users and agents alike. While it
+// is set, users are not asked to authorize the component themselves, and their own tokens for it are not used. It
+// describes the grant, never its tokens.
+type VMCPPreconfiguredOAuth struct {
+	VMCPID      string `json:"vmcpID"`
+	ComponentID string `json:"componentID"`
+	// State is VMCPPreconfiguredOAuthNotRequired, VMCPPreconfiguredOAuthNeedsAuthorization,
+	// VMCPPreconfiguredOAuthAuthorized or VMCPPreconfiguredOAuthInvalid.
 	State string `json:"state"`
 	// AuthorizedBy is the administrator who authorized the grant, as a user ID.
 	AuthorizedBy string `json:"authorizedBy,omitempty"`
 	// AuthorizedAt is when the grant was authorized.
 	AuthorizedAt *Time `json:"authorizedAt,omitempty"`
 	// Target is the upstream URL the grant was authorized for, for a component whose catalog entry fixes the URL: that
-	// URL is catalog data. Agents use the grant only for that URL. It is empty when the URL comes from the vMCP's
-	// fixed configuration, which is never returned: see TargetHostname.
+	// URL is catalog data. The grant is used only for that URL. It is empty when the URL comes from the vMCP's fixed
+	// configuration, which is never returned: see TargetHostname.
 	Target string `json:"target,omitempty"`
 	// TargetHostname is, for a component whose URL comes from the vMCP's fixed configuration (a hostname-constrained
 	// URL or a URL template), only the hostname of the URL the grant was authorized for, never its port, path, query or
@@ -321,14 +305,14 @@ type VMCPAgentOAuthStatus struct {
 	InvalidReason string `json:"invalidReason,omitempty"`
 }
 
-// VMCPAgentOAuthAuthorization starts an administrator's authorization of a vMCP's agent OAuth grant for one component.
-// The administrator opens AuthURL; the provider's callback stores the grant on the vMCP.
-type VMCPAgentOAuthAuthorization struct {
+// VMCPPreconfiguredOAuthAuthorization starts an administrator's authorization of a vMCP's preconfigured OAuth for one
+// component. The administrator opens AuthURL; the provider's callback stores the grant on the vMCP.
+type VMCPPreconfiguredOAuthAuthorization struct {
 	AuthURL string `json:"authURL"`
 	// LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is
 	// Obot's local login URL rather than the provider's: the administrator runs `obot mcp login <AuthURL>` on their own
 	// machine, which listens for the callback and relays it to Obot in their browser, as for a user's own connection.
-	// Only the authorization needs the relay; agents use and refresh the grant without it.
+	// Only the authorization needs the relay; users and agents use and refresh the grant without it.
 	LocalhostCallback bool `json:"localhostCallback,omitempty"`
 }
 
@@ -503,16 +487,6 @@ func (m VMCPManifest) Profile(id string) (VMCPProfile, bool) {
 		return VMCPProfile{}, false
 	}
 	return m.Profiles[index], true
-}
-
-// IsAgentCapable reports whether the profile can apply to an agent: it names an agent by ID, the only subject that
-// names one. The components such profiles grant are the ones a vMCP's agent setup covers (VMCPAgentSetup). An agent
-// subject with the ID "*", which validation refuses but a vMCP stored before agents were named only by ID may hold,
-// names no agent.
-func (p VMCPProfile) IsAgentCapable() bool {
-	return slices.ContainsFunc(p.Subjects, func(subject Subject) bool {
-		return subject.Type == SubjectTypeAgent && subject.ID != SubjectWildcardID
-	})
 }
 
 func (m VMCPInstanceManifest) Validate() error {

@@ -105,23 +105,23 @@ test('offers the admin change type with only its own filters, and sends them whe
 	await expect.element(page.getByText('MCP Servers')).not.toBeInTheDocument();
 	expect(filterOptions).not.toHaveBeenCalled();
 
-	await page.getByLabelText('Schedule Name').fill('Agent OAuth changes');
+	await page.getByLabelText('Schedule Name').fill('Preconfigured OAuth changes');
 	await page.getByLabelText('Bucket Name').fill('audit-logs');
 	await pickOptions('Resource Kinds', ['vMCP']);
-	await pickOptions('Actions', ['vmcp.agent_oauth.authorize']);
+	await pickOptions('Actions', ['vmcp.preconfigured_oauth.authorize']);
 	await page.getByLabelText('Resource IDs').fill('vmcp-1');
 	await page.getByRole('button', { name: 'Create Schedule', exact: true }).click();
 
 	await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
 	expect(created).toMatchObject({
-		name: 'Agent OAuth changes',
+		name: 'Preconfigured OAuth changes',
 		type: 'admin',
 		bucket: 'audit-logs',
 		adminFilters: {
 			resourceKinds: ['vmcp'],
 			resourceIDs: ['vmcp-1'],
 			actors: [],
-			actions: ['vmcp.agent_oauth.authorize']
+			actions: ['vmcp.preconfigured_oauth.authorize']
 		}
 	});
 	expect(created).not.toHaveProperty('filters');
@@ -137,7 +137,7 @@ test('offers the admin change type with only its own filters, and sends them whe
 	});
 	await expect
 		.element(page.getByCSS('#admin_action'))
-		.toHaveTextContent('vmcp.agent_oauth.authorize');
+		.toHaveTextContent('vmcp.preconfigured_oauth.authorize');
 	await pickOptions('Actors', ['System']);
 	await page.getByRole('button', { name: 'Save Changes', exact: true }).click();
 	await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
@@ -147,7 +147,7 @@ test('offers the admin change type with only its own filters, and sends them whe
 			resourceKinds: ['vmcp'],
 			resourceIDs: ['vmcp-1'],
 			actors: ['system'],
-			actions: ['vmcp.agent_oauth.authorize']
+			actions: ['vmcp.preconfigured_oauth.authorize']
 		}
 	});
 });

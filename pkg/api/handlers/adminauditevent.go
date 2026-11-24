@@ -16,9 +16,9 @@ const (
 	adminAuditEventMaxLimit     = 1000
 )
 
-// AdminAuditEventHandler serves the read API of the admin change audit: who changed agents, their API keys, the policies
-// and profiles that name agents, and vMCPs' agent OAuth grants. It is read-only, and only administrators,
-// owners and auditors are granted it (pkg/api/authz); agents never reach it.
+// AdminAuditEventHandler serves the read API of the admin change audit: who changed agents, their API keys, the
+// policies and profiles that name agents, and vMCPs' preconfigured OAuth grants. It is read-only, and only
+// administrators, owners and auditors are granted it (pkg/api/authz); agents never reach it.
 //
 // It is served whether or not authentication is enabled, as the agent admin API is.
 type AdminAuditEventHandler struct{}

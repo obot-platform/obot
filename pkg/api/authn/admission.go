@@ -19,9 +19,9 @@ var (
 	// ErrRestricted refuses a principal while the environment is restricted.
 	ErrRestricted = types2.NewErrHTTP(http.StatusPaymentRequired, "Only admins can use this environment right now, because it's over its plan or its subscription couldn't be confirmed. An admin can bring usage back within the plan, or an owner can check the subscription.")
 
-	// errAgentOAuthGrantCaller refuses a caller whose UID is the owner of a vMCP's agent OAuth grants. No authenticator
-	// builds one, and none must: the owner stands for a vMCP's grants, never for anyone who can act.
-	errAgentOAuthGrantCaller = errors.New("the owner of a vMCP's agent OAuth grants cannot authenticate")
+	// errPreconfiguredOAuthCaller refuses a caller whose UID is the owner of a vMCP's preconfigured OAuth grants. No
+	// authenticator builds one, and none must: the owner stands for a vMCP's grants, never for anyone who can act.
+	errPreconfiguredOAuthCaller = errors.New("the owner of a vMCP's preconfigured OAuth grants cannot authenticate")
 
 	// nonUserGroups mark principals that act for Obot itself or for a device, never for a user, so they have no
 	// lifecycle status. Only their own authenticators assign these groups.
@@ -67,10 +67,10 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 	if resp == nil || resp.User == nil {
 		return nil, false, errors.New("authenticator returned no principal")
 	}
-	// The owner of a vMCP's agent OAuth grants is refused whatever status or groups its authenticator recorded, so that
-	// no authenticator, now or later, can let a caller read or use the grants as their own.
-	if principal.IsAgentOAuthGrantOwner(resp.User.GetUID()) {
-		return nil, false, errAgentOAuthGrantCaller
+	// The owner of a vMCP's preconfigured OAuth grants is refused whatever status or groups its authenticator recorded, so
+	// that no authenticator, now or later, can let a caller read or use the grants as their own.
+	if principal.IsPreconfiguredOAuthOwner(resp.User.GetUID()) {
+		return nil, false, errPreconfiguredOAuthCaller
 	}
 
 	status, recorded := principal.UserStatus(resp.User)

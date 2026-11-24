@@ -102,7 +102,7 @@ func newGrantTestGateway(t *testing.T) *gatewayclient.Client {
 	return gateway
 }
 
-// storeExpiredGrant stores a vMCP agent OAuth grant whose access token has expired, issued by endpoint.
+// storeExpiredGrant stores a vMCP preconfigured OAuth grant whose access token has expired, issued by endpoint.
 func storeExpiredGrant(t *testing.T, gateway *gatewayclient.Client, owner, mcpID string, endpoint *rotatingTokenEndpoint) {
 	t.Helper()
 	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, grantTestURL, "grant-1", "1", &oauth2.Config{
@@ -203,7 +203,7 @@ func postgresGrantGateways(t *testing.T, n int) []*gatewayclient.Client {
 func TestSharedGrantRefreshesOnce(t *testing.T) {
 	gateway := newGrantTestGateway(t)
 	endpoint := newRotatingTokenEndpoint(t, "refresh-initial")
-	owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
+	owner, mcpID := principal.PreconfiguredOAuthOwner("vmcp1test"), "vmcp1test/component"
 	storeExpiredGrant(t, gateway, owner, mcpID, endpoint)
 
 	results := refreshConcurrently(t, []*gatewayclient.Client{gateway}, owner, mcpID, 20)
@@ -231,7 +231,7 @@ func TestSharedGrantRefreshesOnceAcrossPostgresReplicas(t *testing.T) {
 	first, second := replicas[0], replicas[1]
 
 	endpoint := newRotatingTokenEndpoint(t, "refresh-initial")
-	owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
+	owner, mcpID := principal.PreconfiguredOAuthOwner("vmcp1test"), "vmcp1test/component"
 	storeExpiredGrant(t, first, owner, mcpID, endpoint)
 
 	results := refreshConcurrently(t, []*gatewayclient.Client{first, second}, owner, mcpID, 10)
@@ -281,7 +281,7 @@ func TestSharedGrantRefreshFailures(t *testing.T) {
 				gateway = postgresGrantGateways(t, 1)[0]
 			}
 			endpoint := newRotatingTokenEndpoint(t, "refresh-initial")
-			owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
+			owner, mcpID := principal.PreconfiguredOAuthOwner("vmcp1test"), "vmcp1test/component"
 			storeExpiredGrant(t, gateway, owner, mcpID, endpoint)
 			if tt.refresh != "" {
 				endpoint.lock.Lock()
@@ -322,7 +322,7 @@ func TestSharedGrantRefreshFailures(t *testing.T) {
 func TestSharedGrantTargetBinding(t *testing.T) {
 	gateway := newGrantTestGateway(t)
 	endpoint := newRotatingTokenEndpoint(t, "refresh-initial")
-	owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
+	owner, mcpID := principal.PreconfiguredOAuthOwner("vmcp1test"), "vmcp1test/component"
 	storeExpiredGrant(t, gateway, owner, mcpID, endpoint)
 	store := NewGlobalTokenStore(gateway)
 
@@ -340,7 +340,7 @@ func TestSharedGrantTargetBinding(t *testing.T) {
 func TestSharedGrantRefreshesOfManyGrantsKeepThePool(t *testing.T) {
 	gateway := postgresGrantGateways(t, 1)[0]
 	endpoints := make([]*rotatingTokenEndpoint, 8)
-	owner := principal.AgentOAuthGrantOwner("vmcp1test")
+	owner := principal.PreconfiguredOAuthOwner("vmcp1test")
 	mcpIDs := make([]string, len(endpoints))
 	for i := range endpoints {
 		endpoints[i] = newRotatingTokenEndpoint(t, "refresh-initial")

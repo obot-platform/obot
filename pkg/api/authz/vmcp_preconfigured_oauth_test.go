@@ -12,11 +12,11 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-// TestVMCPAgentOAuthAuthorization checks that only administrators, and owners, who have every administrator's rule,
-// authorize and revoke a vMCP's agent OAuth grants. Read-only administrators and auditors, who read vMCPs, users a
-// profile names, who may reset their own component OAuth on the vMCP, and agents, including the agents a profile names,
-// reach neither route.
-func TestVMCPAgentOAuthAuthorization(t *testing.T) {
+// TestVMCPPreconfiguredOAuthAuthorization checks that only administrators, and owners, who have every administrator's
+// rule, authorize and revoke a vMCP component's preconfigured OAuth, and that read-only administrators and auditors,
+// who read vMCPs, read its state and nothing more. Power users, users a profile names, who may reset their own
+// component OAuth on the vMCP, and agents, including the agents a profile names, reach none of its routes.
+func TestVMCPPreconfiguredOAuthAuthorization(t *testing.T) {
 	vmcp := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest("vmcp1grants"),
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
@@ -46,35 +46,34 @@ func TestVMCPAgentOAuthAuthorization(t *testing.T) {
 		CanAccessLLMProxy: true,
 		MCPServerIDs:      []string{"*"},
 	})
-	var routes []agentTestRoute
-	for _, method := range []string{http.MethodPost, http.MethodDelete} {
-		routes = append(routes, agentTestRoute{
-			method: method,
-			path:   "/api/vmcps/vmcp1grants/agent-oauth/component",
-		})
-	}
+	const path = "/api/vmcps/vmcp1grants/components/component/preconfigured-oauth"
 	for _, tt := range []struct {
-		name    string
-		caller  user.Info
-		allowed bool
+		name string
+		// reads and writes are whether the caller reads the state (GET) and authorizes and revokes (POST, DELETE).
+		reads, writes bool
+		caller        user.Info
 	}{
 		{
-			name:    "administrator",
-			caller:  person(types.GroupAdmin),
-			allowed: true,
+			name:   "administrator",
+			caller: person(types.GroupAdmin),
+			reads:  true,
+			writes: true,
 		},
 		{
-			name:    "owner",
-			caller:  person(types.GroupOwner),
-			allowed: true,
+			name:   "owner",
+			caller: person(types.GroupOwner),
+			reads:  true,
+			writes: true,
 		},
 		{
 			name:   "read-only administrator",
 			caller: person(types.GroupAdminReadonly),
+			reads:  true,
 		},
 		{
 			name:   "auditor",
 			caller: person(types.GroupAuditor),
+			reads:  true,
 		},
 		{
 			name:   "power user plus",
@@ -90,15 +89,15 @@ func TestVMCPAgentOAuthAuthorization(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, route := range routes {
-				if got := authorizer.Authorize(httptest.NewRequest(route.method, route.path, nil), tt.caller); got != tt.allowed {
-					t.Errorf("%s %s: authorized = %v, want %v", route.method, route.path, got, tt.allowed)
+			for method, want := range map[string]bool{http.MethodGet: tt.reads, http.MethodPost: tt.writes, http.MethodDelete: tt.writes} {
+				if got := authorizer.Authorize(httptest.NewRequest(method, path, nil), tt.caller); got != want {
+					t.Errorf("%s %s: authorized = %v, want %v", method, path, got, want)
 				}
 			}
 		})
 	}
 
-	// A user a profile names still resets their own OAuth for the component, which is not the vMCP's agent grant.
+	// A user a profile names still resets their own OAuth for the component, which is not the vMCP's preconfigured OAuth.
 	if !authorizer.Authorize(httptest.NewRequest(http.MethodDelete, "/api/vmcps/vmcp1grants/components/component/oauth", nil), person()) {
 		t.Fatal("a user of the vMCP cannot reset their own component OAuth")
 	}

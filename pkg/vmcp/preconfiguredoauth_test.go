@@ -31,8 +31,8 @@ const (
 	grantVMCP   = "vmcp1grants"
 )
 
-// memoryGrants stores agent OAuth grants in memory, keyed by owner and then MCPID, as the gateway database does: one
-// grant per owner and component.
+// memoryGrants stores preconfigured OAuth grants in memory, keyed by owner and then MCPID, as the gateway database
+// does: one grant per owner and component.
 type memoryGrants struct {
 	lock   sync.Mutex
 	grants map[gatewaytypes.MCPOAuthTokenKey]gatewaytypes.MCPOAuthGrantMetadata
@@ -167,11 +167,11 @@ func requireHTTPError(t *testing.T, err error, code int, contains string) {
 
 // grantOwner is the owner of the test vMCP's grants.
 func grantOwner() string {
-	return principal.AgentOAuthGrantOwner(grantVMCP)
+	return principal.PreconfiguredOAuthOwner(grantVMCP)
 }
 
 func grantMCPID(componentID string) string {
-	return AgentOAuthGrantMCPID(grantVMCP, componentID)
+	return PreconfiguredOAuthMCPID(grantVMCP, componentID)
 }
 
 // TestSelectGrants checks the selection of the vMCP's grant for each component, with one query, and the readiness of an
@@ -269,7 +269,7 @@ func TestSelectGrants(t *testing.T) {
 			for _, componentID := range tt.invalid {
 				grants.invalidate(grantOwner(), grantMCPID(componentID))
 			}
-			store := NewAgentOAuthGrantStore(grants)
+			store := NewPreconfiguredOAuthStore(grants)
 
 			selected, err := store.SelectGrants(t.Context(), vmcp, vmcp.Spec.Manifest.Components)
 			require.NoError(t, err)
@@ -309,14 +309,14 @@ func TestSelectGrantsReadsOnlyTheVMCPsGrants(t *testing.T) {
 	vmcp := grantTestVMCP()
 	grants := newMemoryGrants()
 	for _, owner := range []string{
-		principal.AgentOAuthGrantOwner("vmcp1other"),
+		principal.PreconfiguredOAuthOwner("vmcp1other"),
 		"7",
 		"agent:7",
 		"vmcp-profile:" + grantVMCP + "/" + grantAgent7,
 	} {
 		grants.put(owner, grantMCPID("static"), "grant-"+owner, "https://static.example.com/mcp")
 	}
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 
 	selected, err := store.SelectGrants(t.Context(), vmcp, vmcp.Spec.Manifest.Components)
 	require.NoError(t, err)
@@ -326,58 +326,6 @@ func TestSelectGrantsReadsOnlyTheVMCPsGrants(t *testing.T) {
 	readiness, err := readinessWith(t, store, vmcp, agentInfo(7, nil))
 	require.NoError(t, err)
 	require.Equal(t, []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired}}, readiness.Reasons)
-}
-
-// TestOneGrantServesEveryAgentGrantedTheComponent checks that the vMCP's grant for a component, authorized once, makes
-// every agent that a profile grants the component ready, and is selected for no agent that is not granted it; and that
-// revoking it makes every agent granted the component need OAuth again, and leaves the others as they were.
-func TestOneGrantServesEveryAgentGrantedTheComponent(t *testing.T) {
-	// Agents 7 and 9 are granted the static component through different profiles, and agent 8 only the local one.
-	vmcp := grantTestVMCP(
-		agentNamingProfileFor(grantAgent7, "7", "static", "local"),
-		agentNamingProfileFor(grantAgent9, "9", "static"),
-		agentNamingProfileFor("vp1agent8", "8", "local"),
-	)
-	client, key := newGrantTestStorage(t, vmcp)
-	grants := newMemoryGrants()
-	store := NewAgentOAuthGrantStore(grants)
-	readiness := func(agent uint) AgentReadinessReport {
-		t.Helper()
-		report, err := AgentReadiness(t.Context(), store, *storedVMCP(t, client, key), nil, agentInfo(agent, nil))
-		require.NoError(t, err)
-		return report
-	}
-	needsOAuth := []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired}}
-	for _, agent := range []uint{7, 9} {
-		require.Equal(t, needsOAuth, readiness(agent).Readiness.Reasons, "agent %d before the grant", agent)
-	}
-
-	_, err := store.Authorize(t.Context(), client, key, "static", noGrantCheck, func(_ context.Context, owner, mcpID, grantID string) error {
-		grants.put(owner, mcpID, grantID, "https://static.example.com/mcp")
-		return nil
-	})
-	require.NoError(t, err)
-
-	for _, agent := range []uint{7, 9} {
-		report := readiness(agent)
-		require.True(t, report.Readiness.Ready(), "agent %d after the grant: %v", agent, report.Readiness.Reasons)
-		index := slices.IndexFunc(report.Grants, func(grant ComponentOAuthGrant) bool { return grant.ComponentID == "static" })
-		require.GreaterOrEqual(t, index, 0, "agent %d", agent)
-		require.True(t, report.Grants[index].Usable(), "agent %d uses the vMCP's grant", agent)
-		require.Equal(t, grantOwner(), report.Grants[index].Owner)
-	}
-	// Agent 8 is not granted the component, so no grant is selected for it.
-	report := readiness(8)
-	require.True(t, report.Readiness.Ready())
-	require.False(t, slices.ContainsFunc(report.Grants, func(grant ComponentOAuthGrant) bool { return grant.ComponentID == "static" }))
-
-	_, revoked, err := store.Revoke(t.Context(), client, key, "static")
-	require.NoError(t, err)
-	require.True(t, revoked)
-	for _, agent := range []uint{7, 9} {
-		require.Equal(t, needsOAuth, readiness(agent).Readiness.Reasons, "agent %d after the revocation", agent)
-	}
-	require.True(t, readiness(8).Readiness.Ready())
 }
 
 // newGrantTestStorage returns storage holding vmcp, which keeps status apart from the spec and checks resource versions
@@ -399,12 +347,12 @@ func noGrantCheck(*v1.VMCP, types.VMCPComponent) error {
 	return nil
 }
 
-// TestAgentOAuthGrantAuthorize checks that a grant is recorded in the vMCP's status before it is stored, and then
+// TestPreconfiguredOAuthAuthorize checks that a grant is recorded in the vMCP's status before it is stored, and then
 // published as the only grant of its component, and that a reauthorization replaces it.
-func TestAgentOAuthGrantAuthorize(t *testing.T) {
+func TestPreconfiguredOAuthAuthorize(t *testing.T) {
 	client, key := newGrantTestStorage(t, grantTestVMCP())
 	grants := newMemoryGrants()
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 	var written []string
 	write := func(_ context.Context, owner, mcpID, grantID string) error {
 		require.Contains(t, recordedGrantIDs(storedVMCP(t, client, key), "static"), grantID, "the grant was stored before it was recorded")
@@ -415,7 +363,7 @@ func TestAgentOAuthGrantAuthorize(t *testing.T) {
 	updated, err := store.Authorize(t.Context(), client, key, "static", noGrantCheck, write)
 	require.NoError(t, err)
 	require.Len(t, written, 1)
-	require.Equal(t, []v1.VMCPAgentOAuthGrant{{ComponentID: "static", GrantIDs: written}}, updated.Status.AgentOAuthGrants)
+	require.Equal(t, []v1.VMCPPreconfiguredOAuthGrant{{ComponentID: "static", GrantIDs: written}}, updated.Status.PreconfiguredOAuth)
 	stored, ok := grants.get(grantOwner(), grantMCPID("static"))
 	require.True(t, ok)
 	require.Equal(t, written[0], stored.GrantID)
@@ -424,7 +372,7 @@ func TestAgentOAuthGrantAuthorize(t *testing.T) {
 	updated, err = store.Authorize(t.Context(), client, key, "static", noGrantCheck, write)
 	require.NoError(t, err)
 	require.Len(t, written, 2)
-	require.Equal(t, []v1.VMCPAgentOAuthGrant{{ComponentID: "static", GrantIDs: written[1:]}}, updated.Status.AgentOAuthGrants)
+	require.Equal(t, []v1.VMCPPreconfiguredOAuthGrant{{ComponentID: "static", GrantIDs: written[1:]}}, updated.Status.PreconfiguredOAuth)
 
 	// The check is asked with what is stored, and refuses the grant.
 	_, err = store.Authorize(t.Context(), client, key, "dynamic", func(_ *v1.VMCP, component types.VMCPComponent) error {
@@ -443,10 +391,9 @@ func TestAgentOAuthGrantAuthorize(t *testing.T) {
 	require.NotContains(t, string(statusJSON), "token")
 }
 
-// TestAgentOAuthGrantTarget checks which components of which vMCPs can hold a grant: a remote component of a shared vMCP
-// that is not being deleted, which a profile naming an agent grants.
-func TestAgentOAuthGrantTarget(t *testing.T) {
-	usersOnly := grantTestVMCP(agentNamingProfileFor(grantAgent7, "7", "static"), everyUserProfile(grantUsers))
+// TestPreconfiguredOAuthTarget checks which components of which vMCPs can hold a grant: a remote component of a shared vMCP
+// that is not being deleted, whichever profiles grant it (TestEveryRemoteComponentCanBePreconfigured).
+func TestPreconfiguredOAuthTarget(t *testing.T) {
 	personal := grantTestVMCP()
 	personal.Spec.UserID = "1"
 	deleting := grantTestVMCP()
@@ -459,7 +406,7 @@ func TestAgentOAuthGrantTarget(t *testing.T) {
 		contains  string
 	}{
 		{
-			name:      "a remote component an agent is granted",
+			name:      "a remote component",
 			vmcp:      grantTestVMCP(),
 			component: "dynamic",
 		},
@@ -478,14 +425,6 @@ func TestAgentOAuthGrantTarget(t *testing.T) {
 			contains:  "not a remote server",
 		},
 		{
-			// Only the profile for every user grants it, and that profile names no agent.
-			name:      "a component no agent is granted",
-			vmcp:      usersOnly,
-			component: "dynamic",
-			code:      http.StatusBadRequest,
-			contains:  `no profile that names an agent grants component "dynamic"`,
-		},
-		{
 			name:      "a personal vMCP",
 			vmcp:      personal,
 			component: "static",
@@ -501,7 +440,7 @@ func TestAgentOAuthGrantTarget(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			component, err := AgentOAuthGrantTarget(&tt.vmcp, tt.component)
+			component, err := PreconfiguredOAuthTarget(&tt.vmcp, tt.component)
 			if tt.code == 0 {
 				require.NoError(t, err)
 				require.Equal(t, tt.component, component.ID)
@@ -512,13 +451,13 @@ func TestAgentOAuthGrantTarget(t *testing.T) {
 	}
 }
 
-// TestAgentOAuthGrantAuthorizeDeletesUnpublishedGrant removes the component while its grant is being stored: the grant
+// TestPreconfiguredOAuthAuthorizeDeletesUnpublishedGrant removes the component while its grant is being stored: the grant
 // is refused, and leaves nothing behind, even though the controller deleted the component's recorded grants before it
 // was stored.
-func TestAgentOAuthGrantAuthorizeDeletesUnpublishedGrant(t *testing.T) {
+func TestPreconfiguredOAuthAuthorizeDeletesUnpublishedGrant(t *testing.T) {
 	client, key := newGrantTestStorage(t, grantTestVMCP())
 	grants := newMemoryGrants()
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 	var attempts int
 	write := func(_ context.Context, owner, mcpID, grantID string) error {
 		attempts++
@@ -540,16 +479,16 @@ func TestAgentOAuthGrantAuthorizeDeletesUnpublishedGrant(t *testing.T) {
 	require.Equal(t, 1, attempts)
 	_, ok := grants.get(grantOwner(), grantMCPID("static"))
 	require.False(t, ok, "the unpublished grant was left behind")
-	require.Empty(t, storedVMCP(t, client, key).Status.AgentOAuthGrants)
+	require.Empty(t, storedVMCP(t, client, key).Status.PreconfiguredOAuth)
 }
 
-// TestAgentOAuthGrantRevoke checks that revoking deletes the vMCP's grant for a component and its record, that it is
+// TestPreconfiguredOAuthRevoke checks that revoking deletes the vMCP's grant for a component and its record, that it is
 // allowed where authorizing is not, and that it deletes only the grants it listed: one authorized after it listed them
 // is kept.
-func TestAgentOAuthGrantRevoke(t *testing.T) {
+func TestPreconfiguredOAuthRevoke(t *testing.T) {
 	client, key := newGrantTestStorage(t, grantTestVMCP())
 	grants := newMemoryGrants()
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 	write := func(_ context.Context, owner, mcpID, grantID string) error {
 		grants.put(owner, mcpID, grantID, "https://"+strings.TrimPrefix(mcpID, grantVMCP+"/")+".example.com/mcp")
 		return nil
@@ -606,7 +545,7 @@ func TestAgentOAuthGrantRevoke(t *testing.T) {
 // for a component of the same ID added back, has an ID the records do not hold, and is kept too.
 func TestDeleteRemovedComponentGrants(t *testing.T) {
 	vmcp := grantTestVMCP()
-	vmcp.Status.AgentOAuthGrants = []v1.VMCPAgentOAuthGrant{
+	vmcp.Status.PreconfiguredOAuth = []v1.VMCPPreconfiguredOAuthGrant{
 		{ComponentID: "static", GrantIDs: []string{"grant-static"}},
 		{ComponentID: "dynamic", GrantIDs: []string{"grant-dynamic", "grant-pending"}},
 		{ComponentID: "removed", GrantIDs: []string{"grant-removed"}},
@@ -617,15 +556,15 @@ func TestDeleteRemovedComponentGrants(t *testing.T) {
 	grants.put(grantOwner(), grantMCPID("dynamic"), "grant-pending", "https://dynamic.example.com/mcp")
 	grants.put(grantOwner(), grantMCPID("removed"), "grant-removed", "https://removed.example.com/mcp")
 	grants.put(grantOwner(), grantMCPID("readded"), "grant-after-readding", "https://readded.example.com/mcp")
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 
 	changed, err := store.DeleteRemovedComponentGrants(t.Context(), &vmcp)
 	require.NoError(t, err)
 	require.True(t, changed)
-	require.Equal(t, []v1.VMCPAgentOAuthGrant{
+	require.Equal(t, []v1.VMCPPreconfiguredOAuthGrant{
 		{ComponentID: "static", GrantIDs: []string{"grant-static"}},
 		{ComponentID: "dynamic", GrantIDs: []string{"grant-dynamic", "grant-pending"}},
-	}, vmcp.Status.AgentOAuthGrants)
+	}, vmcp.Status.PreconfiguredOAuth)
 	for _, tt := range []struct {
 		componentID string
 		kept        bool
@@ -659,15 +598,15 @@ func TestDeleteRemovedComponentGrants(t *testing.T) {
 // that it can be repeated, and that it leaves other vMCPs' grants and every user's and agent's token alone.
 func TestDeleteVMCPGrants(t *testing.T) {
 	vmcp := grantTestVMCP()
-	vmcp.Status.AgentOAuthGrants = []v1.VMCPAgentOAuthGrant{{ComponentID: "static", GrantIDs: []string{"a"}}}
+	vmcp.Status.PreconfiguredOAuth = []v1.VMCPPreconfiguredOAuthGrant{{ComponentID: "static", GrantIDs: []string{"a"}}}
 	grants := newMemoryGrants()
 	grants.put(grantOwner(), grantMCPID("static"), "a", "https://static.example.com/mcp")
 	grants.put(grantOwner(), grantMCPID("dynamic"), "b", "https://dynamic.example.com/mcp")
-	other := principal.AgentOAuthGrantOwner("vmcp1other")
-	grants.put(other, AgentOAuthGrantMCPID("vmcp1other", "static"), "c", "https://static.example.com/mcp")
+	other := principal.PreconfiguredOAuthOwner("vmcp1other")
+	grants.put(other, PreconfiguredOAuthMCPID("vmcp1other", "static"), "c", "https://static.example.com/mcp")
 	grants.put("7", grantMCPID("static"), "d", "https://static.example.com/mcp")
 	grants.put("agent:7", "msi1connection", "e", "https://static.example.com/mcp")
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 
 	for range 2 {
 		require.NoError(t, store.DeleteVMCPGrants(t.Context(), vmcp))
@@ -677,7 +616,7 @@ func TestDeleteVMCPGrants(t *testing.T) {
 		require.False(t, ok, "the vMCP's grant for %s was kept", component)
 	}
 	for _, key := range []gatewaytypes.MCPOAuthTokenKey{
-		{UserID: other, MCPID: AgentOAuthGrantMCPID("vmcp1other", "static")},
+		{UserID: other, MCPID: PreconfiguredOAuthMCPID("vmcp1other", "static")},
 		{UserID: "7", MCPID: grantMCPID("static")},
 		{UserID: "agent:7", MCPID: "msi1connection"},
 	} {
@@ -697,11 +636,11 @@ func TestGrantRemovalsAreRecorded(t *testing.T) {
 	}
 
 	grants := newMemoryGrants()
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 	store.SetGrantRemovalRecorder(record)
 
 	vmcp := grantTestVMCP()
-	vmcp.Status.AgentOAuthGrants = []v1.VMCPAgentOAuthGrant{
+	vmcp.Status.PreconfiguredOAuth = []v1.VMCPPreconfiguredOAuthGrant{
 		{ComponentID: "removed", GrantIDs: []string{"grant-removed"}},
 		{ComponentID: "never-stored", GrantIDs: []string{"grant-never"}},
 		{ComponentID: "static", GrantIDs: []string{"grant-static"}},
@@ -725,7 +664,7 @@ func TestGrantRemovalsAreRecorded(t *testing.T) {
 	// Without a recorder, deletions work and nothing is read for the audit.
 	quiet := newMemoryGrants()
 	quiet.put(grantOwner(), grantMCPID("static"), "a", "https://static.example.com/mcp")
-	require.NoError(t, NewAgentOAuthGrantStore(quiet).DeleteVMCPGrants(t.Context(), grantTestVMCP()))
+	require.NoError(t, NewPreconfiguredOAuthStore(quiet).DeleteVMCPGrants(t.Context(), grantTestVMCP()))
 	require.Zero(t, quiet.queries)
 	_, ok := quiet.get(grantOwner(), grantMCPID("static"))
 	require.False(t, ok)
@@ -740,52 +679,59 @@ func TestComponentOAuthGrantStatus(t *testing.T) {
 	grants.put(grantOwner(), grantMCPID("static"), "a", "https://static.example.com/mcp")
 	grants.put(grantOwner(), grantMCPID("dynamic"), "b", "https://dynamic.example.com/mcp")
 	grants.invalidate(grantOwner(), grantMCPID("dynamic"))
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 
 	selected, err := store.SelectGrants(t.Context(), vmcp, vmcp.Spec.Manifest.Components)
 	require.NoError(t, err)
-	static := selected[0].Status(vmcp.Spec.Manifest.Components[0])
+	static := selected[0].Status(vmcp.Name, vmcp.Spec.Manifest.Components[0])
 	require.NotNil(t, static.AuthorizedAt)
 	static.AuthorizedAt = nil
-	require.Equal(t, types.VMCPAgentOAuthStatus{
-		Required:     true,
-		State:        types.VMCPAgentOAuthAuthorized,
+	require.Equal(t, types.VMCPPreconfiguredOAuth{
+		VMCPID:       vmcp.Name,
+		ComponentID:  "static",
+		State:        types.VMCPPreconfiguredOAuthAuthorized,
 		AuthorizedBy: "1",
 		Target:       "https://static.example.com/mcp",
 		Scopes:       []string{"read", "write"},
 	}, static)
-	dynamic := selected[1].Status(vmcp.Spec.Manifest.Components[1])
-	require.Equal(t, types.VMCPAgentOAuthInvalid, dynamic.State)
+	dynamic := selected[1].Status(vmcp.Name, vmcp.Spec.Manifest.Components[1])
+	require.Equal(t, types.VMCPPreconfiguredOAuthInvalid, dynamic.State)
 	require.Equal(t, "refused", dynamic.InvalidReason)
-	// A component without static OAuth is known to need OAuth once the vMCP holds a grant for it, even a broken one.
-	require.True(t, dynamic.Required)
-	require.Equal(t, types.VMCPAgentOAuthStatus{State: types.VMCPAgentOAuthMissing}, selected[2].Status(vmcp.Spec.Manifest.Components[2]))
+	require.Equal(t, types.VMCPPreconfiguredOAuth{VMCPID: vmcp.Name, ComponentID: "local", State: types.VMCPPreconfiguredOAuthNotRequired}, selected[2].Status(vmcp.Name, vmcp.Spec.Manifest.Components[2]))
 
-	// Once the vMCP holds no grant for it, nothing shows that it needs OAuth.
+	// Once the vMCP holds no grant for it, nothing shows that a component without static OAuth needs OAuth until a probe
+	// finds it does; one with static OAuth needs authorization.
 	require.NoError(t, grants.DeleteMCPOAuthGrants(t.Context(), grantOwner(), grantMCPID("dynamic"), []string{"b"}))
+	require.NoError(t, grants.DeleteMCPOAuthGrants(t.Context(), grantOwner(), grantMCPID("static"), []string{"a"}))
 	selected, err = store.SelectGrants(t.Context(), vmcp, vmcp.Spec.Manifest.Components)
 	require.NoError(t, err)
-	require.Equal(t, types.VMCPAgentOAuthStatus{State: types.VMCPAgentOAuthMissing}, selected[1].Status(vmcp.Spec.Manifest.Components[1]))
+	require.Equal(t, types.VMCPPreconfiguredOAuth{VMCPID: vmcp.Name, ComponentID: "static", State: types.VMCPPreconfiguredOAuthNeedsAuthorization}, selected[0].Status(vmcp.Name, vmcp.Spec.Manifest.Components[0]))
+	require.Equal(t, types.VMCPPreconfiguredOAuth{VMCPID: vmcp.Name, ComponentID: "dynamic", State: types.VMCPPreconfiguredOAuthNotRequired}, selected[1].Status(vmcp.Name, vmcp.Spec.Manifest.Components[1]))
+	recordProbe(&vmcp, vmcp.Spec.Manifest.Components[1], v1.VMCPComponentOAuthRequired)
+	status, err := store.Status(t.Context(), vmcp, "dynamic")
+	require.NoError(t, err)
+	require.Equal(t, types.VMCPPreconfiguredOAuthNeedsAuthorization, status.State)
 
 	// A grant for a URL the vMCP's fixed configuration sets is reported by its hostname only.
 	const configured = "https://user:pw@tenant.example.com:8443/secret/path?token=secret"
 	remote := fixedURL(hostnameComponent("tenant"))
 	tenant := readinessVMCP([]types.VMCPComponent{remote}, agentNamingProfile(grantAgent7, "7"))
 	tenantGrants := newMemoryGrants()
-	tenantGrants.put(principal.AgentOAuthGrantOwner(tenant.Name), AgentOAuthGrantMCPID(tenant.Name, "tenant"), "c", configured)
-	tenantStore := NewAgentOAuthGrantStore(tenantGrants)
+	tenantGrants.put(principal.PreconfiguredOAuthOwner(tenant.Name), PreconfiguredOAuthMCPID(tenant.Name, "tenant"), "c", configured)
+	tenantStore := NewPreconfiguredOAuthStore(tenantGrants)
 	tenantStore.SetComponentTargets(fakeTargets{url: configured})
-	setup, err := AgentSetup(t.Context(), tenantStore, tenant)
+	readiness, err := readinessWith(t, tenantStore, tenant, agentInfo(7, nil))
 	require.NoError(t, err)
-	require.Len(t, setup.Components, 1)
-	require.True(t, setup.Components[0].Ready, "%v", setup.Components[0].Reasons)
-	require.Equal(t, types.VMCPAgentOAuthAuthorized, setup.Components[0].OAuth.State)
-	require.Empty(t, setup.Components[0].OAuth.Target)
-	require.Equal(t, "tenant.example.com", setup.Components[0].OAuth.TargetHostname)
-	setupJSON, err := json.Marshal(setup)
+	require.Empty(t, readiness.Reasons)
+	status, err = tenantStore.Status(t.Context(), tenant, "tenant")
+	require.NoError(t, err)
+	require.Equal(t, types.VMCPPreconfiguredOAuthAuthorized, status.State)
+	require.Empty(t, status.Target)
+	require.Equal(t, "tenant.example.com", status.TargetHostname)
+	statusJSON, err := json.Marshal(status)
 	require.NoError(t, err)
 	for _, secret := range []string{"secret/path", "token=secret", "user:pw", "access", "refresh"} {
-		require.NotContains(t, string(setupJSON), secret)
+		require.NotContains(t, string(statusJSON), secret)
 	}
 }
 
@@ -807,28 +753,28 @@ func TestCheckGrantTarget(t *testing.T) {
 		{
 			name:      "the URL the grant was authorized for",
 			targets:   fakeTargets{url: authorized},
-			wantState: types.VMCPAgentOAuthAuthorized,
+			wantState: types.VMCPPreconfiguredOAuthAuthorized,
 		},
 		{
 			name:       "another URL",
 			targets:    fakeTargets{url: "https://other.example.com/mcp"},
-			wantState:  types.VMCPAgentOAuthInvalid,
+			wantState:  types.VMCPPreconfiguredOAuthInvalid,
 			wantReason: GrantTargetMismatch,
 		},
 		{
 			name:       "a URL the component refuses",
 			targets:    fakeTargets{refused: refused},
-			wantState:  types.VMCPAgentOAuthInvalid,
+			wantState:  types.VMCPPreconfiguredOAuthInvalid,
 			wantReason: refused.Error(),
 		},
 		{
 			name:      "a URL that lacks a value",
 			targets:   fakeTargets{missing: []string{"__url"}},
-			wantState: types.VMCPAgentOAuthAuthorized,
+			wantState: types.VMCPPreconfiguredOAuthAuthorized,
 		},
 		{
 			name:      "no resolver",
-			wantState: types.VMCPAgentOAuthAuthorized,
+			wantState: types.VMCPPreconfiguredOAuthAuthorized,
 		},
 		{
 			name:        "a resolver that fails",
@@ -838,8 +784,8 @@ func TestCheckGrantTarget(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			grants := newMemoryGrants()
-			grants.put(principal.AgentOAuthGrantOwner(vmcp.Name), AgentOAuthGrantMCPID(vmcp.Name, "tenant"), "grant", authorized)
-			store := NewAgentOAuthGrantStore(grants)
+			grants.put(principal.PreconfiguredOAuthOwner(vmcp.Name), PreconfiguredOAuthMCPID(vmcp.Name, "tenant"), "grant", authorized)
+			store := NewPreconfiguredOAuthStore(grants)
 			if tt.targets != nil {
 				store.SetComponentTargets(tt.targets)
 			}
@@ -858,10 +804,10 @@ func TestCheckGrantTarget(t *testing.T) {
 	}
 }
 
-// TestAgentOAuthGrantOwnerIsNeverACaller checks that a caller whose UID is a vMCP's grant owner, however it presents
+// TestPreconfiguredOAuthOwnerIsNeverACaller checks that a caller whose UID is a vMCP's grant owner, however it presents
 // itself, matches no profile, not even the one that names every user, owns no instance, and is not an agent, so it can
 // never reach a vMCP, and so never the grants, as anyone.
-func TestAgentOAuthGrantOwnerIsNeverACaller(t *testing.T) {
+func TestPreconfiguredOAuthOwnerIsNeverACaller(t *testing.T) {
 	vmcp := grantTestVMCP()
 	owner := grantOwner()
 	for _, kind := range []principal.Kind{principal.KindUser, principal.KindAgent, ""} {

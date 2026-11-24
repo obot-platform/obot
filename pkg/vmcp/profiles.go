@@ -104,9 +104,8 @@ func InstanceGrant(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types
 }
 
 // ProfileGrantsComponent reports whether profile grants the component with componentID: it allows all components, or
-// has an entry for the component in AllowedComponents, even one that grants no tools. The vMCP's agent setup covers
-// the components that profiles naming agents grant (AgentGrantedComponents), and an agent uses the vMCP's OAuth grant
-// only for the components its profiles grant.
+// has an entry for the component in AllowedComponents, even one that grants no tools. A caller reaches, and uses the
+// vMCP's preconfigured OAuth for, only the components its profiles grant.
 func ProfileGrantsComponent(profile types.VMCPProfile, componentID string) bool {
 	if profile.Permissions.AllowAllComponents {
 		return true

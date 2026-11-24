@@ -285,10 +285,10 @@ func (h *Handler) Proxy(req api.Context) error {
 
 			return nil
 		}
-		// The agent OAuth grant the vMCP holds for this component no longer works. The agent is refused the component,
-		// never connected without the grant.
-		if grantErr, ok := errors.AsType[*mcp.AgentOAuthGrantError](err); ok {
-			agentOAuthGrantInvalidResponse(req, grantErr.ComponentID).write(req.ResponseWriter, nil)
+		// The preconfigured OAuth the vMCP holds for this component no longer works for an agent. The agent is refused
+		// the component, never connected without the grant.
+		if grantErr, ok := errors.AsType[*mcp.PreconfiguredOAuthError](err); ok {
+			preconfiguredOAuthInvalidResponse(req, grantErr.ComponentID).write(req.ResponseWriter, nil)
 
 			return nil
 		}
@@ -364,22 +364,24 @@ func (h *Handler) Proxy(req api.Context) error {
 				return fmt.Errorf("failed to get HTTP client for token refresh: %w", err)
 			}
 
-			// A user's connection uses the user's own token. An agent's uses the vMCP's agent OAuth grant for this
-			// component, which the session manager selected for it, or none (ServerConfig.OAuthTokenKey).
+			// A connection to a component that the vMCP preconfigures OAuth for uses the vMCP's grant, which the session
+			// manager selected for it, whoever's connection it is. Otherwise a user's uses the user's own token, and an
+			// agent's none (ServerConfig.OAuthTokenKey).
 			if tokenOwner, tokenMCPID, ok := serverConfig.OAuthTokenKey(); ok {
 				tokenSource, err = h.globalTokenStore.ForUserAndMCP(tokenOwner, tokenMCPID, serverConfig.URL).TokenSource(context.WithValue(h.ctx, oauth2.HTTPClient, refreshClient))
 				if err == nil && serverConfig.OAuthGrant != nil && tokenSource != nil {
-					// Many agents share a vMCP's grant, so it is refreshed, if it must be, before the request is
-					// proxied: a refresh the provider refuses fails the component for every agent that uses the grant,
-					// and one that fails for a reason that may pass is a 503, not a proxy error.
+					// Many users and agents share a vMCP's grant, so it is refreshed, if it must be, before the request
+					// is proxied: a refresh the provider refuses fails the component for everyone who uses the grant,
+					// with no one asked to authorize it but an administrator, and one that fails for a reason that may
+					// pass is a 503, not a proxy error.
 					_, err = tokenSource.Token()
 				}
 				if grant := serverConfig.OAuthGrant; grant != nil && err != nil {
 					if errors.Is(err, mcp.ErrOAuthGrantInvalid) {
-						agentOAuthGrantInvalidResponse(req, grant.ComponentID).write(req.ResponseWriter, nil)
+						preconfiguredOAuthInvalidResponse(req, grant.ComponentID).write(req.ResponseWriter, nil)
 						return nil
 					}
-					slog.WarnContext(req.Context(), "Failed to get the token of a vMCP agent OAuth grant", "mcpID", grant.MCPID, "error", err)
+					slog.WarnContext(req.Context(), "Failed to get the token of a vMCP preconfigured OAuth grant", "mcpID", grant.MCPID, "error", err)
 					http.Error(req.ResponseWriter, "the upstream OAuth grant could not be refreshed; retry later", http.StatusServiceUnavailable)
 					return nil
 				}

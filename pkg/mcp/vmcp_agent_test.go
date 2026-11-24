@@ -21,7 +21,7 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// noGrants is a gateway in which no vMCP holds an agent OAuth grant.
+// noGrants is a gateway in which no vMCP holds an preconfigured OAuth grant.
 type noGrants struct{}
 
 func (noGrants) MCPOAuthGrantMetadata(context.Context, []string, []string) ([]gatewaytypes.MCPOAuthGrantMetadata, error) {
@@ -40,7 +40,7 @@ func (noGrants) DeleteMCPOAuthGrantsForOwner(context.Context, string) error {
 // OAuth grant.
 func newAgentTestManager(storageClient storage.Client) *SessionManager {
 	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
-	manager.SetAgentOAuthGrants(vmcpaccess.NewAgentOAuthGrantStore(noGrants{}))
+	manager.SetPreconfiguredOAuth(vmcpaccess.NewPreconfiguredOAuthStore(noGrants{}))
 	return manager
 }
 

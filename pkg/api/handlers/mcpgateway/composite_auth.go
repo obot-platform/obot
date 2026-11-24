@@ -120,9 +120,20 @@ func newCompositeLoopbackToken(ctx context.Context, tokens compositeTokenService
 
 func compositeConfig(req api.Context, serverConfig mcp.ServerConfig) (*mmmcpconfig.Config, error) {
 	if len(serverConfig.Components) > 0 {
-		ids := make([]string, 0, len(serverConfig.Components))
+		// Components that use the vMCP's preconfigured OAuth use its grants, whoever the caller is, and the others the
+		// caller's own tokens, which an agent has none of. Discovery is separated by both, so that authorizing,
+		// revoking, reauthorizing or invalidating a grant, as much as a user's own authorization, reconnects the
+		// components with the token they now use.
+		var (
+			ids  []string
+			keys []gatewaytypes.MCPOAuthTokenKey
+		)
 		for _, component := range serverConfig.Components {
-			ids = append(ids, component.ConnectID())
+			if component.OAuthGrant != nil {
+				keys = append(keys, gatewaytypes.MCPOAuthTokenKey{UserID: component.OAuthGrant.Owner, MCPID: component.OAuthGrant.MCPID})
+			} else {
+				ids = append(ids, component.ConnectID())
+			}
 		}
 
 		var (
@@ -130,17 +141,11 @@ func compositeConfig(req api.Context, serverConfig mcp.ServerConfig) (*mmmcpconf
 			err      error
 		)
 		if principal.ClaimsAgent(req.User) {
-			// An agent's components use the grants of its profiles, never tokens of its own, so its discovery is
-			// separated by those grants.
-			var keys []gatewaytypes.MCPOAuthTokenKey
-			for _, component := range serverConfig.Components {
-				if component.OAuthGrant != nil {
-					keys = append(keys, gatewaytypes.MCPOAuthTokenKey{UserID: component.OAuthGrant.Owner, MCPID: component.OAuthGrant.MCPID})
-				}
-			}
 			revision, err = req.GatewayClient.MCPOAuthGrantDiscoveryRevision(req.Context(), keys)
-		} else {
-			revision, err = req.GatewayClient.MCPOAuthDiscoveryRevision(req.Context(), req.User.GetUID(), ids)
+		} else if revision, err = req.GatewayClient.MCPOAuthDiscoveryRevision(req.Context(), req.User.GetUID(), ids); err == nil && len(keys) > 0 {
+			var grants string
+			grants, err = req.GatewayClient.MCPOAuthGrantDiscoveryRevision(req.Context(), keys)
+			revision = utils.Digest([]string{revision, grants})
 		}
 		if err != nil {
 			return nil, fmt.Errorf("read component OAuth discovery revision: %w", err)

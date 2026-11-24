@@ -213,10 +213,11 @@ type Services struct {
 	// EgressAuditLogRetentionDays is how long egress audit logs are kept. 0 keeps them forever.
 	EgressAuditLogRetentionDays int
 
-	// VMCPAgentOAuthGrants stores the OAuth grants that administrators authorize on shared vMCPs for agents, one per
-	// component, outside the manifest. The vMCP controller deletes a component's grant when the component is removed,
-	// and every grant of a vMCP being deleted.
-	VMCPAgentOAuthGrants *vmcp.AgentOAuthGrantStore
+	// VMCPPreconfiguredOAuth stores the OAuth grants that administrators preconfigure for the remote components of
+	// shared vMCPs, one per component, outside the manifest, which every user and agent of the vMCP uses for the
+	// component. The vMCP controller deletes a component's grant when the component is removed, and every grant of a
+	// vMCP being deleted.
+	VMCPPreconfiguredOAuth *vmcp.PreconfiguredOAuthStore
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -796,15 +797,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
-	vmcpAgentOAuthGrants := vmcp.NewAgentOAuthGrantStore(gatewayClient)
-	mcpSessionManager.SetAgentOAuthGrants(vmcpAgentOAuthGrants)
+	vmcpPreconfiguredOAuth := vmcp.NewPreconfiguredOAuthStore(gatewayClient)
+	mcpSessionManager.SetPreconfiguredOAuth(vmcpPreconfiguredOAuth)
 	// Grants of components whose URL comes from the vMCP's fixed configuration are bound to the URL it resolves to.
-	vmcpAgentOAuthGrants.SetComponentTargets(mcpSessionManager)
+	vmcpPreconfiguredOAuth.SetComponentTargets(mcpSessionManager)
 	// Grants the vMCP controller deletes with a removed component or vMCP are audited as the system's.
-	vmcpAgentOAuthGrants.SetGrantRemovalRecorder(func(ctx context.Context, vmcpID, componentID, reason string) {
+	vmcpPreconfiguredOAuth.SetGrantRemovalRecorder(func(ctx context.Context, vmcpID, componentID, reason string) {
 		gatewayClient.RecordAdminAuditEvent(ctx, client.AdminAuditEventInput{
 			Actor:        types.AdminAuditActorSystem,
-			Action:       types.AdminAuditActionVMCPAgentOAuthDelete,
+			Action:       types.AdminAuditActionVMCPPreconfiguredOAuthDelete,
 			ResourceKind: types.AdminAuditResourceVMCP,
 			ResourceID:   vmcpID,
 			Details:      map[string]any{"componentID": componentID, "reason": reason},
@@ -1190,7 +1191,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProviderRegistryPaths:        config.ProviderRegistries,
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
-		VMCPAgentOAuthGrants:         vmcpAgentOAuthGrants,
+		VMCPPreconfiguredOAuth:       vmcpPreconfiguredOAuth,
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,

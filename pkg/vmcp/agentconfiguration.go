@@ -15,7 +15,7 @@ import (
 // AgentMissingConfiguration returns, sorted, the required configuration keys of component that an agent cannot be
 // given (see above): those a user would enter on their own connection (the userAllowed policy) and that the catalog
 // entry does not supply itself, as a literal (Static) or from a Secret (SecretBinding). It reads no value, so it costs
-// nothing on the connect path, and readiness and the vMCP's agent setup compute the same answer.
+// nothing on the connect path, and readiness and the connect path compute the same answer.
 func AgentMissingConfiguration(component types.VMCPComponent) []string {
 	var missing []string
 	for _, key := range MissingRequiredConfiguration(component, nil, true) {

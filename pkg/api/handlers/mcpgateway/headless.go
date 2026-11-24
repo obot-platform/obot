@@ -48,6 +48,11 @@ func agentReadinessResponse(failure vmcpaccess.AgentReadinessFailure) *mcpRespon
 		// A failure is only strings, so this cannot happen; answer with the error code alone if it does.
 		body = fmt.Appendf(nil, `{"error":%q,"reasons":[]}`, failure.Error)
 	}
+	return conflictJSONResponse(body)
+}
+
+// conflictJSONResponse is a 409 response with a JSON body.
+func conflictJSONResponse(body []byte) *mcpResponse {
 	return &mcpResponse{
 		status: http.StatusConflict,
 		headers: http.Header{
@@ -57,6 +62,12 @@ func agentReadinessResponse(failure vmcpaccess.AgentReadinessFailure) *mcpRespon
 		},
 		body: append(body, '\n'),
 	}
+}
+
+// bareUnauthorizedResponse is a 401 without a challenge. At a component hop, the composite reports it as the
+// component's authorization failure (compositeAuthorizationResponse).
+func bareUnauthorizedResponse() *mcpResponse {
+	return mcpTextResponse(http.StatusUnauthorized, "MCP server requires authentication")
 }
 
 // agentConfigurationRequiredResponse is the 409 response to an agent whose connection to a vMCP component lacks
@@ -74,48 +85,46 @@ func agentConfigurationRequiredResponse(componentID string, missing []string) *m
 // place of the challenge a user gets. It creates no MCPOAuthChallenge, and every challenge must belong to one of the
 // connection's components, as for a user.
 func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.AuthorizationError) (*mcpResponse, error) {
+	challenged, err := challengedComponents(cfg, challenges)
+	if err != nil {
+		return nil, err
+	}
 	failure := vmcpaccess.AgentReadinessFailure{Error: vmcpaccess.AgentOAuthRequiredError}
+	for _, target := range challenged {
+		reason := vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: types.AgentReadinessOAuthRequired}
+		if target.OAuthGrant != nil {
+			// The connection used the vMCP's grant, so the upstream refused that grant, or refused it more scopes than
+			// it was authorized with. Only an administrator can authorize it again, on the vMCP.
+			reason.Code = types.AgentReadinessOAuthInvalid
+		}
+		if !slices.Contains(failure.Reasons, reason) {
+			failure.Reasons = append(failure.Reasons, reason)
+		}
+	}
+	return agentReadinessResponse(failure), nil
+}
+
+// challengedComponents returns the components of cfg that challenges came from, in configuration order rather than
+// goroutine completion order, to keep responses stable. Every challenge must belong to one of the connection's
+// components: vMCP URLs are Obot loopback routes containing the component connection ID.
+func challengedComponents(cfg mcp.ServerConfig, challenges []*component.AuthorizationError) ([]mcp.ComponentServer, error) {
 	matched := make([]bool, len(challenges))
-	// Walk configuration order, not goroutine completion order, to keep the reasons stable.
+	var challenged []mcp.ComponentServer
 	for _, target := range cfg.Components {
+		var hit bool
 		for i, challenge := range challenges {
-			// vMCP URLs are Obot loopback routes containing the component connection ID.
-			if challenge.URL != target.URL {
-				continue
+			if challenge.URL == target.URL {
+				matched[i], hit = true, true
 			}
-			matched[i] = true
-			reason := vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: types.AgentReadinessOAuthRequired}
-			if target.OAuthGrant != nil {
-				// The connection used the vMCP's grant, so the upstream refused that grant, or refused it more scopes than
-				// it was authorized with. Only an administrator can authorize it again, on the vMCP.
-				reason = vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: types.AgentReadinessOAuthInvalid}
-			}
-			if !slices.Contains(failure.Reasons, reason) {
-				failure.Reasons = append(failure.Reasons, reason)
-			}
+		}
+		if hit {
+			challenged = append(challenged, target)
 		}
 	}
 	if slices.Contains(matched, false) {
 		return nil, fmt.Errorf("upstream challenge does not belong to this connection")
 	}
-	return agentReadinessResponse(failure), nil
-}
-
-// agentOAuthGrantInvalidResponse is the response to an agent whose connection to a vMCP component would use the vMCP's
-// agent OAuth grant that no longer works (mcp.AgentOAuthGrantError, mcp.ErrOAuthGrantInvalid). At the component hop,
-// the caller is the composite loopback acting for the agent, so the response is a bare 401, as for a component that
-// challenges an agent (rewriteHeadlessAuthorizationResponse): the composite reports it as the component's
-// authorization failure, and answers the agent with a 409 that names the component and the grant as invalid
-// (agentOAuthRequiredResponse). Anywhere else the agent is answered with that 409 directly. Neither carries
-// WWW-Authenticate, and no challenge is created.
-func agentOAuthGrantInvalidResponse(req api.Context, componentID string) *mcpResponse {
-	if principal.IsComponentHop(req.User) {
-		return mcpTextResponse(http.StatusUnauthorized, "MCP server requires authentication")
-	}
-	return agentReadinessResponse(vmcpaccess.AgentReadinessFailure{
-		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: types.AgentReadinessOAuthInvalid}},
-	})
+	return challenged, nil
 }
 
 // rewriteHeadlessAuthorizationResponse replaces an authorization challenge in resp, the response to a headless
@@ -126,7 +135,7 @@ func agentOAuthGrantInvalidResponse(req api.Context, componentID string) *mcpRes
 // 409 that names the component (compositeAuthorizationResponse). At the outer gateway, a 401 means the loopback was
 // refused, and stays a plain 401; a scope challenge, which no composite issues for an agent, becomes a 409.
 func rewriteHeadlessAuthorizationResponse(req api.Context, resp *http.Response) {
-	response := mcpTextResponse(http.StatusUnauthorized, "MCP server requires authentication")
+	response := bareUnauthorizedResponse()
 	if !principal.IsComponentHop(req.User) && resp.StatusCode != http.StatusUnauthorized {
 		response = agentReadinessResponse(vmcpaccess.AgentReadinessFailure{Error: vmcpaccess.AgentOAuthRequiredError})
 	}

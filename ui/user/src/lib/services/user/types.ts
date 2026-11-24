@@ -16,7 +16,6 @@
  *    and keep all types for that domain inside it.
  */
 import type { MCPCatalogEntryServerManifest, MCPConfig, ObotHeader } from '../admin/types';
-import type { AgentReadinessReason } from '../agent-identities/types';
 
 // Access control rules
 
@@ -729,45 +728,42 @@ export interface VMCPStatus {
 	ready?: boolean;
 }
 
-// What agents need from a shared vMCP (apiclient/types/vmcp.go). It is the vMCP's alone: profiles hold
-// no data for agents. Nothing here carries a configuration value or a token.
-export type VMCPAgentOAuthState = 'authorized' | 'missing' | 'invalid';
+// The OAuth an administrator preconfigured for one remote component of a shared vMCP
+// (apiclient/types/vmcp.go). Everyone who reaches the component through the vMCP, users and agents
+// alike, connects upstream as the one account it was authorized with, and users are not asked to
+// authorize the component themselves while it is set. It describes the grant, never its tokens.
+export const VMCPPreconfiguredOAuthStates = {
+	/**
+	 * No grant, and the component is not known to need OAuth. Obot's background probe may not have
+	 * found that it does yet, so it can still be authorized.
+	 */
+	NotRequired: 'not_required',
+	/** No grant, and the component is known to need OAuth. */
+	NeedsAuthorization: 'needs_authorization',
+	Authorized: 'authorized',
+	/** The provider refused to refresh the grant, or the upstream URL changed: authorize it again. */
+	Invalid: 'invalid'
+} as const;
 
-// The OAuth grant a vMCP holds for one component, which every agent granted the component uses.
-export interface VMCPAgentOAuthStatus {
-	required: boolean;
-	state: VMCPAgentOAuthState;
+export type VMCPPreconfiguredOAuthState =
+	(typeof VMCPPreconfiguredOAuthStates)[keyof typeof VMCPPreconfiguredOAuthStates];
+
+export interface VMCPPreconfiguredOAuth {
+	vmcpID: string;
+	componentID: string;
+	state: VMCPPreconfiguredOAuthState;
 	/** The user ID of the administrator who authorized the grant. */
 	authorizedBy?: string;
 	authorizedAt?: string;
-	/** The upstream URL, only when the catalog fixes it. Empty when the URL comes from configuration. */
+	/** The upstream URL, only when the catalog entry fixes it. */
 	target?: string;
-	/** Only the hostname of a URL that comes from configuration. It is not a URL. */
+	/** Only the hostname of a URL that comes from the vMCP's fixed configuration. It is not a URL. */
 	targetHostname?: string;
 	scopes?: string[];
 	invalidReason?: string;
 }
 
-export interface VMCPAgentSetupComponent {
-	componentID: string;
-	ready: boolean;
-	/**
-	 * Why the component keeps the agents granted it from the vMCP, as agent readiness reports them:
-	 * configuration_required for each key the vMCP or its catalog entry must fix (key names only),
-	 * oauth_required and oauth_invalid.
-	 */
-	reasons: AgentReadinessReason[];
-	/** Present only for a remote component, the only kind that can hold a grant. */
-	oauth?: VMCPAgentOAuthStatus;
-}
-
-export interface VMCPAgentSetup {
-	vmcpID: string;
-	/** The components that a profile naming an agent grants, in manifest order. */
-	components: VMCPAgentSetupComponent[];
-}
-
-export interface VMCPAgentOAuthAuthorization {
+export interface VMCPPreconfiguredOAuthAuthorization {
 	authURL: string;
 	/** authURL is Obot's local login URL, to run with `obot mcp login` on the administrator's own machine. */
 	localhostCallback?: boolean;

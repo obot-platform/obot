@@ -18,7 +18,7 @@ import (
 
 // AgentReadinessSource decides whether an agent can connect to a vMCP. The MCP session manager, whose connect path
 // refuses an agent that is not ready, implements it, so that the readiness API is computed as that connect path
-// computes it, with the same store of agent OAuth grants.
+// computes it, with the same store of preconfigured OAuth grants.
 type AgentReadinessSource interface {
 	AgentReadiness(ctx context.Context, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info) (vmcpconfig.AgentReadinessReport, error)
 }
@@ -102,6 +102,8 @@ func (h *AgentIdentityHandler) vmcpReadiness(req api.Context, vmcp v1.VMCP, inst
 		Ready:           report.Readiness.Ready(),
 		Disabled:        disabled,
 		Reasons:         append([]types.AgentReadinessReason{}, report.Readiness.Reasons...),
+		// The grants readiness checked, so a component is listed exactly when its grant lets the agent connect.
+		PreconfiguredComponents: report.PreconfiguredComponents(),
 	}, nil
 }
 

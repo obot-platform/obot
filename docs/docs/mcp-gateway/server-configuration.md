@@ -6,7 +6,7 @@ Use this page for configuration shared by multiple MCP server runtimes. Start wi
 
 ## Static OAuth
 
-Some remote MCP servers require a pre-registered OAuth application instead of dynamic client registration. Configure the application's client credentials on the remote server's catalog entry. Users connect through a vMCP and authenticate individually with the upstream provider.
+Some remote MCP servers require a pre-registered OAuth application instead of dynamic client registration. Configure the application's client credentials on the remote server's catalog entry. Users connect through a vMCP and authenticate individually with the upstream provider, unless an administrator [preconfigures OAuth](./server-types.md#preconfigured-oauth) for the vMCP's component with one account that everyone uses.
 
 1. Register an OAuth application with the provider. Set its callback URL to `https://<your-obot-host>/oauth/mcp/callback` and record its client ID and, for a confidential client, its client secret.
 2. Create or edit the remote catalog entry under **MCP Servers**, enter the remote URL, enable **Static OAuth**, and save.

@@ -239,7 +239,7 @@ func (c *Client) DeleteMCPOAuthTokenForAllUsers(ctx context.Context, mcpID strin
 }
 
 func (c *Client) triggerMCPOAuthTokenChange(ctx context.Context, mcpID string) error {
-	// A vMCP agent OAuth grant's MCPID is "<vmcpID>/<componentID>", which names no MCPServer.
+	// A vMCP preconfigured OAuth grant's MCPID is "<vmcpID>/<componentID>", which names no MCPServer.
 	if mcpID == "" || strings.Contains(mcpID, "/") || c.mcpOAuthTokenTrigger == nil {
 		return nil
 	}

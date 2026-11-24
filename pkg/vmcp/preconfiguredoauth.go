@@ -22,38 +22,40 @@ import (
 )
 
 const (
-	// GrantTargetMismatch explains a grant that was authorized for another URL than the one an agent's connection
-	// reaches, without either URL.
+	// GrantTargetMismatch explains a grant that was authorized for another URL than the one a connection to its
+	// component reaches, without either URL.
 	GrantTargetMismatch = "the grant was authorized for another upstream URL than the one the vMCP now configures"
 )
 
-// AgentOAuthGrantGateway is the storage of agent OAuth grants: MCP OAuth tokens whose owner is a
-// principal.AgentOAuthGrantOwner. The gateway client implements it.
-type AgentOAuthGrantGateway interface {
+// PreconfiguredOAuthGateway is the storage of preconfigured OAuth grants: MCP OAuth tokens whose owner is a
+// principal.PreconfiguredOAuthOwner. The gateway client implements it.
+type PreconfiguredOAuthGateway interface {
 	MCPOAuthGrantMetadata(ctx context.Context, owners, mcpIDs []string) ([]gatewaytypes.MCPOAuthGrantMetadata, error)
 	DeleteMCPOAuthGrants(ctx context.Context, owner, mcpID string, grantIDs []string) error
 	DeleteMCPOAuthGrantsForOwner(ctx context.Context, owner string) error
 }
 
-// AgentOAuthGrantStore holds the OAuth grants that administrators authorize on shared vMCPs for agents. A vMCP holds at
-// most one grant per component. An administrator authorizes it once, and every agent that a profile of the vMCP grants
-// the component uses it headlessly, on every replica. Profiles hold nothing: the profiles that name an agent decide
-// which components, and so which grants, it uses, as they decide which tools it gets.
+// PreconfiguredOAuthStore holds the OAuth grants that administrators preconfigure for the remote components of shared
+// vMCPs. A vMCP holds at most one grant per component. An administrator authorizes it once, and everyone who reaches
+// the component through the vMCP uses it, on every replica: every agent that a profile naming it grants the component,
+// headlessly, and every user connecting to the vMCP themselves, who is then never asked to authorize the component
+// with an account of their own, and whose own token for it, if they have one, is not used. Profiles hold nothing: they
+// decide which components, and so which grants, a caller reaches, as they decide which tools it gets.
 //
 // A grant is an MCP OAuth token, stored as a user's is, with a different key: its owner (UserID) is
-// principal.AgentOAuthGrantOwner(vmcpID), which no one can authenticate as, and its MCPID is
-// AgentOAuthGrantMCPID(vmcpID, componentID), which names no MCPServer, so no user's or agent's token is ever read as a
-// grant or deleted with one, and the reverse. The token records the upstream URL it was authorized for, and is used
+// principal.PreconfiguredOAuthOwner(vmcpID), which no one can authenticate as, and its MCPID is
+// PreconfiguredOAuthMCPID(vmcpID, componentID), which names no MCPServer, so no user's or agent's token is ever read as
+// a grant or deleted with one, and the reverse. The token records the upstream URL it was authorized for, and is used
 // only for that URL. Nothing about a grant is in the manifest, so catalog-synced vMCPs keep their grants across syncs.
 //
 // The vMCP controller deletes a component's grant when the component leaves the manifest
 // (DeleteRemovedComponentGrants), and every grant of a vMCP being deleted (DeleteVMCPGrants). Changing a profile, or
-// deleting an agent, deletes no grant: a grant for a component that no agent is granted any more is used again once
-// one is.
-type AgentOAuthGrantStore struct {
-	gateway AgentOAuthGrantGateway
-	// targets resolves the URL an agent's connection to a component reaches, for components whose definition does
-	// not fix it. Without it, only a URL the component's definition fixes is compared with its grant's.
+// deleting a user or an agent, deletes no grant.
+type PreconfiguredOAuthStore struct {
+	gateway PreconfiguredOAuthGateway
+	// targets resolves the URL a connection to a component reaches from the values the vMCP and the catalog entry fix,
+	// for components whose definition does not fix it. Without it, only a URL the component's definition fixes is
+	// compared with its grant's.
 	targets ComponentTargetResolver
 	// removed records that Obot deleted a grant on its own (GrantRemovalRecorder). It may be nil.
 	removed GrantRemovalRecorder
@@ -63,9 +65,9 @@ type AgentOAuthGrantStore struct {
 // because the component or the vMCP was removed. Recording is best effort and must not fail the deletion it records.
 type GrantRemovalRecorder func(ctx context.Context, vmcpID, componentID, reason string)
 
-// ComponentTarget is the upstream URL that an agent's connection to a component reaches, as the agent's component
-// server is configured: from the values fixed for everyone by the vMCP and the catalog entry, the only values an agent
-// is given.
+// ComponentTarget is the upstream URL that a component's preconfigured OAuth grant is bound to: the URL a connection to
+// the component reaches with the values fixed for everyone by the vMCP and the catalog entry, the only values an agent
+// is given, and the only ones an administrator can authorize a grant for.
 type ComponentTarget struct {
 	// URL is the URL. It is empty when a value it needs is missing.
 	URL string
@@ -73,25 +75,27 @@ type ComponentTarget struct {
 	Missing []string
 }
 
-// ComponentTargetResolver resolves the upstream URL that an agent's connection to a component reaches, from the same
-// values as the agent's component server is given. The MCP session manager implements it.
+// ComponentTargetResolver resolves the upstream URL that a component's preconfigured OAuth grant is bound to
+// (ComponentTarget), from the same values as an agent's component server is given. The MCP session manager implements
+// it.
 type ComponentTargetResolver interface {
 	ComponentTarget(ctx context.Context, vmcp v1.VMCP, component types.VMCPComponent) (ComponentTarget, error)
 }
 
-// ComponentOAuthGrant is the grant a vMCP holds for one component, as SelectGrants found it, which every agent granted
-// the component uses.
+// ComponentOAuthGrant is the preconfigured OAuth grant a vMCP holds for one component, as SelectGrants found it, which
+// everyone who reaches the component through the vMCP uses.
 type ComponentOAuthGrant struct {
 	ComponentID string
-	// Owner and MCPID are the key of the grant's token: principal.AgentOAuthGrantOwner and AgentOAuthGrantMCPID. They
-	// are empty when the vMCP holds no grant for the component (Held).
+	// Owner and MCPID are the key of the grant's token: principal.PreconfiguredOAuthOwner and PreconfiguredOAuthMCPID.
+	// They are empty when the vMCP holds no grant for the component (Held).
 	Owner string
 	MCPID string
 	// Required reports that the component is known to need OAuth (requiresOAuth): it requires static OAuth, the vMCP
 	// holds a grant for it, working or not, or the vMCP controller's probe of the component found that it asks for
 	// OAuth.
 	Required bool
-	// State is types.VMCPAgentOAuthAuthorized or types.VMCPAgentOAuthInvalid when the vMCP holds a grant.
+	// State is types.VMCPPreconfiguredOAuthAuthorized or types.VMCPPreconfiguredOAuthInvalid when the vMCP holds a
+	// grant.
 	State string
 	// InvalidReason says why an invalid grant is invalid.
 	InvalidReason string
@@ -102,31 +106,30 @@ type ComponentOAuthGrant struct {
 	stored gatewaytypes.MCPOAuthGrantMetadata
 }
 
-func NewAgentOAuthGrantStore(gateway AgentOAuthGrantGateway) *AgentOAuthGrantStore {
-	return &AgentOAuthGrantStore{gateway: gateway}
+func NewPreconfiguredOAuthStore(gateway PreconfiguredOAuthGateway) *PreconfiguredOAuthStore {
+	return &PreconfiguredOAuthStore{gateway: gateway}
 }
 
 // SetGrantRemovalRecorder sets the recorder of the grants the store deletes as the vMCP controller removes a component
 // or a vMCP, which no administrator asked for one at a time. Set it before the store is used.
-func (s *AgentOAuthGrantStore) SetGrantRemovalRecorder(recorder GrantRemovalRecorder) {
+func (s *PreconfiguredOAuthStore) SetGrantRemovalRecorder(recorder GrantRemovalRecorder) {
 	s.removed = recorder
 }
 
-// SetComponentTargets sets the resolver of the URLs agents' connections to components reach, which grants are bound to
-// for components whose definition does not fix the URL. Set it before the store is used.
-func (s *AgentOAuthGrantStore) SetComponentTargets(targets ComponentTargetResolver) {
+// SetComponentTargets sets the resolver of the URLs that grants are bound to for components whose definition does not
+// fix the URL (ComponentTargetResolver). Set it before the store is used.
+func (s *PreconfiguredOAuthStore) SetComponentTargets(targets ComponentTargetResolver) {
 	s.targets = targets
 }
 
-// AgentOAuthGrantMCPID is the MCPID of the token of a vMCP's grant for a component. Grants are per component, not per
-// connection: every agent granted the component uses the same one, whatever connection it reaches the component
-// through.
-func AgentOAuthGrantMCPID(vmcpID, componentID string) string {
+// PreconfiguredOAuthMCPID is the MCPID of the token of a vMCP's grant for a component. Grants are per component, not
+// per connection: everyone who reaches the component uses the same one, whatever connection they reach it through.
+func PreconfiguredOAuthMCPID(vmcpID, componentID string) string {
 	return vmcpID + "/" + componentID
 }
 
-// ComponentUsesOAuth reports whether a component can hold an agent OAuth grant: only a remote server authorizes its
-// callers with OAuth.
+// ComponentUsesOAuth reports whether a component can hold a preconfigured OAuth grant: only a remote server authorizes
+// its callers with OAuth.
 func ComponentUsesOAuth(component types.VMCPComponent) bool {
 	return component.CatalogEntry.Manifest.Runtime == types.RuntimeRemote
 }
@@ -137,7 +140,7 @@ func ComponentUsesOAuth(component types.VMCPComponent) bool {
 // OAuth; or else when the vMCP controller's probe of the component found that it asks for OAuth
 // (ProbedOAuthRequirement). A probe that failed counts as not finding it.
 func requiresOAuth(vmcp v1.VMCP, component types.VMCPComponent, stored []gatewaytypes.MCPOAuthGrantMetadata) bool {
-	mcpID := AgentOAuthGrantMCPID(vmcp.Name, component.ID)
+	mcpID := PreconfiguredOAuthMCPID(vmcp.Name, component.ID)
 	return ComponentOAuthCredentialReference(component) != "" ||
 		slices.ContainsFunc(stored, func(grant gatewaytypes.MCPOAuthGrantMetadata) bool { return grant.MCPID == mcpID }) ||
 		ProbedOAuthRequirement(vmcp, component) == v1.VMCPComponentOAuthRequired
@@ -155,12 +158,12 @@ func StaticComponentTargetURL(component types.VMCPComponent) (string, bool) {
 	return remote.FixedURL, true
 }
 
-// AgentOAuthGrantDefinitionHash identifies what a component's grant is authorized against: the upstream it reaches
+// PreconfiguredOAuthDefinitionHash identifies what a component's grant is authorized against: the upstream it reaches
 // and the client it authorizes with. A pending authorization records it when it starts, and its callback stores the
 // grant only if the component still has it.
-func AgentOAuthGrantDefinitionHash(component types.VMCPComponent) string {
+func PreconfiguredOAuthDefinitionHash(component types.VMCPComponent) string {
 	return utils.Digest([]any{
-		"vmcp-agent-oauth-grant/v1",
+		"vmcp-preconfigured-oauth/v1",
 		component.ID,
 		component.MCPServerCatalogEntryID,
 		ComponentOAuthCredentialReference(component),
@@ -169,47 +172,38 @@ func AgentOAuthGrantDefinitionHash(component types.VMCPComponent) string {
 	})
 }
 
-// AgentGrantedComponents returns the components of a shared vMCP that at least one profile naming an agent
-// (types.VMCPProfile.IsAgentCapable) grants (ProfileGrantsComponent), in manifest order: what the vMCP's agent setup
-// covers, and the only components the vMCP controller probes for OAuth. A personal vMCP has none, since agents only use
-// shared ones.
-func AgentGrantedComponents(vmcp v1.VMCP) []types.VMCPComponent {
+// PreconfigurableComponents returns the remote components of a shared vMCP (ComponentUsesOAuth), in manifest order:
+// the components an administrator can preconfigure OAuth for, and the only ones the vMCP controller probes for OAuth.
+// Any of them can be preconfigured, whichever profiles grant it, to users or to agents. A personal vMCP has none: its
+// owner authorizes their own connection.
+func PreconfigurableComponents(vmcp v1.VMCP) []types.VMCPComponent {
 	if vmcp.Spec.UserID != "" {
 		return nil
 	}
-	var profiles []types.VMCPProfile
-	for _, profile := range vmcp.Spec.Manifest.Profiles {
-		if profile.IsAgentCapable() {
-			profiles = append(profiles, profile)
-		}
-	}
-	if len(profiles) == 0 {
-		return nil
-	}
 	return slices.DeleteFunc(ComponentsForInstance(vmcp, v1.VMCPInstance{}), func(component types.VMCPComponent) bool {
-		return !slices.ContainsFunc(profiles, func(profile types.VMCPProfile) bool { return ProfileGrantsComponent(profile, component.ID) })
+		return !ComponentUsesOAuth(component)
 	})
 }
 
 // SelectGrants returns the grant vmcp holds for each of components, in their order, with one query. It is the selection
-// that agent readiness, the vMCP's agent setup and the MCP gateway all use. A component that cannot hold a grant
-// (ComponentUsesOAuth) has none. No token or client credential is read.
+// that agent readiness, the preconfigured OAuth API and the MCP gateway, for users and agents alike, all use. A
+// component that cannot hold a grant (ComponentUsesOAuth) has none. No token or client credential is read.
 //
-// It does not decide who uses a grant: the caller passes only the components an agent is granted (EnabledComponents),
-// so an agent never uses the grant of a component that no profile naming it grants.
-func (s *AgentOAuthGrantStore) SelectGrants(ctx context.Context, vmcp v1.VMCP, components []types.VMCPComponent) ([]ComponentOAuthGrant, error) {
-	owner := principal.AgentOAuthGrantOwner(vmcp.Name)
+// It does not decide who uses a grant: the caller passes only the components the caller reaches (EnabledComponents),
+// so no one uses the grant of a component that no profile naming them grants.
+func (s *PreconfiguredOAuthStore) SelectGrants(ctx context.Context, vmcp v1.VMCP, components []types.VMCPComponent) ([]ComponentOAuthGrant, error) {
+	owner := principal.PreconfiguredOAuthOwner(vmcp.Name)
 	var mcpIDs []string
 	for _, component := range components {
 		if ComponentUsesOAuth(component) {
-			mcpIDs = append(mcpIDs, AgentOAuthGrantMCPID(vmcp.Name, component.ID))
+			mcpIDs = append(mcpIDs, PreconfiguredOAuthMCPID(vmcp.Name, component.ID))
 		}
 	}
 	var stored []gatewaytypes.MCPOAuthGrantMetadata
 	if len(mcpIDs) > 0 {
 		var err error
 		if stored, err = s.gateway.MCPOAuthGrantMetadata(ctx, []string{owner}, mcpIDs); err != nil {
-			return nil, fmt.Errorf("read the agent OAuth grants of vMCP %q: %w", vmcp.Name, err)
+			return nil, fmt.Errorf("read the preconfigured OAuth grants of vMCP %q: %w", vmcp.Name, err)
 		}
 	}
 
@@ -217,7 +211,7 @@ func (s *AgentOAuthGrantStore) SelectGrants(ctx context.Context, vmcp v1.VMCP, c
 	for _, component := range components {
 		grant := ComponentOAuthGrant{ComponentID: component.ID, Required: ComponentOAuthCredentialReference(component) != ""}
 		if ComponentUsesOAuth(component) {
-			mcpID := AgentOAuthGrantMCPID(vmcp.Name, component.ID)
+			mcpID := PreconfiguredOAuthMCPID(vmcp.Name, component.ID)
 			grant.Required = requiresOAuth(vmcp, component, stored)
 			if i := slices.IndexFunc(stored, func(g gatewaytypes.MCPOAuthGrantMetadata) bool { return g.UserID == owner && g.MCPID == mcpID }); i >= 0 {
 				grant.Owner = stored[i].UserID
@@ -236,20 +230,20 @@ func (s *AgentOAuthGrantStore) SelectGrants(ctx context.Context, vmcp v1.VMCP, c
 // so, or when the component's definition fixes a target other than the one the grant was authorized for.
 func grantState(grant gatewaytypes.MCPOAuthGrantMetadata, component types.VMCPComponent) (string, string) {
 	if grant.InvalidatedAt != nil {
-		return types.VMCPAgentOAuthInvalid, grant.InvalidReason
+		return types.VMCPPreconfiguredOAuthInvalid, grant.InvalidReason
 	}
 	if target, ok := StaticComponentTargetURL(component); ok && target != grant.URL {
-		return types.VMCPAgentOAuthInvalid, "the component's upstream URL changed since the grant was authorized"
+		return types.VMCPPreconfiguredOAuthInvalid, "the component's upstream URL changed since the grant was authorized"
 	}
-	return types.VMCPAgentOAuthAuthorized, ""
+	return types.VMCPPreconfiguredOAuthAuthorized, ""
 }
 
 // checkGrantTarget compares the URL that grant, selected for a component (SelectGrants), was authorized for, if it is
-// usable, with the URL an agent's connection to the component reaches, and marks the grant invalid if the URL differs.
-// A URL that cannot be resolved leaves the grant as it is: the component lacks a value the URL needs, which
+// usable, with the URL the grant is bound to now (ResolveComponentTarget), and marks the grant invalid if the URL
+// differs. A URL that cannot be resolved leaves the grant as it is: the component lacks a value the URL needs, which
 // configuration readiness reports. Without a resolver, only a URL the component's definition fixes is compared, as
-// grantState already did; the MCP gateway still refuses a mismatch when it connects an agent.
-func (s *AgentOAuthGrantStore) checkGrantTarget(ctx context.Context, vmcp v1.VMCP, component types.VMCPComponent, grant *ComponentOAuthGrant) error {
+// grantState already did; the MCP gateway's token store still refuses the grant for any other URL than its own.
+func (s *PreconfiguredOAuthStore) checkGrantTarget(ctx context.Context, vmcp v1.VMCP, component types.VMCPComponent, grant *ComponentOAuthGrant) error {
 	if !grant.Usable() {
 		return nil
 	}
@@ -259,9 +253,9 @@ func (s *AgentOAuthGrantStore) checkGrantTarget(ctx context.Context, vmcp v1.VMC
 		return fmt.Errorf("resolve the upstream URL of component %q: %w", component.ID, err)
 	case refused != nil:
 		// The configured URL no longer satisfies the component, so no grant can be used for it.
-		grant.State, grant.InvalidReason = types.VMCPAgentOAuthInvalid, refused.Error()
+		grant.State, grant.InvalidReason = types.VMCPPreconfiguredOAuthInvalid, refused.Error()
 	case target.URL != "" && target.URL != grant.URL:
-		grant.State, grant.InvalidReason = types.VMCPAgentOAuthInvalid, GrantTargetMismatch
+		grant.State, grant.InvalidReason = types.VMCPPreconfiguredOAuthInvalid, GrantTargetMismatch
 	}
 	return nil
 }
@@ -269,8 +263,8 @@ func (s *AgentOAuthGrantStore) checkGrantTarget(ctx context.Context, vmcp v1.VMC
 // componentReasons returns why component of vmcp keeps every agent granted it from the vMCP, where grant is the vMCP's
 // grant for it (SelectGrants), which it checks against the URL agents reach first (checkGrantTarget): configuration
 // that agents cannot be given (AgentMissingConfiguration), and the OAuth the component needs (ReadinessReasons). Agent
-// readiness and the vMCP's agent setup both report these, so they never disagree.
-func (s *AgentOAuthGrantStore) componentReasons(ctx context.Context, vmcp v1.VMCP, component types.VMCPComponent, grant *ComponentOAuthGrant) ([]ReadinessReason, error) {
+// readiness and the connect path both report these, so they never disagree.
+func (s *PreconfiguredOAuthStore) componentReasons(ctx context.Context, vmcp v1.VMCP, component types.VMCPComponent, grant *ComponentOAuthGrant) ([]ReadinessReason, error) {
 	// The MCP gateway refuses a grant for another URL than the agent's connection reaches; readiness says so first.
 	if err := s.checkGrantTarget(ctx, vmcp, component, grant); err != nil {
 		return nil, err
@@ -279,11 +273,11 @@ func (s *AgentOAuthGrantStore) componentReasons(ctx context.Context, vmcp v1.VMC
 	return slices.Concat(configuration, grant.ReadinessReasons(component)), nil
 }
 
-// ResolveComponentTarget resolves the upstream URL that an agent's connection to a component reaches, which the vMCP's
-// grant for the component is bound to: the URL the component's definition fixes (StaticComponentTargetURL), without
-// resolving anything, or else the one that targets resolves from the vMCP's fixed configuration. Without targets, a
-// URL that comes from configuration is left empty. refused is the error, an ErrHTTP that names no URL, of a configured
-// URL that does not satisfy the component; err is any other failure to resolve it.
+// ResolveComponentTarget resolves the upstream URL that the vMCP's preconfigured OAuth grant for a component is bound
+// to, which an agent's connection to the component reaches: the URL the component's definition fixes
+// (StaticComponentTargetURL), without resolving anything, or else the one that targets resolves from the vMCP's fixed
+// configuration. Without targets, a URL that comes from configuration is left empty. refused is the error, an ErrHTTP
+// that names no URL, of a configured URL that does not satisfy the component; err is any other failure to resolve it.
 func ResolveComponentTarget(ctx context.Context, targets ComponentTargetResolver, vmcp v1.VMCP, component types.VMCPComponent) (target ComponentTarget, refused, err error) {
 	if url, ok := StaticComponentTargetURL(component); ok {
 		return ComponentTarget{URL: url}, nil, nil
@@ -305,11 +299,12 @@ func (g ComponentOAuthGrant) Held() bool {
 
 // Usable reports whether the vMCP holds a grant for the component that works.
 func (g ComponentOAuthGrant) Usable() bool {
-	return g.Held() && g.State == types.VMCPAgentOAuthAuthorized
+	return g.Held() && g.State == types.VMCPPreconfiguredOAuthAuthorized
 }
 
 // ReadinessReasons returns why the grant, as SelectGrants selected it and checkGrantTarget checked it, keeps every
-// agent granted component from the vMCP (AgentReadiness), where an administrator fixes it, on the vMCP:
+// agent granted component from the vMCP (AgentReadiness), where an administrator fixes it, in the component's settings
+// on the vMCP:
 //
 //   - types.AgentReadinessOAuthInvalid for a grant that no longer works, including one authorized for another upstream
 //     URL than the one agents' connections reach.
@@ -322,7 +317,7 @@ func (g ComponentOAuthGrant) Usable() bool {
 // OAuth when the agent calls it, the gateway answers the agent with a 409 that names it.
 func (g ComponentOAuthGrant) ReadinessReasons(component types.VMCPComponent) []ReadinessReason {
 	switch {
-	case g.Held() && g.State != types.VMCPAgentOAuthAuthorized:
+	case g.Held() && g.State != types.VMCPPreconfiguredOAuthAuthorized:
 		return []ReadinessReason{{ComponentID: component.ID, Code: types.AgentReadinessOAuthInvalid}}
 	case g.Held() || !g.Required:
 		return nil
@@ -332,10 +327,14 @@ func (g ComponentOAuthGrant) ReadinessReasons(component types.VMCPComponent) []R
 }
 
 // Status reports the grant, as SelectGrants selected it and checkGrantTarget checked it, for a response
-// (types.VMCPAgentOAuthStatus): its state, who authorized it, when, with which scopes, and for which target, never a
+// (types.VMCPPreconfiguredOAuth): its state, who authorized it, when, with which scopes, and for which target, never a
 // token, and only the hostname of a URL that comes from the vMCP's fixed configuration (GrantTargetForResponse).
-func (g ComponentOAuthGrant) Status(component types.VMCPComponent) types.VMCPAgentOAuthStatus {
-	status := types.VMCPAgentOAuthStatus{Required: g.Required, State: types.VMCPAgentOAuthMissing}
+// Without a grant, the state says whether the component is known to need OAuth (Required).
+func (g ComponentOAuthGrant) Status(vmcpID string, component types.VMCPComponent) types.VMCPPreconfiguredOAuth {
+	status := types.VMCPPreconfiguredOAuth{VMCPID: vmcpID, ComponentID: component.ID, State: types.VMCPPreconfiguredOAuthNotRequired}
+	if g.Required {
+		status.State = types.VMCPPreconfiguredOAuthNeedsAuthorization
+	}
 	if !g.Held() {
 		return status
 	}
@@ -349,6 +348,24 @@ func (g ComponentOAuthGrant) Status(component types.VMCPComponent) types.VMCPAge
 		status.AuthorizedAt = types.NewTime(*g.stored.AuthorizedAt)
 	}
 	return status
+}
+
+// Status reports the preconfigured OAuth of the component of vmcp with componentID (ComponentOAuthGrant.Status), with
+// the grant checked against the URL it is bound to now (checkGrantTarget), as agent readiness checks it. It refuses a
+// component that cannot hold a grant as PreconfigurableComponent does. It never reads or returns a token.
+func (s *PreconfiguredOAuthStore) Status(ctx context.Context, vmcp v1.VMCP, componentID string) (types.VMCPPreconfiguredOAuth, error) {
+	component, err := PreconfigurableComponent(&vmcp, componentID)
+	if err != nil {
+		return types.VMCPPreconfiguredOAuth{}, err
+	}
+	grants, err := s.SelectGrants(ctx, vmcp, []types.VMCPComponent{component})
+	if err != nil {
+		return types.VMCPPreconfiguredOAuth{}, err
+	}
+	if err := s.checkGrantTarget(ctx, vmcp, component, &grants[0]); err != nil {
+		return types.VMCPPreconfiguredOAuth{}, err
+	}
+	return grants[0].Status(vmcp.Name, component), nil
 }
 
 // GrantTargetForResponse returns what a response may say of the URL a grant was authorized for, from the grant's URL
@@ -393,16 +410,13 @@ func RedactURL(text, rawURL string) string {
 	return text
 }
 
-// AgentOAuthGrantTarget returns the component of vmcp that an administrator authorizes a grant for, or the error that
-// refuses it. The vMCP must be shared and not being deleted, a profile that names an agent must grant the component
-// (AgentGrantedComponents), since only agents granted a component use its grant, and the component must be a remote
-// one, the only kind that authorizes with OAuth.
-func AgentOAuthGrantTarget(vmcp *v1.VMCP, componentID string) (types.VMCPComponent, error) {
+// PreconfigurableComponent returns the component of vmcp with componentID that can hold a preconfigured OAuth grant,
+// or the error that refuses it: the vMCP must be shared (PreconfigurableComponents), and the component must exist and
+// be a remote one, the only kind that authorizes with OAuth. Any remote component of a shared vMCP can, whichever
+// profiles grant it.
+func PreconfigurableComponent(vmcp *v1.VMCP, componentID string) (types.VMCPComponent, error) {
 	if vmcp.Spec.UserID != "" {
-		return types.VMCPComponent{}, types.NewErrBadRequest("vMCP %q is personal; only a shared vMCP holds OAuth grants for agents", vmcp.Name)
-	}
-	if !vmcp.DeletionTimestamp.IsZero() {
-		return types.VMCPComponent{}, types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("vMCP %q is being deleted", vmcp.Name))
+		return types.VMCPComponent{}, types.NewErrBadRequest("vMCP %q is personal; only a shared vMCP holds preconfigured OAuth", vmcp.Name)
 	}
 	components := ComponentsForInstance(*vmcp, v1.VMCPInstance{})
 	componentIndex := slices.IndexFunc(components, func(component types.VMCPComponent) bool { return component.ID == componentID })
@@ -410,30 +424,31 @@ func AgentOAuthGrantTarget(vmcp *v1.VMCP, componentID string) (types.VMCPCompone
 		return types.VMCPComponent{}, types.NewErrNotFound("vMCP %q has no component %q", vmcp.Name, componentID)
 	}
 	component := components[componentIndex]
-	if !slices.ContainsFunc(AgentGrantedComponents(*vmcp), func(granted types.VMCPComponent) bool { return granted.ID == component.ID }) {
-		return types.VMCPComponent{}, types.NewErrBadRequest("no profile that names an agent grants component %q; a vMCP holds OAuth grants only for components that agents are granted", component.ID)
-	}
 	if !ComponentUsesOAuth(component) {
 		return types.VMCPComponent{}, types.NewErrBadRequest("component %q is not a remote server, so it does not use OAuth", component.ID)
 	}
 	return component, nil
 }
 
-// newGrantID returns the ID of a new grant.
-func newGrantID() string {
-	return rand.Text()
+// PreconfiguredOAuthTarget returns the component of vmcp that an administrator authorizes a grant for, or the error
+// that refuses it: one that can hold a grant (PreconfigurableComponent), of a vMCP that is not being deleted.
+func PreconfiguredOAuthTarget(vmcp *v1.VMCP, componentID string) (types.VMCPComponent, error) {
+	if vmcp.Spec.UserID == "" && !vmcp.DeletionTimestamp.IsZero() {
+		return types.VMCPComponent{}, types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("vMCP %q is being deleted", vmcp.Name))
+	}
+	return PreconfigurableComponent(vmcp, componentID)
 }
 
 // Authorize stores the grant an administrator authorized for a component of the vMCP with key, and returns the vMCP
 // with it recorded. check is called with the vMCP as stored and its component on every attempt, and refuses the grant
-// if they are no longer what the administrator authorized; AgentOAuthGrantTarget refuses it first if the component
+// if they are no longer what the administrator authorized; PreconfiguredOAuthTarget refuses it first if the component
 // cannot hold one. write stores the grant's token under owner and mcpID, with grantID. Conflicting writes, by other
 // administrators or by controllers, are retried from a fresh read, so no write is lost and none is applied over a
 // stale one.
 //
 // The order of its steps keeps every grant deleted with its component:
 //
-//  1. Before the grant is stored, its ID is recorded in the vMCP's status (v1.VMCPStatus.AgentOAuthGrants), with the
+//  1. Before the grant is stored, its ID is recorded in the vMCP's status (v1.VMCPStatus.PreconfiguredOAuth), with the
 //     IDs already recorded for the component, in a status update at a resource version whose spec has the component.
 //     The vMCP controller deletes every recorded grant whose component leaves the spec, so a component removed from
 //     now on takes the grant with it, even one removed before the controller saw the record.
@@ -442,16 +457,16 @@ func newGrantID() string {
 //     A conflict means the vMCP changed, possibly by losing the component, and possibly after the controller deleted
 //     the component's recorded grants, so the unpublished grant is deleted, by its ID only, before the write is
 //     retried.
-func (s *AgentOAuthGrantStore) Authorize(ctx context.Context, client kclient.Client, key kclient.ObjectKey, componentID string, check func(*v1.VMCP, types.VMCPComponent) error, write func(ctx context.Context, owner, mcpID, grantID string) error) (*v1.VMCP, error) {
-	owner := principal.AgentOAuthGrantOwner(key.Name)
-	mcpID := AgentOAuthGrantMCPID(key.Name, componentID)
+func (s *PreconfiguredOAuthStore) Authorize(ctx context.Context, client kclient.Client, key kclient.ObjectKey, componentID string, check func(*v1.VMCP, types.VMCPComponent) error, write func(ctx context.Context, owner, mcpID, grantID string) error) (*v1.VMCP, error) {
+	owner := principal.PreconfiguredOAuthOwner(key.Name)
+	mcpID := PreconfiguredOAuthMCPID(key.Name, componentID)
 	var result *v1.VMCP
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		vmcp, err := readVMCP(ctx, client, key)
 		if err != nil {
 			return err
 		}
-		component, err := AgentOAuthGrantTarget(vmcp, componentID)
+		component, err := PreconfiguredOAuthTarget(vmcp, componentID)
 		if err != nil {
 			return err
 		}
@@ -459,14 +474,14 @@ func (s *AgentOAuthGrantStore) Authorize(ctx context.Context, client kclient.Cli
 			return err
 		}
 
-		grantID := newGrantID()
+		grantID := rand.Text()
 		recordGrantIDs(vmcp, componentID, slices.Concat(recordedGrantIDs(vmcp, componentID), []string{grantID}))
 		if err := client.Status().Update(ctx, vmcp); err != nil {
 			return err
 		}
 
 		if err := write(ctx, owner, mcpID, grantID); err != nil {
-			return fmt.Errorf("store the agent OAuth grant of vMCP %q for component %q: %w", vmcp.Name, componentID, err)
+			return fmt.Errorf("store the preconfigured OAuth grant of vMCP %q for component %q: %w", vmcp.Name, componentID, err)
 		}
 
 		recordGrantIDs(vmcp, componentID, []string{grantID})
@@ -474,7 +489,7 @@ func (s *AgentOAuthGrantStore) Authorize(ctx context.Context, client kclient.Cli
 			// Only a conflict proves the update was not applied; after any other error the grant may be published.
 			if apierrors.IsConflict(err) {
 				if err := s.gateway.DeleteMCPOAuthGrants(ctx, owner, mcpID, []string{grantID}); err != nil {
-					slog.Warn("Failed to delete an unpublished vMCP agent OAuth grant", "vmcp", vmcp.Name, "component", componentID, "error", err)
+					slog.Warn("Failed to delete an unpublished vMCP preconfigured OAuth grant", "vmcp", vmcp.Name, "component", componentID, "error", err)
 				}
 			}
 			return err
@@ -494,9 +509,9 @@ func (s *AgentOAuthGrantStore) Authorize(ctx context.Context, client kclient.Cli
 // publishes the removal of their record in a status update at the resource version it listed them at, and only then
 // deletes them, by their IDs. A grant authorized after the listing has another ID and is kept; one recorded before
 // the publication makes it conflict, and the revocation is retried from a fresh read that lists it.
-func (s *AgentOAuthGrantStore) Revoke(ctx context.Context, client kclient.Client, key kclient.ObjectKey, componentID string) (*v1.VMCP, bool, error) {
-	owner := principal.AgentOAuthGrantOwner(key.Name)
-	mcpID := AgentOAuthGrantMCPID(key.Name, componentID)
+func (s *PreconfiguredOAuthStore) Revoke(ctx context.Context, client kclient.Client, key kclient.ObjectKey, componentID string) (*v1.VMCP, bool, error) {
+	owner := principal.PreconfiguredOAuthOwner(key.Name)
+	mcpID := PreconfiguredOAuthMCPID(key.Name, componentID)
 	var (
 		result  *v1.VMCP
 		revoked bool
@@ -510,7 +525,7 @@ func (s *AgentOAuthGrantStore) Revoke(ctx context.Context, client kclient.Client
 		listed := slices.Clone(recordedGrantIDs(vmcp, componentID))
 		stored, err := s.gateway.MCPOAuthGrantMetadata(ctx, []string{owner}, []string{mcpID})
 		if err != nil {
-			return fmt.Errorf("read the agent OAuth grant of vMCP %q for component %q: %w", vmcp.Name, componentID, err)
+			return fmt.Errorf("read the preconfigured OAuth grant of vMCP %q for component %q: %w", vmcp.Name, componentID, err)
 		}
 		for _, grant := range stored {
 			if !slices.Contains(listed, grant.GrantID) {
@@ -529,7 +544,7 @@ func (s *AgentOAuthGrantStore) Revoke(ctx context.Context, client kclient.Client
 			}
 		}
 		if err := s.gateway.DeleteMCPOAuthGrants(ctx, owner, mcpID, listed); err != nil {
-			return fmt.Errorf("delete the agent OAuth grant of vMCP %q for component %q: %w", vmcp.Name, componentID, err)
+			return fmt.Errorf("delete the preconfigured OAuth grant of vMCP %q for component %q: %w", vmcp.Name, componentID, err)
 		}
 		result = vmcp
 		return nil
@@ -545,64 +560,64 @@ func (s *AgentOAuthGrantStore) Revoke(ctx context.Context, client kclient.Client
 // grant is deleted only by an ID recorded for it: if vmcp is stale, and a component with the same ID was added back and
 // authorized again since, that grant has an ID vmcp does not record, and is kept; saving the stale status then fails
 // with a conflict.
-func (s *AgentOAuthGrantStore) DeleteRemovedComponentGrants(ctx context.Context, vmcp *v1.VMCP) (bool, error) {
+func (s *PreconfiguredOAuthStore) DeleteRemovedComponentGrants(ctx context.Context, vmcp *v1.VMCP) (bool, error) {
 	var components []string
 	for _, component := range ComponentsForInstance(*vmcp, v1.VMCPInstance{}) {
 		components = append(components, component.ID)
 	}
-	owner := principal.AgentOAuthGrantOwner(vmcp.Name)
-	var kept []v1.VMCPAgentOAuthGrant
-	for _, record := range vmcp.Status.AgentOAuthGrants {
+	owner := principal.PreconfiguredOAuthOwner(vmcp.Name)
+	var kept []v1.VMCPPreconfiguredOAuthGrant
+	for _, record := range vmcp.Status.PreconfiguredOAuth {
 		if slices.Contains(components, record.ComponentID) {
 			kept = append(kept, record)
 			continue
 		}
-		mcpID := AgentOAuthGrantMCPID(vmcp.Name, record.ComponentID)
+		mcpID := PreconfiguredOAuthMCPID(vmcp.Name, record.ComponentID)
 		// A grant is recorded before it is stored, so one is recorded as deleted only if one was stored.
 		var stored int
 		if s.removed != nil {
 			if grants, err := s.gateway.MCPOAuthGrantMetadata(ctx, []string{owner}, []string{mcpID}); err != nil {
-				slog.Warn("Failed to read the agent OAuth grant about to be deleted, so its deletion is not audited", "vmcp", vmcp.Name, "component", record.ComponentID, "error", err)
+				slog.Warn("Failed to read the preconfigured OAuth grant about to be deleted, so its deletion is not audited", "vmcp", vmcp.Name, "component", record.ComponentID, "error", err)
 			} else {
 				stored = len(grants)
 			}
 		}
 		if err := s.gateway.DeleteMCPOAuthGrants(ctx, owner, mcpID, record.GrantIDs); err != nil {
-			return false, fmt.Errorf("delete the agent OAuth grant of removed component %q of vMCP %q: %w", record.ComponentID, vmcp.Name, err)
+			return false, fmt.Errorf("delete the preconfigured OAuth grant of removed component %q of vMCP %q: %w", record.ComponentID, vmcp.Name, err)
 		}
-		slog.Info("Deleted the agent OAuth grant of a removed vMCP component", "vmcp", vmcp.Name, "component", record.ComponentID)
+		slog.Info("Deleted the preconfigured OAuth grant of a removed vMCP component", "vmcp", vmcp.Name, "component", record.ComponentID)
 		if stored > 0 {
 			s.removed(ctx, vmcp.Name, record.ComponentID, "component removed")
 		}
 	}
-	if len(kept) == len(vmcp.Status.AgentOAuthGrants) {
+	if len(kept) == len(vmcp.Status.PreconfiguredOAuth) {
 		return false, nil
 	}
-	vmcp.Status.AgentOAuthGrants = kept
+	vmcp.Status.PreconfiguredOAuth = kept
 	return true, nil
 }
 
 // DeleteVMCPGrants deletes every grant of vmcp, which is being deleted, with one statement. Deleting what is already
 // gone succeeds, so the vMCP's finalizer can call it again after any failure.
-func (s *AgentOAuthGrantStore) DeleteVMCPGrants(ctx context.Context, vmcp v1.VMCP) error {
-	owner := principal.AgentOAuthGrantOwner(vmcp.Name)
+func (s *PreconfiguredOAuthStore) DeleteVMCPGrants(ctx context.Context, vmcp v1.VMCP) error {
+	owner := principal.PreconfiguredOAuthOwner(vmcp.Name)
 	// Only the components that hold a grant are recorded, so a vMCP that never had one adds nothing to the audit. A
 	// failure to find them is not a failure to delete.
 	var held []string
 	if s.removed != nil {
 		var mcpIDs []string
-		for _, record := range vmcp.Status.AgentOAuthGrants {
-			mcpIDs = append(mcpIDs, AgentOAuthGrantMCPID(vmcp.Name, record.ComponentID))
+		for _, record := range vmcp.Status.PreconfiguredOAuth {
+			mcpIDs = append(mcpIDs, PreconfiguredOAuthMCPID(vmcp.Name, record.ComponentID))
 		}
 		for _, component := range ComponentsForInstance(vmcp, v1.VMCPInstance{}) {
-			if mcpID := AgentOAuthGrantMCPID(vmcp.Name, component.ID); !slices.Contains(mcpIDs, mcpID) {
+			if mcpID := PreconfiguredOAuthMCPID(vmcp.Name, component.ID); !slices.Contains(mcpIDs, mcpID) {
 				mcpIDs = append(mcpIDs, mcpID)
 			}
 		}
 		if len(mcpIDs) > 0 {
 			stored, err := s.gateway.MCPOAuthGrantMetadata(ctx, []string{owner}, mcpIDs)
 			if err != nil {
-				slog.Warn("Failed to find the agent OAuth grants about to be deleted, so their deletion is not audited", "vmcp", vmcp.Name, "error", err)
+				slog.Warn("Failed to find the preconfigured OAuth grants about to be deleted, so their deletion is not audited", "vmcp", vmcp.Name, "error", err)
 			}
 			for _, grant := range stored {
 				held = append(held, strings.TrimPrefix(grant.MCPID, vmcp.Name+"/"))
@@ -610,7 +625,7 @@ func (s *AgentOAuthGrantStore) DeleteVMCPGrants(ctx context.Context, vmcp v1.VMC
 		}
 	}
 	if err := s.gateway.DeleteMCPOAuthGrantsForOwner(ctx, owner); err != nil {
-		return fmt.Errorf("delete the agent OAuth grants of vMCP %q: %w", vmcp.Name, err)
+		return fmt.Errorf("delete the preconfigured OAuth grants of vMCP %q: %w", vmcp.Name, err)
 	}
 	for _, componentID := range held {
 		s.removed(ctx, vmcp.Name, componentID, "vMCP deleted")
@@ -620,7 +635,7 @@ func (s *AgentOAuthGrantStore) DeleteVMCPGrants(ctx context.Context, vmcp v1.VMC
 
 // recordedGrantIDs returns the grant IDs vmcp's status records for a component.
 func recordedGrantIDs(vmcp *v1.VMCP, componentID string) []string {
-	for _, record := range vmcp.Status.AgentOAuthGrants {
+	for _, record := range vmcp.Status.PreconfiguredOAuth {
 		if record.ComponentID == componentID {
 			return record.GrantIDs
 		}
@@ -631,25 +646,25 @@ func recordedGrantIDs(vmcp *v1.VMCP, componentID string) []string {
 // recordGrantIDs records grantIDs as those that may be stored for a component, removing the record when there are
 // none, and reports whether that changed the status.
 func recordGrantIDs(vmcp *v1.VMCP, componentID string, grantIDs []string) bool {
-	index := slices.IndexFunc(vmcp.Status.AgentOAuthGrants, func(record v1.VMCPAgentOAuthGrant) bool {
+	index := slices.IndexFunc(vmcp.Status.PreconfiguredOAuth, func(record v1.VMCPPreconfiguredOAuthGrant) bool {
 		return record.ComponentID == componentID
 	})
 	switch {
 	case index < 0 && len(grantIDs) == 0:
 		return false
 	case index < 0:
-		vmcp.Status.AgentOAuthGrants = append(vmcp.Status.AgentOAuthGrants, v1.VMCPAgentOAuthGrant{ComponentID: componentID, GrantIDs: grantIDs})
+		vmcp.Status.PreconfiguredOAuth = append(vmcp.Status.PreconfiguredOAuth, v1.VMCPPreconfiguredOAuthGrant{ComponentID: componentID, GrantIDs: grantIDs})
 		return true
 	case len(grantIDs) == 0:
-		vmcp.Status.AgentOAuthGrants = slices.Delete(vmcp.Status.AgentOAuthGrants, index, index+1)
-		if len(vmcp.Status.AgentOAuthGrants) == 0 {
-			vmcp.Status.AgentOAuthGrants = nil
+		vmcp.Status.PreconfiguredOAuth = slices.Delete(vmcp.Status.PreconfiguredOAuth, index, index+1)
+		if len(vmcp.Status.PreconfiguredOAuth) == 0 {
+			vmcp.Status.PreconfiguredOAuth = nil
 		}
 		return true
-	case slices.Equal(vmcp.Status.AgentOAuthGrants[index].GrantIDs, grantIDs):
+	case slices.Equal(vmcp.Status.PreconfiguredOAuth[index].GrantIDs, grantIDs):
 		return false
 	default:
-		vmcp.Status.AgentOAuthGrants[index].GrantIDs = grantIDs
+		vmcp.Status.PreconfiguredOAuth[index].GrantIDs = grantIDs
 		return true
 	}
 }

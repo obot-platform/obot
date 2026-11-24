@@ -44,5 +44,6 @@ export const readyVMCP: AgentVMCPReadiness = {
 	vmcpDisplayName: 'Mail vMCP',
 	ready: false,
 	disabled: false,
-	reasons: [{ code: 'oauth_required', componentID: 'gmail' }]
+	reasons: [{ code: 'oauth_required', componentID: 'gmail' }],
+	preconfiguredComponents: []
 };

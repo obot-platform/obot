@@ -42,6 +42,15 @@ func TestServerNeedsOAuthForPendingStaticOAuth(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, needsOAuth)
 
+	// A vMCP component whose OAuth the vMCP preconfigures never asks the user to authorize it, though the user has not:
+	// the connection uses the vMCP's grant.
+	needsOAuth, err = handler.serverNeedsOAuth(t.Context(), &server, mcp.ServerConfig{
+		Runtime:    types.RuntimeRemote,
+		OAuthGrant: &mcp.OAuthGrantRef{ComponentID: "component", Owner: "vmcp-oauth:vmcp1", MCPID: "vmcp1/component"},
+	})
+	require.NoError(t, err)
+	require.False(t, needsOAuth)
+
 	server.Status.UserHasAuthenticated = true
 	needsOAuth, err = handler.serverNeedsOAuth(t.Context(), &server, mcp.ServerConfig{Runtime: types.RuntimeUVX})
 	require.NoError(t, err)

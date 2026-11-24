@@ -53,11 +53,12 @@ func TestReconcileProfiles(t *testing.T) {
 	require.Equal(t, a, current.Spec.Manifest.Profiles[0].ID)
 }
 
-// TestAgentOAuthGrantsAreDeletedWithTheirComponentAndVMCP checks, with the gateway database, that a vMCP's agent OAuth
-// grant is deleted, with its record in status, when its component leaves the vMCP, and every grant of the vMCP when
-// the vMCP is deleted, each audited as the system's; that changing or removing the profiles that grant a component
-// deletes no grant; and that no other vMCP's grant, and no user's or agent's own token, is ever deleted with them.
-func TestAgentOAuthGrantsAreDeletedWithTheirComponentAndVMCP(t *testing.T) {
+// TestPreconfiguredOAuthIsDeletedWithItsComponentAndVMCP checks, with the gateway database, that a vMCP's
+// preconfigured OAuth grant is deleted, with its record in status, when its component leaves the vMCP, and every grant
+// of the vMCP when the vMCP is deleted, each audited as the system's; that changing or removing the profiles that grant
+// a component deletes no grant; and that no other vMCP's grant, and no user's or agent's own token, is ever deleted
+// with them.
+func TestPreconfiguredOAuthIsDeletedWithItsComponentAndVMCP(t *testing.T) {
 	remote := func(id string) types.VMCPComponent {
 		return types.VMCPComponent{ID: id, Name: id, CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
 			Runtime:      types.RuntimeRemote,
@@ -82,12 +83,12 @@ func TestAgentOAuthGrantsAreDeletedWithTheirComponentAndVMCP(t *testing.T) {
 	require.NoError(t, database.AutoMigrate())
 	gatewayClient := gateway.New(t.Context(), database, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
-	store := vmcpconfig.NewAgentOAuthGrantStore(gatewayClient)
+	store := vmcpconfig.NewPreconfiguredOAuthStore(gatewayClient)
 	var removed []string
 	store.SetGrantRemovalRecorder(func(_ context.Context, vmcpID, componentID, reason string) {
 		removed = append(removed, vmcpID+"/"+componentID+": "+reason)
 	})
-	handler := &Handler{agentOAuthGrants: store}
+	handler := &Handler{preconfiguredOAuth: store}
 	current := func(vmcp *v1.VMCP) *v1.VMCP {
 		t.Helper()
 		stored := &v1.VMCP{}
@@ -111,7 +112,7 @@ func TestAgentOAuthGrantsAreDeletedWithTheirComponentAndVMCP(t *testing.T) {
 	}
 	hasGrant := func(vmcp *v1.VMCP, componentID string) bool {
 		t.Helper()
-		_, err := gatewayClient.GetMCPOAuthToken(t.Context(), principal.AgentOAuthGrantOwner(vmcp.Name), vmcpconfig.AgentOAuthGrantMCPID(vmcp.Name, componentID), "https://"+componentID+".example.com/mcp")
+		_, err := gatewayClient.GetMCPOAuthToken(t.Context(), principal.PreconfiguredOAuthOwner(vmcp.Name), vmcpconfig.PreconfiguredOAuthMCPID(vmcp.Name, componentID), "https://"+componentID+".example.com/mcp")
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false
 		}
@@ -141,7 +142,7 @@ func TestAgentOAuthGrantsAreDeletedWithTheirComponentAndVMCP(t *testing.T) {
 	stored.Spec.Manifest.Profiles = stored.Spec.Manifest.Profiles[:1]
 	require.NoError(t, client.Update(t.Context(), stored))
 	run(vmcp, handler.ReconcileProfiles)
-	stored = run(vmcp, handler.CollectAgentOAuthGrants)
+	stored = run(vmcp, handler.CollectPreconfiguredOAuth)
 	require.True(t, hasGrant(vmcp, "static"))
 	require.True(t, hasGrant(vmcp, "dynamic"))
 	require.ElementsMatch(t, []string{"static", "dynamic"}, grantRecords(stored))
@@ -150,7 +151,7 @@ func TestAgentOAuthGrantsAreDeletedWithTheirComponentAndVMCP(t *testing.T) {
 	// Removing a component deletes its grant, and its record.
 	stored.Spec.Manifest.Components = stored.Spec.Manifest.Components[:1]
 	require.NoError(t, client.Update(t.Context(), stored))
-	stored = run(vmcp, handler.CollectAgentOAuthGrants)
+	stored = run(vmcp, handler.CollectPreconfiguredOAuth)
 	require.False(t, hasGrant(vmcp, "dynamic"))
 	require.True(t, hasGrant(vmcp, "static"))
 	require.Equal(t, []string{"static"}, grantRecords(stored))
@@ -158,17 +159,17 @@ func TestAgentOAuthGrantsAreDeletedWithTheirComponentAndVMCP(t *testing.T) {
 	requireOthersKept()
 
 	// Deleting the vMCP deletes every grant it holds, and can run again.
-	run(vmcp, handler.RemoveAgentOAuthGrants)
+	run(vmcp, handler.RemovePreconfiguredOAuth)
 	require.False(t, hasGrant(vmcp, "static"))
 	require.Equal(t, []string{"vmcp1grants/dynamic: component removed", "vmcp1grants/static: vMCP deleted"}, removed)
-	run(vmcp, handler.RemoveAgentOAuthGrants)
+	run(vmcp, handler.RemovePreconfiguredOAuth)
 	require.Len(t, removed, 2, "a grant already deleted was audited again")
 	requireOthersKept()
 }
 
 func grantRecords(vmcp *v1.VMCP) []string {
 	var records []string
-	for _, record := range vmcp.Status.AgentOAuthGrants {
+	for _, record := range vmcp.Status.PreconfiguredOAuth {
 		records = append(records, record.ComponentID)
 	}
 	return records

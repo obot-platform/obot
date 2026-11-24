@@ -6,9 +6,6 @@ import (
 )
 
 var (
-	everyone   = Subject{Type: SubjectTypeSelector, ID: SubjectWildcardID}
-	everyUser  = Subject{Type: SubjectTypeUser, ID: SubjectWildcardID}
-	everyAgent = Subject{Type: SubjectTypeAgent, ID: SubjectWildcardID}
 	agentSeven = Subject{Type: SubjectTypeAgent, ID: "7"}
 	someGroup  = Subject{Type: SubjectTypeGroup, ID: "engineering"}
 )
@@ -76,47 +73,6 @@ func TestVMCPManifestValidateProfileIDsAndAgents(t *testing.T) {
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("Validate() = %v, want error containing %q", err, tc.wantErr)
-			}
-		})
-	}
-}
-
-func TestVMCPProfileIsAgentCapable(t *testing.T) {
-	for _, tc := range []struct {
-		name    string
-		profile VMCPProfile
-		want    bool
-	}{
-		{
-			name:    "explicit agent",
-			profile: profileWith("a", someGroup, agentSeven),
-			want:    true,
-		},
-		{
-			name:    "explicit agent and every user",
-			profile: profileWith("a", everyone, agentSeven),
-			want:    true,
-		},
-		{
-			name:    "every user",
-			profile: profileWith("a", everyone),
-		},
-		{
-			name:    "stored agent wildcard",
-			profile: profileWith("a", everyAgent),
-		},
-		{
-			name:    "user wildcard",
-			profile: profileWith("a", everyUser),
-		},
-		{
-			name:    "group",
-			profile: profileWith("a", someGroup),
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := tc.profile.IsAgentCapable(); got != tc.want {
-				t.Fatalf("IsAgentCapable() = %t, want %t", got, tc.want)
 			}
 		})
 	}

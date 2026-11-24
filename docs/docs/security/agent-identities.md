@@ -3,7 +3,7 @@ title: "Agent identities"
 description: Give automation its own identity, API keys, policy grants, and audit trail, independent of any user.
 ---
 
-An agent identity is a non-human identity for automation, such as a CI job, a scheduled task, or a service that calls MCP servers and models with no user present. An administrator creates the agent, grants it access through policies, and issues API keys that authenticate as the agent. The agent's access and audit history belong to the agent, not to the person who created it, and the upstream OAuth grants it uses belong to the vMCP.
+An agent identity is a non-human identity for automation, such as a CI job, a scheduled task, or a service that calls MCP servers and models with no user present. An administrator creates the agent, grants it access through policies, and issues API keys that authenticate as the agent. The agent's access and audit history belong to the agent, not to the person who created it, and the upstream OAuth accounts it uses are preconfigured on the vMCP.
 
 ## How agents differ from other identities {#concepts}
 
@@ -18,7 +18,7 @@ Agents differ from users in these ways:
 
 - **No roles, groups, or sign-in.** An agent is never an administrator or an auditor, can't use the Obot UI, and never matches a group subject or **All Obot Users**. Its access comes only from the policies that name it by ID.
 - **Independent of people.** Each agent records the administrator who created it, but that person grants it nothing. Changing or deleting that user doesn't change the agent.
-- **Headless.** Agents use only the configuration that a vMCP or its catalog entry fixes for everyone. When a vMCP needs upstream OAuth, an administrator authorizes it in the vMCP's [agent setup](../mcp-gateway/agent-setup.md#agent-setup) ahead of time, once per component. An agent is never asked to sign in. When setup is missing, the agent gets a `409` that names what is missing.
+- **Headless.** Agents use only the configuration that a vMCP or its catalog entry fixes for everyone. When a vMCP component needs upstream OAuth, an administrator [preconfigures](../mcp-gateway/server-types.md#preconfigured-oauth) it ahead of time, with one account that every user and agent of the vMCP uses. An agent is never asked to sign in. When setup is missing, the agent gets a `409` that names what is missing.
 - **Limited routes.** An agent key reaches only the LLM gateway, skill discovery and download, and vMCP connections. It never reaches the Obot admin API, user routes, or device APIs, whatever its scopes.
 
 Agent identities aren't the same thing as user API keys. A user API key acts as its user, with that user's roles and grants. Before agent identities existed, user API keys were called *agent identities* and *agent authorization scopes* in the UI. They're now under **Identity & Access > API Keys**. See [Agent authorization scopes](../functionality/agent-auth-scopes.md).
@@ -100,7 +100,7 @@ There is no option for all agents, and the API refuses `{"type": "agent", "id": 
 
 Grants add up, as they do for users. An agent named by several model access policies can use the models of each, and their budgets and applied guardrails all apply. An agent named by several profiles of a vMCP gets the components and tools of each. Grant changes apply to the agent's existing keys at once. Keys don't need to be reissued.
 
-The upstream OAuth grants agents use belong to the vMCP, not to a profile: one per component, which every agent granted that component uses. See [Authorize OAuth](../mcp-gateway/agent-setup.md#oauth).
+The upstream OAuth that agents use belongs to the vMCP, not to a profile: its [preconfigured OAuth](../mcp-gateway/server-types.md#preconfigured-oauth), one account per component, which every user and agent of the vMCP uses. See [Upstream OAuth](../mcp-gateway/agent-setup.md#oauth).
 
 MCP access policies (catalog access control rules) and message policies don't apply to agents and can't name them. An agent reaches MCP servers only through vMCP profiles.
 
@@ -110,7 +110,7 @@ The agent's page shows:
 
 - **Access**: every vMCP profile, LLM gateway policy and skill access rule that names the agent.
 - **Problems**: a key with LLM access but no LLM gateway policy that names the agent, so every LLM request is refused; or a key with skill access but no skill access rule, so the agent sees no skills.
-- **vMCP readiness**: for each vMCP with a profile that names the agent, whether it can connect now, and if not, what is missing, with a link to the vMCP's **Agent setup**. Readiness covers the components that the agent's profiles grant, and runs the same checks as a connection, at the moment you look.
+- **vMCP readiness**: for each vMCP with a profile that names the agent, whether it can connect now, and if not, what is missing, with a link to the component's settings in the vMCP designer. Components whose [preconfigured OAuth](../mcp-gateway/server-types.md#preconfigured-oauth) works are marked **Preconfigured**. Readiness covers the components that the agent's profiles grant, and runs the same checks as a connection, at the moment you look.
 
 The same information is in the API (`GET /api/agents/{agent_id}/access`, `GET /api/agents/{agent_id}/vmcps`, and `GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness`). See the [reference](../reference/agent-identities.md#api).
 
@@ -139,7 +139,7 @@ Agent keys can't call `/api/me` or other Obot API routes. Test a key with the ro
 - Removes its vMCP connections and the servers dedicated to it, with their credentials and tokens.
 - Keeps its audit and usage history, which still shows the agent's name.
 - Leaves policies alone. Subjects that name a deleted agent stay in place, match nobody, and show as **Deleted agent (ID)**, as a deleted user's subjects do. Agent IDs are never reused. Remove the subjects when you tidy up the policies.
-- Leaves vMCP agent OAuth grants alone. They belong to the vMCP and keep serving the other agents granted their components.
+- Leaves the vMCP's preconfigured OAuth alone. It belongs to the vMCP, and the vMCP's users and other agents keep using it.
 
 From the CLI, use `obot agents disable`, `obot agents enable`, and `obot agents delete`.
 
@@ -147,7 +147,7 @@ From the CLI, use `obot agents disable`, `obot agents enable`, and `obot agents 
 
 LLM gateway and MCP audit logs attribute an agent's requests to the agent and the key it used, with an **Agent** badge, and you can filter by actor kind or by agent. MCP audit records also name the vMCP, the component, and every profile that names the agent. Usage reports and budgets count each agent separately.
 
-Changes to agents, their keys, the policies and profiles that name agents, and vMCPs' agent OAuth grants are recorded in the admin change history. The agent's page shows its history. These records never contain configuration values, tokens, API key secrets, or configured URLs. See [Audit fields](../reference/agent-identities.md#audit).
+Changes to agents, their keys, the policies and profiles that name agents, and vMCPs' preconfigured OAuth are recorded in the admin change history. The agent's page shows its history. These records never contain configuration values, tokens, API key secrets, or configured URLs. See [Audit fields](../reference/agent-identities.md#audit).
 
 ## With authentication off {#authentication-off}
 
@@ -159,7 +159,7 @@ Versions of Obot without agent identities refuse to save policies that name agen
 
 1. Disable every agent, so none of their keys authenticate.
 2. Remove agents from model access policies, skill access rules, vMCP profiles and MCP guardrail filters.
-3. Revoke the agent OAuth grants of every vMCP, under **Agent setup** on each vMCP's page. Do this before downgrading: older versions ignore these tokens, which would stay stored.
+3. Revoke the preconfigured OAuth of every vMCP component, in the component's settings in the vMCP designer. Do this before downgrading: older versions ignore these tokens, which would stay stored. After the downgrade, users authorize those components with their own accounts.
 4. Delete the agents.
 5. Downgrade, following [Upgrades and rollback](../operations/upgrades.md#rollback).
 
@@ -173,10 +173,10 @@ Leave the database as it is. The tables and columns that agent identities added 
 - **No user daily token limits.** Users' personal daily token limits, including the per-user limit of the *Daily token limit* budget, don't apply to agents. Agents get the budget's own limits. Budgets that exempt administrators never exempt an agent.
 - **Agent IDs in catalog YAML are per deployment.** Catalog-synced vMCPs can name agents by ID, but an ID names a different agent, or none, in another deployment, and `obot mcp validate-catalog` can't check that it exists. See [Catalog-synced vMCPs](../mcp-gateway/agent-setup.md#catalog-vmcps).
 - **No configuration for agents.** Agents get only values that the vMCP or its catalog entry fixes for everyone. A component that needs a value a user would enter, including a configurable server URL the vMCP doesn't fix, keeps agents off the vMCP until the value is fixed or the component is no longer granted. See [Configuration](../mcp-gateway/agent-setup.md#configuration).
-- **OAuth grants are per vMCP component.** Every agent granted a component uses the vMCP's one grant for it, so agents of a vMCP can't use different upstream accounts for the same component. Use separate vMCPs for that.
-- **OAuth grants are bound to a URL.** If the URL agents reach changes after the vMCP's grant was authorized, the grant shows as invalid until an administrator authorizes it again.
+- **One upstream account per vMCP component.** Every user and agent of a vMCP uses a component's preconfigured OAuth, so they can't use different upstream accounts for the same component. Use separate vMCPs for that.
+- **Preconfigured OAuth is bound to a URL.** If the component's URL changes after it was authorized, it shows as invalid until an administrator authorizes it again.
 - **Mid-stream errors carry no reason code.** When an upstream fails after an MCP response has started, the agent gets a JSON-RPC error without the `agent_oauth_required` code.
 - **Skill downloads aren't audited**, for agents or users.
-- **Some changes have no history.** Only changes made through the admin API are in the change history, plus grant invalidations and removals by Obot itself. Subject changes that arrive through catalog sync are not.
+- **Some changes have no history.** Only changes made through the admin API are in the change history, plus invalidations and removals of preconfigured OAuth by Obot itself. Subject changes that arrive through catalog sync are not.
 - **Guardrail conditions in the UI.** The guardrail condition editor doesn't yet suggest the `principal.kind` and `principal.id` variables, but conditions can use them. See [CEL variables](../reference/agent-identities.md#cel).
-- **No CLI for agent setup.** Agent OAuth grants are managed in the UI or through the API. The CLI manages only agents and keys.
+- **No CLI for preconfigured OAuth.** It's managed in the UI or through the API. The CLI manages only agents and keys.

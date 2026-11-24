@@ -52,8 +52,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	})
 
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
-	oauthChecker.SetAgentOAuthGrants(services.VMCPAgentOAuthGrants)
-	vmcpAgentOAuth := handlers.NewVMCPAgentOAuthHandler(oauthChecker, services.VMCPAgentOAuthGrants)
+	oauthChecker.SetPreconfiguredOAuth(services.VMCPPreconfiguredOAuth)
+	vmcpPreconfiguredOAuth := handlers.NewVMCPPreconfiguredOAuthHandler(oauthChecker, services.VMCPPreconfiguredOAuth)
 
 	mcpGateway, err := mcpgateway.NewHandler(
 		ctx,
@@ -228,7 +228,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/components/{component_id}/configuration-presence", vmcps.ConfigurationPresence)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/deconfigure", vmcps.Deconfigure)
 	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}", vmcps.Delete)
-	vmcpAgentOAuth.RegisterRoutes(mux.HandleFunc)
+	vmcpPreconfiguredOAuth.RegisterRoutes(mux.HandleFunc)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews", mcpCatalogs.GenerateVMCPComponentToolPreviews)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateVMCPComponentToolPreviewsOAuthURL)
 

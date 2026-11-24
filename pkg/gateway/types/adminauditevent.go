@@ -33,17 +33,17 @@ const (
 	AdminAuditActionSkillAccessRuleSubjectsUpdate   = "skill_access_rule.subjects.update"
 	AdminAuditActionVMCPProfileSubjectsUpdate       = "vmcp.profile.subjects.update"
 
-	// The agent OAuth grants of a vMCP are recorded against the vMCP (AdminAuditResourceVMCP), with the component in
-	// the details.
-	AdminAuditActionVMCPAgentOAuthAuthorize  = "vmcp.agent_oauth.authorize"
-	AdminAuditActionVMCPAgentOAuthRevoke     = "vmcp.agent_oauth.revoke"
-	AdminAuditActionVMCPAgentOAuthInvalidate = "vmcp.agent_oauth.invalidate"
-	AdminAuditActionVMCPAgentOAuthDelete     = "vmcp.agent_oauth.delete"
+	// The preconfigured OAuth grants of a vMCP are recorded against the vMCP (AdminAuditResourceVMCP), with the component
+	// in the details.
+	AdminAuditActionVMCPPreconfiguredOAuthAuthorize  = "vmcp.preconfigured_oauth.authorize"
+	AdminAuditActionVMCPPreconfiguredOAuthRevoke     = "vmcp.preconfigured_oauth.revoke"
+	AdminAuditActionVMCPPreconfiguredOAuthInvalidate = "vmcp.preconfigured_oauth.invalidate"
+	AdminAuditActionVMCPPreconfiguredOAuthDelete     = "vmcp.preconfigured_oauth.delete"
 )
 
 // AdminAuditEvent records one change an administrator, or Obot on its own, made to something that decides what agents
-// can do: agents, their API keys, the policies and profiles that name them, and the agent OAuth grants of vMCPs. The
-// table is append-only, and an event outlives what it names: deleting an agent keeps its events.
+// can do: agents, their API keys, the policies and profiles that name them, and the preconfigured OAuth grants of
+// vMCPs. The table is append-only, and an event outlives what it names: deleting an agent keeps its events.
 //
 // Details never carries a secret value: it names profile and component IDs, subject changes, scopes and hostnames,
 // but never a configuration value, a token, an API key's secret or a configured URL.
@@ -53,7 +53,7 @@ type AdminAuditEvent struct {
 	// ActorUserID is the ID of the administrator who made the change, as the authenticator knows them (the decimal
 	// user ID, or the bootstrap administrator's own ID), or AdminAuditActorSystem.
 	ActorUserID string `json:"actorUserID" gorm:"index"`
-	// Action is what was done, such as agent.create or vmcp.agent_oauth.authorize.
+	// Action is what was done, such as agent.create or vmcp.preconfigured_oauth.authorize.
 	Action string `json:"action"`
 	// ResourceKind is one of the AdminAuditResource constants. ResourceID is its ID: an agent's, an API key's, a
 	// vMCP's, a profile's, or a policy's name.

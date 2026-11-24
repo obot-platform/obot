@@ -74,8 +74,8 @@ export interface AgentIdentityAccess {
 
 export type AgentReadinessCode = 'configuration_required' | 'oauth_required' | 'oauth_invalid';
 
-// Every reason is fixed on the vMCP's agent setup: a value fixed on the vMCP or its catalog entry, or
-// an OAuth grant authorized there.
+// Every reason is fixed in the component's settings in the vMCP editor: a configuration value fixed on
+// the vMCP (or on the component's catalog entry), or the component's preconfigured OAuth.
 export interface AgentReadinessReason {
 	componentID?: string;
 	code: AgentReadinessCode;
@@ -89,6 +89,8 @@ export interface AgentVMCPReadiness {
 	ready: boolean;
 	disabled: boolean;
 	reasons: AgentReadinessReason[];
+	// The components the agent is granted whose preconfigured OAuth on the vMCP works, by ID.
+	preconfiguredComponents: string[];
 }
 
 // An entry of the admin change audit (apiclient/types/adminauditevent.go).

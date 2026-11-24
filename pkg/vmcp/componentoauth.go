@@ -8,21 +8,21 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 )
 
-// The vMCP controller probes the remote components that agents reach, without any credential, to learn whether they
-// ask for OAuth, and records what it finds in the vMCP's status (v1.VMCPStatus.ComponentOAuth). That is how a
-// component that asks for OAuth, but whose catalog entry does not require static OAuth, is known to need it before
-// the vMCP holds a grant for it (requiresOAuth). Agent readiness, the vMCP's agent setup and the connect path only
+// The vMCP controller probes the remote components of shared vMCPs, without any credential, to learn whether they ask
+// for OAuth, and records what it finds in the vMCP's status (v1.VMCPStatus.ComponentOAuth). That is how a component
+// that asks for OAuth, but whose catalog entry does not require static OAuth, is known to need it before the vMCP holds
+// preconfigured OAuth for it (requiresOAuth). Agent readiness, the preconfigured OAuth state and the connect path only
 // read the record; none of them probe.
 
 // ComponentOAuthTargetHash identifies what a probe of a component of vmcp is for, and so whether a recorded probe
 // still counts for it (v1.VMCPComponentOAuth.TargetHash): the component's definition
-// (AgentOAuthGrantDefinitionHash), the catalog entry's static values, and the values the vMCP fixes for the
+// (PreconfiguredOAuthDefinitionHash), the catalog entry's static values, and the values the vMCP fixes for the
 // component, from which a URL that the definition does not fix is built. A change to any of them can change the URL,
 // so the component is probed again. It digests the fixed values' digest, never a value or the URL.
 func ComponentOAuthTargetHash(vmcp v1.VMCP, component types.VMCPComponent) string {
 	return utils.Digest([]any{
 		"vmcp-component-oauth-target/v1",
-		AgentOAuthGrantDefinitionHash(component),
+		PreconfiguredOAuthDefinitionHash(component),
 		component.CatalogEntry.Manifest.StaticConfigurationRevision,
 		vmcp.Spec.ComponentStaticConfigurationHashes[component.ID],
 	})

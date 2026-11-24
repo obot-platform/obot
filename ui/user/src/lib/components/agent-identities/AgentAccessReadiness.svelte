@@ -9,7 +9,7 @@
 	} from '$lib/services/agent-identities/types';
 	import { vmcpComponentName } from '$lib/services/vmcps/utils';
 	import { resolve } from '$lib/url';
-	import { vmcpAgentSetupHref } from '$lib/vmcpAgentSetupLinks';
+	import { vmcpComponentHref } from '$lib/vmcpComponentLinks';
 	import { CircleCheck, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -25,8 +25,8 @@
 	let readiness = $state<AgentVMCPReadiness[]>([]);
 	let loading = $state(true);
 	let failed = $state(false);
-	// The vMCPs whose components the reasons name, so that the components are named as the
-	// vMCP's agent setup names them. Until one loads, or if it cannot, its components show their IDs.
+	// The vMCPs whose components the reasons or the preconfigured components name, so that the
+	// components are named as the vMCP editor names them. Until one loads, or if it cannot, its components show their IDs.
 	let vmcps = $state<Record<string, VMCP>>({});
 
 	function loadVMCP(vmcpID: string) {
@@ -50,7 +50,12 @@
 			]);
 			failed = false;
 			for (const item of readiness) {
-				if (item.reasons.some((reason) => reason.componentID)) loadVMCP(item.vmcpID);
+				if (
+					item.preconfiguredComponents.length > 0 ||
+					item.reasons.some((reason) => reason.componentID)
+				) {
+					loadVMCP(item.vmcpID);
+				}
 			}
 		} catch {
 			failed = true;
@@ -64,15 +69,18 @@
 		untrack(load);
 	});
 
-	// Where an administrator acts on a reason: the vMCP's agent setup, at the component's OAuth button or,
-	// for configuration, at the component, whose values are fixed on the vMCP or its catalog entry.
-	// Profiles hold no agent setup.
+	// Where an administrator acts on a reason: the component's settings in the vMCP editor, on its
+	// preconfigured OAuth or, for a value agents can't set, on its configuration, where the value is
+	// fixed. Profiles hold nothing for agents.
 	function reasonHref(item: AgentVMCPReadiness, reason: AgentReadinessReason) {
 		const componentID = reason.componentID;
-		return vmcpAgentSetupHref(
+		return vmcpComponentHref(
 			item.vmcpID,
 			componentID
-				? { componentID, configuration: reason.code === 'configuration_required' }
+				? {
+						componentID,
+						settings: reason.code === 'configuration_required' ? 'configuration' : 'oauth'
+					}
 				: undefined
 		);
 	}
@@ -182,6 +190,19 @@
 											<a class="link w-fit" href={resolve(reasonHref(item, reason))}
 												>{m.identity_access_agents_reason_open_vmcp()}</a
 											>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+							{#if item.preconfiguredComponents.length > 0}
+								<!-- The components whose OAuth an administrator preconfigured on the vMCP, which the agent uses. -->
+								<ul class="flex flex-col gap-1 text-xs">
+									{#each item.preconfiguredComponents as componentID (componentID)}
+										<li class="flex items-center justify-between gap-2">
+											<span class="truncate">{componentName(item.vmcpID, componentID)}</span>
+											<span class="badge badge-info badge-soft badge-sm">
+												{m.identity_access_agents_readiness_preconfigured()}
+											</span>
 										</li>
 									{/each}
 								</ul>

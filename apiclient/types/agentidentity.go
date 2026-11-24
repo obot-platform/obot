@@ -120,17 +120,17 @@ const (
 	// names the key.
 	AgentReadinessConfigurationRequired = "configuration_required"
 	// AgentReadinessOAuthRequired is a reason an agent cannot use a vMCP: a component enabled for it requires OAuth, and
-	// the vMCP holds no agent OAuth grant for it.
+	// the vMCP holds no preconfigured OAuth for it.
 	AgentReadinessOAuthRequired = "oauth_required"
-	// AgentReadinessOAuthInvalid is a reason an agent cannot use a vMCP: the agent OAuth grant the vMCP holds for a
+	// AgentReadinessOAuthInvalid is a reason an agent cannot use a vMCP: the preconfigured OAuth the vMCP holds for a
 	// component enabled for it no longer works, and must be authorized again.
 	AgentReadinessOAuthInvalid = "oauth_invalid"
 )
 
 // AgentReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value. Every reason
 // is fixed on the vMCP: a configuration reason by setting the value as fixed on the vMCP or on the component's catalog
-// entry, or by no longer granting the component to the agent; an OAuth reason by authorizing the component in the
-// vMCP's agent setup.
+// entry, or by no longer granting the component to the agent; an OAuth reason by authorizing the component's
+// preconfigured OAuth, in its settings in the vMCP editor (VMCPPreconfiguredOAuth).
 type AgentReadinessReason struct {
 	// ComponentID is the component the reason is about.
 	ComponentID string `json:"componentID,omitempty"`
@@ -153,6 +153,11 @@ type AgentVMCPReadiness struct {
 	// Reasons are why the agent cannot use the vMCP, for the components that the profiles naming it grant. It is empty
 	// when it can.
 	Reasons []AgentReadinessReason `json:"reasons"`
+	// PreconfiguredComponents are the IDs of the components that the profiles naming the agent grant for which the
+	// vMCP holds preconfigured OAuth that works (VMCPPreconfiguredOAuth), checked as a connection checks it: the agent
+	// uses that account upstream. Preconfigured OAuth that no longer works is a reason (AgentReadinessOAuthInvalid)
+	// instead. It is empty when there are none.
+	PreconfiguredComponents []string `json:"preconfiguredComponents"`
 }
 
 type AgentVMCPReadinessList List[AgentVMCPReadiness]

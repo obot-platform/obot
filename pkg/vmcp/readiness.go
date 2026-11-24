@@ -16,7 +16,8 @@ const (
 	// AgentConfigurationRequiredError is the error of the 409 response to an agent whose vMCP lacks configuration it
 	// needs.
 	AgentConfigurationRequiredError = "agent_configuration_required"
-	// AgentOAuthRequiredError is the error of the 409 response to an agent whose vMCP lacks a working OAuth grant.
+	// AgentOAuthRequiredError is the error of the 409 response to an agent whose vMCP lacks working preconfigured OAuth
+	// for a component the agent is granted.
 	AgentOAuthRequiredError = "agent_oauth_required"
 )
 
@@ -52,6 +53,20 @@ type AgentNotReadyError struct {
 	Readiness Readiness
 }
 
+// PreconfiguredComponents returns the IDs of the components enabled for the agent for which the vMCP holds a grant
+// that works, as AgentReadiness checked it against the URL the agent reaches, in the order of Grants. It is never nil.
+// A grant that no longer works is a reason (types.AgentReadinessOAuthInvalid) rather than a preconfigured component,
+// and a component that is not enabled for the agent has no grant in the report.
+func (r AgentReadinessReport) PreconfiguredComponents() []string {
+	components := []string{}
+	for _, grant := range r.Grants {
+		if grant.Usable() {
+			components = append(components, grant.ComponentID)
+		}
+	}
+	return components
+}
+
 // Ready reports whether nothing keeps the agent from using the vMCP.
 func (r Readiness) Ready() bool {
 	return len(r.Reasons) == 0
@@ -83,18 +98,18 @@ func (e *AgentNotReadyError) Failure() AgentReadinessFailure {
 }
 
 // AgentReadiness reports whether agent can use vmcp through instance, its connection to it, or nil when it has not
-// connected, where grants is the store of agent OAuth grants. The connect path and the readiness API both call it,
-// with the same store, so they never disagree. It only checks the components enabled for the agent: the union of the
-// components that the profiles naming it grant (EnabledComponents), as for a user. It is computed anew on every call
-// from the vMCP's current state and the stored grants. It does not check access: an agent that no profile names has
-// no components enabled, and the caller must refuse it.
+// connected, where grants is the store of preconfigured OAuth grants. The connect path and the readiness API both call
+// it, with the same store, so they never disagree. It only checks the components enabled for the agent: the union of
+// the components that the profiles naming it grant (EnabledComponents), as for a user. It is computed anew on every
+// call from the vMCP's current state and the stored grants. It does not check access: an agent that no profile names
+// has no components enabled, and the caller must refuse it.
 //
 // A component is not ready while it needs a value that agents cannot be given, because neither the vMCP nor the
 // catalog entry fixes it (AgentMissingConfiguration), or while the vMCP's grant for it does not work, or it holds none
 // for a component known to need OAuth (ComponentOAuthGrant.ReadinessReasons). The grants are selected for every
 // component at once (SelectGrants), and each usable one is compared with the URL the agent reaches (checkGrantTarget).
-// The vMCP's agent setup (AgentSetup) reports the same reasons for each component.
-func AgentReadiness(ctx context.Context, grants *AgentOAuthGrantStore, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info) (AgentReadinessReport, error) {
+// The preconfigured OAuth state of a component (PreconfiguredOAuthStore.Status) checks its grant the same way.
+func AgentReadiness(ctx context.Context, grants *PreconfiguredOAuthStore, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info) (AgentReadinessReport, error) {
 	if !principal.IsAgent(agent) {
 		return AgentReadinessReport{}, fmt.Errorf("agent readiness is only for agents")
 	}
@@ -102,7 +117,7 @@ func AgentReadiness(ctx context.Context, grants *AgentOAuthGrantStore, vmcp v1.V
 		return AgentReadinessReport{}, fmt.Errorf("VMCP %q is personal, and agents only use shared VMCPs", vmcp.Name)
 	}
 	if grants == nil {
-		return AgentReadinessReport{}, fmt.Errorf("agent readiness needs the store of vMCP agent OAuth grants")
+		return AgentReadinessReport{}, fmt.Errorf("agent readiness needs the store of vMCP preconfigured OAuth grants")
 	}
 	var current v1.VMCPInstance
 	if instance != nil {
@@ -122,37 +137,4 @@ func AgentReadiness(ctx context.Context, grants *AgentOAuthGrantStore, vmcp v1.V
 		report.Readiness.Reasons = append(report.Readiness.Reasons, reasons...)
 	}
 	return report, nil
-}
-
-// AgentSetup reports what agents need from vmcp (types.VMCPAgentSetup): for each component that a profile naming an
-// agent grants (AgentGrantedComponents), whether it keeps the agents granted it from the vMCP, and why, with the
-// checks of AgentReadiness, and the vMCP's grant for it. Every agent granted a component that is not ready is not
-// ready, and an agent granted only ready components is. It never reads or returns a value or a token.
-func AgentSetup(ctx context.Context, grants *AgentOAuthGrantStore, vmcp v1.VMCP) (types.VMCPAgentSetup, error) {
-	if grants == nil {
-		return types.VMCPAgentSetup{}, fmt.Errorf("agent setup needs the store of vMCP agent OAuth grants")
-	}
-	components := AgentGrantedComponents(vmcp)
-	selected, err := grants.SelectGrants(ctx, vmcp, components)
-	if err != nil {
-		return types.VMCPAgentSetup{}, err
-	}
-	setup := types.VMCPAgentSetup{VMCPID: vmcp.Name, Components: make([]types.VMCPAgentSetupComponent, 0, len(components))}
-	for i, component := range components {
-		reasons, err := grants.componentReasons(ctx, vmcp, component, &selected[i])
-		if err != nil {
-			return types.VMCPAgentSetup{}, fmt.Errorf("check component %q for agent setup: %w", component.ID, err)
-		}
-		item := types.VMCPAgentSetupComponent{
-			ComponentID: component.ID,
-			Ready:       len(reasons) == 0,
-			Reasons:     append([]types.AgentReadinessReason{}, reasons...),
-		}
-		if ComponentUsesOAuth(component) {
-			status := selected[i].Status(component)
-			item.OAuth = &status
-		}
-		setup.Components = append(setup.Components, item)
-	}
-	return setup, nil
 }

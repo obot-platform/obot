@@ -488,7 +488,7 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 				mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 				&rest.Config{Host: "http://kubernetes.invalid"}, storageClient, storageClient, storageClient, gateway, system.DefaultNamespace, nil)
 			require.NoError(t, err)
-			manager.SetAgentOAuthGrants(vmcpaccess.NewAgentOAuthGrantStore(gateway))
+			manager.SetPreconfiguredOAuth(vmcpaccess.NewPreconfiguredOAuthStore(gateway))
 
 			request := httptest.NewRequest(http.MethodPost, "https://obot.example/mcp-connect/"+vmcp.Name, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`))
 			request.SetPathValue("mcp_id", vmcp.Name)

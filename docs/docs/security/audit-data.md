@@ -192,7 +192,7 @@ The overlap covers brief write and commit delays. This is best-effort delivery: 
 
 ### Admin Change Exports {#audit-log-export-admin-change-exports}
 
-The [admin change history](../reference/agent-identities.md#admin-audit) records changes to agents, their API keys, and the policies and profiles that name agents. To export it, go to Operations → Audit Logs and click "Admin Change Exports", then click "Add Export" → "Create One-time Export" or "Create Export Schedule". The forms are the same as above, with these differences:
+The [admin change history](../reference/agent-identities.md#admin-audit) records changes to agents, their API keys, the policies and profiles that name agents, and vMCPs' preconfigured OAuth. To export it, go to Operations → Audit Logs and click "Admin Change Exports", then click "Add Export" → "Create One-time Export" or "Create Export Schedule". The forms are the same as above, with these differences:
 
 - **Key Prefix**: If empty, defaults to `admin-audit-events/YYYY/MM/DD/`.
 - **Filters**: Resource kinds, actions, actors (users, or System for changes Obot makes itself), and resource IDs. The history has no free-text search.

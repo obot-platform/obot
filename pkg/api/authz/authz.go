@@ -216,8 +216,9 @@ var (
 		"GET /api/vmcps",
 		"GET /api/vmcps/{vmcp_id}",
 		"GET /api/vmcps/{vmcp_id}/components/{component_id}/configuration-presence",
-		// What agents need from a shared vMCP, from what is stored: it never carries a value or a token.
-		"GET /api/vmcps/{vmcp_id}/agent-setup",
+		// The state of a component's preconfigured OAuth, from what is stored: who authorized it and when, never a
+		// token.
+		"GET /api/vmcps/{vmcp_id}/components/{component_id}/preconfigured-oauth",
 		"GET /api/vmcp-instances",
 		"GET /api/vmcp-instances/",
 		"GET /api/all-mcps",
@@ -426,7 +427,7 @@ var (
 			"GET /api/vmcps/{vmcp_id}/resources/{resource_uri}",
 			"GET /api/vmcps/{vmcp_id}/prompts",
 			"GET /api/vmcps/{vmcp_id}/prompts/{prompt_name}",
-			"GET /api/vmcps/{vmcp_id}/agent-setup",
+			"GET /api/vmcps/{vmcp_id}/components/{component_id}/preconfigured-oauth",
 			"GET /api/vmcp-instances",
 			"GET /api/vmcp-instances/",
 			"/api/audit-log-exports",

@@ -106,10 +106,6 @@ export const handlers = [
 	http.get('/api/vmcps', () => HttpResponse.json({ items: [] })),
 	http.post('/api/vmcps/:vmcpID/reveal', () => HttpResponse.json({ components: {} })),
 	http.get('/api/vmcps/:vmcpID', () => new HttpResponse(null, { status: 404 })),
-	// The vMCP profile editor loads the agent setup of a saved profile, whichever spec renders it.
-	http.get('/api/vmcps/:vmcpID/profiles/:profileID/status', ({ params }) =>
-		HttpResponse.json({ profileID: params.profileID, agentCapable: false, components: [] })
-	),
 	http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [] })),
 	http.post('/api/vmcp-instances/:instanceID/reveal', () => HttpResponse.json({ components: {} })),
 	http.get('/api/vmcp-instances/:instanceID', () => new HttpResponse(null, { status: 404 })),

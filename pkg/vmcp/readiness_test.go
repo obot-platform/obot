@@ -10,6 +10,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/stretchr/testify/require"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -31,11 +32,11 @@ func (failingGrants) MCPOAuthGrantMetadata(context.Context, []string, []string) 
 // agentReadiness returns whether agent can use vmcp, which it has not connected to, on a vMCP that holds no grant.
 func agentReadiness(t *testing.T, vmcp v1.VMCP, agent kuser.Info) (Readiness, error) {
 	t.Helper()
-	return readinessWith(t, NewAgentOAuthGrantStore(newMemoryGrants()), vmcp, agent)
+	return readinessWith(t, NewPreconfiguredOAuthStore(newMemoryGrants()), vmcp, agent)
 }
 
 // readinessWith returns whether agent can use vmcp, which it has not connected to, with the grants of store.
-func readinessWith(t *testing.T, store *AgentOAuthGrantStore, vmcp v1.VMCP, agent kuser.Info) (Readiness, error) {
+func readinessWith(t *testing.T, store *PreconfiguredOAuthStore, vmcp v1.VMCP, agent kuser.Info) (Readiness, error) {
 	t.Helper()
 	report, err := AgentReadiness(t.Context(), store, vmcp, nil, agent)
 	return report.Readiness, err
@@ -264,7 +265,7 @@ func TestAgentReadinessChecksOnlyEnabledComponents(t *testing.T) {
 	instance := v1.VMCPInstance{Name: "vmcpi1agent", Spec: v1.VMCPInstanceSpec{UserID: "agent:7"}}
 
 	grants := newMemoryGrants()
-	report, err := AgentReadiness(t.Context(), NewAgentOAuthGrantStore(grants), vmcp, &instance, agent)
+	report, err := AgentReadiness(t.Context(), NewPreconfiguredOAuthStore(grants), vmcp, &instance, agent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +290,7 @@ func TestAgentReadinessChecksOnlyEnabledComponents(t *testing.T) {
 		t.Fatalf("readiness read grants %d times, want once for every component", grants.queries)
 	}
 
-	if _, err := AgentReadiness(t.Context(), NewAgentOAuthGrantStore(failingGrants{newMemoryGrants()}), vmcp, &instance, agent); err == nil {
+	if _, err := AgentReadiness(t.Context(), NewPreconfiguredOAuthStore(failingGrants{newMemoryGrants()}), vmcp, &instance, agent); err == nil {
 		t.Fatal("a store that cannot be read did not fail readiness")
 	}
 	if _, err := AgentReadiness(t.Context(), nil, vmcp, &instance, agent); err == nil {
@@ -297,60 +298,11 @@ func TestAgentReadinessChecksOnlyEnabledComponents(t *testing.T) {
 	}
 }
 
-// TestAgentReadinessFollowsTheProfilesThatNameIt checks that an agent's readiness covers the union of the components
-// its profiles grant, and changes with them: naming the agent in a second profile adds that profile's components and
-// what they need, the vMCP's grant for a component serves the agent whichever profile grants it the component, and
-// removing the agent from that profile takes away only what that profile granted.
-func TestAgentReadinessFollowsTheProfilesThatNameIt(t *testing.T) {
-	agent := agentInfo(7, nil)
-	vmcp := readinessVMCP(
-		[]types.VMCPComponent{staticOAuthComponent("oauth"), configuredComponent("configured"), readinessComponent("plain")},
-		agentNamingProfileFor(readinessAgent7Profile, "7", "plain"),
-		agentNamingProfileFor("vp1second", "8", "oauth", "configured"),
-	)
-	grants := newMemoryGrants()
-	store := NewAgentOAuthGrantStore(grants)
-	readiness := func() []ReadinessReason {
-		t.Helper()
-		readiness, err := readinessWith(t, store, vmcp, agent)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return readiness.Reasons
-	}
-	if got := readiness(); got != nil {
-		t.Fatalf("reasons before the second profile names the agent = %v, want none", got)
-	}
-
-	// Named by the second profile too, the agent is granted its components, and needs what they need.
-	vmcp.Spec.Manifest.Profiles[1].Subjects = append(vmcp.Spec.Manifest.Profiles[1].Subjects, types.Subject{Type: types.SubjectTypeAgent, ID: "7"})
-	want := []ReadinessReason{
-		{ComponentID: "oauth", Code: types.AgentReadinessOAuthRequired},
-		{ComponentID: "configured", Code: types.AgentReadinessConfigurationRequired, Field: "REGION"},
-	}
-	if got := readiness(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("reasons in two profiles = %#v, want %#v", got, want)
-	}
-
-	// The vMCP's grant for the component serves the agent, as it serves agent 8.
-	grants.put(principal.AgentOAuthGrantOwner(vmcp.Name), AgentOAuthGrantMCPID(vmcp.Name, "oauth"), "grant", "https://oauth.example.com/mcp")
-	want = want[1:]
-	if got := readiness(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("reasons with the vMCP's grant = %#v, want %#v", got, want)
-	}
-
-	// Removed from the second profile, the agent keeps only what the first grants it.
-	vmcp.Spec.Manifest.Profiles[1].Subjects = vmcp.Spec.Manifest.Profiles[1].Subjects[:1]
-	if got := readiness(); got != nil {
-		t.Fatalf("reasons after leaving the second profile = %v, want none", got)
-	}
-}
-
-// TestAgentSetup checks the vMCP's agent setup: it lists each component that a profile naming an agent grants, once and
-// in manifest order, whichever agents' profiles grant it, and no component that only a profile for every user grants,
-// with the reasons agent readiness reports for it, so that every agent's readiness is the setup's reasons for the
-// components the agent is granted. A vMCP whose profiles name no agent, and a personal vMCP, have none.
-func TestAgentSetup(t *testing.T) {
+// TestAgentReadinessAgreesWithPreconfiguredOAuthState checks that each agent's readiness reports, for the components
+// its profiles grant and no others, the reasons that follow from each component's preconfigured OAuth state, as an
+// administrator reads it, and from the configuration agents cannot be given; and that a store that cannot be read fails
+// the state rather than reporting a component as not needing OAuth.
+func TestAgentReadinessAgreesWithPreconfiguredOAuthState(t *testing.T) {
 	vmcp := readinessVMCP(
 		[]types.VMCPComponent{staticOAuthComponent("oauth"), configuredComponent("configured"), readinessComponent("plain"), configuredComponent("users-only")},
 		agentNamingProfileFor(readinessAgent7Profile, "7", "plain", "configured"),
@@ -358,71 +310,80 @@ func TestAgentSetup(t *testing.T) {
 		agentNamingProfileFor("vp1agent8", "8", "oauth", "plain"),
 		everyUserProfile(readinessUsersProfile),
 	)
-	store := NewAgentOAuthGrantStore(newMemoryGrants())
-	setup, err := AgentSetup(t.Context(), store, vmcp)
+	store := NewPreconfiguredOAuthStore(newMemoryGrants())
+	status, err := store.Status(t.Context(), vmcp, "oauth")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := types.VMCPAgentSetup{
-		VMCPID: vmcp.Name,
-		Components: []types.VMCPAgentSetupComponent{
-			{
-				ComponentID: "oauth",
-				Reasons:     []types.AgentReadinessReason{{ComponentID: "oauth", Code: types.AgentReadinessOAuthRequired}},
-				OAuth:       &types.VMCPAgentOAuthStatus{Required: true, State: types.VMCPAgentOAuthMissing},
-			},
-			{
-				ComponentID: "configured",
-				Reasons:     []types.AgentReadinessReason{{ComponentID: "configured", Code: types.AgentReadinessConfigurationRequired, Field: "REGION"}},
-			},
-			{
-				ComponentID: "plain",
-				Ready:       true,
-				Reasons:     []types.AgentReadinessReason{},
-			},
+	if want := (types.VMCPPreconfiguredOAuth{VMCPID: vmcp.Name, ComponentID: "oauth", State: types.VMCPPreconfiguredOAuthNeedsAuthorization}); !reflect.DeepEqual(status, want) {
+		t.Fatalf("status = %#v, want %#v", status, want)
+	}
+
+	oauthRequired := ReadinessReason{ComponentID: "oauth", Code: types.AgentReadinessOAuthRequired}
+	configurationRequired := ReadinessReason{ComponentID: "configured", Code: types.AgentReadinessConfigurationRequired, Field: "REGION"}
+	for agent, want := range map[uint][]ReadinessReason{
+		7: {oauthRequired, configurationRequired},
+		8: {oauthRequired},
+	} {
+		readiness, err := readinessWith(t, store, vmcp, agentInfo(agent, nil))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(readiness.Reasons, want) {
+			t.Fatalf("agent %d readiness = %#v, want %#v", agent, readiness.Reasons, want)
+		}
+	}
+
+	if _, err := NewPreconfiguredOAuthStore(failingGrants{newMemoryGrants()}).Status(t.Context(), vmcp, "oauth"); err == nil {
+		t.Fatal("a store that cannot be read did not fail the state")
+	}
+}
+
+// TestAgentReadinessPreconfiguredComponents checks that readiness lists as preconfigured exactly the components enabled
+// for the agent whose grant on the vMCP works: not one whose grant no longer works or was authorized for another URL,
+// which is a reason instead, not one the vMCP holds no grant for, and not one that only another agent is granted.
+func TestAgentReadinessPreconfiguredComponents(t *testing.T) {
+	vmcp := readinessVMCP(
+		[]types.VMCPComponent{
+			staticOAuthComponent("working"),
+			staticOAuthComponent("broken"),
+			staticOAuthComponent("moved"),
+			staticOAuthComponent("missing"),
+			staticOAuthComponent("ungranted"),
+			readinessComponent("plain"),
 		},
+		agentNamingProfileFor(readinessAgent7Profile, "7", "working", "broken"),
+		agentNamingProfileFor("vp1agent7more", "7", "moved", "missing", "plain"),
+		agentNamingProfileFor("vp1agent8", "8", "working", "ungranted"),
+	)
+	grants := newMemoryGrants()
+	owner := principal.PreconfiguredOAuthOwner(vmcp.Name)
+	for _, id := range []string{"working", "broken", "ungranted"} {
+		grants.put(owner, PreconfiguredOAuthMCPID(vmcp.Name, id), "grant-"+id, "https://"+id+".example.com/mcp")
 	}
-	if !reflect.DeepEqual(setup, want) {
-		t.Fatalf("setup = %#v, want %#v", setup, want)
-	}
+	grants.put(owner, PreconfiguredOAuthMCPID(vmcp.Name, "moved"), "grant-moved", "https://elsewhere.example.com/mcp")
+	grants.invalidate(owner, PreconfiguredOAuthMCPID(vmcp.Name, "broken"))
+	store := NewPreconfiguredOAuthStore(grants)
 
-	// Each agent's readiness is the setup's reasons for the components it is granted.
-	for _, agent := range []uint{7, 8} {
-		info := agentInfo(agent, nil)
-		var granted []ReadinessReason
-		for _, component := range setup.Components {
-			if len(EnabledComponents(info, vmcp, []types.VMCPComponent{{ID: component.ComponentID}})) == 1 {
-				granted = append(granted, component.Reasons...)
-			}
-		}
-		readiness, err := readinessWith(t, store, vmcp, info)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(readiness.Reasons, granted) {
-			t.Fatalf("agent %d readiness = %#v, want the setup's reasons %#v", agent, readiness.Reasons, granted)
-		}
-	}
+	report, err := AgentReadiness(t.Context(), store, vmcp, nil, agentInfo(7, nil))
+	require.NoError(t, err)
+	require.Equal(t, []string{"working"}, report.PreconfiguredComponents())
+	require.Equal(t, []ReadinessReason{
+		{ComponentID: "broken", Code: types.AgentReadinessOAuthInvalid},
+		{ComponentID: "moved", Code: types.AgentReadinessOAuthInvalid},
+		{ComponentID: "missing", Code: types.AgentReadinessOAuthRequired},
+	}, report.Readiness.Reasons)
 
-	usersOnly := readinessVMCP(vmcp.Spec.Manifest.Components, everyUserProfile(readinessUsersProfile))
-	personal := vmcp
-	personal.Spec.UserID = "1"
-	for name, other := range map[string]v1.VMCP{"no profile names an agent": usersOnly, "personal": personal} {
-		setup, err := AgentSetup(t.Context(), store, other)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(setup.Components) != 0 {
-			t.Fatalf("%s: setup lists %v, want nothing", name, setup.Components)
-		}
-	}
+	report, err = AgentReadiness(t.Context(), store, vmcp, nil, agentInfo(8, nil))
+	require.NoError(t, err)
+	require.True(t, report.Readiness.Ready())
+	require.Equal(t, []string{"working", "ungranted"}, report.PreconfiguredComponents())
 
-	if _, err := AgentSetup(t.Context(), NewAgentOAuthGrantStore(failingGrants{newMemoryGrants()}), vmcp); err == nil {
-		t.Fatal("a store that cannot be read did not fail the setup")
-	}
-	if _, err := AgentSetup(t.Context(), nil, vmcp); err == nil {
-		t.Fatal("the setup was computed without a store of grants")
-	}
+	// An agent that no profile names has nothing enabled, so nothing preconfigured either, and the list is empty
+	// rather than nil.
+	report, err = AgentReadiness(t.Context(), store, vmcp, nil, agentInfo(9, nil))
+	require.NoError(t, err)
+	require.Equal(t, []string{}, report.PreconfiguredComponents())
 }
 
 func TestAgentReadinessRefusesUsersAndPersonalVMCPs(t *testing.T) {

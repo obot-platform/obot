@@ -4,7 +4,7 @@ const (
 	AuditLogTypeMCP AuditLogType = "mcp"
 	AuditLogTypeLLM AuditLogType = "llm"
 	// AuditLogTypeAdmin exports the admin change audit: changes to agents, their API keys, the policies and profiles
-	// that name agents, and vMCPs' agent OAuth grants.
+	// that name agents, and vMCPs' preconfigured OAuth grants.
 	AuditLogTypeAdmin AuditLogType = "admin"
 
 	AuditLogExportStateRunning   AuditLogExportState = "running"

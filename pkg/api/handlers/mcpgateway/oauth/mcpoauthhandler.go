@@ -42,8 +42,8 @@ type MCPOAuthHandlerFactory struct {
 	secretBindingAllowedLabel string
 	cimdDocumentURL           string
 	resolveOAuthClient        func(context.Context, kclient.Client, string) (v1.OAuthClient, error)
-	// agentGrants stores the OAuth grants administrators authorize on shared vMCPs for agents.
-	agentGrants *vmcpconfig.AgentOAuthGrantStore
+	// preconfiguredOAuth stores the OAuth grants administrators preconfigure for the remote components of shared vMCPs.
+	preconfiguredOAuth *vmcpconfig.PreconfiguredOAuthStore
 }
 
 type mcpOAuthHandler struct {
@@ -66,9 +66,9 @@ type mcpOAuthHandler struct {
 	redirectURL       string
 	localLogin        bool
 
-	// agentGrant binds the authorization of a vMCP's agent OAuth grant to the administrator who started it and to the
-	// component's definition. It is nil for every other authorization.
-	agentGrant *agentGrantBinding
+	// preconfiguredOAuth binds the authorization of a vMCP component's preconfigured OAuth to the administrator who
+	// started it and to the component's definition. It is nil for every other authorization.
+	preconfiguredOAuth *preconfiguredOAuthBinding
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
@@ -123,8 +123,13 @@ func (f *MCPOAuthHandlerFactory) checkForMCPAuth(req api.Context, mcpServer v1.M
 			var pending bool
 
 			for _, requirement := range request.Spec.UpstreamOAuth {
-				if _, _, err := f.validateUpstreamRequirement(req, connections, requirement); err != nil {
+				_, cfg, err := f.validateUpstreamRequirement(req, connections, requirement)
+				if err != nil {
 					return "", err
+				}
+				if cfg.OAuthGrant != nil {
+					// Captured before the vMCP preconfigured OAuth for the component, which the user now uses instead.
+					continue
 				}
 
 				completed, err := reconcileCapturedRequirement(req, request.Name, requirement)
@@ -235,6 +240,11 @@ func (f *MCPOAuthHandlerFactory) checkForMCPAuth(req api.Context, mcpServer v1.M
 		return "", nil
 	} else if mcpServerConfig.Runtime != types.RuntimeRemote {
 		// Not a remote or vMCP server, no OAuth required
+		return "", nil
+	} else if mcpServerConfig.OAuthGrant != nil {
+		// The vMCP preconfigures OAuth for this component, which the connection uses in place of the caller's own: the
+		// caller never authorizes it. One that no longer works is an administrator's to authorize again, and the
+		// gateway says so when the component is reached.
 		return "", nil
 	}
 
@@ -492,8 +502,8 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, res
 	// the pending state from the DB directly.
 	ch := make(chan mcp.CallbackPayload)
 
-	if m.agentGrant != nil {
-		return state, ch, m.gatewayClient.CreateMCPOAuthGrantPendingState(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.agentGrant.initiatorUserID, m.agentGrant.definitionHash, state, verifier, resourceURL, conf)
+	if m.preconfiguredOAuth != nil {
+		return state, ch, m.gatewayClient.CreateMCPOAuthGrantPendingState(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.preconfiguredOAuth.initiatorUserID, m.preconfiguredOAuth.definitionHash, state, verifier, resourceURL, conf)
 	}
 	return state, ch, m.stateMgr.store(ctx, m.userID, m.initiatorUserID, m.mcpID, m.mcpURL, m.tunnelName, m.oauthAuthRequestID, state, verifier, resourceURL, conf, m.upstreamChallenge)
 }

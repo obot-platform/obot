@@ -23,10 +23,10 @@ const (
 	agentGrantURL = "https://provider.example.com/mcp"
 )
 
-// storeAgentGrant stores a vMCP's agent OAuth grant for a component, authorized by the user authorizedBy.
+// storeAgentGrant stores a vMCP's preconfigured OAuth grant for a component, authorized by the user authorizedBy.
 func storeAgentGrant(t *testing.T, gateway *gclient.Client, vmcpID, componentID, authorizedBy string) (string, string) {
 	t.Helper()
-	owner, mcpID := principal.AgentOAuthGrantOwner(vmcpID), vmcpconfig.AgentOAuthGrantMCPID(vmcpID, componentID)
+	owner, mcpID := principal.PreconfiguredOAuthOwner(vmcpID), vmcpconfig.PreconfiguredOAuthMCPID(vmcpID, componentID)
 	require.NoError(t, gateway.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, agentGrantURL, "grant-"+vmcpID+"-"+componentID, authorizedBy,
 		&oauth2.Config{ClientID: "client"}, &oauth2.Token{AccessToken: "token", RefreshToken: "refresh"}))
 	return owner, mcpID
@@ -39,10 +39,10 @@ func requireAgentGrant(t *testing.T, gateway *gclient.Client, owner, mcpID strin
 	require.Nil(t, grant.InvalidatedAt)
 }
 
-// TestUserCleanupKeepsAgentGrantsTheUserAuthorized checks that deleting the administrator who authorized a vMCP's agent
+// TestUserCleanupKeepsPreconfiguredOAuthTheUserAuthorized checks that deleting the administrator who authorized a vMCP's agent
 // OAuth grant deletes nothing of it: the grant is the vMCP's, keyed by the vMCP and component, and records the
 // administrator only as who authorized it.
-func TestUserCleanupKeepsAgentGrantsTheUserAuthorized(t *testing.T) {
+func TestUserCleanupKeepsPreconfiguredOAuthTheUserAuthorized(t *testing.T) {
 	userDelete := &v1.UserDelete{Name: "delete-user", Namespace: system.DefaultNamespace, Spec: v1.UserDeleteSpec{UserID: 1}}
 	builder := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(userDelete)
 	for _, obj := range []kclient.Object{
@@ -71,9 +71,10 @@ func TestUserCleanupKeepsAgentGrantsTheUserAuthorized(t *testing.T) {
 	require.Equal(t, "1", grant.AuthorizedBy)
 }
 
-// TestAgentCleanupKeepsAgentGrants checks that deleting an agent deletes no agent OAuth grant of any vMCP, even of a
-// vMCP whose profiles named only that agent: grants belong to the vMCP's components, which other agents may be granted.
-func TestAgentCleanupKeepsAgentGrants(t *testing.T) {
+// TestAgentCleanupKeepsPreconfiguredOAuth checks that deleting an agent deletes no preconfigured OAuth grant of any vMCP, even
+// of a vMCP whose profiles named only that agent: grants belong to the vMCP's components, which other agents may be
+// granted.
+func TestAgentCleanupKeepsPreconfiguredOAuth(t *testing.T) {
 	f := newAgentCleanupFixture(t, nil)
 	owner, mcpID := storeAgentGrant(t, f.gateway, "vmcp1shared", "component", "3")
 	otherOwner, otherMCPID := storeAgentGrant(t, f.gateway, "vmcp1other", "component", "3")

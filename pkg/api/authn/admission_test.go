@@ -389,11 +389,11 @@ func TestAdmissionCheckRefusesAsUnavailableWhenRestrictionCantBeRead(t *testing.
 	}
 }
 
-// TestAdmissionCheckRefusesAgentOAuthGrantOwners checks that no caller is ever admitted as the owner of a vMCP's agent
+// TestAdmissionCheckRefusesPreconfiguredOAuthOwners checks that no caller is ever admitted as the owner of a vMCP's agent
 // OAuth grants, whatever kind, status or groups its authenticator recorded: such an owner stands for a vMCP's grants,
 // and must never be able to read or use them as its own.
-func TestAdmissionCheckRefusesAgentOAuthGrantOwners(t *testing.T) {
-	owner := principal.AgentOAuthGrantOwner("vmcp1abc")
+func TestAdmissionCheckRefusesPreconfiguredOAuthOwners(t *testing.T) {
+	owner := principal.PreconfiguredOAuthOwner("vmcp1abc")
 	for _, tt := range []struct {
 		name string
 		resp *authenticator.Response
@@ -418,7 +418,7 @@ func TestAdmissionCheckRefusesAgentOAuthGrantOwners(t *testing.T) {
 		},
 		{
 			name: "malformed",
-			resp: principalWith("vmcp-agent-oauth:anything/else", []string{types2.GroupTunnel}, nil),
+			resp: principalWith("vmcp-oauth:anything/else", []string{types2.GroupTunnel}, nil),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -426,7 +426,7 @@ func TestAdmissionCheckRefusesAgentOAuthGrantOwners(t *testing.T) {
 				resp: tt.resp,
 				ok:   true,
 			}, nil).AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/api/me", nil))
-			if !errors.Is(err, errAgentOAuthGrantCaller) || ok || resp != nil {
+			if !errors.Is(err, errPreconfiguredOAuthCaller) || ok || resp != nil {
 				t.Fatalf("got %v, %v, %v; want the caller refused", resp, ok, err)
 			}
 		})

@@ -594,10 +594,10 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return fmt.Errorf("failed to get pending state: %w", err)
 	}
 
-	// An administrator's authorization of a vMCP's agent OAuth grant is completed for the vMCP, never for whoever holds
-	// the state, and only by its administrator.
-	if principal.IsAgentOAuthGrantOwner(pending.UserID) {
-		return h.oauthChecker.completeAgentOAuthGrantCallback(req, pending)
+	// An administrator's authorization of a vMCP's preconfigured OAuth grant is completed for the vMCP, never for whoever
+	// holds the state, and only by its administrator.
+	if principal.IsPreconfiguredOAuthOwner(pending.UserID) {
+		return h.oauthChecker.completePreconfiguredOAuthCallback(req, pending)
 	}
 
 	if err := h.oauthChecker.validateCapturedCallback(req, pending); err != nil {

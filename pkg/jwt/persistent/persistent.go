@@ -486,10 +486,10 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 		return nil, "", fmt.Errorf("audience is required")
 	}
 
-	// The owner of a vMCP's agent OAuth grants stands for a vMCP's grants, never for a caller, so no token is issued for
-	// it, even one that would never authenticate.
-	if principal.IsAgentOAuthGrantOwner(context.UserID) {
-		return nil, "", fmt.Errorf("token subject %q is a vMCP agent OAuth grant owner", context.UserID)
+	// The owner of a vMCP's preconfigured OAuth grants stands for a vMCP's grants, never for a caller, so no token is
+	// issued for it, even one that would never authenticate.
+	if principal.IsPreconfiguredOAuthOwner(context.UserID) {
+		return nil, "", fmt.Errorf("token subject %q is a vMCP preconfigured OAuth grant owner", context.UserID)
 	}
 
 	// The token records the kind of its subject, so that it authenticates only as a principal of that kind. A

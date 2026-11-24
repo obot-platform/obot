@@ -52,7 +52,7 @@ sequenceDiagram
     O-->>C: Obot access and refresh tokens
 ```
 
-The upstream authorization step is skipped when it is unnecessary or an existing authorization is usable. The client receives Obot tokens; upstream credentials remain with Obot.
+The upstream authorization step is skipped when it is unnecessary, when an existing authorization is usable, or when an administrator [preconfigured OAuth](../mcp-gateway/server-types.md#preconfigured-oauth) for the component, which every user of the vMCP then uses. The client receives Obot tokens; upstream credentials remain with Obot.
 
 ### Authorizing MCP Requests
 

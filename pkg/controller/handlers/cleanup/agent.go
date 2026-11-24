@@ -22,8 +22,8 @@ import (
 // As for a deleted user, the deleted agent's subjects stay in vMCP profiles, model access policies, skill access
 // rules and guardrail filters, where they match nobody, because the agent can never authenticate again and agent IDs
 // are never reused. Its MCP OAuth tokens go with the servers and connections whose deletion removes users' tokens,
-// and pending authorizations and challenges expire as users' do. The agent OAuth grants it used are the vMCPs',
-// keyed by them, and are kept. Audit, usage and budget usage rows are history and
+// and pending authorizations and challenges expire as users' do. The preconfigured OAuth grants it used are the
+// vMCPs', keyed by them, and are kept. Audit, usage and budget usage rows are history and
 // are kept, and the soft-deleted agent row keeps them resolvable.
 //
 // Every step is idempotent, and the event object is deleted only after every step succeeded, so a handler that fails

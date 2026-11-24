@@ -92,7 +92,7 @@ func TestProbedOAuthRequirement(t *testing.T) {
 // it from the vMCP: once the vMCP controller's probe found that it asks for OAuth, or once the vMCP holds a grant for
 // it, which proves it does (a server that challenges only late), and the vMCP holds no working grant for it. A probe
 // that failed, one that found no OAuth, or none at all, never blocks an agent. Every agent granted the component gets
-// the same answer, and so does the vMCP's agent setup.
+// the same answer, and the component's preconfigured OAuth state agrees.
 func TestAgentReadinessUsesProbedOAuthRequirement(t *testing.T) {
 	dynamic := oauthComponent("dynamic")
 	url := dynamic.CatalogEntry.Manifest.RemoteConfig.FixedURL
@@ -158,91 +158,52 @@ func TestAgentReadinessUsesProbedOAuthRequirement(t *testing.T) {
 			if tt.invalid {
 				grants.invalidate(grantOwner(), grantMCPID("dynamic"))
 			}
-			store := NewAgentOAuthGrantStore(grants)
+			store := NewPreconfiguredOAuthStore(grants)
 			for _, agent := range []uint{7, 9} {
 				readiness, err := readinessWith(t, store, vmcp, agentInfo(agent, nil))
 				require.NoError(t, err)
 				require.Equal(t, tt.want, readiness.Reasons, "agent %d", agent)
 			}
-			setup, err := AgentSetup(t.Context(), store, vmcp)
+			// The component's preconfigured OAuth state, as an administrator sees it, agrees.
+			status, err := store.Status(t.Context(), vmcp, "dynamic")
 			require.NoError(t, err)
-			require.Len(t, setup.Components, 1)
-			require.Equal(t, tt.wantRequired, setup.Components[0].OAuth.Required)
-			require.Equal(t, len(tt.want) == 0, setup.Components[0].Ready)
+			wantState := types.VMCPPreconfiguredOAuthNotRequired
+			switch {
+			case tt.invalid:
+				wantState = types.VMCPPreconfiguredOAuthInvalid
+			case tt.grant:
+				wantState = types.VMCPPreconfiguredOAuthAuthorized
+			case tt.wantRequired:
+				wantState = types.VMCPPreconfiguredOAuthNeedsAuthorization
+			}
+			require.Equal(t, wantState, status.State)
 		})
 	}
 }
 
-// TestAgentSetupCoversOnlyAgentGrantedComponents checks that the vMCP's agent setup lists the components that profiles
-// naming agents grant, all of them with allowAllComponents and those named in allowedComponents otherwise, the union
-// over every such profile, and no component that only a profile for every user grants, even one the vMCP holds a grant
-// for.
-func TestAgentSetupCoversOnlyAgentGrantedComponents(t *testing.T) {
-	only := func(componentIDs ...string) types.VMCPProfilePermissions {
-		allowed := map[string]types.VMCPComponentSet{}
-		for _, id := range componentIDs {
-			allowed[id] = types.VMCPComponentSet{}
-		}
-		return types.VMCPProfilePermissions{AllowedComponents: allowed}
+// TestEveryRemoteComponentCanBePreconfigured checks that every remote component of a shared vMCP can hold preconfigured
+// OAuth, and is probed for OAuth, whichever profiles grant it, to agents, to users or to no one, and that its state can
+// be read; and that a personal vMCP has no such component. PreconfiguredOAuthTarget covers the components refused.
+func TestEveryRemoteComponentCanBePreconfigured(t *testing.T) {
+	// Agent 7 is granted only the component that needs no OAuth, agent 9 only the static one, and no one the dynamic one.
+	vmcp := grantTestVMCP(agentNamingProfileFor(grantAgent7, "7", "local"), agentNamingProfileFor(grantAgent9, "9", "static"))
+	listed := []string{}
+	for _, component := range PreconfigurableComponents(vmcp) {
+		listed = append(listed, component.ID)
 	}
-	for _, tt := range []struct {
-		name string
-		// permissions7 and permissions9 are what the profiles of agents 7 and 9 grant.
-		permissions7 types.VMCPProfilePermissions
-		permissions9 types.VMCPProfilePermissions
-		want         []string
-	}{
-		{
-			name:         "allowAllComponents",
-			permissions7: types.VMCPProfilePermissions{AllowAllComponents: true},
-			want:         []string{"static", "dynamic", "local"},
-		},
-		{
-			name:         "allowedComponents",
-			permissions7: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"dynamic": {}, "local": {AllowedTools: []string{"tool"}}}},
-			want:         []string{"dynamic", "local"},
-		},
-		{
-			// An entry that grants no tools still grants the component.
-			name:         "a component granted no tools",
-			permissions7: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"static": {AllowedTools: []string{}}}},
-			want:         []string{"static"},
-		},
-		{
-			name:         "the union of two agents' profiles",
-			permissions7: only("local"),
-			permissions9: only("static", "local"),
-			want:         []string{"static", "local"},
-		},
-		{
-			name: "no component",
-			want: []string{},
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			seven, nine := agentNamingProfile(grantAgent7, "7"), agentNamingProfile(grantAgent9, "9")
-			seven.Permissions, nine.Permissions = tt.permissions7, tt.permissions9
-			vmcp := grantTestVMCP(seven, nine, everyUserProfile(grantUsers))
-			grants := newMemoryGrants()
-			// The vMCP keeps its grants for components that no agent is granted any more, and they are not reported.
-			for _, componentID := range []string{"static", "dynamic"} {
-				grants.put(grantOwner(), grantMCPID(componentID), "grant-"+componentID, "https://"+componentID+".example.com/mcp")
-			}
-			setup, err := AgentSetup(t.Context(), NewAgentOAuthGrantStore(grants), vmcp)
-			require.NoError(t, err)
+	require.Equal(t, []string{"static", "dynamic"}, listed)
 
-			listed := []string{}
-			for _, component := range setup.Components {
-				listed = append(listed, component.ComponentID)
-			}
-			require.Equal(t, tt.want, listed)
-			granted := []string{}
-			for _, component := range AgentGrantedComponents(vmcp) {
-				granted = append(granted, component.ID)
-			}
-			require.Equal(t, tt.want, granted)
-		})
+	store := NewPreconfiguredOAuthStore(newMemoryGrants())
+	for _, componentID := range listed {
+		status, err := store.Status(t.Context(), vmcp, componentID)
+		require.NoError(t, err)
+		require.Equal(t, componentID, status.ComponentID)
+		require.Equal(t, grantVMCP, status.VMCPID)
 	}
+
+	personal := grantTestVMCP()
+	personal.Spec.UserID = "101"
+	require.Empty(t, PreconfigurableComponents(personal))
 }
 
 // TestAgentUsesTheVMCPsGrantOnlyForComponentsItIsGranted checks that the vMCP's grant for a component serves only the
@@ -255,7 +216,7 @@ func TestAgentUsesTheVMCPsGrantOnlyForComponentsItIsGranted(t *testing.T) {
 	vmcp.Spec.Manifest.Components = []types.VMCPComponent{dynamic, readinessComponent("local")}
 	grants := newMemoryGrants()
 	grants.put(grantOwner(), grantMCPID("dynamic"), "kept", dynamic.CatalogEntry.Manifest.RemoteConfig.FixedURL)
-	store := NewAgentOAuthGrantStore(grants)
+	store := NewPreconfiguredOAuthStore(grants)
 	agent := agentInfo(7, nil)
 	grantFor := func(report AgentReadinessReport, componentID string) (ComponentOAuthGrant, bool) {
 		index := slices.IndexFunc(report.Grants, func(grant ComponentOAuthGrant) bool { return grant.ComponentID == componentID })

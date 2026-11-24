@@ -54,9 +54,9 @@ func grantTestDatabases() []grantTestDatabase {
 	}})
 }
 
-// TestMCPOAuthGrantWrites checks the writes of vMCP agent OAuth grants: only a vMCP's grant owner can hold one, a grant keeps
-// who authorized it across refreshes, an invalid grant is never refreshed back to life, and a new authorization
-// replaces it and clears its state. None of them triggers an MCPServer.
+// TestMCPOAuthGrantWrites checks the writes of vMCP preconfigured OAuth grants: only a vMCP's grant owner can hold one,
+// a grant keeps who authorized it across refreshes, an invalid grant is never refreshed back to life, and a new
+// authorization replaces it and clears its state. None of them triggers an MCPServer.
 func TestMCPOAuthGrantWrites(t *testing.T) {
 	for _, database := range grantTestDatabases() {
 		t.Run(database.name, func(t *testing.T) {
@@ -66,13 +66,13 @@ func TestMCPOAuthGrantWrites(t *testing.T) {
 				triggered = append(triggered, mcpID)
 				return nil
 			}
-			owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
+			owner, mcpID := principal.PreconfiguredOAuthOwner("vmcp1test"), "vmcp1test/component"
 			conf := &oauth2.Config{ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: "https://provider.test/token"}, Scopes: []string{"read", "write"}}
 
 			// No user's or agent's token can be written or deleted as a grant.
-			for _, notAGrant := range []string{"7", "agent:7", "vmcp-agent-oauth:", "vmcp-profile:vmcp1test/vp1agents"} {
-				require.ErrorIs(t, client.ReplaceMCPOAuthGrant(t.Context(), notAGrant, mcpID, grantTestURL, "grant", "1", conf, &oauth2.Token{AccessToken: "a"}), ErrNotAgentOAuthGrant)
-				require.ErrorIs(t, client.DeleteMCPOAuthGrantsForOwner(t.Context(), notAGrant), ErrNotAgentOAuthGrant)
+			for _, notAGrant := range []string{"7", "agent:7", "vmcp-oauth:", "vmcp-profile:vmcp1test/vp1agents"} {
+				require.ErrorIs(t, client.ReplaceMCPOAuthGrant(t.Context(), notAGrant, mcpID, grantTestURL, "grant", "1", conf, &oauth2.Token{AccessToken: "a"}), ErrNotPreconfiguredOAuth)
+				require.ErrorIs(t, client.DeleteMCPOAuthGrantsForOwner(t.Context(), notAGrant), ErrNotPreconfiguredOAuth)
 			}
 
 			require.NoError(t, client.ReplaceMCPOAuthGrant(t.Context(), owner, mcpID, grantTestURL, "grant-1", "1", conf, &oauth2.Token{AccessToken: "first", RefreshToken: "refresh"}))
@@ -125,7 +125,7 @@ func TestMCPOAuthGrantDeletesAreExact(t *testing.T) {
 	for _, database := range grantTestDatabases() {
 		t.Run(database.name, func(t *testing.T) {
 			client := database.open(t)
-			owner, other := principal.AgentOAuthGrantOwner("vmcp1test"), principal.AgentOAuthGrantOwner("vmcp1other")
+			owner, other := principal.PreconfiguredOAuthOwner("vmcp1test"), principal.PreconfiguredOAuthOwner("vmcp1other")
 			mcpID := "vmcp1test/component"
 			conf := &oauth2.Config{ClientID: "client"}
 			token := &oauth2.Token{AccessToken: "token"}
@@ -156,9 +156,9 @@ func TestMCPOAuthGrantPendingStateIsBound(t *testing.T) {
 	for _, database := range grantTestDatabases() {
 		t.Run(database.name, func(t *testing.T) {
 			client := database.open(t)
-			owner := principal.AgentOAuthGrantOwner("vmcp1test")
+			owner := principal.PreconfiguredOAuthOwner("vmcp1test")
 			conf := &oauth2.Config{ClientID: "client", ClientSecret: "secret"}
-			require.ErrorIs(t, client.CreateMCPOAuthGrantPendingState(t.Context(), "7", "vmcp1test/component", grantTestURL, "", "1", "hash", "state", "verifier", "", conf), ErrNotAgentOAuthGrant)
+			require.ErrorIs(t, client.CreateMCPOAuthGrantPendingState(t.Context(), "7", "vmcp1test/component", grantTestURL, "", "1", "hash", "state", "verifier", "", conf), ErrNotPreconfiguredOAuth)
 			require.Error(t, client.CreateMCPOAuthGrantPendingState(t.Context(), owner, "vmcp1test/component", grantTestURL, "", "", "hash", "state", "verifier", "", conf))
 			require.Error(t, client.CreateMCPOAuthGrantPendingState(t.Context(), owner, "vmcp1test/component", grantTestURL, "", "1", "", "state", "verifier", "", conf))
 
@@ -186,7 +186,7 @@ func TestMCPOAuthGrantDiscoveryRevision(t *testing.T) {
 	for _, database := range grantTestDatabases() {
 		t.Run(database.name, func(t *testing.T) {
 			client := database.open(t)
-			owner, mcpID := principal.AgentOAuthGrantOwner("vmcp1test"), "vmcp1test/component"
+			owner, mcpID := principal.PreconfiguredOAuthOwner("vmcp1test"), "vmcp1test/component"
 			keys := []types.MCPOAuthTokenKey{{UserID: owner, MCPID: mcpID}}
 			conf := &oauth2.Config{ClientID: "client"}
 			revision := func() string {

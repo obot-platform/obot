@@ -101,21 +101,31 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		return ServerConfig{}, err
 	}
 
-	// An agent cannot complete setup interactively, so it is refused with the reasons it is not ready rather than
-	// connected to a subset of its tools or challenged. Readiness is computed on every connect and never cached.
-	var agentReadiness vmcpaccess.AgentReadinessReport
+	// Components disabled for the user are omitted entirely, so users never need
+	// to configure or authenticate servers they cannot use.
+	configuredComponents := vmcpaccess.EnabledComponents(user, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance))
+
+	// The vMCP's preconfigured OAuth for these components, in their order, which every caller's connections to them
+	// use. An agent cannot complete setup interactively, so it is refused with the reasons it is not ready rather than
+	// connected to a subset of its tools or challenged; its readiness selects the grants. A user is never refused for a
+	// grant: one that does not work is reported when the component is reached. Both are computed on every connect and
+	// never cached.
+	var grants []vmcpaccess.ComponentOAuthGrant
 	if principal.IsAgent(user) {
-		if agentReadiness, err = sm.AgentReadiness(ctx, *vmcp, instance, user); err != nil {
+		agentReadiness, err := sm.AgentReadiness(ctx, *vmcp, instance, user)
+		if err != nil {
 			return ServerConfig{}, err
 		}
 		if !agentReadiness.Readiness.Ready() {
 			return ServerConfig{}, &vmcpaccess.AgentNotReadyError{Readiness: agentReadiness.Readiness}
 		}
+		grants = agentReadiness.Grants
+	} else if vmcp.Spec.UserID == "" && sm.preconfiguredOAuth != nil {
+		if grants, err = sm.preconfiguredOAuth.SelectGrants(ctx, *vmcp, configuredComponents); err != nil {
+			return ServerConfig{}, err
+		}
 	}
 
-	// Components disabled for the user are omitted entirely, so users never need
-	// to configure or authenticate servers they cannot use.
-	configuredComponents := vmcpaccess.EnabledComponents(user, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance))
 	sharedComponents := make(map[string]struct{}, len(configuredComponents))
 	connectionsNeeded := make(map[string]struct{}, len(configuredComponents))
 	instanceComponents := make(map[string]struct{}, len(configuredComponents))
@@ -207,11 +217,12 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		})
 	}
 
-	// An agent's readiness was computed for these same components, in the same order. Each component's connection
-	// selects its grant again when the composite reaches it; the grants readiness selected name the grant in the
-	// composite's configuration, so that an authorization failure of the component is reported to the agent as the grant
-	// being invalid.
-	for i, grant := range agentReadiness.Grants {
+	// The grants were selected for these same components, in the same order. Each component's connection selects its
+	// grant again when the composite reaches it (applyPreconfiguredOAuth); the grants selected here name the grant in
+	// the composite's configuration, so that an authorization failure of the component is reported as the grant being
+	// invalid: to an agent as its readiness, and to a user as a grant an administrator must authorize again, never as a
+	// challenge to authorize the component themselves.
+	for i, grant := range grants {
 		if grant.Held() {
 			components[i].OAuthGrant = newOAuthGrantRef(grant)
 		}
@@ -259,13 +270,13 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 }
 
 // AgentReadiness reports whether agent can use vmcp through instance, or nil when it has not connected, as a connect
-// decides it (vmcpaccess.AgentReadiness, with the session manager's store of agent OAuth grants). The readiness API
-// uses it, so that it never reports an agent ready that a connect refuses.
+// decides it (vmcpaccess.AgentReadiness, with the session manager's store of preconfigured OAuth grants). The readiness
+// API uses it, so that it never reports an agent ready that a connect refuses.
 func (sm *SessionManager) AgentReadiness(ctx context.Context, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info) (vmcpaccess.AgentReadinessReport, error) {
-	return vmcpaccess.AgentReadiness(ctx, sm.agentOAuthGrants, vmcp, instance, agent)
+	return vmcpaccess.AgentReadiness(ctx, sm.preconfiguredOAuth, vmcp, instance, agent)
 }
 
-// newOAuthGrantRef names the grant an agent uses for a component, as SelectGrants selected it.
+// newOAuthGrantRef names the grant a connection uses for a component, as SelectGrants selected it.
 func newOAuthGrantRef(grant vmcpaccess.ComponentOAuthGrant) *OAuthGrantRef {
 	return &OAuthGrantRef{ComponentID: grant.ComponentID, Owner: grant.Owner, MCPID: grant.MCPID}
 }
