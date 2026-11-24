@@ -87,6 +87,14 @@ import (
 
 const (
 	leaderElectionRequestTimeout = 15 * time.Second
+
+	// mcpCatalogGitHubURL and systemMCPCatalogGitHubURL are Obot's catalogs, which the image configures as the defaults.
+	mcpCatalogGitHubURL       = "https://github.com/obot-platform/mcp-catalog"
+	systemMCPCatalogGitHubURL = "https://github.com/obot-platform/system-mcp-catalog"
+
+	// systemMCPCatalogImagePath is the copy of the system MCP catalog that the image ships, for air-gapped
+	// installations to read instead of the one on GitHub.
+	systemMCPCatalogImagePath = "/system-mcp-catalog"
 )
 
 type (
@@ -117,6 +125,7 @@ type Config struct {
 	MCPOAuthClientNativeExceptions []string              `usage:"Additional Client ID Metadata Document URLs that default to the native application type when application_type is omitted"`
 	ForceDynamicClient             bool                  `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
 	ProductAnalyticsMode           producttelemetry.Mode `usage:"Product analytics mode: consent, on, or off" default:"consent" env:"OBOT_SERVER_PRODUCT_ANALYTICS_MODE"`
+	Airgap                         bool                  `usage:"Air-gapped installation: never contact Obot's services (product analytics, update checks, the MCP Tester model proxy, and license keys, so only a license file licenses it), and set up new installations without Obot's MCP catalog and with the system MCP catalog that ships in the image" default:"false" env:"OBOT_SERVER_AIRGAP"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort            int    `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
@@ -425,7 +434,37 @@ func parsePodSchedulingJSONFields(affinityJSON, tolerationsJSON, resourcesJSON, 
 	return affinity, tolerations, resources, runtimeClassNameValue, nil
 }
 
+// applyAirgap configures an air-gapped installation, which never contacts Obot's services:
+// - Product analytics, update checks, and the MCP Tester model proxy are off, overriding their own settings.
+// - License keys aren't used, since checking one contacts Keygen; license.Config.WithAirgap takes care of that.
+// - The default MCP catalog doesn't include Obot's MCP catalog from GitHub, so admins configure their own.
+// - The default system MCP catalog is the copy the image ships instead of the one on GitHub.
+// Air-gap mode is for new installations: the default catalogs are created once, at first startup.
+func applyAirgap(config Config) Config {
+	if !config.Airgap {
+		return config
+	}
+
+	config.ProductAnalyticsMode = producttelemetry.ModeOff
+	config.ModelProxyURL = ""
+	config.DisableUpdateCheck = true
+	if isGitHubCatalog(config.DefaultMCPCatalogPath, mcpCatalogGitHubURL) {
+		config.DefaultMCPCatalogPath = ""
+	}
+	if config.DefaultSystemMCPCatalogPath == "" || isGitHubCatalog(config.DefaultSystemMCPCatalogPath, systemMCPCatalogGitHubURL) {
+		config.DefaultSystemMCPCatalogPath = systemMCPCatalogImagePath
+	}
+	return config
+}
+
+// isGitHubCatalog reports whether path is the catalog repository at repoURL, or one of its branches.
+func isGitHubCatalog(path, repoURL string) bool {
+	path = strings.TrimRight(path, "/")
+	return path == repoURL || strings.HasPrefix(path, repoURL+"/")
+}
+
 func New(ctx context.Context, config Config) (*Services, error) {
+	config = applyAirgap(config)
 	if config.GitMaxRepoSizeMB <= 0 || int64(config.GitMaxRepoSizeMB) > math.MaxInt64/(1024*1024) {
 		return nil, fmt.Errorf("git-max-repo-size-mb must be positive and no greater than %d", int64(math.MaxInt64)/(1024*1024))
 	}
@@ -939,7 +978,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	licenseProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.LicenseConfig))
+	licenseProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.LicenseConfig).WithAirgap(config.Airgap))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create license provider: %w", err)
 	}

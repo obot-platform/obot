@@ -13,6 +13,9 @@ on:
       image-digest:
         description: Digest of the published multi-platform image
         value: ${{ jobs.build.outputs.image-digest }}
+      system-mcp-catalog-ref:
+        description: Commit of the system MCP catalog the image ships
+        value: ${{ jobs.build.outputs.system-mcp-catalog-ref }}
   workflow_dispatch:
   push:
     branches:
@@ -28,6 +31,7 @@ jobs:
     runs-on: depot-ubuntu-22.04
     outputs:
       image-digest: ${{ steps.build-and-push.outputs.digest }}
+      system-mcp-catalog-ref: ${{ steps.system-mcp-catalog.outputs.ref }}
 
     steps:
       - name: Checkout code
@@ -40,6 +44,14 @@ jobs:
           # Without the full history, branch builds generate versions like v0.0.0-<ts>-<rev>,
           # which can cause false positives in vulnerability scans.
           fetch-depth: ${{ case(github.ref_type == 'tag', 1, 0) }}
+
+      # Build every platform from one commit of the system MCP catalog, which the release's image list also reads.
+      - name: Resolve the system MCP catalog commit
+        id: system-mcp-catalog
+        run: |
+          ref="$(git ls-remote https://github.com/obot-platform/system-mcp-catalog refs/heads/v2-schema | cut -f1)"
+          test -n "${ref}"
+          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
 
       - name: Setup Depot
         uses: depot/setup-action@v1
@@ -74,6 +86,7 @@ jobs:
           build-args: |
             BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
             MODEL_DATA_URL=https://upgrade-server.obot.ai/v1/model-data
+            SYSTEM_MCP_CATALOG_REF=${{ steps.system-mcp-catalog.outputs.ref }}
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1

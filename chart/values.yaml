@@ -272,6 +272,8 @@ config:
 
   # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Defaults to false.
   OBOT_SERVER_DISABLE_UPDATE_CHECK: ""
+  # config.OBOT_SERVER_AIRGAP -- Air-gapped installation: Obot never contacts Obot's services (product analytics, update checks, the MCP Tester model proxy, and license keys, so only a license file licenses it), and a new installation starts without Obot's MCP catalog and with the copy of the system MCP catalog that ships in the image. Defaults to false.
+  OBOT_SERVER_AIRGAP: ""
 
   # config.OBOT_SERVER_HIDE_K8S_DETAILS -- Hide Kubernetes configuration details such as the Server Scheduling page from the UI. Defaults to false.
   OBOT_SERVER_HIDE_K8S_DETAILS: false

@@ -21,6 +21,14 @@ ARG MODEL_DATA_URL=
 RUN --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/root/go/pkg/mod \
   MODEL_DATA_URL="${MODEL_DATA_URL}" go run ./tools/fetch-model-data
+# The image ships a copy of the system MCP catalog, which air-gapped installations
+# (OBOT_SERVER_AIRGAP) read instead of the one on GitHub. CI passes the catalog commit, so every
+# platform, and the release's images.txt, use the same one. Other builds take the latest.
+ARG SYSTEM_MCP_CATALOG_REF=
+RUN git init -q /system-mcp-catalog && \
+  git -C /system-mcp-catalog fetch -q --depth 1 https://github.com/obot-platform/system-mcp-catalog "${SYSTEM_MCP_CATALOG_REF:-v2-schema}" && \
+  git -C /system-mcp-catalog checkout -q FETCH_HEAD && \
+  rm -rf /system-mcp-catalog/.git
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
   --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/root/go/pkg/mod \
@@ -78,6 +86,7 @@ COPY --chmod=0755 /tools/combine-envrc.sh /
 RUN /combine-envrc.sh && rm /combine-envrc.sh
 COPY --from=encryption-bins /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
+COPY --from=bin /system-mcp-catalog /system-mcp-catalog
 
 ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog/v2-schema
 ENV OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH=https://github.com/obot-platform/system-mcp-catalog/v2-schema
