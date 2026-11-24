@@ -132,3 +132,19 @@ func IsDelegatedOwner(owner string) bool {
 	rest, ok := strings.CutPrefix(owner, agentPrefix)
 	return ok && strings.Contains(rest, "/")
 }
+
+// OwnedByCaller reports whether what owner owns, such as an instance, a component server or connection, or an upstream
+// OAuth token, is the caller u's to use: owner is u's own encoded owner (its UID), or, for an agent acting on behalf of
+// a user, the DelegatedOwner of that agent and that user, which owns what the user set up through the agent. An agent
+// acting for one user never uses what it was set up with for another, or what the user set up for themselves, and an
+// agent acting for itself, a user, or anyone else never uses what any user set up through an agent.
+func OwnedByCaller(u kuser.Info, owner string) bool {
+	if u == nil || owner == "" {
+		return false
+	}
+	if owner == u.GetUID() {
+		return !IsDelegatedOwner(owner)
+	}
+	delegated, ok := DelegatedOwnerOf(u)
+	return ok && delegated.String() == owner
+}

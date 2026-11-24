@@ -35,11 +35,6 @@ func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPPr
 	if _, ok := principal.OnBehalfOf(u); ok {
 		return nil
 	}
-	return subjectProfiles(u, profiles)
-}
-
-// subjectProfiles returns the profiles whose subjects name u, as MatchingProfiles does, for any caller.
-func subjectProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
 	caller, ok := subjects.CallerFromUserInfo(u)
 	if !ok {
 		return nil
@@ -54,17 +49,32 @@ func subjectProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPPro
 }
 
 // CallerProfiles returns the profiles of vmcp that grant u its permissions on it, in order. They are those whose
-// subjects name u (MatchingProfiles), except for an agent acting on behalf of a user: for it, they are the agent's own,
-// those that name the agent, and none of a personal vMCP. Access, components, tools, readiness and audit all start
-// here.
+// subjects name u (MatchingProfiles), except for an agent acting on behalf of a user: for it, they are the agent's own
+// (DelegatedProfiles). Access, components, tools, readiness and audit all start here.
 func CallerProfiles(u kuser.Info, vmcp v1.VMCP) []types.VMCPProfile {
-	if _, ok := principal.OnBehalfOf(u); !ok {
+	delegated, ok := principal.DelegatedOwnerOf(u)
+	if !ok {
 		return MatchingProfiles(u, vmcp.Spec.Manifest.Profiles)
 	}
+	return DelegatedProfiles(delegated.AgentID, vmcp)
+}
+
+// DelegatedProfiles returns the profiles of vmcp that grant the agent with agentID its permissions on it when it acts
+// on behalf of a user: those that name the agent, as for the agent acting for itself, and none of a personal vMCP.
+// CallerProfiles uses it for an agent acting on behalf of a user, and the setup a user does through the agent uses it,
+// so that both agree.
+func DelegatedProfiles(agentID uint, vmcp v1.VMCP) []types.VMCPProfile {
 	if vmcp.Spec.UserID != "" {
 		return nil
 	}
-	return subjectProfiles(u, vmcp.Spec.Manifest.Profiles)
+	agent := subjects.Caller{Principal: principal.Agent(agentID)}
+	var granted []types.VMCPProfile
+	for _, profile := range vmcp.Spec.Manifest.Profiles {
+		if agent.Matches(profile.Subjects) {
+			granted = append(granted, profile)
+		}
+	}
+	return granted
 }
 
 // AllowedTools returns component-scoped original names. Nil means unrestricted, while an
@@ -149,9 +159,13 @@ func EnabledComponents(u kuser.Info, vmcp v1.VMCP, components []types.VMCPCompon
 	if vmcp.Spec.UserID != "" {
 		return components
 	}
-	matching := CallerProfiles(u, vmcp)
+	return ProfilesGrantedComponents(CallerProfiles(u, vmcp), components)
+}
+
+// ProfilesGrantedComponents removes from components those that none of profiles grants (ProfileGrantsComponent).
+func ProfilesGrantedComponents(profiles []types.VMCPProfile, components []types.VMCPComponent) []types.VMCPComponent {
 	return slices.DeleteFunc(components, func(component types.VMCPComponent) bool {
-		return !slices.ContainsFunc(matching, func(profile types.VMCPProfile) bool { return ProfileGrantsComponent(profile, component.ID) })
+		return !slices.ContainsFunc(profiles, func(profile types.VMCPProfile) bool { return ProfileGrantsComponent(profile, component.ID) })
 	})
 }
 

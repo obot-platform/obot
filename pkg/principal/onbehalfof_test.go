@@ -227,3 +227,42 @@ func TestDelegatedOwnerRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// TestOwnedByCaller checks that what a user sets up through an agent is used only by that agent acting for that user,
+// and that nothing a caller owns of its own is ever another's.
+func TestOwnedByCaller(t *testing.T) {
+	agentForSeven := caller("agent:5", KindAgent, nil)
+	RecordOnBehalfOf(agentForSeven.GetExtra(), 7)
+	agentForEight := caller("agent:5", KindAgent, nil)
+	RecordOnBehalfOf(agentForEight.GetExtra(), 8)
+	otherAgentForSeven := caller("agent:6", KindAgent, nil)
+	RecordOnBehalfOf(otherAgentForSeven.GetExtra(), 7)
+
+	for _, tt := range []struct {
+		name   string
+		caller kuser.Info
+		owner  string
+		want   bool
+	}{
+		{name: "a user's own", caller: caller("7", KindUser, nil), owner: "7", want: true},
+		{name: "another user's", caller: caller("7", KindUser, nil), owner: "8"},
+		{name: "a user's setup through an agent, to the user", caller: caller("7", KindUser, nil), owner: "agent:5/user:7"},
+		{name: "an agent's own", caller: caller("agent:5", KindAgent, nil), owner: "agent:5", want: true},
+		{name: "the user with the agent's ID", caller: caller("agent:5", KindAgent, nil), owner: "5"},
+		{name: "a pair's, to the agent acting for itself", caller: caller("agent:5", KindAgent, nil), owner: "agent:5/user:7"},
+		{name: "the pair's, to the agent acting for the user", caller: agentForSeven, owner: "agent:5/user:7", want: true},
+		{name: "the agent's own, to the agent acting for a user", caller: agentForSeven, owner: "agent:5", want: true},
+		{name: "the user's own, to the agent acting for them", caller: agentForSeven, owner: "7"},
+		{name: "another user's pair", caller: agentForEight, owner: "agent:5/user:7"},
+		{name: "another agent's pair for the user", caller: otherAgentForSeven, owner: "agent:5/user:7"},
+		{name: "a caller whose UID is a pair's encoding", caller: caller("agent:5/user:7", "", nil), owner: "agent:5/user:7"},
+		{name: "no owner", caller: agentForSeven, owner: ""},
+		{name: "no caller", owner: "7"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := OwnedByCaller(tt.caller, tt.owner); got != tt.want {
+				t.Fatalf("OwnedByCaller() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

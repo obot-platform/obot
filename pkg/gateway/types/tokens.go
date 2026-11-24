@@ -138,9 +138,15 @@ type MCPOAuthPendingState struct {
 	// GrantInitiatorUserID and GrantDefinitionHash bind the pending authorization of a vMCP's preconfigured OAuth grant
 	// (UserID is a principal.PreconfiguredOAuthOwner): the callback is accepted only from the administrator who started
 	// it, and only while the component still has the definition it was started for. Both are empty for every other
-	// authorization.
+	// authorization, except that GrantInitiatorUserID also binds that of a user's upstream account through an agent.
 	GrantInitiatorUserID string
 	GrantDefinitionHash  string
+
+	// ReturnPath binds the pending authorization of a user's upstream account through an agent (UserID is a
+	// principal.DelegatedOwner) with GrantInitiatorUserID: the callback is accepted only from that user, the pair's own,
+	// and sends their browser back to ReturnPath, the path of the Obot page that started it. It is empty for every
+	// other authorization.
+	ReturnPath string
 }
 
 // MCPOAuthChallenge is a short-lived, single-transaction handoff, never a grant.

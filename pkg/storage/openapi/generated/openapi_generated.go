@@ -40,6 +40,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRedirect":                   schema_obot_platform_obot_apiclient_types_AgentDelegationRedirect(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRequestCreate":              schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreate(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRequestCreated":             schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreated(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetup":                      schema_obot_platform_obot_apiclient_types_AgentDelegationSetup(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupComponent":             schema_obot_platform_obot_apiclient_types_AgentDelegationSetupComponent(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupConfiguration":         schema_obot_platform_obot_apiclient_types_AgentDelegationSetupConfiguration(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupField":                 schema_obot_platform_obot_apiclient_types_AgentDelegationSetupField(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupOAuth":                 schema_obot_platform_obot_apiclient_types_AgentDelegationSetupOAuth(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupVMCP":                  schema_obot_platform_obot_apiclient_types_AgentDelegationSetupVMCP(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentDelegationToken":                      schema_obot_platform_obot_apiclient_types_AgentDelegationToken(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentDelegationTokenRequest":               schema_obot_platform_obot_apiclient_types_AgentDelegationTokenRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentDelegationUser":                       schema_obot_platform_obot_apiclient_types_AgentDelegationUser(ref),
@@ -1729,6 +1735,310 @@ func schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreated(ref
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetup is what a user has set up through an agent, and what they still need to, for each vMCP that the agent may use for them: those of which a profile names the agent (GET …/setup on a delegation request the user is approving, or on one of their delegations). It never carries a value or a token: values are reported as set or unset, and upstream accounts as connected or not.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcps": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupVMCP"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcps"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupVMCP"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupComponent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupComponent is the setup of one component of a vMCP through an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"covered": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Covered reports that the component needs nothing from the user, and CoveredBy why: AgentDelegationSetupCoveredFixed, AgentDelegationSetupCoveredPreconfiguredOAuth or AgentDelegationSetupCoveredNothing. The setup page skips covered components.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"coveredBy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready reports that nothing keeps the agent from the component on behalf of the user. Reasons say why it is not, as a connect would report them: a required value the user has not set, an upstream account the user has not connected, or a vMCP preconfigured OAuth grant that only an administrator can fix.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"reasons": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"),
+									},
+								},
+							},
+						},
+					},
+					"configuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configuration is the configuration the user enters for the component, with whether each value is set.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupField"),
+									},
+								},
+							},
+						},
+					},
+					"oauth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuth is AgentDelegationSetupOAuthNotRequired, AgentDelegationSetupOAuthPreconfigured, AgentDelegationSetupOAuthConnected or AgentDelegationSetupOAuthNeedsAuthorization.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"componentID", "covered", "ready", "configuration", "oauth"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupField", "github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupConfiguration is the body with which a user sets or clears the values they enter for a vMCP through an agent (PUT …/setup/vmcps/{vmcp_id}/configuration): by component ID, each key's new value, or null to clear it. Keys that are left out are left as they are.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"object"},
+										AdditionalProperties: &spec.SchemaOrBool{
+											Allows: true,
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Type:   []string{"string"},
+													Format: "",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"components"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupField(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupField is a value a user enters for a component, with the schema the user configuration form shows, and whether the user has set it through the agent. It never carries the value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"usage": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"options": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption"),
+									},
+								},
+							},
+						},
+					},
+					"set": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Set reports that the user has set the value through the agent.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"key", "name", "description", "sensitive", "required", "usage", "set"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupOAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupOAuth is the response to starting the authorization of a user's upstream account for a component through an agent (POST …/setup/vmcps/{vmcp_id}/components/{component_id}/oauth): the URL the user's browser opens. The provider's callback stores the account for the user's setup through the agent, but only in the browser session of the user who started it, and returns the browser to the page that started it.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"localhostCallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is Obot's local login URL, which `obot mcp login` opens and relays the callback from.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"authURL"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupVMCP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupVMCP is the setup of one vMCP through an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready reports that every component is ready (AgentDelegationSetupComponent.Ready).",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Components are the components that the vMCP's profiles naming the agent grant, in the vMCP's order.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupComponent"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcpID", "ready", "components"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupComponent"},
 	}
 }
 

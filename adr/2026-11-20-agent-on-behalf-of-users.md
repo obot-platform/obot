@@ -175,10 +175,28 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
     `vmcp-oauth:` owners.
   - Setup is per agent: a user who uses two agents sets up a vMCP for each.
 - **Runtime instances.**
+  - The pair's setup is a vMCP instance owned by the pair, with its configuration
+    credential and the upstream tokens of its component connections. It's the user
+    setup code with the pair as owner. Nobody connects through it: the agent acting
+    for the user connects through its own instance, and uses the pair's component
+    servers and connections where the user is needed.
+  - A component needs the user when it takes a value the user enters, or when it's a
+    remote server the vMCP holds no preconfigured OAuth for. A remote server without a
+    grant uses the pair's connection even when it isn't known to ask for OAuth, so
+    that an account the user connects is used if it asks later.
   - A single-user component that needs user setup gets one instance per agent and
     user pair.
-  - A component that the vMCP fully fixes runs as one multi-user instance for the
-    whole agent, shared by every user it acts for.
+  - A multi-user component whose only user inputs are headers gets the pair's own
+    connection to its shared server, carrying the pair's header values, as a user's
+    connection carries theirs.
+  - A component that needs nothing from the user (the vMCP or the catalog entry fixes
+    it, and the vMCP's preconfigured OAuth covers its OAuth) runs on the agent's own
+    instance, shared by every user it acts for.
+  - The vMCP's preconfigured OAuth, which everyone using the vMCP shares, is used in
+    place of the pair's account wherever the component runs.
+  - The pair's instance carries every component that may need a user, whatever the
+    vMCP profiles and grants are, so that no change to them removes what the user set
+    up.
 - **Budgets on behalf of users count against the agent's budgets, for all users
   together.** A user's own budgets and daily token limits don't apply.
 
@@ -207,6 +225,12 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
 - **A broken upstream token** (for example, one the user revoked at the provider)
   returns `agent_user_approval_required`: a 409 on connect, or an MCP tool error
   during a session. The user approves again and fixes only that component.
+  - A tool call whose upstream refuses the pair's account, or whose account the
+    provider refuses to refresh (`invalid_grant`), gets the tool error. Any other
+    request at that point gets the 409.
+  - An account the provider refuses to refresh is removed, so that the user's setup
+    shows it as needing authorization again. The composite then starts a new session
+    with the component, so the agent's next request gets the 409.
 - **Revocation delay.** Delegation checks use the same 15-second cache as key
   checks, so a revocation takes effect across replicas within 15 seconds.
 - **Approval link limits.** Pending approval requests expire, and each agent can
@@ -226,16 +250,32 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
   This reuses the screens users already have for their own vMCP setup, pointed at the
   setup they own through the agent. Something the user clears is missing again, so
   the agent gets `agent_user_approval_required` the next time it needs it.
+- **One setup API serves the approval page and the user's management page.** It's
+  under `/api/agent-delegation-requests/{id}/setup…` while the user approves a
+  pending request, and under `/api/me/agent-delegations/{id}/setup…` afterwards.
+  - The authorizer decides who reaches it: the approver's browser session, from
+    Obot's own pages, for a pending request they may approve; or the delegation's
+    own user.
+  - An upstream account's OAuth callback is accepted only from the user who started
+    it, and returns the browser to the page that started it.
+  - Setup done during a request that is never approved stays until the agent, the
+    user or the vMCP is deleted. There's no delegation to revoke it with, and the user
+    sees it if they approve the agent later.
 - **Administrators** see each agent's delegations on a tab of the agent's page, with
   the user, the approval time and the last use, and can revoke any of them. They
   can't see or edit a user's values, as with a user's own vMCP setup. Agent
   profiles are edited on another tab of the same page.
+  - No route for vMCP instances reaches the pair's instance, for anyone. The
+    authorizer refuses it before any rule applies, since administrators' rules
+    otherwise grant every instance route.
 - **Readiness** on the agent's page stays about the agent's own use. There's no
   readiness per user.
 - **Revoking** deletes the delegation and the user's setup through that agent. Tokens
   are refused on their next request.
 - **Lifecycle** mirrors the agent identities cleanup rules:
   - Deleting the agent or the user deletes their delegations and setup.
+  - Deleting a vMCP deletes the setup of every pair for it, as it does users' own
+    setup.
   - Disabling either refuses the tokens without deleting anything.
 - **With authentication off**, everything works the same way, for the single owner
   user.
@@ -293,6 +333,7 @@ the agent, and signs in to Obot only when the agent first needs to act for them.
   - `POST /api/agent-delegations`, redeeming the returned code, and minting a token
     from a delegation
   - listing and revoking delegations, for users and administrators
+  - the setup API, during approval and afterwards
   - the new 409 code
 - A new approval and consent page in the UI, which reuses the vMCP consent and
   component OAuth steps. Also new: agent profile editors and a "Agents acting for

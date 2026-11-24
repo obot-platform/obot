@@ -140,3 +140,99 @@ type AgentDelegation struct {
 }
 
 type AgentDelegationList List[AgentDelegation]
+
+const (
+	// AgentDelegationSetupCoveredFixed covers a component whose configuration the vMCP or the catalog entry fixes,
+	// so that it needs nothing from the user.
+	AgentDelegationSetupCoveredFixed = "fixed"
+	// AgentDelegationSetupCoveredPreconfiguredOAuth covers a component whose OAuth the vMCP's preconfigured OAuth
+	// provides, and that takes no value from the user.
+	AgentDelegationSetupCoveredPreconfiguredOAuth = "preconfiguredOAuth"
+	// AgentDelegationSetupCoveredNothing covers a component that needs no configuration and no OAuth at all.
+	AgentDelegationSetupCoveredNothing = "nothing"
+
+	// AgentDelegationSetupOAuthNotRequired is the OAuth state of a component that is not known to need OAuth.
+	AgentDelegationSetupOAuthNotRequired = "notRequired"
+	// AgentDelegationSetupOAuthPreconfigured is the OAuth state of a component for which the vMCP holds preconfigured
+	// OAuth, which everyone using the vMCP, the agent on behalf of every user included, uses in place of their own
+	// account. Only an administrator manages it.
+	AgentDelegationSetupOAuthPreconfigured = "preconfigured"
+	// AgentDelegationSetupOAuthConnected is the OAuth state of a component for which the user connected an upstream
+	// account through the agent.
+	AgentDelegationSetupOAuthConnected = "connected"
+	// AgentDelegationSetupOAuthNeedsAuthorization is the OAuth state of a component that needs OAuth, for which the
+	// user has not connected an upstream account through the agent.
+	AgentDelegationSetupOAuthNeedsAuthorization = "needsAuthorization"
+)
+
+// AgentDelegationSetup is what a user has set up through an agent, and what they still need to, for each vMCP that the
+// agent may use for them: those of which a profile names the agent (GET …/setup on a delegation request the user is
+// approving, or on one of their delegations). It never carries a value or a token: values are reported as set or
+// unset, and upstream accounts as connected or not.
+type AgentDelegationSetup struct {
+	VMCPs []AgentDelegationSetupVMCP `json:"vmcps"`
+}
+
+// AgentDelegationSetupVMCP is the setup of one vMCP through an agent.
+type AgentDelegationSetupVMCP struct {
+	VMCPID      string `json:"vmcpID"`
+	DisplayName string `json:"displayName,omitempty"`
+	// Ready reports that every component is ready (AgentDelegationSetupComponent.Ready).
+	Ready bool `json:"ready"`
+	// Components are the components that the vMCP's profiles naming the agent grant, in the vMCP's order.
+	Components []AgentDelegationSetupComponent `json:"components"`
+}
+
+// AgentDelegationSetupComponent is the setup of one component of a vMCP through an agent.
+type AgentDelegationSetupComponent struct {
+	ComponentID string `json:"componentID"`
+	Name        string `json:"name,omitempty"`
+	// Covered reports that the component needs nothing from the user, and CoveredBy why:
+	// AgentDelegationSetupCoveredFixed, AgentDelegationSetupCoveredPreconfiguredOAuth or
+	// AgentDelegationSetupCoveredNothing.
+	// The setup page skips covered components.
+	Covered   bool   `json:"covered"`
+	CoveredBy string `json:"coveredBy,omitempty"`
+	// Ready reports that nothing keeps the agent from the component on behalf of the user. Reasons say why it is not,
+	// as a connect would report them: a required value the user has not set, an upstream account the user has not
+	// connected, or a vMCP preconfigured OAuth grant that only an administrator can fix.
+	Ready   bool                   `json:"ready"`
+	Reasons []AgentReadinessReason `json:"reasons,omitempty"`
+	// Configuration is the configuration the user enters for the component, with whether each value is set.
+	Configuration []AgentDelegationSetupField `json:"configuration"`
+	// OAuth is AgentDelegationSetupOAuthNotRequired, AgentDelegationSetupOAuthPreconfigured,
+	// AgentDelegationSetupOAuthConnected or AgentDelegationSetupOAuthNeedsAuthorization.
+	OAuth string `json:"oauth"`
+}
+
+// AgentDelegationSetupField is a value a user enters for a component, with the schema the user configuration form
+// shows, and whether the user has set it through the agent. It never carries the value.
+type AgentDelegationSetupField struct {
+	Key         string                   `json:"key"`
+	Name        string                   `json:"name"`
+	Description string                   `json:"description"`
+	Sensitive   bool                     `json:"sensitive"`
+	Required    bool                     `json:"required"`
+	Usage       Usage                    `json:"usage"`
+	Options     []MCPConfigurationOption `json:"options,omitempty"`
+	// Set reports that the user has set the value through the agent.
+	Set bool `json:"set"`
+}
+
+// AgentDelegationSetupConfiguration is the body with which a user sets or clears the values they enter for a vMCP
+// through an agent (PUT …/setup/vmcps/{vmcp_id}/configuration): by component ID, each key's new value, or null to
+// clear it. Keys that are left out are left as they are.
+type AgentDelegationSetupConfiguration struct {
+	Components map[string]map[string]*string `json:"components"`
+}
+
+// AgentDelegationSetupOAuth is the response to starting the authorization of a user's upstream account for a
+// component through an agent (POST …/setup/vmcps/{vmcp_id}/components/{component_id}/oauth): the URL the user's
+// browser opens. The provider's callback stores the account for the user's setup through the agent, but only in the
+// browser session of the user who started it, and returns the browser to the page that started it.
+type AgentDelegationSetupOAuth struct {
+	AuthURL string `json:"authURL"`
+	// LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is
+	// Obot's local login URL, which `obot mcp login` opens and relays the callback from.
+	LocalhostCallback bool `json:"localhostCallback,omitempty"`
+}

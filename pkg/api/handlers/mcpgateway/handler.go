@@ -334,7 +334,14 @@ func (h *Handler) Proxy(req api.Context) error {
 		token       string
 		tokenSource oauth2.TokenSource
 		now         = time.Now()
+		// pairCall is the call of a request that authorizes with the upstream account a user connected through an agent
+		// (usesPairToken), so that it can be answered with a tool error when the account no longer works.
+		pairCall  *mcpCall
+		pairToken = !isCompositeRequest && serverConfig.Runtime != types.RuntimeVMCP && usesPairToken(serverConfig)
 	)
+	if pairToken {
+		pairCall = peekMCPCall(req.Request)
+	}
 	if !isCompositeRequest {
 		// For aggregate runtimes, the /mcp-connect/{mcp_id} path only handles audit logs and hooks.
 		// The URL is changed to /mcp-connect-composite/{mcp_id} which comes back here and handles
@@ -367,13 +374,26 @@ func (h *Handler) Proxy(req api.Context) error {
 			// manager selected for it, whoever's connection it is. Otherwise a user's uses the user's own token, and an
 			// agent's none (ServerConfig.OAuthTokenKey).
 			if tokenOwner, tokenMCPID, ok := serverConfig.OAuthTokenKey(); ok {
-				tokenSource, err = h.globalTokenStore.ForUserAndMCP(tokenOwner, tokenMCPID, serverConfig.URL).TokenSource(context.WithValue(h.ctx, oauth2.HTTPClient, refreshClient))
-				if err == nil && serverConfig.OAuthGrant != nil && tokenSource != nil {
+				tokenStore := h.globalTokenStore.ForUserAndMCP(tokenOwner, tokenMCPID, serverConfig.URL)
+				tokenSource, err = tokenStore.TokenSource(context.WithValue(h.ctx, oauth2.HTTPClient, refreshClient))
+				if err == nil && (serverConfig.OAuthGrant != nil || pairToken) && tokenSource != nil {
 					// Many users and agents share a vMCP's grant, so it is refreshed, if it must be, before the request
 					// is proxied: a refresh the provider refuses fails the component for everyone who uses the grant,
 					// with no one asked to authorize it but an administrator, and one that fails for a reason that may
-					// pass is a 503, not a proxy error.
+					// pass is a 503, not a proxy error. The account a user connected through an agent is refreshed first
+					// as well, so that the agent acting for them learns that it must ask the user to connect it again.
 					_, err = tokenSource.Token()
+				}
+				if pairToken && err != nil {
+					if mcp.RefusedRefresh(err) {
+						forgetRefusedPairToken(req, tokenStore, tokenOwner, tokenMCPID)
+						vmcpID, componentID := pairComponent(req, serverConfig)
+						delegatedSetupBrokenResponse(req, pairCall, vmcpID, componentID).write(req.ResponseWriter, nil)
+						return nil
+					}
+					slog.WarnContext(req.Context(), "Failed to refresh an upstream account connected through an agent", "mcpID", tokenMCPID, "error", refreshFailure(err))
+					http.Error(req.ResponseWriter, "the upstream account could not be refreshed; retry later", http.StatusServiceUnavailable)
+					return nil
 				}
 				if grant := serverConfig.OAuthGrant; grant != nil && err != nil {
 					if errors.Is(err, mcp.ErrOAuthGrantInvalid) {
@@ -563,6 +583,13 @@ func (h *Handler) Proxy(req api.Context) error {
 					if err := saveMCPClientSession(req.Context(), req.Storage, resp, spec, audit != nil && audit.initialize); err != nil {
 						slog.ErrorContext(req.Context(), "failed to save MCP client session", "error", err)
 					}
+				}
+
+				// An upstream that refuses the account a user connected through an agent answers the agent's tool call
+				// with a tool error, so that its session goes on and it asks the user to connect the account again.
+				if pairToken && pairCall != nil && pairCall.method == mcpToolsCallMethod && len(component.AuthorizationChallenges(resp)) > 0 {
+					vmcpID, componentID := pairComponent(req, serverConfig)
+					replaceMCPAuthResponse(resp, delegatedSetupBrokenResponse(req, pairCall, vmcpID, componentID))
 				}
 
 				if err := rewriteUpstreamOAuthResponse(req, resp); err != nil {

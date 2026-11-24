@@ -243,6 +243,15 @@ func compositeConfig(req api.Context, serverConfig mcp.ServerConfig) (*mmmcpconf
 		)
 		if principal.ClaimsAgent(req.User) {
 			revision, err = req.GatewayClient.MCPOAuthGrantDiscoveryRevision(req.Context(), keys)
+			if delegated, ok := principal.DelegatedOwnerOf(req.User); ok && err == nil {
+				// On behalf of a user, the components that run on the pair's connections use the accounts the user
+				// connected through the agent, so connecting or replacing one discovers their tools again. A
+				// connection of the agent's own has no token of the pair's, and a component with preconfigured OAuth
+				// uses the vMCP's grant, never the pair's token.
+				var pairRevision string
+				pairRevision, err = req.GatewayClient.MCPOAuthDiscoveryRevision(req.Context(), delegated.String(), ids)
+				revision = utils.Digest([]string{revision, pairRevision})
+			}
 		} else if revision, err = req.GatewayClient.MCPOAuthDiscoveryRevision(req.Context(), req.User.GetUID(), ids); err == nil && len(keys) > 0 {
 			var grants string
 			grants, err = req.GatewayClient.MCPOAuthGrantDiscoveryRevision(req.Context(), keys)

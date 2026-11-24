@@ -153,7 +153,9 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			return false, err
 		}
 
-		if mcpServerInstance.Spec.UserID != user.GetUID() {
+		// A connection is the caller's own, or, for an agent acting on behalf of a user, what the user set up through the
+		// agent (principal.OwnedByCaller).
+		if !principal.OwnedByCaller(user, mcpServerInstance.Spec.UserID) {
 			return false, nil
 		}
 		var server v1.MCPServer
@@ -198,7 +200,7 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			if err := client.Get(ctx, router.Key(mcpServer.Namespace, mcpServer.Spec.VMCPInstanceID), &instance); err != nil {
 				return false, err
 			}
-			if instance.Spec.UserID != user.GetUID() || mcpServer.Spec.UserID != user.GetUID() {
+			if instance.Spec.UserID != mcpServer.Spec.UserID || !principal.OwnedByCaller(user, mcpServer.Spec.UserID) {
 				return false, nil
 			}
 			vmcpID = instance.Spec.Manifest.VMCPID

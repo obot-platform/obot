@@ -697,6 +697,11 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 		return a.authorizeAgent(req, userInfo)
 	}
 
+	// No vMCP instance route reaches what a user set up through an agent, for anyone, administrators included.
+	if a.refusesDelegatedSetupInstance(req) {
+		return false
+	}
+
 	// The SCIM endpoint serves only a SCIM connection's principal, and that principal nothing else. There is at most
 	// one connection, so the path does not name it.
 	isSCIM := req.URL.Path == strings.TrimSuffix(scimPathPrefix, "/") || strings.HasPrefix(req.URL.Path, scimPathPrefix)
@@ -756,7 +761,7 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 		}
 	}
 
-	return a.authorizeAPIResources(req, user) || authorizeAgentDelegationApproval(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
+	return a.authorizeAPIResources(req, user) || authorizeAgentDelegationApproval(req, user) || a.authorizeAgentDelegationRequestSetup(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
 }
 
 func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object) error {

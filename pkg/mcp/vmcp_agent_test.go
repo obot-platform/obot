@@ -101,8 +101,16 @@ func runVMCPInstanceController(t *testing.T, storageClient storage.Client, vmcp 
 				if instance.Status.ConfigurationCheckHash != "" {
 					continue
 				}
+				if _, ok := vmcpaccess.PairOwner(*instance); ok {
+					syncPairInstance(ctx, storageClient, vmcp, instance)
+					continue
+				}
 				owner := ownerInfo(instance.Spec.UserID)
 				for _, component := range vmcpaccess.EnabledComponents(owner, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance)) {
+					if !vmcpaccess.IsMultiUser(component) {
+						createDedicatedServer(ctx, storageClient, instance, component)
+						continue
+					}
 					config := vmcpaccess.ConnectionConfiguration(component)
 					connection := &v1.MCPServerInstance{
 						Name:      "msi1" + instance.Name + "-" + component.ID,
@@ -123,6 +131,46 @@ func runVMCPInstanceController(t *testing.T, storageClient storage.Client, vmcp 
 			}
 		}
 	}()
+}
+
+// syncPairInstance does for the instance of what a user set up through an agent what the controllers do: it connects
+// the pair to each shared component that may need the user, and records which of the values the user enters, none of
+// which this simulation stores, are missing.
+func syncPairInstance(ctx context.Context, storageClient storage.Client, vmcp *v1.VMCP, instance *v1.VMCPInstance) {
+	components := vmcpaccess.PairInstanceComponents(vmcpaccess.ComponentsForInstance(*vmcp, *instance))
+	var missing []string
+	for _, component := range components {
+		missing = append(missing, vmcpaccess.MissingRequiredConfiguration(component, nil, true)...)
+		if !vmcpaccess.IsMultiUser(component) {
+			createDedicatedServer(ctx, storageClient, instance, component)
+			continue
+		}
+		config := vmcpaccess.ConnectionConfiguration(component)
+		connection := &v1.MCPServerInstance{
+			Name:      vmcpaccess.ComponentConnectionName(instance.Name, component.ID),
+			Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerInstanceSpec{
+				UserID:          instance.Spec.UserID,
+				VMCPInstanceID:  instance.Name,
+				VMCPComponentID: component.ID,
+				MCPServerName:   "ms1shared-" + component.ID,
+				Config:          config,
+			},
+		}
+		connection.Status.VMCPConfigurationHash = vmcpaccess.ConnectionConfigurationHash(config, *instance)
+		_ = storageClient.Create(ctx, connection)
+	}
+	instance.Status.MissingRequiredConfiguration = missing
+	instance.Status.Configured = len(missing) == 0
+	instance.Status.ConfigurationCheckHash = vmcpaccess.ConfigurationCheckHash(components, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation])
+	_ = storageClient.Update(ctx, instance)
+}
+
+// createDedicatedServer does what the VMCPInstance and MCPServer controllers do for a component that runs a server for
+// each instance: it creates the instance's server for the component, owned by the instance's owner, with its
+// configuration synchronized.
+func createDedicatedServer(ctx context.Context, storageClient storage.Client, instance *v1.VMCPInstance, component types.VMCPComponent) {
+	_ = storageClient.Create(ctx, vmcpComponentServer(vmcpaccess.ComponentServerName(instance.Name, component.ID), instance.Name, instance.Spec.UserID, component.ID, component.Name, "https://"+component.ID+".example.com/mcp"))
 }
 
 // sharedComponentVMCP returns a shared vMCP with one shared component that needs nothing from its callers, and its

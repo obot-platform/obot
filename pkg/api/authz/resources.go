@@ -73,6 +73,13 @@ var (
 			"GET    /api/users/{user_id}/total-token-usage",
 			"GET    /api/workspaces",
 			"DELETE /api/me/agent-delegations/{delegation_id}",
+			// What the user set up through the agent of one of their delegations (checkAgentDelegation). The vMCP's path
+			// value is not vmcp_id, so that checkVMCP does not apply: the user reaches the vMCP through the agent,
+			// whatever they may reach on their own.
+			"GET    /api/me/agent-delegations/{delegation_id}/setup",
+			"PUT    /api/me/agent-delegations/{delegation_id}/setup/vmcps/{setup_vmcp_id}/configuration",
+			"POST   /api/me/agent-delegations/{delegation_id}/setup/vmcps/{setup_vmcp_id}/components/{component_id}/oauth",
+			"DELETE /api/me/agent-delegations/{delegation_id}/setup/vmcps/{setup_vmcp_id}/components/{component_id}/oauth",
 		},
 		types.GroupPowerUser: {
 			"GET    /api/workspaces/{workspace_id}",

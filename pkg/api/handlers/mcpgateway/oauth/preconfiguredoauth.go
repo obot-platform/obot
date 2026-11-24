@@ -90,47 +90,96 @@ func (f *MCPOAuthHandlerFactory) StartPreconfiguredOAuth(req api.Context, vmcpID
 	}
 	// A URL that comes from the vMCP's fixed configuration is never put into an error, which reaches the administrator
 	// who started the authorization, and may be seen by those who do not configure it.
-	_, fixed := vmcpconfig.StaticComponentTargetURL(component)
-	redact := func(err error) error {
-		switch httpErr, isHTTP := errors.AsType[*types.ErrHTTP](err); {
-		case err == nil || fixed:
-			return err
-		case isHTTP:
-			return types.NewErrHTTP(httpErr.Code, vmcpconfig.RedactURL(httpErr.Message, target))
-		default:
-			return errors.New(vmcpconfig.RedactURL(err.Error(), target))
-		}
+	var redactURL string
+	if _, fixed := vmcpconfig.StaticComponentTargetURL(component); !fixed {
+		redactURL = target
 	}
 	server, cfg := preconfiguredOAuthServer(vmcp, component, target)
-	if cfg.TunnelName == "" {
-		if err := mcp.ValidateRemoteMCPURL(req.Context(), cfg.URL, f.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
-			return none, redact(types.NewErrBadRequest("component %q has an upstream URL that cannot be reached: %v", component.ID, err))
-		}
-	}
-
-	owner := principal.PreconfiguredOAuthOwner(vmcp.Name)
-	mcpID := vmcpconfig.PreconfiguredOAuthMCPID(vmcp.Name, component.ID)
-	oauthHandler, opt, err := f.prepareUpstreamOAuth(req, server, cfg, owner, mcpID, "")
+	authURL, err := f.startComponentOAuth(req, server, cfg, principal.PreconfiguredOAuthOwner(vmcp.Name), vmcpconfig.PreconfiguredOAuthMCPID(vmcp.Name, component.ID),
+		component.ID, server.Spec.Manifest.RemoteConfig.StaticOAuthRequired, redactURL, func(oauthHandler *mcpOAuthHandler) {
+			oauthHandler.preconfiguredOAuth = &preconfiguredOAuthBinding{
+				initiatorUserID: initiator.String(),
+				definitionHash:  vmcpconfig.PreconfiguredOAuthDefinitionHash(component),
+			}
+		})
 	if err != nil {
-		return none, redact(err)
-	}
-	oauthHandler.preconfiguredOAuth = &preconfiguredOAuthBinding{
-		initiatorUserID: initiator.String(),
-		definitionHash:  vmcpconfig.PreconfiguredOAuthDefinitionHash(component),
-	}
-
-	authURL, err := f.mcpSessionManager.StartOAuthAuthorization(req.Context(), cfg, opt, server.Spec.Manifest.RemoteConfig.StaticOAuthRequired)
-	if errors.Is(err, mcp.ErrOAuthNotRequired) {
-		return none, types.NewErrBadRequest("component %q does not require OAuth: it answered without asking for authorization, and publishes no OAuth protected resource metadata", component.ID)
-	} else if err != nil {
-		return none, redact(fmt.Errorf("start OAuth authorization of component %q: %w", component.ID, err))
-	}
-	// For a localhost callback, the administrator gets the relay's local login URL, as a user does.
-	if authURL, err = f.localLoginURL(authURL, cfg); err != nil {
-		return none, redact(err)
+		return none, err
 	}
 	slog.Info("Started the authorization of a vMCP's preconfigured OAuth grant", "vmcp", vmcp.Name, "component", component.ID, "administrator", initiator.ID, "localhostCallback", cfg.LocalhostCallbackEnabled)
 	return types.VMCPPreconfiguredOAuthAuthorization{AuthURL: authURL, LocalhostCallback: cfg.LocalhostCallbackEnabled}, nil
+}
+
+// startComponentOAuth starts the authorization of the upstream account of the component with componentID, reached with
+// server and cfg, which its callback stores for owner and mcpID, and returns the URL to open. bind binds the pending
+// authorization to who started it. It is the start of a vMCP's preconfigured OAuth and of a user's setup through an
+// agent. Errors never carry redactURL, when it is set: a URL from configuration that whoever started it may not see.
+func (f *MCPOAuthHandlerFactory) startComponentOAuth(req api.Context, server v1.MCPServer, cfg mcp.ServerConfig, owner, mcpID, componentID string, staticOAuth bool, redactURL string, bind func(*mcpOAuthHandler)) (string, error) {
+	redact := func(err error) error {
+		if redactURL == "" {
+			return err
+		}
+		if httpErr, isHTTP := errors.AsType[*types.ErrHTTP](err); isHTTP {
+			return types.NewErrHTTP(httpErr.Code, vmcpconfig.RedactURL(httpErr.Message, redactURL))
+		}
+		return errors.New(vmcpconfig.RedactURL(err.Error(), redactURL))
+	}
+	if cfg.TunnelName == "" {
+		if err := mcp.ValidateRemoteMCPURL(req.Context(), cfg.URL, f.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
+			return "", redact(types.NewErrBadRequest("component %q has an upstream URL that cannot be reached: %v", componentID, err))
+		}
+	}
+
+	oauthHandler, opt, err := f.prepareUpstreamOAuth(req, server, cfg, owner, mcpID, "")
+	if err != nil {
+		return "", redact(err)
+	}
+	bind(oauthHandler)
+
+	authURL, err := f.mcpSessionManager.StartOAuthAuthorization(req.Context(), cfg, opt, staticOAuth)
+	if errors.Is(err, mcp.ErrOAuthNotRequired) {
+		return "", types.NewErrBadRequest("component %q does not require OAuth: it answered without asking for authorization, and publishes no OAuth protected resource metadata", componentID)
+	} else if err != nil {
+		return "", redact(fmt.Errorf("start OAuth authorization of component %q: %w", componentID, err))
+	}
+	// For a localhost callback, whoever started it gets the relay's local login URL, as a user does.
+	if authURL, err = f.localLoginURL(authURL, cfg); err != nil {
+		return "", redact(err)
+	}
+	return authURL, nil
+}
+
+// unexpiredAttempt returns whether pending, an attempt that a preconfigured OAuth or delegated setup callback
+// completes, is relayed by `obot mcp login` from a localhost callback. A relayed attempt must have the relay's
+// loopback-only redirect, and lives only as long as the relay waits for it. An expired attempt is deleted and refused.
+func (f *MCPOAuthHandlerFactory) unexpiredAttempt(req api.Context, pending *gatewaytypes.MCPOAuthPendingState) (bool, error) {
+	relayed := strings.HasPrefix(pending.State, localLoginStatePrefix)
+	if relayed && !localLoginState(pending) {
+		return false, types.NewErrForbidden("authentication attempt has an invalid localhost callback")
+	}
+	ttl := client.MCPOAuthPendingStateTTL
+	if relayed {
+		ttl = localLoginTTL
+	}
+	if time.Since(pending.CreatedAt) > ttl {
+		_ = f.stateMgr.gatewayClient.DeleteMCPOAuthPendingState(req.Context(), pending.HashedState)
+		return false, types.NewErrBadRequest("authentication attempt expired; start a new authorization")
+	}
+	return relayed, nil
+}
+
+// consumeAttempt consumes the attempt that the callback's state names, so that no callback, from anyone, can use it
+// again, and refuses it unless it is still pending, as the callback checked it.
+func (f *MCPOAuthHandlerFactory) consumeAttempt(req api.Context, pending *gatewaytypes.MCPOAuthPendingState) (*gatewaytypes.MCPOAuthPendingState, error) {
+	consumed, err := f.stateMgr.gatewayClient.ConsumeMCPOAuthPendingState(req.Context(), req.URL.Query().Get("state"))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, types.NewErrBadRequest("authentication attempt already consumed")
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get oauth state: %w", err)
+	}
+	if consumed.UserID != pending.UserID || consumed.MCPID != pending.MCPID || consumed.GrantInitiatorUserID != pending.GrantInitiatorUserID || consumed.ReturnPath != pending.ReturnPath {
+		return nil, types.NewErrForbidden("authentication attempt changed")
+	}
+	return consumed, nil
 }
 
 // preconfiguredOAuthTargetURL returns the upstream URL the vMCP's grant for component is bound to
@@ -225,19 +274,9 @@ func (f *MCPOAuthHandlerFactory) completePreconfiguredOAuthCallback(req api.Cont
 	if !req.UserIsAdmin() && !req.UserIsOwner() {
 		return types.NewErrForbidden("only an administrator can authorize a vMCP's preconfigured OAuth")
 	}
-	// A local login attempt, relayed by `obot mcp login` from a localhost callback, must have the relay's loopback-only
-	// redirect, and lives only as long as the relay waits for it.
-	relayed := strings.HasPrefix(pending.State, localLoginStatePrefix)
-	if relayed && !localLoginState(pending) {
-		return types.NewErrForbidden("authentication attempt has an invalid localhost callback")
-	}
-	ttl := client.MCPOAuthPendingStateTTL
-	if relayed {
-		ttl = localLoginTTL
-	}
-	if time.Since(pending.CreatedAt) > ttl {
-		_ = f.stateMgr.gatewayClient.DeleteMCPOAuthPendingState(req.Context(), pending.HashedState)
-		return types.NewErrBadRequest("authentication attempt expired; start a new authorization")
+	relayed, err := f.unexpiredAttempt(req, pending)
+	if err != nil {
+		return err
 	}
 
 	key := kclient.ObjectKey{Namespace: req.Namespace(), Name: vmcpID}
@@ -254,7 +293,7 @@ func (f *MCPOAuthHandlerFactory) completePreconfiguredOAuthCallback(req api.Cont
 		return err
 	}
 	var vmcp v1.VMCP
-	err := req.Storage.Get(req.Context(), key, &vmcp)
+	err = req.Storage.Get(req.Context(), key, &vmcp)
 	if err == nil {
 		var component types.VMCPComponent
 		if component, err = vmcpconfig.PreconfiguredOAuthTarget(&vmcp, componentID); err == nil {
@@ -271,14 +310,9 @@ func (f *MCPOAuthHandlerFactory) completePreconfiguredOAuthCallback(req api.Cont
 		return err
 	}
 
-	consumed, err := f.stateMgr.gatewayClient.ConsumeMCPOAuthPendingState(req.Context(), req.URL.Query().Get("state"))
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return types.NewErrBadRequest("authentication attempt already consumed")
-	} else if err != nil {
-		return fmt.Errorf("failed to get oauth state: %w", err)
-	}
-	if consumed.UserID != pending.UserID || consumed.MCPID != pending.MCPID || consumed.GrantInitiatorUserID != pending.GrantInitiatorUserID {
-		return types.NewErrForbidden("authentication attempt changed")
+	consumed, err := f.consumeAttempt(req, pending)
+	if err != nil {
+		return err
 	}
 	if errorCode := req.URL.Query().Get("error"); errorCode != "" {
 		if errorCode == string(ErrAccessDenied) {

@@ -69,13 +69,17 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id s
 
 	switch {
 	case instance.Name != "":
-		server, config, missingConfig, err := sm.serverFromMCPServerInstance(ctx, instance, userID, allowMissingConfig)
+		server, config, missingConfig, err := sm.serverFromMCPServerInstance(ctx, instance, componentOwner(user, instance.Spec.UserID), allowMissingConfig)
 		if err == nil {
 			err = sm.applyPreconfiguredOAuth(ctx, user, server, &config)
 		}
 		return instance.Name, server, config, missingConfig, err
 	case server.Name != "":
-		config, missingConfig, err := sm.serverConfigForAction(ctx, server, userID, allowMissingConfig)
+		owner, err := serverOwner(user, server)
+		if err != nil {
+			return "", v1.MCPServer{}, ServerConfig{}, nil, err
+		}
+		config, missingConfig, err := sm.serverConfigForAction(ctx, server, owner, allowMissingConfig)
 		if err == nil {
 			err = sm.applyPreconfiguredOAuth(ctx, user, server, &config)
 		}
@@ -83,6 +87,30 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id s
 	default:
 		return "", v1.MCPServer{}, ServerConfig{}, nil, fmt.Errorf("unknown MCP server ID %s", id)
 	}
+}
+
+// serverOwner returns whom a connection of user to server is used as: user itself, or the pair of an agent acting on
+// behalf of a user and that user, for the component server of what the user set up through the agent, which only that
+// agent acting for that user reaches, through the composite loopback of its connection.
+func serverOwner(user kuser.Info, server v1.MCPServer) (string, error) {
+	if !principal.IsDelegatedOwner(server.Spec.UserID) {
+		return user.GetUID(), nil
+	}
+	if !principal.OwnedByCaller(user, server.Spec.UserID) {
+		return "", types.NewErrForbidden("MCP server belongs to another user's setup through an agent")
+	}
+	return server.Spec.UserID, nil
+}
+
+// componentOwner returns whom a connection owned by owner is used as, for user: the pair of an agent acting on behalf
+// of a user and that user (principal.DelegatedOwner), when the connection is what the user set up through the agent, so
+// that its configuration, headers and upstream token are the pair's; and otherwise the caller itself, which
+// serverFromMCPServerInstance requires to be the owner.
+func componentOwner(user kuser.Info, owner string) string {
+	if principal.IsDelegatedOwner(owner) && principal.OwnedByCaller(user, owner) {
+		return owner
+	}
+	return user.GetUID()
 }
 
 func (e *PreconfiguredOAuthError) Error() string {
@@ -189,7 +217,11 @@ func (sm *SessionManager) ServerForAction(ctx context.Context, id string, user k
 		return componentServer, serverConfig, err
 	}
 
-	serverConfig, _, err := sm.serverConfigForAction(ctx, server, userID, false)
+	owner, err := serverOwner(user, server)
+	if err != nil {
+		return server, ServerConfig{}, err
+	}
+	serverConfig, _, err := sm.serverConfigForAction(ctx, server, owner, false)
 	if err == nil {
 		err = sm.applyPreconfiguredOAuth(ctx, user, server, &serverConfig)
 	}

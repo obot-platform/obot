@@ -45,3 +45,10 @@ func (h *Handler) RemovePreconfiguredOAuth(req router.Request, _ router.Response
 	}
 	return h.preconfiguredOAuth.DeleteVMCPGrants(req.Ctx, *req.Object.(*v1.VMCP))
 }
+
+// RemoveDelegatedSetup deletes what users set up for a vMCP being deleted through agents: the instances owned by
+// pairs of an agent and a user, with their configuration credentials, component servers and connections, and upstream
+// OAuth tokens (vmcpconfig.DeletePairInstances). It runs in the vMCP's finalizer, and can run again after any failure.
+func RemoveDelegatedSetup(req router.Request, _ router.Response) error {
+	return vmcpconfig.DeletePairInstances(req.Ctx, req.Client, *req.Object.(*v1.VMCP))
+}

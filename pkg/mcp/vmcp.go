@@ -20,6 +20,14 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// componentPlacement is the components a connection reaches through one instance: its own servers, and its connections
+// to shared servers, by component ID.
+type componentPlacement struct {
+	instance    *v1.VMCPInstance
+	servers     map[string]struct{}
+	connections map[string]struct{}
+}
+
 // ServerConfigForVMCP resolves the component servers for a VMCP instance into
 // the aggregate configuration consumed by the MCP gateway. VMCPs are backed by
 // the MCPServers created by the VMCPInstance controller; the VMCP itself never
@@ -76,21 +84,8 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	}
 
 	if instance == nil {
-		instance = &v1.VMCPInstance{
-			Finalizers:   []string{v1.VMCPInstanceFinalizer},
-			GenerateName: system.VMCPInstancePrefix,
-			Namespace:    vmcp.Namespace,
-			Spec: v1.VMCPInstanceSpec{
-				Manifest: types.VMCPInstanceManifest{VMCPID: vmcpID},
-				UserID:   userID,
-			},
-		}
-
-		instance, err = wait.For(ctx, sm.storageClient, instance, func(i *v1.VMCPInstance) (bool, error) {
-			return i.Status.ConfigurationCheckHash != "", nil
-		}, wait.Option{Timeout: 15 * time.Second, Create: true})
-		if err != nil {
-			return ServerConfig{}, fmt.Errorf("failed to create vMCP connection: %w", err)
+		if instance, err = sm.createVMCPInstance(ctx, vmcp, userID); err != nil {
+			return ServerConfig{}, err
 		}
 	}
 
@@ -110,13 +105,28 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	// The vMCP's preconfigured OAuth for these components, in their order, which every caller's connections to them
 	// use. An agent cannot complete setup interactively, so it is refused with the reasons it is not ready rather than
 	// connected to a subset of its tools or challenged; its readiness selects the grants. For an agent acting on behalf
-	// of a user, readiness is computed over the components of the vMCP profiles that name the agent, and what the user
-	// can set up is reported as needing their approval. A user is never refused for a grant: one that does not work is
-	// reported when the component is reached. Both are computed on every connect and never cached.
-	var grants []vmcpaccess.ComponentOAuthGrant
+	// of a user, readiness is computed over the components of the vMCP profiles that name the agent, with what the
+	// user set up through the agent, and what the user can set up is reported as needing their approval; a component
+	// with preconfigured OAuth uses it, never the account the user connected through the agent. A user is never
+	// refused for a grant: one that does not work is reported when the component is reached. Both are computed on
+	// every connect and never cached.
+	var (
+		grants []vmcpaccess.ComponentOAuthGrant
+		// pair is the instance of what the user set up through the agent, for an agent acting on behalf of a user, and
+		// usesPair reports, for each enabled component, whether the agent reaches it through the pair's component
+		// server or connection rather than its own (vmcpaccess.UsesPairSetup).
+		pair     *v1.VMCPInstance
+		usesPair []bool
+	)
 	if principal.IsAgent(user) {
-		agentReadiness, err := sm.AgentReadiness(ctx, *vmcp, instance, user)
-		if err != nil {
+		var agentReadiness vmcpaccess.AgentReadinessReport
+		if delegated, ok := principal.DelegatedOwnerOf(user); ok {
+			var selection vmcpaccess.DelegatedSelection
+			if selection, pair, agentReadiness.Readiness, err = sm.delegatedSetup(ctx, vmcp, instance, user, delegated); err != nil {
+				return ServerConfig{}, err
+			}
+			agentReadiness.Grants, usesPair = selection.Grants, selection.UsesPair
+		} else if agentReadiness, err = sm.AgentReadiness(ctx, *vmcp, instance, user); err != nil {
 			return ServerConfig{}, err
 		}
 		if !agentReadiness.Readiness.Ready() {
@@ -133,15 +143,30 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		}
 	}
 
+	if usesPair != nil && len(usesPair) != len(configuredComponents) {
+		// The selection was made from the same vMCP and instance, so this cannot happen.
+		return ServerConfig{}, fmt.Errorf("the components of VMCP %q changed while connecting; retry", vmcp.Name)
+	}
+	// Each component is reached through the instance it is placed on: the caller's own, or for a component an agent
+	// acting on behalf of a user needs the user for, the pair's.
+	placements := []componentPlacement{newComponentPlacement(instance)}
+	if pair != nil {
+		placements = append(placements, newComponentPlacement(pair))
+	}
 	sharedComponents := make(map[string]struct{}, len(configuredComponents))
-	connectionsNeeded := make(map[string]struct{}, len(configuredComponents))
-	instanceComponents := make(map[string]struct{}, len(configuredComponents))
-	for _, component := range configuredComponents {
+	for i, component := range configuredComponents {
+		placement := placements[0]
+		if usesPair != nil && usesPair[i] {
+			if pair == nil {
+				return ServerConfig{}, fmt.Errorf("component %q of VMCP %q needs the user's setup through the agent, which has no instance", component.ID, vmcp.Name)
+			}
+			placement = placements[1]
+		}
 		if vmcpaccess.IsMultiUser(component) {
 			sharedComponents[component.ID] = struct{}{}
-			connectionsNeeded[component.ID] = struct{}{}
+			placement.connections[component.ID] = struct{}{}
 		} else {
-			instanceComponents[component.ID] = struct{}{}
+			placement.servers[component.ID] = struct{}{}
 		}
 	}
 
@@ -177,26 +202,32 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	if err := waitForServers(sharedComponents, kclient.MatchingFields{"spec.vmcpID": vmcp.Name}, v1.VMCPInstance{}); err != nil {
 		return ServerConfig{}, fmt.Errorf("wait for MCPServers for VMCP %q: %w", vmcpID, err)
 	}
-	if err := waitForServers(instanceComponents, kclient.MatchingFields{"spec.vmcpInstanceID": instance.Name}, *instance); err != nil {
-		return ServerConfig{}, fmt.Errorf("wait for MCPServers for VMCP %q: %w", vmcpID, err)
-	}
 	connections := map[string]string{}
-	if len(connectionsNeeded) > 0 {
+	for _, placement := range placements {
+		owner := placement.instance
+		if err := waitForServers(placement.servers, kclient.MatchingFields{"spec.vmcpInstanceID": owner.Name}, *owner); err != nil {
+			return ServerConfig{}, fmt.Errorf("wait for MCPServers for VMCP %q: %w", vmcpID, err)
+		}
+		connectionsNeeded := placement.connections
+		if len(connectionsNeeded) == 0 {
+			continue
+		}
+		// A connection is the instance owner's: the caller's, or the pair's for an agent acting on behalf of a user.
 		if err := wait.ForList(ctx, sm.storageClient, &v1.MCPServerInstance{}, vmcp.Namespace, func(connection *v1.MCPServerInstance) (bool, error) {
 			if _, ok := connectionsNeeded[connection.Spec.VMCPComponentID]; !ok {
 				return false, nil
 			}
-			if connection.Spec.UserID != userID || connection.Spec.MCPServerName != serversByComponent[connection.Spec.VMCPComponentID].Name || !connection.DeletionTimestamp.IsZero() {
+			if connection.Spec.UserID != owner.Spec.UserID || connection.Spec.MCPServerName != serversByComponent[connection.Spec.VMCPComponentID].Name || !connection.DeletionTimestamp.IsZero() {
 				return false, nil
 			}
-			if !vmcpaccess.ConnectionConfigurationSynced(*connection, componentsByID[connection.Spec.VMCPComponentID], *instance) {
+			if !vmcpaccess.ConnectionConfigurationSynced(*connection, componentsByID[connection.Spec.VMCPComponentID], *owner) {
 				return false, nil
 			}
 			connections[connection.Spec.VMCPComponentID] = connection.Name
 			delete(connectionsNeeded, connection.Spec.VMCPComponentID)
 			return len(connectionsNeeded) == 0, nil
-		}, wait.ListOption{ListOptions: []kclient.ListOption{kclient.MatchingFields{"spec.vmcpInstanceID": instance.Name}}}); err != nil {
-			return ServerConfig{}, fmt.Errorf("wait for component connections for VMCP instance %q: %w", instance.Name, err)
+		}, wait.ListOption{ListOptions: []kclient.ListOption{kclient.MatchingFields{"spec.vmcpInstanceID": owner.Name}}}); err != nil {
+			return ServerConfig{}, fmt.Errorf("wait for component connections for VMCP instance %q: %w", owner.Name, err)
 		}
 	}
 
@@ -276,6 +307,62 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	}, nil
 }
 
+func newComponentPlacement(instance *v1.VMCPInstance) componentPlacement {
+	return componentPlacement{instance: instance, servers: map[string]struct{}{}, connections: map[string]struct{}{}}
+}
+
+// createVMCPInstance creates the instance of vmcp that owner owns, and waits for the VMCPInstance controller to process
+// it.
+func (sm *SessionManager) createVMCPInstance(ctx context.Context, vmcp *v1.VMCP, owner string) (*v1.VMCPInstance, error) {
+	instance, err := wait.For(ctx, sm.storageClient, &v1.VMCPInstance{
+		Finalizers:   []string{v1.VMCPInstanceFinalizer},
+		GenerateName: system.VMCPInstancePrefix,
+		Namespace:    vmcp.Namespace,
+		Spec: v1.VMCPInstanceSpec{
+			Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+			UserID:   owner,
+		},
+	}, func(i *v1.VMCPInstance) (bool, error) {
+		return i.Status.ConfigurationCheckHash != "", nil
+	}, wait.Option{Timeout: 15 * time.Second, Create: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vMCP connection: %w", err)
+	}
+	return instance, nil
+}
+
+// delegatedSetup returns what agent, an agent acting on behalf of a user, is granted of vmcp through instance, the
+// agent's own instance (vmcpaccess.SelectDelegated), the instance of what the user set up through the agent, owned by
+// owner, and the agent's readiness on behalf of the user. The pair's instance is created when a selected component
+// needs the user and the pair has none yet, so that its components are ready for the user's setup, and it is returned
+// only when a selected component runs on it.
+func (sm *SessionManager) delegatedSetup(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info, owner principal.DelegatedOwner) (vmcpaccess.DelegatedSelection, *v1.VMCPInstance, vmcpaccess.Readiness, error) {
+	selection, err := vmcpaccess.SelectDelegated(ctx, sm.preconfiguredOAuth, *vmcp, instance, vmcpaccess.CallerProfiles(agent, *vmcp))
+	if err != nil {
+		return vmcpaccess.DelegatedSelection{}, nil, vmcpaccess.Readiness{}, err
+	}
+	if !selection.NeedsPair() {
+		return selection, nil, selection.Readiness(vmcpaccess.PairSetup{}), nil
+	}
+	pair, err := vmcpaccess.FindInstance(ctx, sm.storageClient, vmcp.Namespace, vmcp.Name, owner.String())
+	if err != nil {
+		return vmcpaccess.DelegatedSelection{}, nil, vmcpaccess.Readiness{}, err
+	}
+	if pair == nil {
+		if pair, err = sm.createVMCPInstance(ctx, vmcp, owner.String()); err != nil {
+			return vmcpaccess.DelegatedSelection{}, nil, vmcpaccess.Readiness{}, err
+		}
+	}
+	if pair, err = sm.waitForVMCPInstanceConfiguration(ctx, vmcp, pair, agent); err != nil {
+		return vmcpaccess.DelegatedSelection{}, nil, vmcpaccess.Readiness{}, err
+	}
+	connected, err := sm.preconfiguredOAuth.PairConnections(ctx, pair, selection.Components)
+	if err != nil {
+		return vmcpaccess.DelegatedSelection{}, nil, vmcpaccess.Readiness{}, err
+	}
+	return selection, pair, selection.Readiness(vmcpaccess.PairSetup{Instance: pair, Connected: connected}), nil
+}
+
 // AgentReadiness reports whether agent can use vmcp through instance, or nil when it has not connected, as a connect
 // decides it (vmcpaccess.AgentReadiness, with the session manager's store of preconfigured OAuth grants). The readiness
 // API uses it, so that it never reports an agent ready that a connect refuses.
@@ -306,6 +393,22 @@ func (sm *SessionManager) waitForVMCPInstanceConfiguration(ctx context.Context, 
 	// An instance without saved configuration still needs the controller to record
 	// its user configuration hash, so an empty sync hash is waited on like any other.
 	syncHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]
+
+	if _, ok := vmcpaccess.PairOwner(*instance); ok {
+		// The instance of what a user set up through an agent carries the components that may need the user, whatever
+		// the vMCP profiles grant, as the controller records it.
+		want := vmcpaccess.ConfigurationCheckHash(vmcpaccess.PairInstanceComponents(vmcpaccess.ComponentsForInstance(*vmcp, *instance)), syncHash)
+		if instance.Status.ConfigurationCheckHash == want {
+			return instance, nil
+		}
+		instance, err := wait.For(ctx, sm.storageClient, instance, func(current *v1.VMCPInstance) (bool, error) {
+			return current.Status.ConfigurationCheckHash == want, nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("wait for vMCP setup through an agent to sync: %w", err)
+		}
+		return instance, nil
+	}
 
 	checkHash := func(u kuser.Info) string {
 		return vmcpaccess.ConfigurationCheckHash(vmcpaccess.EnabledComponents(u, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance)), syncHash)
@@ -373,4 +476,59 @@ func ValidateSecretBindingsVMCP(manifest types.VMCPManifest, mcpBackend string) 
 		}
 	}
 	return nil
+}
+
+// PairComponentServer returns the component server through which the pair that owns pair, the instance of what a user
+// set up through an agent, reaches the component of vmcp with componentID, and the configuration of the pair's
+// connection to it, once the controllers have created them and copied the pair's configuration to them, with the
+// configuration the connection still lacks. The setup API authorizes the pair's upstream OAuth account for the
+// component against it, as a user's own connection is authorized: the account is stored for the pair and the
+// connection (PairConnectID), where an agent acting on behalf of the user finds it.
+func (sm *SessionManager) PairComponentServer(ctx context.Context, vmcp *v1.VMCP, pair *v1.VMCPInstance, componentID string) (v1.MCPServer, ServerConfig, []string, error) {
+	if _, ok := vmcpaccess.PairOwner(*pair); !ok || pair.Spec.Manifest.VMCPID != vmcp.Name {
+		return v1.MCPServer{}, ServerConfig{}, nil, fmt.Errorf("VMCP instance %q is not a user's setup of VMCP %q through an agent", pair.Name, vmcp.Name)
+	}
+	components := vmcpaccess.PairInstanceComponents(vmcpaccess.ComponentsForInstance(*vmcp, *pair))
+	index := slices.IndexFunc(components, func(component types.VMCPComponent) bool { return component.ID == componentID })
+	if index < 0 {
+		return v1.MCPServer{}, ServerConfig{}, nil, types.NewErrNotFound("component %q of vMCP %q needs nothing from users", componentID, vmcp.Name)
+	}
+	component := components[index]
+	pair, err := sm.waitForVMCPInstanceConfiguration(ctx, vmcp, pair, nil)
+	if err != nil {
+		return v1.MCPServer{}, ServerConfig{}, nil, err
+	}
+	owner := pair.Spec.UserID
+	options := wait.Option{Timeout: 15 * time.Second, WaitForExists: true}
+
+	if vmcpaccess.IsMultiUser(component) {
+		connection, err := wait.For(ctx, sm.storageClient, &v1.MCPServerInstance{
+			Name:      vmcpaccess.ComponentConnectionName(pair.Name, component.ID),
+			Namespace: pair.Namespace,
+		}, func(connection *v1.MCPServerInstance) (bool, error) {
+			return connection.DeletionTimestamp.IsZero() && vmcpaccess.ConnectionConfigurationSynced(*connection, component, *pair), nil
+		}, options)
+		if err != nil {
+			return v1.MCPServer{}, ServerConfig{}, nil, fmt.Errorf("wait for the connection of VMCP instance %q to component %q: %w", pair.Name, component.ID, err)
+		}
+		if connection.Spec.UserID != owner || connection.Spec.VMCPInstanceID != pair.Name || connection.Spec.VMCPComponentID != component.ID {
+			return v1.MCPServer{}, ServerConfig{}, nil, fmt.Errorf("MCPServerInstance %q has inconsistent vMCP ownership", connection.Name)
+		}
+		return sm.serverFromMCPServerInstance(ctx, *connection, owner, true)
+	}
+
+	server, err := wait.For(ctx, sm.storageClient, &v1.MCPServer{
+		Name:      vmcpaccess.ComponentServerName(pair.Name, component.ID),
+		Namespace: pair.Namespace,
+	}, func(server *v1.MCPServer) (bool, error) {
+		return server.DeletionTimestamp.IsZero() && vmcpaccess.ServerConfigurationSynced(*server, *vmcp, *pair), nil
+	}, options)
+	if err != nil {
+		return v1.MCPServer{}, ServerConfig{}, nil, fmt.Errorf("wait for the server of VMCP instance %q for component %q: %w", pair.Name, component.ID, err)
+	}
+	if server.Spec.UserID != owner || server.Spec.VMCPInstanceID != pair.Name || server.Spec.VMCPComponentID != component.ID {
+		return v1.MCPServer{}, ServerConfig{}, nil, fmt.Errorf("MCPServer %q has inconsistent vMCP ownership", server.Name)
+	}
+	config, missing, err := sm.serverConfigForAction(ctx, *server, owner, true)
+	return *server, config, missing, err
 }

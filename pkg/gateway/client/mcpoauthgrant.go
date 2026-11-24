@@ -184,7 +184,16 @@ func (c *Client) CreateMCPOAuthGrantPendingState(ctx context.Context, owner, mcp
 	if initiatorUserID == "" || definitionHash == "" {
 		return fmt.Errorf("a pending vMCP preconfigured OAuth grant must be bound to its administrator and component definition")
 	}
-	ps := &types.MCPOAuthPendingState{
+	ps := newBoundMCPOAuthPendingState(owner, mcpID, mcpURL, tunnelName, initiatorUserID, state, verifier, resourceURL, oauthConf)
+	ps.GrantDefinitionHash = definitionHash
+	return c.createBoundMCPOAuthPendingState(ctx, ps)
+}
+
+// newBoundMCPOAuthPendingState returns the pending authorization of a token of owner that only the user with the
+// encoded principal initiatorUserID can complete: a vMCP's preconfigured OAuth grant, or a user's upstream account
+// through an agent. The caller adds what else binds it.
+func newBoundMCPOAuthPendingState(owner, mcpID, mcpURL, tunnelName, initiatorUserID, state, verifier, resourceURL string, oauthConf *oauth2.Config) *types.MCPOAuthPendingState {
+	return &types.MCPOAuthPendingState{
 		HashedState:          fmt.Sprintf("%x", sha256.Sum256([]byte(state))),
 		State:                state,
 		Verifier:             verifier,
@@ -201,8 +210,11 @@ func (c *Client) CreateMCPOAuthGrantPendingState(ctx context.Context, owner, mcp
 		RedirectURL:          oauthConf.RedirectURL,
 		Scopes:               strings.Join(oauthConf.Scopes, " "),
 		GrantInitiatorUserID: initiatorUserID,
-		GrantDefinitionHash:  definitionHash,
 	}
+}
+
+// createBoundMCPOAuthPendingState encrypts and stores ps (newBoundMCPOAuthPendingState).
+func (c *Client) createBoundMCPOAuthPendingState(ctx context.Context, ps *types.MCPOAuthPendingState) error {
 	if err := c.encryptMCPOAuthPendingState(ctx, ps); err != nil {
 		return fmt.Errorf("failed to encrypt pending state: %w", err)
 	}

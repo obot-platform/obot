@@ -195,9 +195,13 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.DetectDrift)
 	// Last, so the probes, which reach remote servers, delay none of the vMCP's other handlers.
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.ProbeComponentOAuth)
-	// The vMCP's one finalizer deletes its preconfigured OAuth grants, then its static configuration.
+	// The vMCP's one finalizer deletes its preconfigured OAuth grants, what users set up for it through agents, then its
+	// static configuration.
 	root.Type(&v1.VMCP{}).FinalizeFunc(v1.VMCPFinalizer, func(req router.Request, resp router.Response) error {
 		if err := vmcpHandler.RemovePreconfiguredOAuth(req, resp); err != nil {
+			return err
+		}
+		if err := vmcphandler.RemoveDelegatedSetup(req, resp); err != nil {
 			return err
 		}
 		return credentialCleanup.RemoveVMCPStaticConfigurationCredentials(req, resp)

@@ -599,6 +599,11 @@ func (h *handler) oauthCallback(req api.Context) error {
 	if principal.IsPreconfiguredOAuthOwner(pending.UserID) {
 		return h.oauthChecker.completePreconfiguredOAuthCallback(req, pending)
 	}
+	// A user's upstream account through an agent is stored for the pair of the agent and the user, never for whoever
+	// holds the state, and only by that user.
+	if principal.IsDelegatedOwner(pending.UserID) {
+		return h.oauthChecker.completeDelegatedSetupCallback(req, pending)
+	}
 
 	if err := h.oauthChecker.validateCapturedCallback(req, pending); err != nil {
 		if localLoginState(pending) {

@@ -8,14 +8,12 @@ import (
 	"reflect"
 	"slices"
 
-	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"gorm.io/gorm"
@@ -52,6 +50,12 @@ func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) erro
 	if vmcp.Spec.UserID != "" {
 		// If the vMCP is a personal vMCP, then it will be deleted when it should no longer exist.
 		// Then this instance will be cleaned up on vMCP deletion by reference.
+		return nil
+	}
+	if _, ok := vmcpconfig.PairOwner(*instance); ok {
+		// What a user set up through an agent stays when it no longer applies, because no vMCP profile names the agent,
+		// or no agent profile matches the user, any more: it is deleted only when the user revokes the agent, or the
+		// vMCP, the agent or the user is deleted (agentdelegation.Cleanup, and DeleteRefs for the vMCP).
 		return nil
 	}
 
@@ -120,6 +124,10 @@ func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) 
 	if len(instance.Spec.Manifest.ComponentSet) == 0 {
 		return nil
 	}
+	if _, ok := vmcpconfig.PairOwner(*instance); ok {
+		// A pair's instance has no tool selection: nobody connects through it.
+		return nil
+	}
 
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, instance.Namespace, instance.Spec.Manifest.VMCPID); err != nil {
@@ -163,6 +171,21 @@ func (h *Handler) instanceUser(req router.Request, vmcp v1.VMCP, instance v1.VMC
 	return h.userInfo(req.Ctx, owner)
 }
 
+// instanceComponents returns, of components, those of vmcp that instance carries: those that the profiles enable for
+// its owner (EnabledComponents), or for a pair's instance, what a user set up through an agent, the components that
+// may need the user, whatever the vMCP profiles grant (vmcpconfig.PairInstanceComponents). Which of them
+// an agent acting on behalf of the user uses is decided on each connection.
+func (h *Handler) instanceComponents(req router.Request, vmcp v1.VMCP, instance v1.VMCPInstance, components []types.VMCPComponent) ([]types.VMCPComponent, error) {
+	if _, ok := vmcpconfig.PairOwner(instance); ok {
+		return vmcpconfig.PairInstanceComponents(components), nil
+	}
+	u, err := h.instanceUser(req, vmcp, instance)
+	if err != nil {
+		return nil, err
+	}
+	return vmcpconfig.EnabledComponents(u, vmcp, components), nil
+}
+
 // SyncUserConfigurationHash records the current instance credential without
 // exposing its values. Only values still allowed by the VMCP policy contribute
 // to the hash.
@@ -176,16 +199,14 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 		return fmt.Errorf("get VMCP %q: %w", instance.Spec.Manifest.VMCPID, err)
 	}
 
-	u, err := h.instanceUser(req, vmcp, *instance)
-	if err != nil {
-		return err
-	}
-
 	configuration := map[string]string{}
 	effective := vmcp.Spec.Manifest
 	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, *instance)
 	// Components disabled for the user never require the user's configuration.
-	enabled := vmcpconfig.EnabledComponents(u, vmcp, slices.Clone(effective.Components))
+	enabled, err := h.instanceComponents(req, vmcp, *instance, slices.Clone(effective.Components))
+	if err != nil {
+		return err
+	}
 	checkHash := vmcpconfig.ConfigurationCheckHash(enabled, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation])
 	if instance.Status.ConfigurationCheckHash == checkHash {
 		return nil
@@ -245,14 +266,12 @@ func (h *Handler) EnsureMCPServers(req router.Request, _ router.Response) error 
 		return fmt.Errorf("get VMCP %q: %w", instance.Spec.Manifest.VMCPID, err)
 	}
 
-	u, err := h.instanceUser(req, vmcp, *instance)
+	// Exclude profile-disabled components so revoked dedicated servers are deleted
+	// and not recreated while access remains revoked. Restored access allows recreation.
+	components, err := h.instanceComponents(req, vmcp, *instance, vmcpconfig.ComponentsForInstance(vmcp, *instance))
 	if err != nil {
 		return err
 	}
-
-	// Exclude profile-disabled components so revoked dedicated servers are deleted
-	// and not recreated while access remains revoked. Restored access allows recreation.
-	components := vmcpconfig.EnabledComponents(u, vmcp, vmcpconfig.ComponentsForInstance(vmcp, *instance))
 	servers := make([]v1.MCPServer, 0, len(components))
 	for _, component := range components {
 		if vmcpconfig.IsMultiUser(component) {
@@ -343,7 +362,7 @@ func mcpServerForComponent(instance *v1.VMCPInstance, component types.VMCPCompon
 	}
 
 	return v1.MCPServer{
-		Name:        name.SafeConcatName(system.MCPServerPrefix+instance.Name, component.ID),
+		Name:        vmcpconfig.ComponentServerName(instance.Name, component.ID),
 		Namespace:   instance.Namespace,
 		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: utils.Digest(component.CatalogEntry)},
 		Spec: v1.MCPServerSpec{

@@ -43,6 +43,11 @@ func (*VMCPInstanceHandler) List(req api.Context) error {
 
 	items := make([]types.VMCPInstance, 0, len(list.Items))
 	for _, item := range list.Items {
+		if principal.IsDelegatedOwner(item.Spec.UserID) {
+			// What a user set up through an agent is listed to no one here, an administrator included
+			// (authz.UserCanReadVMCPInstance).
+			continue
+		}
 		if !privileged {
 			var vmcp v1.VMCP
 			if err := req.Get(&vmcp, item.Spec.Manifest.VMCPID); err != nil {

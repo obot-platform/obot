@@ -1204,7 +1204,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
 		VMCPPreconfiguredOAuth:       vmcpPreconfiguredOAuth,
-		AgentDelegationCleanup:       agentdelegation.NoCleanup{},
+		AgentDelegationCleanup:       vmcp.NewDelegatedSetupCleanup(storageClient, gatewayClient),
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,

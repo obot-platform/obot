@@ -209,6 +209,12 @@ func (s *wireInitialEventsStorage) Watch(ctx context.Context, list kclient.Objec
 		upstream.Stop()
 		return nil, err
 	}
+	// The fake client's watch sends every object's events, so a watch of one object by name, as wait.For's, is narrowed
+	// to it here, as the API server narrows it.
+	var name string
+	if listOptions.FieldSelector != nil {
+		name, _ = listOptions.FieldSelector.RequiresExactMatch("metadata.name")
+	}
 	result := make(chan watch.Event)
 	proxy := watch.NewProxyWatcher(result)
 	go func() {
@@ -226,6 +232,9 @@ func (s *wireInitialEventsStorage) Watch(ctx context.Context, list kclient.Objec
 			case event, ok := <-upstream.ResultChan():
 				if !ok {
 					return
+				}
+				if object, isObject := event.Object.(kclient.Object); name != "" && isObject && object.GetName() != name {
+					continue
 				}
 				select {
 				case result <- event:

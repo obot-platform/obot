@@ -66,8 +66,9 @@ func InstanceConfigurationCredentialContext(instanceID string) string {
 
 // InstanceTakesUserConfiguration reports whether the configuration credential of instance
 // (InstanceConfigurationCredentialContext) is read for its component servers and connections: a user's holds the
-// values the user entered. An agent never enters configuration and is given only values fixed for everyone, by the
-// vMCP or the catalog entry, so an agent's is never read, whatever is stored there.
+// values the user entered, and the instance of a user's setup through an agent (PairOwner) the values the user entered
+// through the agent. An agent never enters configuration and is given only values fixed for everyone, by the vMCP or
+// the catalog entry, so an agent's own is never read, whatever is stored there.
 func InstanceTakesUserConfiguration(instance v1.VMCPInstance) bool {
 	_, agent := principal.ParseAgent(instance.Spec.UserID)
 	return !agent

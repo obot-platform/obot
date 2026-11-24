@@ -69,6 +69,9 @@ type mcpOAuthHandler struct {
 	// preconfiguredOAuth binds the authorization of a vMCP component's preconfigured OAuth to the administrator who
 	// started it and to the component's definition. It is nil for every other authorization.
 	preconfiguredOAuth *preconfiguredOAuthBinding
+	// delegatedSetup binds the authorization of a user's upstream account through an agent to the user who started it
+	// and to the page it returns to. It is nil for every other authorization.
+	delegatedSetup *delegatedSetupBinding
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
@@ -504,6 +507,9 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, res
 
 	if m.preconfiguredOAuth != nil {
 		return state, ch, m.gatewayClient.CreateMCPOAuthGrantPendingState(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.preconfiguredOAuth.initiatorUserID, m.preconfiguredOAuth.definitionHash, state, verifier, resourceURL, conf)
+	}
+	if m.delegatedSetup != nil {
+		return state, ch, m.gatewayClient.CreateMCPOAuthDelegatedSetupPendingState(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.delegatedSetup.initiatorUserID, m.delegatedSetup.returnPath, state, verifier, resourceURL, conf)
 	}
 	return state, ch, m.stateMgr.store(ctx, m.userID, m.initiatorUserID, m.mcpID, m.mcpURL, m.tunnelName, m.oauthAuthRequestID, state, verifier, resourceURL, conf, m.upstreamChallenge)
 }

@@ -14,7 +14,16 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+)
+
+var (
+	// delegatedSetupInstanceRoutes are the routes that name one vMCP instance (refusesDelegatedSetupInstance).
+	delegatedSetupInstanceRoutes = newPathMatcher(
+		"/api/vmcp-instances/{vmcp_instance_id}",
+		"/api/vmcp-instances/{vmcp_instance_id}/{rest...}",
+	)
 )
 
 // CheckVMCPComponentAccess restricts personal vMCP components to accessible entries.
@@ -90,7 +99,12 @@ func UserCanManageVMCP(u kuser.Info, vmcp *v1.VMCP) bool {
 	return IsVMCPAdministrator(u) || (vmcp.Spec.UserID != "" && vmcp.Spec.UserID == u.GetUID())
 }
 
+// UserCanReadVMCPInstance reports whether u may read instance, an instance of vmcp. Nobody reads the instance of what a
+// user set up through an agent this way, an administrator included: only that user, through the setup routes.
 func UserCanReadVMCPInstance(u kuser.Info, instance *v1.VMCPInstance, vmcp *v1.VMCP) bool {
+	if principal.IsDelegatedOwner(instance.Spec.UserID) {
+		return false
+	}
 	return IsVMCPAdministrator(u) || (instance.Spec.UserID == u.GetUID() && UserCanReadVMCP(u, vmcp))
 }
 
@@ -119,6 +133,26 @@ func (a *Authorizer) checkVMCP(req *http.Request, resources *Resources, u User) 
 		return true, nil
 	}
 	return false, nil
+}
+
+// refusesDelegatedSetupInstance reports whether req names, on a vMCP instance route, the instance of what a user set up
+// through an agent (principal.DelegatedOwner), which no instance route reaches, for anyone. Only that user reaches it,
+// through the setup routes of the agent's request or delegation, which never return a value or a token. This is
+// checked ahead of every rule, because the administrators' rules grant every instance route without looking at the
+// instance, so that no administrator reads, configures, reveals or deletes it. A request whose instance cannot be read
+// is refused.
+func (a *Authorizer) refusesDelegatedSetupInstance(req *http.Request) bool {
+	vars, ok := delegatedSetupInstanceRoutes.Match(req)
+	if !ok {
+		return false
+	}
+	var instance v1.VMCPInstance
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, vars("vmcp_instance_id")), &instance); apierrors.IsNotFound(err) {
+		return false
+	} else if err != nil {
+		return true
+	}
+	return principal.IsDelegatedOwner(instance.Spec.UserID)
 }
 
 // isVMCPComponentOAuthPath reports whether path is the per-user OAuth reset
