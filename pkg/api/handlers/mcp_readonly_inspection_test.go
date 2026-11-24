@@ -182,9 +182,10 @@ func TestAdminReadonlyInspectionDoesNotConnectToVMCPs(t *testing.T) {
 // shared server they don't own does not let them start it.
 func TestAdminReadonlyInspectionResolvesConnections(t *testing.T) {
 	const (
-		readerID       = "readonly-user"
-		otherInstance  = system.MCPServerInstancePrefix + "other"
-		readerInstance = system.MCPServerInstancePrefix + "reader"
+		readerID                   = "readonly-user"
+		otherInstance              = system.MCPServerInstancePrefix + "other"
+		readerInstance             = system.MCPServerInstancePrefix + "reader"
+		otherInstanceOnOwnedServer = system.MCPServerInstancePrefix + "other-on-owned"
 	)
 	server := &v1.MCPServer{
 		Name:      system.MCPServerPrefix + "shared",
@@ -197,6 +198,13 @@ func TestAdminReadonlyInspectionResolvesConnections(t *testing.T) {
 			},
 		},
 	}
+	// The shared component retains its creator as deployment owner after demotion.
+	ownedServer := server.DeepCopy()
+	ownedServer.Name = system.MCPServerPrefix + "owned"
+	ownedServer.Spec.UserID = readerID
+	ownedServer.Spec.VMCPID = system.VMCPPrefix + "shared"
+	ownedServer.Spec.VMCPComponentID = "echo"
+
 	instances := []*v1.MCPServerInstance{
 		{
 			Name:      otherInstance,
@@ -214,8 +222,18 @@ func TestAdminReadonlyInspectionResolvesConnections(t *testing.T) {
 				MCPServerName: server.Name,
 			},
 		},
+		{
+			Name:      otherInstanceOnOwnedServer,
+			Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerInstanceSpec{
+				UserID:          "another-user",
+				MCPServerName:   ownedServer.Name,
+				VMCPInstanceID:  system.VMCPInstancePrefix + "other",
+				VMCPComponentID: ownedServer.Spec.VMCPComponentID,
+			},
+		},
 	}
-	manager, storage, gateway := newVMCPActionSessionManagerWithScheme(t, inspectionScheme(t), server, instances[0], instances[1])
+	manager, storage, gateway := newVMCPActionSessionManagerWithScheme(t, inspectionScheme(t), server, ownedServer, instances[0], instances[1], instances[2])
 	handler := &MCPHandler{mcpSessionManager: manager}
 
 	for _, role := range []types.Role{types.RoleBasic | types.RoleAdminReadonly, types.RoleBasic | types.RoleAuditor} {
@@ -248,23 +266,31 @@ func TestAdminReadonlyInspectionResolvesConnections(t *testing.T) {
 			}
 
 			for _, connection := range []struct {
-				name string
-				id   string
+				name       string
+				id         string
+				wantStatus int
 			}{
 				{
-					name: "another user's connection",
-					id:   otherInstance,
+					name:       "another user's connection",
+					id:         otherInstance,
+					wantStatus: http.StatusConflict,
 				},
 				{
-					name: "own connection",
-					id:   readerInstance,
+					name:       "own connection",
+					id:         readerInstance,
+					wantStatus: http.StatusConflict,
+				},
+				{
+					name:       "another user's connection to an owned deployment",
+					id:         otherInstanceOnOwnedServer,
+					wantStatus: http.StatusForbidden,
 				},
 			} {
 				t.Run(strconv.Itoa(int(role))+"/"+endpoint.name+"/"+connection.name, func(t *testing.T) {
 					err := call(connection.id)
 					httpErr, ok := errors.AsType[*types.ErrHTTP](err)
-					require.True(t, ok, "expected HTTP stopped-server error, got %v", err)
-					require.Equal(t, http.StatusConflict, httpErr.Code)
+					require.True(t, ok, "expected HTTP error, got %v", err)
+					require.Equal(t, connection.wantStatus, httpErr.Code)
 
 					var deployments appsv1.DeploymentList
 					require.NoError(t, storage.List(t.Context(), &deployments))

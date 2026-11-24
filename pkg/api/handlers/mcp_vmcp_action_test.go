@@ -411,6 +411,12 @@ func newVMCPActionSessionManagerWithScheme(t *testing.T, scheme *runtime.Scheme,
 	storageClient := &vmcpActionInitialEventsClient{WithWatch: clientfake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(&v1.MCPServerInstance{}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.mcpServerName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServerInstance).Spec.MCPServerName}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.userID", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServerInstance).Spec.UserID}
+		}).
 		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServer).Spec.VMCPID} }).
 		WithIndex(&v1.VMCPInstance{}, "spec.userID", func(obj kclient.Object) []string {

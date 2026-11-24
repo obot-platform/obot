@@ -766,8 +766,9 @@ func storedServerForInspection(req api.Context) (v1.MCPServer, error) {
 	return server, err
 }
 
-func (m *MCPHandler) launchConfigForInspection(req api.Context, server v1.MCPServer) (mcp.ServerConfig, error) {
-	resolved, config, err := m.mcpSessionManager.ServerForAction(req.Context(), server.Name, req.User)
+func (m *MCPHandler) launchConfigForInspection(req api.Context) (mcp.ServerConfig, error) {
+	// The route can name a connection, which ServerForAction checks for ownership.
+	resolved, config, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
 	if err != nil {
 		return mcp.ServerConfig{}, err
 	}
@@ -1463,7 +1464,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 	if !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()) {
 		details, err = m.mcpSessionManager.GetRunningServerDetails(req.Context(), server.Name)
 	} else {
-		config, configErr := m.launchConfigForInspection(req, server)
+		config, configErr := m.launchConfigForInspection(req)
 		if configErr != nil {
 			return configErr
 		}
@@ -1878,7 +1879,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	if !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()) {
 		logs, err = m.mcpSessionManager.StreamRunningServerLogs(req.Context(), server.Name)
 	} else {
-		config, configErr := m.launchConfigForInspection(req, server)
+		config, configErr := m.launchConfigForInspection(req)
 		if configErr != nil {
 			return configErr
 		}
