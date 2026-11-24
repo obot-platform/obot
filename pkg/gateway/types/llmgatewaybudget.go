@@ -71,13 +71,15 @@ type LLMGatewayBudgetUsage struct {
 	Spend        float64
 }
 
-// LLMGatewaySettings are the LLM gateway settings Obot enforces itself, as opposed to the
-// engine's own configuration.
-type LLMGatewaySettings struct {
-	// SubscriptionPassthrough lets Claude Code users signed in with a Claude subscription use
+// SubscriptionPassthroughSettings is the safe, read-only summary derived from provider aggregates.
+type SubscriptionPassthroughSettings struct {
+	// ClaudeSubscriptionPassthrough lets Claude Code users signed in with a Claude subscription use
 	// it through the gateway: their Anthropic OAuth token is forwarded to Anthropic for Claude
 	// models instead of a configured provider key.
-	SubscriptionPassthrough bool `json:"subscriptionPassthrough"`
+	// Keep the JSON name compatible with existing connection-setup clients.
+	ClaudeSubscriptionPassthrough bool `json:"subscriptionPassthrough"`
+	// ChatGPTSubscriptionPassthrough forwards Codex CLI ChatGPT credentials to OpenAI's Codex endpoint.
+	ChatGPTSubscriptionPassthrough bool `json:"chatgptSubscriptionPassthrough"`
 }
 
 func (LLMGatewayBudget) TableName() string {

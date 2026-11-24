@@ -988,6 +988,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 				return
 			}
 
+			if err := gatewayClient.MigrateLLMGatewaySubscriptions(ctx, coreStore); err != nil {
+				bifrostEngine.Fail(err)
+				return
+			}
+
 			modelDataURL, err := modeldata.RefreshURL(config.LLMGatewayModelDataURL)
 			if err != nil {
 				bifrostEngine.Fail(err)
@@ -1004,10 +1009,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 				// Guardrails are part of the gateway: it doesn't serve until they're in place.
 				FirstPlugin: guardrailInput,
 				LastPlugin:  guardrailOutput,
-				ClaudeSubscriptions: func(ctx context.Context) (bool, error) {
-					settings, err := gatewayClient.GetLLMGatewaySettings(ctx)
-					return settings.SubscriptionPassthrough, err
-				},
 			})
 		}()
 	}

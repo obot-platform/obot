@@ -10,7 +10,6 @@
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import {
 		deleteProvider,
-		getSettings,
 		getStatus,
 		listProviderKeys,
 		listProviders,
@@ -50,8 +49,6 @@
 	let openingProvider = $state<string>();
 	let openRequest = 0;
 	let removing = $state<string>();
-	// With Claude subscriptions allowed, Anthropic works without keys of its own.
-	let subscriptionPassthrough = $state(false);
 
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 	let keyNamesByProvider = $derived(
@@ -71,12 +68,6 @@
 				providers.map(async (p) => [p.name, await listProviderKeys(p.name).catch(() => [])])
 			);
 			keys = Object.fromEntries(entries);
-			if (providers.some((p) => p.name === 'anthropic')) {
-				subscriptionPassthrough = (await getSettings().catch(() => undefined))
-					?.subscriptionPassthrough
-					? true
-					: false;
-			}
 		} finally {
 			if (!options?.silent) loading = false;
 		}
@@ -193,7 +184,9 @@
 								{/if}
 								{#if p.custom_provider_config?.is_key_less}
 									<span>{m.models_providers_no_keys()}</span>
-								{:else if ks.length === 0 && p.name === 'anthropic' && subscriptionPassthrough}
+								{:else if ks.length === 0 && p.name === 'openai' && p.subscription_passthrough}
+									<span>{m.models_providers_chatgpt_subscriptions_only()}</span>
+								{:else if ks.length === 0 && p.name === 'anthropic' && p.subscription_passthrough}
 									<span>{m.models_providers_subscriptions_only()}</span>
 								{:else if ks.length === 0}
 									<span class="text-warning">{m.models_providers_no_keys_add_one()}</span>

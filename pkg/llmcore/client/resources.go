@@ -30,7 +30,7 @@ func resourceName(id string) string {
 // callers must discard the result when the returned error is non-nil.
 func (s *Client) Load(ctx context.Context) (LoadResult, error) {
 	cfg := Config{
-		Providers: map[schemas.ModelProvider]schemas.ProviderConfig{},
+		Providers: map[schemas.ModelProvider]ProviderConfig{},
 		Keys:      map[schemas.ModelProvider][]schemas.Key{},
 		Rules:     map[string]tables.TableRoutingRule{},
 		Settings:  map[string]json.RawMessage{},
@@ -65,7 +65,7 @@ func (s *Client) Load(ctx context.Context) (LoadResult, error) {
 		}
 
 		cfg.AzureDiscoveries[name] = data.AzureDiscoveries
-		cfg.Providers[name] = data.Config
+		cfg.Providers[name] = data.RuntimeConfig()
 		cfg.Keys[name] = data.Keys
 	}
 

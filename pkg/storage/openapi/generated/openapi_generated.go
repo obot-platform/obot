@@ -6938,7 +6938,7 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 					},
 					"servedProvider": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ServedProvider and ServedModel are the provider and model that served the request, which routing rules and fallbacks can make differ from TargetModel. ProviderKey names the gateway key it was served with, and Fallback is true when a fallback served it. ClaudeSubscription is true when the caller's Claude subscription paid for it instead, with no gateway key.",
+							Description: "ServedProvider and ServedModel are the provider and model that served the request, which routing rules and fallbacks can make differ from TargetModel. ProviderKey names the gateway key it was served with, and Fallback is true when a fallback served it. Subscription is true when the caller's subscription paid for it instead, with no gateway key.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6961,7 +6961,7 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"claudeSubscription": {
+					"subscription": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
@@ -7118,6 +7118,13 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 									},
 								},
 							},
+						},
+					},
+					"claudeSubscription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaudeSubscription is deprecated; retained for older audit consumers. Use Subscription instead.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

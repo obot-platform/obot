@@ -18,6 +18,7 @@ import (
 	"github.com/maximhq/bifrost/framework/modelcatalog"
 	"github.com/maximhq/bifrost/framework/modelcatalog/datasheet"
 	"github.com/obot-platform/obot/apiclient/types"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,6 +51,12 @@ const (
 	"gpt-test": {
 		"provider": "openai",
 		"mode": "chat",
+		"input_cost_per_token": 1e-06,
+		"output_cost_per_token": 2e-06
+	},
+	"gpt-subscription": {
+		"provider": "openai",
+		"mode": "responses",
 		"input_cost_per_token": 1e-06,
 		"output_cost_per_token": 2e-06
 	}
@@ -97,15 +104,11 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	var subscriptions atomic.Bool
 	e := New()
 	catalog := testCatalog(t)
 	e.catalog = func() modelCatalog { return catalog }
 	if err := e.Start(ctx, testOptions(t, Options{
 		DataDir: t.TempDir(),
-		ClaudeSubscriptions: func(context.Context) (bool, error) {
-			return subscriptions.Load(), nil
-		},
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +155,7 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 		t.Fatalf("an Anthropic provider without keys or subscriptions is usable: %v, %v", has, err)
 	}
 
-	subscriptions.Store(true)
+	setProviderSubscriptions(t, e, "anthropic", true)
 	if !configured() {
 		t.Fatal("an Anthropic provider used for subscriptions doesn't keep its models")
 	}
@@ -184,14 +187,14 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 	if err := testMutation(ctx, e, nil)(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{"name": "paused", "value": "sk-ant-paused", "models": []string{"*"}, "weight": 1, "enabled": false}))); err != nil {
 		t.Fatal(err)
 	}
-	if _, keys, enabled, err := e.anthropicKeys(ctx); err != nil || keys != 1 || enabled != 0 {
+	if _, keys, enabled, err := e.subscriptionProviderKeys(ctx, anthropicProvider); err != nil || keys != 1 || enabled != 0 {
 		t.Fatalf("want one disabled key, got %d keys, %d enabled: %v", keys, enabled, err)
 	}
-	subscriptions.Store(false)
+	setProviderSubscriptions(t, e, "anthropic", false)
 	if !configured() {
 		t.Fatal("an Anthropic provider with disabled keys lost its models")
 	}
-	subscriptions.Store(true)
+	setProviderSubscriptions(t, e, "anthropic", true)
 	// The gateway's own model listing lists a provider's models with its keys, so with every
 	// key disabled it lists none of them, and Obot's model listing adds the catalog's.
 	if got := e.ClaudeSubscriptionModels(ctx); len(got) != 1 || got[0].ID != "anthropic/claude-test-5" || got[0].Name == "" {
@@ -213,4 +216,106 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 func closeCost(a, b types.ModelCost) bool {
 	near := func(x, y float64) bool { return x-y < 1e-9 && y-x < 1e-9 }
 	return near(a.Input, b.Input) && near(a.Output, b.Output) && near(a.CacheRead, b.CacheRead) && near(a.CacheWrite, b.CacheWrite)
+}
+
+func TestChatGPTSubscriptionCatalogWithoutKeys(t *testing.T) {
+	engine := New()
+	catalog := testCatalog(t)
+	engine.catalog = func() modelCatalog { return catalog }
+	require.NoError(t, engine.Start(t.Context(), testOptions(t, Options{
+		DataDir: t.TempDir(),
+	})))
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
+	require.NoError(t, testMutation(t.Context(), engine, nil)(engine.CreateProvider(t.Context(), testJSON(t, map[string]any{"provider": "openai"}))))
+	for _, enabled := range []bool{false, true, false} {
+		setProviderSubscriptions(t, engine, "openai", enabled)
+		models, err := engine.ListModels(t.Context())
+		require.NoError(t, err)
+		found := false
+		for _, model := range models.Models {
+			found = found || model.ID == "openai/gpt-test"
+		}
+		require.Equal(t, enabled, found)
+		names, err := engine.ConfiguredProviders(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, enabled, slices.Contains(names, "openai"))
+		require.Equal(t, enabled, engine.HasUpstreamProviders(t.Context()))
+	}
+}
+
+func TestChatGPTSubscriptionCatalogWithAPIKey(t *testing.T) {
+	var requests atomic.Int32
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/models") {
+			http.NotFound(w, r)
+			return
+		}
+		requests.Add(1)
+		if got := r.Header.Get("Authorization"); got != "Bearer configured-key-fixture" {
+			t.Errorf("unexpected model discovery credential: %q", got)
+		}
+		_, _ = io.WriteString(w, `{"data":[{"id":"gpt-test"},{"id":"gpt-api-only"}]}`)
+	}))
+	t.Cleanup(up.Close)
+
+	engine := New()
+	catalog := testCatalog(t)
+	engine.catalog = func() modelCatalog { return catalog }
+	require.NoError(t, engine.Start(t.Context(), testOptions(t, Options{
+		DataDir: t.TempDir(),
+	})))
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
+	require.NoError(t, testMutation(t.Context(), engine, nil)(engine.CreateProvider(t.Context(), testJSON(t, map[string]any{
+		"provider": "openai",
+		"network_config": map[string]any{
+			"base_url":              up.URL,
+			"allow_private_network": true,
+		},
+	}))))
+
+	setProviderSubscriptions(t, engine, "openai", true)
+
+	list := func() []string {
+		t.Helper()
+		models, err := engine.ListModels(t.Context())
+		require.NoError(t, err)
+		ids := make([]string, 0, len(models.Models))
+		for _, model := range models.Models {
+			ids = append(ids, model.ID)
+		}
+		return ids
+	}
+
+	require.ElementsMatch(t, []string{"openai/gpt-test", "openai/gpt-subscription"}, list())
+	require.Zero(t, requests.Load(), "background discovery must not need a subscription token")
+	require.NoError(t, testMutation(t.Context(), engine, nil)(engine.CreateKey(t.Context(), "openai", testJSON(t, map[string]any{
+		"name":   "configured",
+		"value":  "configured-key-fixture",
+		"models": []string{"*"},
+		"weight": 1,
+	}))))
+
+	// The key's nonempty API listing overlaps the catalog but omits a subscription model.
+	// Catalog additions must not enter the last-known API listing cache.
+	for _, enabled := range []bool{true, false, true} {
+		setProviderSubscriptions(t, engine, "openai", enabled)
+		want := []string{"openai/gpt-test", "openai/gpt-api-only"}
+		if enabled {
+			want = append(want, "openai/gpt-subscription")
+		}
+		require.ElementsMatch(t, want, list(), "each model must appear exactly once")
+	}
+	require.Positive(t, requests.Load())
+
+	require.NoError(t, engine.DeleteProvider(t.Context(), "openai"))
+	require.Empty(t, list(), "enabling subscriptions must not restore a deleted provider's models")
+}
+
+// Catalog fixtures use recording destinations; only public writes enforce subscription destinations.
+func setProviderSubscriptions(t *testing.T, e *Engine, provider string, allowed bool) {
+	t.Helper()
+	require.NoError(t, e.store.MutateProvider(t.Context(), provider, func(p *llmcoreclient.Provider) error {
+		p.SubscriptionPassthrough = new(allowed)
+		return nil
+	}))
 }

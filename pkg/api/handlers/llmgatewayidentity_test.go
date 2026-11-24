@@ -163,55 +163,6 @@ func TestRejectAmbientCredentialRedirects(t *testing.T) {
 	}
 }
 
-func TestRejectSubscriptionRedirects(t *testing.T) {
-	tests := []struct {
-		name    string
-		body    string
-		wantErr bool
-	}{
-		{
-			name:    "a proxy CA",
-			body:    `{"proxy_config":{"type":"http","url":"http://proxy.corp:3128","ca_cert_pem":"-----BEGIN CERTIFICATE-----"}}`,
-			wantErr: true,
-		},
-		{
-			name:    "a proxy CA as a secret object in another case",
-			body:    `{"PROXY_CONFIG":{"type":"http","url":"http://proxy.corp:3128","Ca_Cert_Pem":{"value":"-----BEGIN CERTIFICATE-----"}}}`,
-			wantErr: true,
-		},
-		{
-			name:    "a provider created with a proxy CA",
-			body:    `{"provider":"anthropic","proxy_config":{"type":"http","url":"http://proxy.corp:3128","ca_cert_pem":"-----BEGIN CERTIFICATE-----"}}`,
-			wantErr: true,
-		},
-		{
-			name:    "proxy certificate checks off",
-			body:    `{"proxy_config":{"type":"http","url":"https://proxy.corp:3128","skip_tls_verify":true}}`,
-			wantErr: true,
-		},
-		{
-			name: "a proxy without a CA, as the egress proxy is set",
-			body: `{"proxy_config":{"type":"http","url":{"value":"http://proxy.corp:3128","type":"plain_text"}}}`,
-		},
-		{
-			name: "a proxy turned off",
-			body: `{"proxy_config":{"type":"none"}}`,
-		},
-		{
-			name: "ordinary network settings",
-			body: `{"network_config":{"default_request_timeout_in_seconds":60}}`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := rejectSubscriptionRedirects([]byte(tt.body))
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestRejectGlobalProxySkipVerify(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -252,51 +203,6 @@ func TestRejectGlobalProxySkipVerify(t *testing.T) {
 			err := rejectGlobalProxySkipVerify([]byte(tt.body))
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestIsAnthropicProvider(t *testing.T) {
-	tests := []struct {
-		name     string
-		provider string
-		body     string
-		want     bool
-	}{
-		{
-			name:     "updating the provider",
-			provider: "anthropic",
-			body:     `{"proxy_config":{"type":"none"}}`,
-			want:     true,
-		},
-		{
-			name:     "creating the provider",
-			provider: "",
-			body:     `{"provider":"anthropic"}`,
-			want:     true,
-		},
-		{
-			name:     "creating the provider with its name spelled twice",
-			provider: "",
-			body:     `{"provider":"e2e","PROVIDER":"anthropic"}`,
-			want:     true,
-		},
-		{
-			name:     "another provider",
-			provider: "openai",
-			body:     `{"provider":"anthropic"}`,
-		},
-		{
-			name:     "a custom provider",
-			provider: "",
-			body:     `{"provider":"claude-proxy","custom_provider_config":{"base_provider_type":"anthropic"}}`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isAnthropicProvider(tt.provider, []byte(tt.body)); got != tt.want {
-				t.Fatalf("isAnthropicProvider = %v, want %v", got, tt.want)
 			}
 		})
 	}

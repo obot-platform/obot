@@ -2,9 +2,6 @@ package llmengine
 
 import (
 	"bytes"
-	"context"
-	"net/url"
-	"strings"
 
 	"github.com/maximhq/bifrost/core/schemas"
 )
@@ -46,37 +43,4 @@ func IsMaskedSecret(raw []byte) bool {
 		return false
 	}
 	return v.IsMaskedPlaceholder()
-}
-
-// AnthropicIsDirect reports whether the engine's Anthropic provider sends requests straight to
-// Anthropic over verified TLS: no other base URL, and no setting that would let another
-// server present a certificate for Anthropic's host, whether in the provider's network or
-// proxy settings or in the gateway's global proxy. A caller's Claude subscription token is
-// only forwarded when it does, so an administrator can't redirect users' tokens to a server
-// of their own. A proxy without such settings, such as the environment's egress proxy, only
-// relays the TLS connection to Anthropic, so it doesn't stop the token being forwarded.
-func (e *Engine) AnthropicIsDirect(ctx context.Context) bool {
-	provider, err := e.GetProvider(ctx, "anthropic")
-	if err != nil {
-		return false
-	}
-	nc, pc := provider.NetworkConfig, provider.ProxyConfig
-	if nc.InsecureSkipVerify || (nc.CACertPEM != nil && nc.CACertPEM.GetValue() != "") {
-		return false
-	}
-	if pc != nil && (pc.SkipTLSVerify || (pc.CACertPEM != nil && pc.CACertPEM.GetValue() != "")) {
-		return false
-	}
-	// The engine applies its global proxy's skip_tls_verify to the TLS settings of the
-	// clients it builds, so it is treated as turning certificate checks off whether or not
-	// the proxy itself is on.
-	globalProxy, err := e.GetProxyConfig(ctx)
-	if err != nil || globalProxy["skip_tls_verify"] == true {
-		return false
-	}
-	if nc.BaseURL == "" {
-		return true
-	}
-	u, err := url.Parse(nc.BaseURL)
-	return err == nil && u.Scheme == "https" && u.User == nil && strings.EqualFold(u.Hostname(), "api.anthropic.com") && (u.Port() == "" || u.Port() == "443")
 }

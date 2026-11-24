@@ -14,7 +14,6 @@ import (
 const (
 	// The reasons TLS settings are refused for a provider.
 	ambientIdentityReason = "it may authenticate with the Obot server's own cloud identity"
-	subscriptionReason    = "Claude subscriptions are allowed, and users' subscription tokens may only reach Anthropic over verified TLS"
 )
 
 // Some gateway providers fall back to the Obot server's own cloud identity when a key has no
@@ -50,24 +49,6 @@ func rejectAmbientCredentialRedirects(body []byte, providerType string) error {
 			}
 			if err := llmengine.ValidateAzureKey(key); err != nil {
 				return err
-			}
-		}
-		return nil
-	})
-}
-
-// rejectSubscriptionRedirects refuses, on the Anthropic provider while Claude subscriptions are
-// allowed, proxy settings that trust another CA or turn certificate checks off, which would let
-// a TLS-inspecting server the administrator controls read users' subscription tokens.
-// AnthropicIsDirect stops forwarding the tokens in that case anyway; this tells the
-// administrator why rather than quietly falling back to Obot's key.
-func rejectSubscriptionRedirects(body []byte) error {
-	return walkObjects(body, func(fields map[string]json.RawMessage) error {
-		for name, settings := range fields {
-			if strings.EqualFold(name, "proxy_config") {
-				if err := checkProviderTLS(settings, subscriptionReason); err != nil {
-					return err
-				}
 			}
 		}
 		return nil
@@ -210,11 +191,4 @@ func providerNames(provider string, body []byte) []string {
 		}
 	}
 	return names
-}
-
-// isAnthropicProvider identifies the provider that receives Claude subscription tokens.
-func isAnthropicProvider(provider string, body []byte) bool {
-	return slices.ContainsFunc(providerNames(provider, body), func(name string) bool {
-		return strings.EqualFold(name, "anthropic")
-	})
 }

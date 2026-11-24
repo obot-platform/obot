@@ -17,6 +17,9 @@ const openai = {
 	provider_status: 'active'
 };
 
+const chatgptHeadersNotice =
+	'When ChatGPT subscriptions are enabled, this provider’s extra headers are also sent to chatgpt.com. Only configure values that may be shared with OpenAI.';
+
 const existingKey = {
 	id: 'k1',
 	name: 'openai-key-1',
@@ -525,10 +528,7 @@ describe('ConfigureProviderDialog', () => {
 		mockProvider({ provider: { ...openai, name: 'anthropic' } });
 		const saved = vi.fn();
 		worker.use(
-			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: false })
-			),
-			http.put('/api/llm-gateway/settings', async ({ request }) => {
+			http.put('/api/llm-gateway/admin/providers/anthropic', async ({ request }) => {
 				const body = await request.json();
 				saved(body);
 				return HttpResponse.json(body);
@@ -536,13 +536,65 @@ describe('ConfigureProviderDialog', () => {
 		);
 		await renderProviderPage([Group.ADMIN], 'anthropic');
 
+		await expect.element(page.getByText(chatgptHeadersNotice)).not.toBeInTheDocument();
 		const toggle = page.getByRole('switch', { name: 'Allow Claude subscriptions' });
 		await expect.element(toggle).not.toBeChecked();
 		await toggle.click();
 
 		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
-		expect(saved).toHaveBeenCalledWith({ subscriptionPassthrough: true });
+		expect(saved).toHaveBeenCalledWith({ subscription_passthrough: true });
 		await expect.element(toggle).toBeChecked();
+	});
+
+	it('controls ChatGPT subscriptions independently on the OpenAI provider', async () => {
+		mockProvider();
+		const saved = vi.fn();
+		worker.use(
+			http.put('/api/llm-gateway/admin/providers/openai', async ({ request }) => {
+				const body = await request.json();
+				saved(body);
+				return HttpResponse.json(body);
+			})
+		);
+		await renderProviderPage([Group.ADMIN], 'openai');
+		const toggle = page.getByRole('switch', { name: 'Allow ChatGPT subscriptions' });
+		await expect.element(toggle).not.toBeChecked();
+		// Disclose the destination at both settings before the administrator enables passthrough.
+		await expect.element(page.getByText(chatgptHeadersNotice).nth(0)).toBeVisible();
+		await expect.element(page.getByText(chatgptHeadersNotice).nth(1)).toBeVisible();
+		await expect
+			.element(page.getByRole('switch', { name: 'Allow Claude subscriptions' }))
+			.not.toBeInTheDocument();
+		await toggle.click();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+		expect(saved).toHaveBeenCalledWith({
+			subscription_passthrough: true
+		});
+		await expect.element(toggle).toBeChecked();
+	});
+
+	it('does not offer ChatGPT subscriptions for a custom OpenAI provider', async () => {
+		mockProvider({
+			provider: {
+				...openai,
+				name: 'custom',
+				custom_provider_config: { base_provider_type: 'openai' }
+			}
+		});
+		await renderProviderPage([Group.ADMIN], 'custom');
+		await expect.element(page.getByText('openai-key-1')).toBeInTheDocument();
+		await expect.element(page.getByText(chatgptHeadersNotice)).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('switch', { name: 'Allow ChatGPT subscriptions' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('shows the ChatGPT subscription setting read-only to auditors', async () => {
+		mockProvider({ provider: { ...openai, subscription_passthrough: true } });
+		await renderProviderPage([Group.USER, Group.AUDITOR], 'openai');
+		const toggle = page.getByRole('switch', { name: 'Allow ChatGPT subscriptions' });
+		await expect.element(toggle).toBeChecked();
+		await expect.element(toggle).toBeDisabled();
 	});
 
 	it('only offers Claude subscriptions on the built-in Anthropic provider', async () => {
@@ -562,12 +614,7 @@ describe('ConfigureProviderDialog', () => {
 	});
 
 	it('shows the Claude subscription setting read-only to auditors', async () => {
-		mockProvider({ provider: { ...openai, name: 'anthropic' } });
-		worker.use(
-			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: true })
-			)
-		);
+		mockProvider({ provider: { ...openai, name: 'anthropic', subscription_passthrough: true } });
 		await renderProviderPage([Group.USER, Group.AUDITOR], 'anthropic');
 
 		const toggle = page.getByRole('switch', { name: 'Allow Claude subscriptions' });

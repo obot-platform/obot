@@ -31,7 +31,7 @@ func TestAzureKeysStayWithinDiscoveredAccounts(t *testing.T) {
 				AccountName:    "second",
 			}
 			cfg := llmcoreclient.Config{
-				Providers:     map[schemas.ModelProvider]schemas.ProviderConfig{provider: {CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}},
+				Providers:     map[schemas.ModelProvider]llmcoreclient.ProviderConfig{provider: {ProviderConfig: schemas.ProviderConfig{CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}}},
 				Keys:          map[schemas.ModelProvider][]schemas.Key{provider: {one, two}},
 				AzureAccounts: map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{provider: {one.ID: firstAccount, two.ID: secondAccount}},
 				AzureDiscoveries: map[schemas.ModelProvider]map[string]llmcoreclient.AzureDiscoverySnapshot{provider: {
@@ -133,9 +133,9 @@ func TestAzureAliasCollisionsRespectTheActualTarget(t *testing.T) {
 					AccountName:    "account",
 				}
 				cfg := llmcoreclient.Config{
-					Providers: map[schemas.ModelProvider]schemas.ProviderConfig{provider: {
+					Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{provider: {ProviderConfig: schemas.ProviderConfig{
 						CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure},
-					}},
+					}}},
 					Keys:          map[schemas.ModelProvider][]schemas.Key{provider: {key}},
 					AzureAccounts: map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{provider: {key.ID: resource}},
 					AzureDiscoveries: map[schemas.ModelProvider]map[string]llmcoreclient.AzureDiscoverySnapshot{provider: {key.ID: {

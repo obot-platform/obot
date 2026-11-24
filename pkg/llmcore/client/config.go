@@ -8,11 +8,17 @@ import (
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
 )
 
+// ProviderConfig keeps Obot's provider settings together with Bifrost's configuration.
+type ProviderConfig struct {
+	schemas.ProviderConfig
+	SubscriptionPassthrough bool `json:"subscription_passthrough"`
+}
+
 // Config is a decoded desired configuration assembled from independent resources.
 type Config struct {
 	AzureDiscoveries map[schemas.ModelProvider]map[string]AzureDiscoverySnapshot
 	AzureAccounts    map[schemas.ModelProvider]map[string]AzureAccount
-	Providers        map[schemas.ModelProvider]schemas.ProviderConfig
+	Providers        map[schemas.ModelProvider]ProviderConfig
 	Keys             map[schemas.ModelProvider][]schemas.Key
 	Rules            map[string]configstoreTables.TableRoutingRule
 	Settings         map[string]json.RawMessage
