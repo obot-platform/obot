@@ -26,7 +26,13 @@ Obot uses a database backend. By default, it will use a sqlite3 local database w
 
 ### `OBOT_SERVER_LICENSE_KEY` {#obot_server_license_key}
 
-An Obot license key. It takes precedence over a key stored in the database, and the key can't be changed or removed in the UI while it's set. Obot validates it with `https://api.keygen.sh`; see [Editions and licensing](../enterprise/overview.md#how-obot-validates-a-license).
+An Obot license key. It takes precedence over a key stored in the database, and the key can't be changed or removed in the UI while it's set. Obot validates it with `https://license.obot.ai`; see [Editions and licensing](../enterprise/overview.md#how-obot-validates-a-license).
+
+**Default:** not set
+
+### `OBOT_SERVER_LICENSE_FILE` {#obot_server_license_file}
+
+The contents of an offline license file, which licenses an [air-gapped installation](../installation/network-requirements.md#restricted-and-air-gapped-installations). Obot refuses to start if it's set without `OBOT_SERVER_AIRGAP=true`. Obot verifies the file when it starts. A file it can't verify, or one that has expired, starts Obot without a license and shows the reason on the License page. While it's set, a license file can't be uploaded or removed in the UI. Requires Obot v0.29.0 or later; see [Offline license files](../installation/network-requirements.md#offline-license-files).
 
 **Default:** not set
 
@@ -53,6 +59,18 @@ Sets the number of concurrent threads that can run in the Obot controller.
 Disable the Obot server update check.
 
 **Default:** `false`
+
+### `OBOT_SERVER_AIRGAP` {#obot_server_airgap}
+
+For [air-gapped installations](../installation/network-requirements.md#restricted-and-air-gapped-installations): Obot never contacts Obot's services. Product analytics, update checks, and the MCP Tester model proxy are off, overriding `OBOT_SERVER_PRODUCT_ANALYTICS_MODE`, `OBOT_SERVER_DISABLE_UPDATE_CHECK`, and `OBOT_SERVER_MODEL_PROXY_URL`. License keys aren't used, so only an offline license file licenses the installation, and Obot doesn't start if `OBOT_SERVER_LICENSE_KEY` is also set. A new installation also starts without Obot's MCP catalog and with the copy of the system MCP catalog that ships in the image, unless the default catalog paths point at mirrors. Requires Obot v0.29.0 or later.
+
+**Default:** `false`
+
+### `OBOT_SERVER_IMAGE_REGISTRY` {#obot_server_image_registry}
+
+A registry that [mirrors Obot's images](../installation/network-requirements.md#mirror-obots-images), with an optional path, such as `registry.example.com/mirror`. Obot pulls the MCP base images, the Claude runner and Substrate worker images, and system MCP catalog images under `ghcr.io/obot-platform/` from there instead, keeping their path, tag, and digest. Requires Obot v0.29.0 or later.
+
+**Default:** not set
 
 ### `OBOT_SERVER_PRODUCT_ANALYTICS_MODE` {#obot_server_product_analytics_mode}
 
