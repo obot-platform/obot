@@ -45,8 +45,6 @@ The source URL must omit embedded credentials. Private sources use the existing 
 - `GET` returns the saved tunnel ID and approved URL, the current Git URL, and the assignment's validity and reason. It reports a changed URL as an invalid assignment. It returns `404` when the entry or assignment is absent.
 
 When setting a tunnel assignment, Obot requires exactly one matching synced entry, verifies that the expected URL matches its current Git-defined URL, and checks the selected tunnel's allowlist.
-A Git URL change invalidates the tunnel assignment even when the existing allowlist covers the new URL.
-To approve the new URL, an administrator sends a new PUT with that URL as `expectedURL` or updates `expected_url` in Terraform and applies.
 Removing `tunnelRequired` leaves a valid tunnel assignment in effect.
 
 ### Terraform
@@ -78,10 +76,26 @@ A previously deployed snapshot that permits direct routing can continue to use i
 While the tunnel assignment is missing, MCP connection attempts, tool previews, and upstream OAuth fail before making an outbound request.
 An unavailable tunnel never triggers a direct connection.
 
-Catalog sync records the latest Git entry so administrators can approve a changed destination.
-Before building Git-managed vMCP snapshots, Obot resolves the entry's tunnel assignment and revalidates the approved URL and the tunnel allowlist.
-An invalid tunnel assignment blocks adoption of the affected route and preserves the last valid deployed snapshots.
-Obot reports the conflict on the affected components and continues reconciling unrelated entries and vMCPs.
+#### Git destination changes and tunnel rollout
+
+When Git changes an entry’s `fixedURL`, catalog sync saves the new URL on the catalog entry.
+The saved tunnel ID, Terraform’s approved `expected_url`, and the tunnel’s allowlist stay as they were.
+Obot reports that the saved approval no longer matches the entry.
+Catalog probes and new vMCP snapshots cannot use the changed destination until an administrator approves it, even if the tunnel’s allowlist already covers the new URL.
+Obot continues reconciling unrelated entries and vMCPs.
+
+Existing vMCPs continue using the URL and tunnel in their last valid snapshots.
+
+To approve the new destination, an administrator updates `expected_url` in Terraform and applies.
+After saving, replacing, or clearing a tunnel assignment, the assignment API requests asynchronous reconciliation of the affected Git-managed vMCPs.
+When reconciliation succeeds, those vMCPs adopt the updated route.
+Manually managed vMCPs adopt the change on explicit snapshot upgrade.
+
+A successful Terraform apply confirms that Obot saved the assignment change and requested reconciliation.
+The existing snapshot stays in use until reconciliation succeeds.
+Once a cleared assignment is reflected in a snapshot, a tunnel-required component becomes unavailable.
+A component that permits direct routing can connect subject to Obot’s outbound network policy.
+
 Assignment and snapshot writes detect version conflicts and revalidate against current state before retrying.
 Status distinguishes the saved tunnel assignment, the route adopted by each affected component, and tunnel connectivity.
 
@@ -102,12 +116,6 @@ The tunnel allowlist controls where the tunnel can send requests, while the appr
 
 ## Consequences
 
-A vMCP component connects using the tunnel ID saved in its catalog-entry snapshot.
-A successful catalog sync updates Git-managed vMCP snapshots to reflect a new, replaced, or cleared tunnel assignment.
-Once a snapshot reflects a cleared tunnel assignment, a component that requires a tunnel becomes unavailable.
-After the tunnel assignment is cleared from its snapshot, a component that permits direct routing can connect subject to Obot’s outbound network policy.
-For a manually managed vMCP, an operator must explicitly upgrade the component snapshot to pick up the new tunnel assignment.
-A pinned snapshot can continue using its previous tunnel after an administrator changes or clears the tunnel assignment.
 Obot blocks tunnel deletion or allowlist narrowing while a saved tunnel assignment or serving snapshot still depends on the affected route, including snapshots whose source entry has been removed.
 These checks also apply when assignments, snapshots, and tunnel policies change concurrently.
 Operators may need to clear the tunnel assignment, update or retire affected snapshots, and then remove the tunnel in a separate Terraform apply.
