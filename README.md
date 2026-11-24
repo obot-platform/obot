@@ -147,9 +147,7 @@ See the [Installation Guide](https://docs.obot.ai/installation/overview) for Kub
 
 ## Design and architecture
 
-Significant changes begin as [Obot Design Proposals](https://github.com/obot-platform/obot-design-proposals) so the architecture can be discussed before implementation. Architectural decisions that ship are recorded as concise [Architecture Decision Records](adr/README.md) in this repository.
-
-An ODP captures the proposed design and the discussion that shaped it. An ADR records the durable decision reflected in the implementation.
+Architectural decisions are recorded as concise [Architecture Decision Records](adr/README.md) in this repository. Significant changes begin as a pull request that adds a `Proposed` ADR so the design can be discussed before implementation; the ADR is marked `Accepted` when the implementation ships. Smaller decisions are recorded in an ADR included with the implementation pull request.
 
 ## Documentation and Community
 
