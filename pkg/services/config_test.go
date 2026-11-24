@@ -1,6 +1,8 @@
 package services
 
 import (
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -593,5 +595,40 @@ func TestApplyAirgap(t *testing.T) {
 				t.Errorf("DefaultSystemMCPCatalogPath = %q, want %q", got.DefaultSystemMCPCatalogPath, tt.wantSystemCatalog)
 			}
 		})
+	}
+}
+
+func TestApplyImageRegistry(t *testing.T) {
+	const obotImage = "ghcr.io/obot-platform/example:v1"
+
+	// Every image setting is rewritten, including the ones this test doesn't name.
+	settings := ImageSettings()
+	if !slices.ContainsFunc(settings, func(setting reflect.StructField) bool { return setting.Name == "MCPBaseImage" }) {
+		t.Fatalf("ImageSettings() = %v, want it to include MCPBaseImage", settings)
+	}
+	config := Config{ImageRegistry: "registry.example.com/mirror"}
+	for _, setting := range settings {
+		reflect.ValueOf(&config).Elem().FieldByIndex(setting.Index).SetString(obotImage)
+	}
+
+	got := reflect.ValueOf(applyImageRegistry(config))
+	for _, setting := range settings {
+		if image, want := got.FieldByIndex(setting.Index).String(), "registry.example.com/mirror/obot-platform/example:v1"; image != want {
+			t.Errorf("%s = %q, want %q", setting.Name, image, want)
+		}
+	}
+
+	// Without a registry, and for images that aren't Obot's, nothing changes.
+	config = Config{
+		MCPBaseImage:    obotImage,
+		MCPOpenAPIImage: "registry.example.com/openapi:v1",
+		ImageRegistry:   "registry.example.com/mirror",
+	}
+	if image := applyImageRegistry(config).MCPOpenAPIImage; image != "registry.example.com/openapi:v1" {
+		t.Errorf("MCPOpenAPIImage = %q, want it unchanged", image)
+	}
+	config.ImageRegistry = ""
+	if image := applyImageRegistry(config).MCPBaseImage; image != obotImage {
+		t.Errorf("MCPBaseImage = %q, want it unchanged without a registry", image)
 	}
 }

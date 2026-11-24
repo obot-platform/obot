@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -44,6 +45,7 @@ import (
 	"github.com/obot-platform/obot/pkg/guardrails"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
+	"github.com/obot-platform/obot/pkg/imageregistry"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/license"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
@@ -126,6 +128,7 @@ type Config struct {
 	ForceDynamicClient             bool                  `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
 	ProductAnalyticsMode           producttelemetry.Mode `usage:"Product analytics mode: consent, on, or off" default:"consent" env:"OBOT_SERVER_PRODUCT_ANALYTICS_MODE"`
 	Airgap                         bool                  `usage:"Air-gapped installation: never contact Obot's services (product analytics, update checks, the MCP Tester model proxy, and license keys, so only a license file licenses it), and set up new installations without Obot's MCP catalog and with the system MCP catalog that ships in the image" default:"false" env:"OBOT_SERVER_AIRGAP"`
+	ImageRegistry                  string                `usage:"Registry that mirrors Obot's images, such as registry.example.com/mirror; Obot pulls the MCP base, Claude runner, Substrate worker, and system MCP catalog images under ghcr.io/obot-platform from there instead" env:"OBOT_SERVER_IMAGE_REGISTRY"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort            int    `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
@@ -215,6 +218,7 @@ type Services struct {
 	AuthEnabled                 bool
 	DefaultMCPCatalogPath       string
 	DefaultSystemMCPCatalogPath string
+	ImageRegistry               string
 	MDMAssetSource              string
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
@@ -463,8 +467,32 @@ func isGitHubCatalog(path, repoURL string) bool {
 	return path == repoURL || strings.HasPrefix(path, repoURL+"/")
 }
 
+// ImageSettings returns the settings that name an image Obot pulls: the string fields of Config whose name ends in
+// Image. The mirror registry rewrite and the release's image list both go by it, so a new image setting is covered by
+// both.
+func ImageSettings() []reflect.StructField {
+	var settings []reflect.StructField
+	for _, field := range reflect.VisibleFields(reflect.TypeFor[Config]()) {
+		if field.Type.Kind() == reflect.String && strings.HasSuffix(field.Name, "Image") {
+			settings = append(settings, field)
+		}
+	}
+	return settings
+}
+
+// applyImageRegistry points Obot's own images at config.ImageRegistry, in every image setting.
+// Images that aren't Obot's are left alone; see imageregistry.Rewrite.
+func applyImageRegistry(config Config) Config {
+	value := reflect.ValueOf(&config).Elem()
+	for _, setting := range ImageSettings() {
+		image := value.FieldByIndex(setting.Index)
+		image.SetString(imageregistry.Rewrite(image.String(), config.ImageRegistry))
+	}
+	return config
+}
+
 func New(ctx context.Context, config Config) (*Services, error) {
-	config = applyAirgap(config)
+	config = applyImageRegistry(applyAirgap(config))
 	if config.GitMaxRepoSizeMB <= 0 || int64(config.GitMaxRepoSizeMB) > math.MaxInt64/(1024*1024) {
 		return nil, fmt.Errorf("git-max-repo-size-mb must be positive and no greater than %d", int64(math.MaxInt64)/(1024*1024))
 	}
@@ -1285,6 +1313,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GitMaxRepoSizeMB:               config.GitMaxRepoSizeMB,
 		MDMAssetSource:                 config.MDMAssetSource,
 		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
+		ImageRegistry:                  config.ImageRegistry,
 		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
