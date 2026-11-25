@@ -2,7 +2,8 @@
 // and exposes its management API under /api/llm-gateway/admin, alongside Obot-specific
 // endpoints for status, model sync, budgets and guardrails.
 import { m } from '$lib/i18n';
-import { doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
+import { readJSONEventStream } from '../event-stream';
+import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 
 type Opts = { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean };
 
@@ -432,4 +433,67 @@ export function secretDisplay(value: SecretValue | string | undefined): string {
 	if (!value) return '';
 	if (typeof value === 'string') return value;
 	return value.env_var ? `env.${value.env_var}` : value.value;
+}
+
+// ---------- Provider tester ----------
+
+export interface ProviderTestRequest {
+	model: string;
+	apiKeyId: number;
+	message?: string;
+}
+
+export type ProviderTestEvent =
+	| { type: 'text_delta'; delta: string }
+	| {
+			type: 'reply';
+			reply: string;
+			provider?: string;
+			servedModel?: string;
+			durationMs: number;
+	  }
+	| {
+			type: 'error';
+			// The LLM proxy's HTTP status, when it answered with an error.
+			status?: number;
+			error: string;
+			provider?: string;
+			servedModel?: string;
+			durationMs?: number;
+	  };
+
+/**
+ * Sends one message to a provider's model through the LLM proxy and reports the
+ * result as it streams. Rejects for requests the server refuses before the test
+ * starts, such as an invalid API key format or a model of another provider.
+ */
+export async function testProvider(
+	provider: string,
+	request: ProviderTestRequest,
+	onEvent: (event: ProviderTestEvent) => void,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<void> {
+	const f = opts?.fetch ?? fetch;
+	const response = await f(`${baseURL}${B}/providers/${encodeURIComponent(provider)}/tester/chat`, {
+		method: 'POST',
+		credentials: 'same-origin',
+		headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+		body: JSON.stringify(request),
+		signal: opts?.signal
+	});
+	if (!response.ok) {
+		const text = (await response.text()).trim();
+		throw new Error(text || m.models_provider_test_request_failed({ status: response.status }));
+	}
+	if (!response.body)
+		throw new Error(m.models_provider_test_request_failed({ status: response.status }));
+	await readJSONEventStream(response.body, (value) => {
+		if (
+			value &&
+			typeof value === 'object' &&
+			typeof (value as { type?: unknown }).type === 'string'
+		) {
+			onEvent(value as ProviderTestEvent);
+		}
+	});
 }

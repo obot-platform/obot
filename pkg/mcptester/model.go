@@ -97,34 +97,49 @@ func ResolveDefaultModel(ctx context.Context, client kclient.Client, helper Mode
 		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorMissing, "default llm alias is not configured")
 	}
 
+	return resolveModel(ctx, client, helper, user, modelID, "default llm model")
+}
+
+// ResolveModel resolves a specific LLM model by name or alias and applies the
+// same checks as ResolveDefaultModel: the model must be active, have LLM usage
+// and a target model, be accessible to user, and be served by the LLM proxy.
+func ResolveModel(ctx context.Context, client kclient.Client, helper ModelAccessResolver, user kuser.Info, modelID string) (ResolvedModel, error) {
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" {
+		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorMissing, "llm model is required")
+	}
+	return resolveModel(ctx, client, helper, user, modelID, "llm model")
+}
+
+func resolveModel(ctx context.Context, client kclient.Client, helper ModelAccessResolver, user kuser.Info, modelID, label string) (ResolvedModel, error) {
 	// Models are aliasable too, so the alias target may itself be a logical name.
 	var model v1.Model
 	if err := alias.Get(ctx, client, &model, system.DefaultNamespace, modelID); err != nil {
-		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorMissing, "read default llm model %q: %w", modelID, err)
+		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorMissing, "read %s %q: %w", label, modelID, err)
 	}
 
 	manifest := model.Spec.Manifest
 	if !manifest.Active {
-		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInactive, "default llm model %q is not active", model.Name)
+		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInactive, "%s %q is not active", label, model.Name)
 	}
 	if manifest.Usage != types.ModelUsageLLM {
-		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInvalid, "default llm model %q does not have llm usage", model.Name)
+		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInvalid, "%s %q does not have llm usage", label, model.Name)
 	}
 	if strings.TrimSpace(manifest.TargetModel) == "" {
-		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInvalid, "default llm model %q has no target model", model.Name)
+		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInvalid, "%s %q has no target model", label, model.Name)
 	}
 
 	allowed, err := helper.UserHasAccessToModel(user, model.Name)
 	if err != nil {
-		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInaccessible, "check access to default llm model %q: %w", model.Name, err)
+		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInaccessible, "check access to %s %q: %w", label, model.Name, err)
 	}
 	if !allowed {
-		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInaccessible, "user does not have access to default llm model %q", model.Name)
+		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInaccessible, "user does not have access to %s %q", label, model.Name)
 	}
 
 	proxyPath, ok := proxyPath(manifest.ModelProvider)
 	if !ok {
-		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInvalid, "default llm model provider %q has no LLM proxy route", manifest.ModelProvider)
+		return ResolvedModel{}, modelResolutionError(ModelResolutionErrorInvalid, "%s provider %q has no LLM proxy route", label, manifest.ModelProvider)
 	}
 
 	dialect := defaultDialect(manifest)
@@ -159,7 +174,7 @@ func apiPathForDialect(dialect llmtypes.Dialect) (string, error) {
 	case llmtypes.DialectOpenAIChatCompletions:
 		return "/v1/chat/completions", nil
 	default:
-		return "", fmt.Errorf("default llm model uses unsupported dialect %q", dialect)
+		return "", fmt.Errorf("llm model uses unsupported dialect %q", dialect)
 	}
 }
 

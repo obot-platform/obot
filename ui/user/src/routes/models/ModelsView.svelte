@@ -1,21 +1,22 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import CopyField from '$lib/components/CopyField.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ApiKeyRevealNotice from '$lib/components/agent-auth-scope/ApiKeyRevealNotice.svelte';
 	import GatewayConnect from '$lib/components/llm-gateway/GatewayConnect.svelte';
 	import GatewayModelsDialog, {
 		gatewayModelNames
 	} from '$lib/components/llm-gateway/GatewayModelsDialog.svelte';
+	import GenerateApiKeyButton, {
+		hasUsableLlmApiKey
+	} from '$lib/components/llm-gateway/GenerateApiKeyButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
-	import Loading from '$lib/icons/Loading.svelte';
 	import { ApiKeysService, type APIKey } from '$lib/services';
 	import { getSubscriptionPassthroughSettings } from '$lib/services/llm-gateway/gateway';
 	import { profile } from '$lib/stores';
 	import accessibleModels from '$lib/stores/accessibleModels.svelte';
-	import { goto, resolve } from '$lib/url';
-	import { ChevronDown, Cpu, Plus } from '@lucide/svelte';
+	import { goto } from '$lib/url';
+	import { Cpu, Plus } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 
@@ -56,15 +57,7 @@
 	let generatedApiKey = $state('');
 	let creatingApiKey = $state(false);
 
-	// A usable gateway key has LLM scope and has not expired. No expiration date means it does not expire.
-	let hasValidIdentityApiKeys = $derived(
-		apiKeys.some((key) => {
-			if (!key.canAccessLLMProxy) return false;
-			if (!key.expiresAt) return true;
-			const expires = new Date(key.expiresAt).getTime();
-			return !Number.isNaN(expires) && expires > Date.now();
-		})
-	);
+	let hasValidIdentityApiKeys = $derived(hasUsableLlmApiKey(apiKeys));
 
 	const GATEWAY_KEY_NAME = 'LLM Gateway API Key';
 
@@ -152,7 +145,13 @@
 									</p>
 								</div>
 
-								{@render generateApiKeyButton()}
+								<GenerateApiKeyButton
+									{apiKeys}
+									hasGeneratedKey={generatedApiKey !== ''}
+									generating={creatingApiKey}
+									block
+									onGenerate={generateApiKey}
+								/>
 							</div>
 
 							{#if generatedApiKey}
@@ -204,56 +203,3 @@
 		{/if}
 	{/if}
 </div>
-
-{#snippet generateApiKeyButton()}
-	{#if hasValidIdentityApiKeys || generatedApiKey}
-		<div class="flex @lg:w-fit w-full">
-			<a
-				class="btn btn-secondary btn-soft btn-sm text-base-content border-base-400 shrink-0 text-no-wrap @lg:w-fit grow rounded-r-none!"
-				href={resolve('/identity-access?view=agents')}
-			>
-				{m.models_gateway_manage_api_keys()}
-			</a>
-			<DotDotDot
-				class="btn-block btn-secondary btn-sm text-base-content btn-soft pl-2! pr-2.5! border-base-400 w-fit rounded-l-none! border-l-0!"
-				placement="bottom-end"
-				classes={{
-					popover: 'w-44.5'
-				}}
-			>
-				{#snippet icon()}
-					<ChevronDown class="size-4" />
-				{/snippet}
-				{#snippet children({ toggle })}
-					<button
-						class="menu-button text-xs min-h-fit"
-						disabled={creatingApiKey}
-						onclick={async () => {
-							await generateApiKey();
-							toggle(false);
-						}}
-					>
-						{#if creatingApiKey}
-							<Loading class="size-4" />
-						{:else}
-							{m.models_gateway_generate_new_key()}
-						{/if}
-					</button>
-				{/snippet}
-			</DotDotDot>
-		</div>
-	{:else}
-		<button
-			type="button"
-			class="text-nowrap btn btn-primary shrink-0 btn-sm @lg:w-fit w-full"
-			disabled={creatingApiKey}
-			onclick={generateApiKey}
-		>
-			{#if creatingApiKey}
-				<Loading class="size-4 text-primary-content" />
-			{:else}
-				{m.models_gateway_generate_api_key()}
-			{/if}
-		</button>
-	{/if}
-{/snippet}

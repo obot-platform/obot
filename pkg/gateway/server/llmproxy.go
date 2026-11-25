@@ -249,8 +249,8 @@ func (r *llmResponseWriter) applyServedModel(resp *http.Response) {
 		if served, _ := r.gateway.served(); served != "" {
 			if provider, model, ok := strings.Cut(served, "/"); ok {
 				header = http.Header{}
-				header.Set(headerServedProvider, provider)
-				header.Set(headerServedModel, model)
+				header.Set(HeaderServedProvider, provider)
+				header.Set(HeaderServedModel, model)
 			}
 		}
 	}
@@ -268,7 +268,7 @@ func (r *llmResponseWriter) applyServedModel(resp *http.Response) {
 // servedModelChange returns the model that served a gateway response when it isn't the
 // requested one, and nil when it is or can't be told.
 func servedModelChange(header http.Header, requested string, resolve func(string) (*v1.Model, error)) *v1.Model {
-	provider, model := header.Get(headerServedProvider), header.Get(headerServedModel)
+	provider, model := header.Get(HeaderServedProvider), header.Get(HeaderServedModel)
 	if provider == "" || model == "" {
 		return nil
 	}

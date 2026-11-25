@@ -1,4 +1,4 @@
-import { doDelete, doGet, doPost, type Fetcher } from '../http';
+import { doDelete, doGet, doPost, type ErrorHandler, type Fetcher } from '../http';
 import type { APIKey, APIKeyCreateRequest, APIKeyCreateResponse } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -17,7 +17,7 @@ export async function getApiKey(id: string, opts?: { fetch?: Fetcher }): Promise
 
 export async function createApiKey(
 	request: APIKeyCreateRequest,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; errorHandler?: ErrorHandler }
 ): Promise<APIKeyCreateResponse> {
 	const response = (await doPost('/api-keys', request, opts)) as APIKeyCreateResponse;
 	return response;

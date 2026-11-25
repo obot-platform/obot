@@ -32,10 +32,10 @@ import (
 )
 
 const (
-	// headerServedProvider and headerServedModel name the provider and model that served a
+	// HeaderServedProvider and HeaderServedModel name the provider and model that served a
 	// gateway response, which routing rules and fallbacks can make differ from the request's.
-	headerServedProvider = "X-Obot-LLM-Provider"
-	headerServedModel    = "X-Obot-LLM-Model"
+	HeaderServedProvider = "X-Obot-LLM-Provider"
+	HeaderServedModel    = "X-Obot-LLM-Model"
 )
 
 var (

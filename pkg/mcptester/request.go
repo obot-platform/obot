@@ -259,10 +259,12 @@ func buildResponsesRequest(request types.MCPTesterChatRequest, modelID, systemIn
 	}
 
 	payload := map[string]any{
-		"model":        modelID,
-		"stream":       true,
-		"instructions": systemInstruction,
-		"input":        input,
+		"model":  modelID,
+		"stream": true,
+		"input":  input,
+	}
+	if systemInstruction != "" {
+		payload["instructions"] = systemInstruction
 	}
 	if tools := responsesTools(request.Tools); len(tools) > 0 {
 		payload["tools"] = tools
@@ -286,10 +288,13 @@ func responsesTools(tools []types.MCPTesterTool) []any {
 }
 
 func buildChatCompletionsRequest(request types.MCPTesterChatRequest, modelID, systemInstruction string) map[string]any {
-	messages := []any{map[string]any{
-		"role":    "system",
-		"content": systemInstruction,
-	}}
+	messages := make([]any, 0, len(request.Messages)+1)
+	if systemInstruction != "" {
+		messages = append(messages, map[string]any{
+			"role":    "system",
+			"content": systemInstruction,
+		})
+	}
 	for _, message := range request.Messages {
 		switch message.Role {
 		case types.MCPTesterChatRoleUser:
@@ -404,8 +409,10 @@ func buildAnthropicRequest(request types.MCPTesterChatRequest, modelID, systemIn
 		"model":      modelID,
 		"stream":     true,
 		"max_tokens": anthropicMaxTokens,
-		"system":     systemInstruction,
 		"messages":   messages,
+	}
+	if systemInstruction != "" {
+		payload["system"] = systemInstruction
 	}
 	if tools := anthropicTools(request.Tools); len(tools) > 0 {
 		payload["tools"] = tools
