@@ -8,6 +8,7 @@
 		getAuditLogAPIKeyFilterOptionLabel,
 		isAuditLogAPIKeyFilterOption
 	} from '$lib/auditlogs';
+	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
@@ -257,7 +258,7 @@
 		replaceState(url, {});
 	}, 100);
 
-	function handleDateChange({ start, end }: { start?: Date; end?: Date }) {
+	function handleDateChange({ start, end }: DateRange) {
 		const url = new URL(page.url.toString());
 		if (start) {
 			url.searchParams.set('start_time', start.toISOString());

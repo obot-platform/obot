@@ -21,6 +21,7 @@
 		disablePortal?: boolean;
 		el?: Element;
 		ariaLabel?: string;
+		disabled?: boolean;
 	}
 
 	let {
@@ -33,7 +34,8 @@
 		onClick,
 		disablePortal,
 		el,
-		ariaLabel = m.core_row_actions()
+		ariaLabel = m.core_row_actions(),
+		disabled = false
 	}: Props = $props();
 
 	const menu = popover({
@@ -47,6 +49,7 @@
 <button
 	{id}
 	aria-label={ariaLabel}
+	{disabled}
 	class={twMerge('btn', !clazz?.includes('btn-block') && 'btn-ghost btn-square', clazz)}
 	use:ref
 	onclick={(e) => {

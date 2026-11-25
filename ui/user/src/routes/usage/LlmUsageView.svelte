@@ -4,6 +4,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import TokenUsageOverallStats from '$lib/components/admin/token-usage/TokenUsageOverallStats.svelte';
 	import TokenUsageRequestStats from '$lib/components/admin/token-usage/TokenUsageRequestStats.svelte';
 	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
 	import {
@@ -712,27 +713,11 @@
 	{/if}
 
 	<div class="mb-4 flex flex-col gap-4" transition:fade={{ duration }}>
-		<div class="m-auto w-full p-0 paper gap-0">
-			<h4
-				class="border-b dark:border-base-400 border-base-300 px-4 py-2 rounded-t-md text-xs uppercase font-medium"
-			>
-				{m.audit_usage_usage_overall_stats()}
-			</h4>
-			<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row p-4">
-				{@render summary(m.core_total_label(), totalTokensData?.totalTokens ?? 0)}
-				<div class="divider-horizontal hidden md:block bg-base-300! dark:bg-base-400!"></div>
-				{@render summary(m.core_col_input(), totalTokensData?.inputTokens ?? 0)}
-				<div class="divider-horizontal hidden md:block bg-base-300! dark:bg-base-400!"></div>
-				{@render summary(m.core_col_output(), totalTokensData?.outputTokens ?? 0)}
-				<div class="divider-horizontal hidden md:block bg-base-300! dark:bg-base-400!"></div>
-				{@render summary(
-					m.audit_usage_usage_cached_input(),
-					(totalTokensData?.cacheReadTokens ?? 0) + (totalTokensData?.cacheWriteTokens ?? 0)
-				)}
-				<div class="divider-horizontal hidden md:block bg-base-300! dark:bg-base-400!"></div>
-				{@render spendSummary(m.core_spend(), totalTokensData?.totalSpend)}
-			</div>
-		</div>
+		<TokenUsageOverallStats
+			title={m.audit_usage_usage_overall_stats()}
+			loading={loadingTotalTokensData}
+			totals={totalTokensData}
+		/>
 		<div class="m-auto flex w-full max-w-full flex-col gap-4">
 			<div class="flex w-full flex-wrap items-center justify-end gap-4">
 				<p class="text-muted-content w-full text-sm md:w-fit">{m.audit_usage_usage_filter_by()}</p>
@@ -1116,43 +1101,3 @@
 		id="sub-view-sort-by-select"
 	/>
 {/snippet}
-
-{#snippet summary(title: string, value: number)}
-	<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-		<div class="text-muted-content text-xs font-light">{title}</div>
-		<div class="flex items-center gap-1 text-xl font-semibold">
-			{#if loadingTotalTokensData}
-				<div class="py-2">
-					<Loading class="size-4 animate-spin" />
-				</div>
-			{:else}
-				{value.toLocaleString()}
-			{/if}
-		</div>
-	</div>
-{/snippet}
-
-{#snippet spendSummary(title: string, value: number | undefined)}
-	<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-		<div class="text-muted-content text-xs font-light">{title}</div>
-		<div class="flex items-center gap-1 text-xl font-semibold">
-			{#if loadingTotalTokensData}
-				<div class="py-2">
-					<Loading class="size-4 animate-spin" />
-				</div>
-			{:else}
-				{formatUSD(value ?? 0)}
-			{/if}
-		</div>
-	</div>
-{/snippet}
-
-<style lang="postcss">
-	.divider-horizontal {
-		width: 1px;
-		height: auto;
-		background-color: var(--color-base-400);
-		margin-left: 1rem;
-		margin-right: 1rem;
-	}
-</style>

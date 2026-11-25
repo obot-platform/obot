@@ -1,5 +1,7 @@
+import { m } from '$lib/i18n';
 import type { OrgUser, TokenUsage } from '$lib/services';
 import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
+import type { ModelStatId } from './constants';
 import {
 	differenceInCalendarDays,
 	differenceInHours,
@@ -237,4 +239,19 @@ export function getAPIKeyFilterOptions(
 	return [...options]
 		.map(([id, label]) => ({ id, label }))
 		.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export function modelStatLabel(id: ModelStatId): string {
+	switch (id) {
+		case 'total':
+			return m.core_total_label();
+		case 'input':
+			return m.core_col_input();
+		case 'output':
+			return m.core_col_output();
+		case 'cached-input':
+			return m.audit_usage_usage_cached_input();
+		case 'spend':
+			return m.core_spend();
+	}
 }

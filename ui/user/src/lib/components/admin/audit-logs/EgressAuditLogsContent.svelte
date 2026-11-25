@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import { buildPillSearchParamFilters, buildSearchParamFiltersArray } from '$lib/auditlogs';
+	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import FilterPills from '$lib/components/FilterPills.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import Pagination from '$lib/components/table/Pagination.svelte';
@@ -198,7 +199,7 @@
 		};
 	});
 
-	function handleDateChange({ start, end }: { start?: Date; end?: Date }) {
+	function handleDateChange({ start, end }: DateRange) {
 		const url = new URL(page.url.toString());
 		if (start) {
 			url.searchParams.set('start_time', start.toISOString());
