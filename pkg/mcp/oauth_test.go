@@ -785,22 +785,19 @@ func TestOAuthAuthorizationURLConsent(t *testing.T) {
 			expectedResource:   resourceURL,
 		},
 		{
-			name:               "other provider",
-			authorizationURL:   "https://auth.example.com/authorize",
-			expectedAccessType: "offline",
-			expectedResource:   resourceURL,
+			name:             "other provider",
+			authorizationURL: "https://auth.example.com/authorize",
+			expectedResource: resourceURL,
 		},
 		{
-			name:               "Google lookalike",
-			authorizationURL:   "https://accounts.google.com.example.com/authorize",
-			expectedAccessType: "offline",
-			expectedResource:   resourceURL,
+			name:             "Google lookalike",
+			authorizationURL: "https://accounts.google.com.example.com/authorize",
+			expectedResource: resourceURL,
 		},
 		{
-			name:               "Google subdomain",
-			authorizationURL:   "https://other.accounts.google.com/authorize",
-			expectedAccessType: "offline",
-			expectedResource:   resourceURL,
+			name:             "Google subdomain",
+			authorizationURL: "https://other.accounts.google.com/authorize",
+			expectedResource: resourceURL,
 		},
 		{
 			name:             "Zoho",
@@ -808,9 +805,8 @@ func TestOAuthAuthorizationURLConsent(t *testing.T) {
 			expectedResource: resourceURL,
 		},
 		{
-			name:               "Entra",
-			authorizationURL:   "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
-			expectedAccessType: "offline",
+			name:             "Entra",
+			authorizationURL: "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
 		},
 	}
 
@@ -948,7 +944,10 @@ func (h *oauthAuthorizeCallbackHandler) NewState(_ context.Context, _ *oauth2.Co
 func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 	var serverURL string
 	var registrationCalled, tokenCalled atomic.Bool
-	const redirectURL = "https://obot.example.com/callback"
+	const (
+		authorizationEndpoint = "https://mcp.klaviyo.com/authorize"
+		redirectURL           = "https://obot.example.com/callback"
+	)
 	callback := &oauthAuthorizeCallbackHandler{}
 	storage := &recordingTokenStorage{}
 	lookup := &oauthTestClientCredLookup{}
@@ -964,7 +963,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 		case "/.well-known/oauth-authorization-server":
 			_ = json.NewEncoder(rw).Encode(map[string]any{
 				"issuer":                                serverURL,
-				"authorization_endpoint":                serverURL + "/authorize",
+				"authorization_endpoint":                authorizationEndpoint,
 				"token_endpoint":                        serverURL + "/token",
 				"registration_endpoint":                 serverURL + "/register",
 				"response_types_supported":              []string{"code"},
@@ -1011,10 +1010,12 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 	require.Contains(t, callback.authURL, "code_challenge=")
 	authorizationRequest, err := http.NewRequest(http.MethodGet, callback.authURL, nil)
 	require.NoError(t, err)
+	require.Equal(t, "mcp.klaviyo.com", authorizationRequest.URL.Host)
 	require.Equal(t, serverURL, authorizationRequest.URL.Query().Get("resource"))
 	require.Equal(t, "access-token", o.currentToken.AccessToken)
 	require.Equal(t, 1, storage.setCalls)
 	require.Equal(t, "access-token", storage.lastToken.AccessToken)
+	require.NotContains(t, authorizationRequest.URL.Query(), "access_type", "Klaviyo rejects access_type")
 }
 
 func TestOAuthAuthorizeFallsBackToConnectURLWithoutProtectedResourceMetadata(t *testing.T) {
