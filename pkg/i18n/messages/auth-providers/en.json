@@ -46,6 +46,8 @@
   "setup_no_user_id": "no user ID in context",
   "setup_local_not_configured": "local authentication is not the configured provider",
   "setup_no_local_account": "no local account exists for setup",
+  "setup_local_account_exists": "a local account already exists; sign in to continue",
+  "setup_local_owner_disabled": "this email belongs to a disabled user; use a different email to create the owner",
   "setup_sign_in_initial": "sign in with the initial local account to continue setup",
   "setup_change_password": "change your password before completing setup",
   "setup_login_not_started": "this browser did not start a setup login; start setup again from the Obot admin page",
