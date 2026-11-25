@@ -37,7 +37,7 @@ Cover this in your MDM:
 
 A user who turns off an Obot Sentry hook in Kiro's Agent Hooks panel only does so until the next hourly hook installation, which turns it back on.
 
-The Kiro CLI runs these hooks only on its v3 agent engine (`kiro-cli chat --v3`, or the CLI setting `chat.agentEngine` set to `v3`). Its default v2 engine does not run them, so CLI sessions on v2 are neither checked nor audited. Obot Sentry does not change this setting. If you set it through your MDM, users can still choose v2 for a single session with `--v2`.
+The Kiro CLI runs these hooks only on its v3 agent engine. Sessions on the v2 engine are neither checked nor audited. Recent CLI versions use v3 for interactive sessions by default, but use v2 for `--no-interactive` or piped sessions, when resuming a v2 session, or when the user chooses it with `--v2` or the `chat.agentEngine` setting. Obot Sentry does not change the engine setting. If you set `chat.agentEngine` to `v3` through your MDM, users can still choose v2 for a single session with `--v2`.
 :::
 
 :::important
