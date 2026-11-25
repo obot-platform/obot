@@ -425,12 +425,14 @@ func TestTokenRefreshesValidKeyringTokenMissingRequestedScopes(t *testing.T) {
 	}
 }
 
-func TestTokenReusesAPIKeyringTokenForNonMCPScopes(t *testing.T) {
+func TestTokenRefreshesAPIKeyringTokenForLLMAndSkillsScopes(t *testing.T) {
 	store := newFakeCredentialStore()
 	restoreStore := useCredentialStore(t, store)
 	defer restoreStore()
+	restoreBrowser := useOpenBrowser(t, func(string) error { return nil })
+	defer restoreBrowser()
 
-	authProvidersCalled := false
+	var createdRequest createRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/me":
@@ -453,9 +455,19 @@ func TestTokenReusesAPIKeyringTokenForNonMCPScopes(t *testing.T) {
 				},
 			})
 		case "/api/auth-providers":
-			authProvidersCalled = true
-			t.Fatalf("auth provider discovery should not run for reusable API token")
+			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
+				ID: "github", Name: "GitHub", Configured: true, Namespace: "default",
+			}}})
+		case "/api/token-request":
+			if err := json.NewDecoder(r.Body).Decode(&createdRequest); err != nil {
+				t.Fatalf("decode token request: %v", err)
+			}
+			writeDeviceLoginResponse(t, w, "server-request-id")
 		default:
+			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
+				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
+				return
+			}
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
 	}))
@@ -464,16 +476,19 @@ func TestTokenReusesAPIKeyringTokenForNonMCPScopes(t *testing.T) {
 	store.tokens[srv.URL] = "api-token"
 
 	token, err := Token(WithNonInteractive(t.Context()), srv.URL+"/api", apiclient.TokenFetchOptions{
-		Scopes: []string{types.APIKeyScopeSkills, types.APIKeyScopeLLM},
+		Scopes: []string{types.APIKeyScopeLLM, types.APIKeyScopeSkills},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if token != "api-token" {
-		t.Fatalf("token = %q, want API token", token)
+	if token != "new-token" {
+		t.Fatalf("token = %q, want newly authenticated token", token)
 	}
-	if authProvidersCalled {
-		t.Fatalf("auth provider discovery should not run")
+	if !createdRequest.Scopes.CanAccessLLMProxy || !createdRequest.Scopes.CanAccessSkills || createdRequest.Scopes.CanAccessAPI {
+		t.Fatalf("new token scopes = %+v, want only LLM and skills", createdRequest.Scopes)
+	}
+	if store.tokens[srv.URL] != "new-token" {
+		t.Fatalf("stored token = %q, want new-token", store.tokens[srv.URL])
 	}
 }
 
