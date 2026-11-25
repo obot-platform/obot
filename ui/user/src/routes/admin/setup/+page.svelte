@@ -123,7 +123,7 @@
 				try {
 					localUsers = await AdminService.listLocalAuthUsers();
 				} catch (listErr) {
-					errors.append(listErr);
+					notifications.add(listErr);
 				}
 				step = 'signin';
 				await prepareSignIn();
