@@ -3,8 +3,7 @@
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { m } from '$lib/i18n';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { goto } from '$lib/url';
+	import { mcpServersAndEntries, profile, notifications } from '$lib/stores';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
@@ -19,7 +18,7 @@
 		<AccessControlRuleForm
 			{accessControlRule}
 			onUpdate={() => {
-				goto('/mcp-servers?view=access-policies');
+				notifications.add(m.mcps_access_policies_policy_updated(), 'success');
 			}}
 			entity="workspace"
 			id={workspaceId}

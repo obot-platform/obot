@@ -521,5 +521,11 @@
 	"models_connect_codex_default": "Codex のデフォルト",
 	"models_providers_chatgpt_subscriptions_only": "ChatGPT サブスクリプションのみ",
 	"models_connect_codex_model_note": "ChatGPT サブスクリプションは OpenAI モデルでのみ使用できます。Codex のデフォルトはクライアントのデフォルトモデルを使用します。",
-	"models_providers_chatgpt_extra_headers_help": "ChatGPT サブスクリプションを有効にすると、このプロバイダーの追加ヘッダーも chatgpt.com に送信されます。OpenAI と共有してよい値のみを設定してください。"
+	"models_providers_chatgpt_extra_headers_help": "ChatGPT サブスクリプションを有効にすると、このプロバイダーの追加ヘッダーも chatgpt.com に送信されます。OpenAI と共有してよい値のみを設定してください。",
+	"models_profile_fix_models": "以下でマークされたモデルを削除または置き換えてください。",
+	"models_profile_fix_budgets": "以下でマークされた予算を編集または削除してください。",
+	"models_routing_created": "ルーティングルールを作成しました。",
+	"models_routing_expression_required": "式は必須です。",
+	"models_routing_targets_required": "ターゲットを 1 つ以上追加してください。",
+	"models_profile_created": "プロファイルを作成しました。"
 }

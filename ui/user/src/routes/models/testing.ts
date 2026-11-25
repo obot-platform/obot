@@ -30,7 +30,10 @@ export async function renderModelsTab(view: string, groups: string[] = [Group.AD
 	return render(ModelsPage, { data });
 }
 
+const initialPathname = (appPage.url as URL).pathname;
+
 export function resetModelsTab() {
+	(appPage.url as URL).pathname = initialPathname;
 	for (const key of Array.from((appPage.url as URL).searchParams.keys())) {
 		(appPage.url as URL).searchParams.delete(key);
 	}

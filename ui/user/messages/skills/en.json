@@ -94,5 +94,8 @@
 	"skills_syncing_notice": "The system is currently syncing with your configured Git repositories.",
 	"skills_this_policy": "this policy",
 	"skills_title": "Skills",
-	"skills_view_source_on_git": "View Source on Git"
+	"skills_view_source_on_git": "View Source on Git",
+	"skills_access_policy_skills_required": "Add at least one skill.",
+	"skills_access_policy_created": "Access policy created.",
+	"skills_access_policy_updated": "Access policy updated."
 }

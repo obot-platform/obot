@@ -249,5 +249,10 @@
 	"core_users_and_groups": "用户和用户组",
 	"core_view_audit_logs": "查看审计日志",
 	"core_workspace_not_found": "未找到工作区。",
-	"core_write": "编写"
+	"core_write": "编写",
+	"core_name_required": "名称为必填项。",
+	"core_users_groups_required": "请至少添加一个用户或组。",
+	"core_field_required": "此字段为必填项。",
+	"core_required": "必填",
+	"core_required_sr": "(必填)"
 }

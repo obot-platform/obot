@@ -249,5 +249,10 @@
 	"core_users_and_groups": "ユーザーとグループ",
 	"core_view_audit_logs": "監査ログを表示",
 	"core_workspace_not_found": "ワークスペースが見つかりません。",
-	"core_write": "編集"
+	"core_write": "編集",
+	"core_name_required": "名前は必須です。",
+	"core_users_groups_required": "ユーザーまたはグループを 1 つ以上追加してください。",
+	"core_field_required": "この項目は必須です。",
+	"core_required": "必須",
+	"core_required_sr": "(必須)"
 }

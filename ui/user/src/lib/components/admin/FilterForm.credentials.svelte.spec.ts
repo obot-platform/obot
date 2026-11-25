@@ -157,7 +157,10 @@ describe('managed credential filter', () => {
 				)
 			)
 			.toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+		expect(onUpdate).not.toHaveBeenCalled();
+		expect(configuration).not.toHaveBeenCalled();
 		await page.getByRole('button', { name: 'Remove removed.rule' }).click();
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());

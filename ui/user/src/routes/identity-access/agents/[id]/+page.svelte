@@ -1,10 +1,12 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import AgentAuthScopeDetails from '$lib/components/agent-auth-scope/AgentAuthScopeDetails.svelte';
+	import ApiKeyRevealDialog from '$lib/components/agent-auth-scope/ApiKeyRevealDialog.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { ApiKeysService } from '$lib/services';
 	import { profile } from '$lib/stores';
+	import { pendingApiKeyReveal } from '$lib/stores/pendingApiKeyReveal.svelte';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
 
@@ -12,6 +14,12 @@
 	const { apiKey, isAdmin } = $derived(data);
 	let title = $derived(apiKey?.name || m.identity_access_agents_agent_identity());
 	const duration = PAGE_TRANSITION_DURATION;
+
+	let revealedKey = $state<string>();
+	$effect(() => {
+		const key = pendingApiKeyReveal.take(apiKey?.id);
+		if (key) revealedKey = key;
+	});
 </script>
 
 <Layout {title} showBackButton>
@@ -32,6 +40,8 @@
 		{/if}
 	</div>
 </Layout>
+
+<ApiKeyRevealDialog keyValue={revealedKey} onClose={() => (revealedKey = undefined)} />
 
 <svelte:head>
 	<title>Obot | {title}</title>

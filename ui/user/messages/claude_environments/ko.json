@@ -169,7 +169,6 @@
 	"hosted_agents_actor_resources_help": "CPU와 메모리는 500m, 2Gi 등의 Kubernetes 수량 표기법을 사용합니다. 보관 기간은 양수여야 하며, 자동 삭제를 비활성화하려면 -1을 입력하세요.",
 	"hosted_agents_sessions": "세션",
 	"hosted_agents_account_management": "계정 관리",
-	"hosted_agents_required": "필수",
 	"hosted_agents_environment_stats_error": "세션 통계를 불러올 수 없습니다.",
 	"hosted_agents_environment_stats_loading": "세션 통계 로딩 중…",
 	"hosted_agents_environment_stats_all": "보관된 모든 세션 · 5초마다 새로고침",

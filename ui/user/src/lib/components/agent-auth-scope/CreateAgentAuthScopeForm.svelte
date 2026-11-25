@@ -1,8 +1,11 @@
 <script lang="ts">
 	import DatePicker from '$lib/components/DatePicker.svelte';
+	import FieldError from '$lib/components/FieldError.svelte';
+	import RequiredMark from '$lib/components/RequiredMark.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
@@ -37,7 +40,6 @@
 	});
 	let search = $state('');
 	let loading = $state(false);
-	let showValidation = $state(false);
 	let vmcps = $state<VMCP[]>([]);
 	onMount(() => {
 		UserService.listVMCPs({ minimal: true })
@@ -65,13 +67,16 @@
 		}))
 	]);
 
-	let nameError = $derived(showValidation && !name.trim());
 	let hasOptionalCapability = $derived(
 		API_KEY_CREATABLE_CAPABILITIES.some((capability) => capabilities[capability.key])
 	);
-	let serverError = $derived(
-		showValidation && selectedServerIds.size === 0 && !hasOptionalCapability
-	);
+	const validation = new FormValidation<'name' | 'servers'>(() => ({
+		...(!name.trim() && { name: m.identity_access_agents_name_is_required() }),
+		...(selectedServerIds.size === 0 &&
+			!hasOptionalCapability && {
+				servers: m.identity_access_agents_select_server_or_capability()
+			})
+	}));
 
 	const allServersOption = {
 		id: '*',
@@ -109,10 +114,7 @@
 	}
 
 	async function handleCreate() {
-		showValidation = true;
-		if (!name.trim() || (selectedServerIds.size === 0 && !hasOptionalCapability)) {
-			return;
-		}
+		if (!(await validation.check())) return;
 
 		loading = true;
 		try {
@@ -135,6 +137,7 @@
 </script>
 
 <div
+	{@attach validation.attach}
 	class="flex h-full w-full flex-col gap-4"
 	out:fly={{ x: 100, duration }}
 	in:fly={{ x: 100, delay: duration }}
@@ -142,21 +145,19 @@
 	<div class="paper p-4">
 		<div class="flex flex-col gap-6">
 			<div class="flex flex-col gap-2">
-				<label for="agent-auth-scope-name" class="input-label">
+				<label for="agent-auth-scope-name" class="input-label" class:error={validation.has('name')}>
 					{m.core_name()}
-					{#if nameError}
-						<span class="text-xs text-error">{m.identity_access_agents_name_is_required()}</span>
-					{/if}
+					<RequiredMark invalid={validation.has('name')} />
 				</label>
 				<input
-					id="agent-auth-scope-name"
+					{...validation.attrs('name', 'agent-auth-scope-name')}
+					aria-required="true"
 					type="text"
 					bind:value={name}
-					class={twMerge(
-						'text-input-filled',
-						nameError && 'border-error focus:border-error focus:ring-error'
-					)}
+					class="text-input-filled"
+					class:error={validation.has('name')}
 				/>
+				<FieldError id="agent-auth-scope-name" message={validation.message('name')} />
 			</div>
 
 			<div class="flex flex-col gap-2">
@@ -189,14 +190,13 @@
 	</div>
 
 	<section class="paper flex flex-col gap-2 p-4">
-		<p>
-			<span class="text-lg font-semibold">{m.identity_access_agents_mcp_servers()}</span>
-			{#if serverError}
-				<span class="text-xs text-error">
-					{m.identity_access_agents_select_server_or_capability()}
-				</span>
-			{/if}
-		</p>
+		<div class="flex flex-wrap items-baseline gap-2">
+			<span class="text-lg font-semibold" class:text-error={validation.has('servers')}
+				>{m.identity_access_agents_mcp_servers()}
+				<RequiredMark invalid={validation.has('servers')} /></span
+			>
+			<FieldError id="agent-auth-scope-servers" message={validation.message('servers')} />
+		</div>
 		<p class="input-description">
 			{m.identity_access_agents_select_servers_for_identity()}
 			{#if selectedServerIds.size > 0}
@@ -220,8 +220,9 @@
 		<div
 			class={twMerge(
 				'bg-base-200 default-scrollbar-thin flex max-h-64 flex-col overflow-y-auto rounded-lg',
-				serverError && 'ring-1 ring-error'
+				validation.has('servers') && 'ring-1 ring-error'
 			)}
+			data-invalid={validation.has('servers') ? '' : undefined}
 		>
 			{#if filteredServers.length === 0}
 				<div class="text-muted-content flex items-center justify-center py-8 text-sm">

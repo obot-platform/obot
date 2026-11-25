@@ -22,7 +22,6 @@
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
-		goto,
 		replaceState,
 		setFilterUrlParams,
 		setSortUrlParams
@@ -132,16 +131,7 @@
 
 {#if showCreate && status?.ready}
 	<div in:fly|global={{ x: 100, duration }}>
-		<RoutingForm
-			onCreate={(routingRule) => {
-				if (routingRule?.id) {
-					goto(`/models/routing/${encodeURIComponent(routingRule.id)}`, { replaceState: true });
-				}
-			}}
-			onCancel={() => {
-				goto('/models?view=routing', { replaceState: true });
-			}}
-		/>
+		<RoutingForm />
 	</div>
 {:else}
 	<div class="flex flex-col gap-4">

@@ -249,5 +249,10 @@
 	"core_users_and_groups": "사용자 및 그룹",
 	"core_view_audit_logs": "감사 로그 보기",
 	"core_workspace_not_found": "작업 공간을 찾을 수 없습니다.",
-	"core_write": "작성"
+	"core_write": "작성",
+	"core_name_required": "이름은 필수입니다.",
+	"core_users_groups_required": "사용자 또는 그룹을 하나 이상 추가하세요.",
+	"core_field_required": "이 필드는 필수입니다.",
+	"core_required": "필수",
+	"core_required_sr": "(필수)"
 }

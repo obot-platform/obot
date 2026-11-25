@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import { HttpError } from '$lib/errors';
-	import { highlightFirstAvailableField } from '$lib/form';
+	import { focusFirstInvalid } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -52,7 +52,7 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { Info } from '@lucide/svelte';
-	import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
+	import { onDestroy, onMount, tick, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -100,6 +100,7 @@
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 	let showRequired = $state<Record<string, boolean>>({});
 	let showInvalid = $state<Record<string, boolean>>({});
+	let formEl = $state<HTMLFormElement>();
 	let loading = $state(false);
 	let disposed = false;
 	let destinationValidationController: AbortController | undefined;
@@ -750,7 +751,8 @@
 		if (Object.keys(required).length > 0 || Object.keys(invalid).length > 0) {
 			showRequired = required;
 			showInvalid = invalid;
-			highlightFirstAvailableField({ ...required, ...invalid }, CATALOG_SERVER_FIELD_IDS);
+			await tick();
+			focusFirstInvalid(formEl);
 			return;
 		}
 
@@ -787,8 +789,9 @@
 				overrideValidation = validation;
 				if (!overrideValidation.valid) {
 					showInvalid.openAPIBaseURL = true;
-					highlightFirstAvailableField({ openAPIBaseURL: true }, CATALOG_SERVER_FIELD_IDS);
 					loading = false;
+					await tick();
+					focusFirstInvalid(formEl);
 					return;
 				}
 			}
@@ -856,6 +859,7 @@
 </script>
 
 <form
+	bind:this={formEl}
 	class="flex flex-col gap-8"
 	novalidate
 	onsubmit={handleFormSubmit}
@@ -884,7 +888,7 @@
 					{m.core_name()}
 					{#if !readonly}
 						<span class={showRequired.name ? 'text-error' : ''} aria-hidden="true">*</span>
-						<span class="sr-only">{m.mcps_catalog_required_sr()}</span>
+						<span class="sr-only">{m.core_required_sr()}</span>
 					{/if}
 				</label>
 				<input
@@ -935,7 +939,7 @@
 					{m.mcps_catalog_form_short_description()}
 					{#if !readonly}
 						<span class={hasShortDescriptionError ? 'text-error' : ''} aria-hidden="true">*</span>
-						<span class="sr-only">{m.mcps_catalog_required_sr()}</span>
+						<span class="sr-only">{m.core_required_sr()}</span>
 					{/if}
 					<span
 						id={CATALOG_SERVER_FIELD_IDS.shortDescriptionHint}

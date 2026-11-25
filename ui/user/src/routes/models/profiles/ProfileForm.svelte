@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
+	import FieldError from '$lib/components/FieldError.svelte';
+	import RequiredMark from '$lib/components/RequiredMark.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import SearchModels from '$lib/components/admin/SearchModels.svelte';
@@ -10,6 +12,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { CommonModelProviderIds } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { completeSave, FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -311,18 +314,19 @@
 			.join(' · ');
 	}
 
-	let valid = $derived(
-		draft.displayName.trim().length > 0 &&
-			(draft.subjects?.length ?? 0) > 0 &&
-			invalidModelCount === 0 &&
-			budgetsWithoutModels.size === 0
-	);
+	const validation = new FormValidation<'name' | 'subjects' | 'models' | 'budgets'>(() => ({
+		...(!draft.displayName.trim() && { name: m.core_name_required() }),
+		...(!draft.subjects?.length && { subjects: m.core_users_groups_required() }),
+		...(invalidModelCount > 0 && { models: m.models_profile_fix_models() }),
+		...(budgetsWithoutModels.size > 0 && { budgets: m.models_profile_fix_budgets() })
+	}));
 
 	function errorMessage(e: unknown) {
 		return parseErrorContent(e).message;
 	}
 
 	async function save() {
+		if (!(await validation.check())) return;
 		saving = true;
 		error = '';
 		failures = [];
@@ -408,10 +412,14 @@
 				failures = failed;
 				return;
 			}
-			notifications.add(m.models_profile_saved(), 'success');
-			if (creating) {
-				await goto(profileUrl(id), { replaceState: true });
-			} else if (initial) {
+			validation.reset();
+			await completeSave({
+				created: creating,
+				message: creating ? m.models_profile_created() : m.models_profile_saved(),
+				href: profileUrl(id)
+			});
+
+			if (!creating && initial) {
 				onUpdate?.({
 					...initial,
 					...draft
@@ -459,10 +467,12 @@
 </script>
 
 <form
+	{@attach validation.attach}
 	class="flex h-full w-full flex-col gap-8 @container"
+	novalidate
 	onsubmit={(e) => {
 		e.preventDefault();
-		if (!readonly && valid && !saving) void save();
+		if (!readonly && !saving) void save();
 	}}
 >
 	{#if profileID}
@@ -487,25 +497,38 @@
 		</header>
 	{/if}
 
-	<div class="paper">
-		<label class="flex flex-col gap-1 text-sm font-light" for="profile-name">
-			{m.core_name()}
+	<div class="paper gap-0">
+		<label
+			class="flex flex-col gap-1 text-sm font-light"
+			class:error={validation.has('name')}
+			for="profile-name"
+		>
+			<span>
+				{m.core_name()}
+				<RequiredMark invalid={validation.has('name')} />
+			</span>
 			<input
-				id="profile-name"
 				class="text-input-filled w-full"
+				class:error={validation.has('name')}
+				{...validation.attrs('name', 'profile-name')}
+				aria-required="true"
 				bind:value={draft.displayName}
 				disabled={readonly || saving}
 			/>
 		</label>
+		<FieldError id="profile-name" class="mt-1" message={validation.message('name')} />
 	</div>
 
-	<section>
+	<section data-invalid={validation.has('subjects') ? '' : undefined}>
 		{@render header(
 			m.core_users_and_groups(),
 			m.models_profile_users_description(),
 			m.core_add_user_group(),
 			() => addUserGroupDialog?.open(),
-			loadingUsersAndGroups
+			loadingUsersAndGroups,
+			validation.has('subjects'),
+			true,
+			validation.message('subjects')
 		)}
 
 		{#if loadingUsersAndGroups}
@@ -562,8 +585,11 @@
 			m.models_title(),
 			m.models_profile_models_description(),
 			m.models_access_policies_add_model(),
-			() => addModelDialog?.open()
+			() => addModelDialog?.open(),
+			false,
+			validation.has('models')
 		)}
+		<FieldError id="profile-models" class="mb-2" message={validation.message('models')} />
 		{#if invalidModelCount > 0}
 			<div class="notification-alert mb-2 flex items-start gap-1" role="alert">
 				<TriangleAlert class="text-warning size-4 shrink-0" />
@@ -579,7 +605,12 @@
 		{:else}
 			<ul class="flex flex-col gap-2">
 				{#each modelRows as row (row.id)}
-					<li class="paper flex-row justify-between gap-2 p-3">
+					<li
+						class="paper flex-row justify-between gap-2 p-3"
+						class:ring-1={validation.has('models') && !!row.warning}
+						class:ring-error={validation.has('models') && !!row.warning}
+						data-invalid={validation.has('models') && row.warning ? '' : undefined}
+					>
 						<div class="flex min-w-0 flex-col">
 							<div class="flex items-center gap-2">
 								<span class={row.isPattern ? 'font-mono text-sm' : 'text-sm'}>{row.name}</span>
@@ -642,7 +673,11 @@
 			m.models_profiles_budgets(),
 			m.models_profiles_budgets_description(),
 			m.models_budgets_add(),
-			() => openBudget('new')
+			() => openBudget('new'),
+			false,
+			validation.has('budgets'),
+			undefined,
+			validation.message('budgets')
 		)}
 		{#if budgets.length > 0 && !draft.models?.length}
 			<div class="notification-alert mb-2 flex items-center gap-2 p-3 text-sm">
@@ -659,7 +694,13 @@
 		{:else}
 			<ul class="flex flex-col gap-2">
 				{#each budgets as item, index (item.key)}
-					<li class="paper flex-row justify-between gap-2 p-3">
+					{@const budgetInvalid = validation.has('budgets') && budgetsWithoutModels.has(item.key)}
+					<li
+						class="paper flex-row justify-between gap-2 p-3"
+						class:ring-1={budgetInvalid}
+						class:ring-error={budgetInvalid}
+						data-invalid={budgetInvalid ? '' : undefined}
+					>
 						<div class="flex min-w-0 grow flex-col">
 							<button
 								type="button"
@@ -788,7 +829,7 @@
 			>
 				{m.common_cancel()}
 			</button>
-			<button type="submit" class="btn btn-primary text-sm min-w-19" disabled={!valid || saving}>
+			<button type="submit" class="btn btn-primary text-sm min-w-19" disabled={saving}>
 				{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 			</button>
 		</div>
@@ -800,16 +841,24 @@
 	description: string,
 	btnLabel: string,
 	onClick: () => void,
-	disabled = false
+	disabled = false,
+	invalid = false,
+	required = false,
+	errorMessage = ''
 )}
 	<div class="mb-3 flex items-start justify-between gap-4">
 		<div>
-			<h2 class="text-lg font-semibold">
+			<h2 class="text-lg font-semibold" class:text-error={invalid}>
 				{title}
+				{#if required}<RequiredMark {invalid} textMessage={m.core_required_sr()} />{/if}
 			</h2>
-			<p class="text-muted-content text-sm max-w-2xl hidden @lg:block">
-				{description}
-			</p>
+			{#if errorMessage}
+				<FieldError id="profile-header" class="text-sm" message={errorMessage} />
+			{:else}
+				<p class="text-muted-content text-sm max-w-2xl hidden @lg:block">
+					{description}
+				</p>
+			{/if}
 		</div>
 		{#if !readonly}
 			<button
@@ -839,7 +888,7 @@
 	class="max-w-3xl"
 	onClose={() => (editingBudget = undefined)}
 >
-	<div class="max-h-[75vh] overflow-y-auto pt-4">
+	<div class="max-h-[75vh] overflow-y-auto">
 		{#if editingBudget}
 			{#key editingBudget}
 				<BudgetEditor
@@ -872,7 +921,7 @@
 	class="max-w-3xl"
 	onClose={() => (editingPolicy = undefined)}
 >
-	<div class="max-h-[75vh] overflow-y-auto pt-4">
+	<div class="max-h-[75vh] overflow-y-auto">
 		{#if editingPolicy}
 			{#key editingPolicy}
 				<GuardrailPolicyEditor

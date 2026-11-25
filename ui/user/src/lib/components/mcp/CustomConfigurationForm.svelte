@@ -265,7 +265,7 @@
 							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_sensitive()}</span>
 						{/if}
 						{#if item.required}
-							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_required()}</span>
+							<span class="badge badge-secondary badge-xs">{m.core_required()}</span>
 						{/if}
 						{#if source === 'env' && item.file}
 							<span class="badge badge-secondary badge-xs">{m.mcps_catalog_badge_file()}</span>

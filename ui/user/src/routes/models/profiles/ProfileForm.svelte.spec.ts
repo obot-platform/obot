@@ -168,7 +168,7 @@ describe('Profile form', () => {
 
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile saved.', 'success'));
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile created.'));
 		await vi.waitFor(() =>
 			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
 		);
@@ -288,7 +288,8 @@ describe('Profile form', () => {
 				"This profile no longer grants any of this budget's models."
 			)
 		);
-		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect.element(page.getByText('Edit or remove the budgets marked below.')).toBeVisible();
 
 		// The budget's model picker follows the form's models.
 		await page.getByRole('button', { name: 'Edit Opus only' }).click();
@@ -296,7 +297,8 @@ describe('Profile form', () => {
 		await expect.element(dialog.getByText('anthropic/claude-haiku-4-5')).toBeVisible();
 		await expect.element(dialog.getByText('anthropic/claude-opus-4-5')).not.toBeInTheDocument();
 		await expect.element(dialog.getByText('Select at least one model.')).toBeVisible();
-		await expect.element(dialog.getByRole('button', { name: 'Apply' })).toBeDisabled();
+		await dialog.getByRole('button', { name: 'Apply' }).click();
+		await expect.element(dialog.getByRole('button', { name: 'Apply' })).toBeVisible();
 		expect(calls).not.toHaveBeenCalled();
 	});
 

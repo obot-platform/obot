@@ -94,5 +94,8 @@
 	"skills_syncing_notice": "システムは現在、設定済みの Git リポジトリと同期しています。",
 	"skills_this_policy": "このポリシー",
 	"skills_title": "スキル",
-	"skills_view_source_on_git": "Git でソースを表示"
+	"skills_view_source_on_git": "Git でソースを表示",
+	"skills_access_policy_skills_required": "スキルを 1 つ以上追加してください。",
+	"skills_access_policy_created": "アクセスポリシーを作成しました。",
+	"skills_access_policy_updated": "アクセスポリシーを更新しました。"
 }

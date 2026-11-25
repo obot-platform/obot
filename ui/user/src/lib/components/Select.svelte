@@ -226,6 +226,7 @@
 			aria-expanded={open}
 			aria-controls={`${id}-popover`}
 			aria-invalid={invalid || undefined}
+			data-invalid={invalid ? '' : undefined}
 			class={twMerge(
 				'select-form text-md flex min-h-10 w-full grow cursor-pointer resize-none items-center gap-2 rounded-lg px-2 py-2 text-left',
 				disabled && 'pointer-events-none cursor-default opacity-50',

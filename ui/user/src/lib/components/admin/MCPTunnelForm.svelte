@@ -1,12 +1,17 @@
 <script lang="ts">
+	import { FORM_PARENT_ROUTES } from '$lib/constants';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type MCPTunnel, type MCPTunnelManifest } from '$lib/services';
+	import { goto } from '$lib/url';
+	import FieldError from '../FieldError.svelte';
+	import RequiredMark from '../RequiredMark.svelte';
 	import { Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		onCancel?: () => void;
 		onCreate?: (tunnel: MCPTunnel) => void;
 		onDelete?: () => void;
 		onRotateSecret?: () => void;
@@ -19,7 +24,8 @@
 		allowedURLs: string[];
 	};
 
-	let { onCreate, onDelete, onRotateSecret, onUpdate, readonly, tunnel }: Props = $props();
+	let { onCancel, onCreate, onDelete, onRotateSecret, onUpdate, readonly, tunnel }: Props =
+		$props();
 
 	let manifest = $state<MCPTunnelFormManifest>(
 		untrack(() => ({
@@ -29,23 +35,6 @@
 		}))
 	);
 	let saving = $state(false);
-	let showErrors = $state(false);
-
-	let initialManifest = $derived(
-		JSON.stringify({
-			allowedURLs: tunnel?.manifest.allowedURLs ?? [],
-			description: tunnel?.manifest.description ?? '',
-			displayName: tunnel?.manifest.displayName ?? ''
-		})
-	);
-	let currentManifest = $derived(
-		JSON.stringify({
-			allowedURLs: manifest.allowedURLs,
-			description: manifest.description ?? '',
-			displayName: manifest.displayName ?? ''
-		})
-	);
-	let hasChanges = $derived(initialManifest !== currentManifest);
 
 	function allowedURLValidation(value: string): string {
 		const candidate = value.trim();
@@ -64,12 +53,22 @@
 		return '';
 	}
 
-	let displayNameError = $derived(
-		showErrors && !manifest.displayName.trim() ? m.mcps_tunnels_display_name_required() : ''
-	);
-	let allowedURLErrors = $derived(
-		manifest.allowedURLs.map((value) => (showErrors ? allowedURLValidation(value) : ''))
-	);
+	const validation = new FormValidation<string>(() => {
+		const errors: Record<string, string> = {};
+		if (!manifest.displayName.trim()) {
+			errors.displayName = m.mcps_tunnels_display_name_required();
+		}
+		manifest.allowedURLs.forEach((value, index) => {
+			const error = allowedURLValidation(value);
+			if (error) errors[`allowedURL.${index}`] = error;
+		});
+		return errors;
+	});
+
+	function cancel() {
+		if (onCancel) onCancel();
+		else goto(FORM_PARENT_ROUTES.tunnels);
+	}
 
 	function normalizedManifest(): MCPTunnelManifest {
 		return {
@@ -81,14 +80,7 @@
 
 	async function save() {
 		if (readonly) return;
-		showErrors = true;
-
-		if (
-			!manifest.displayName.trim() ||
-			manifest.allowedURLs.some((value) => allowedURLValidation(value))
-		) {
-			return;
-		}
+		if (!(await validation.check())) return;
 
 		saving = true;
 		try {
@@ -101,7 +93,7 @@
 				description: saved.manifest.description ?? '',
 				displayName: saved.manifest.displayName
 			};
-			showErrors = false;
+			validation.reset();
 
 			if (tunnel) {
 				onUpdate?.(saved);
@@ -115,7 +107,9 @@
 </script>
 
 <form
+	{@attach validation.attach}
 	class="flex flex-col gap-6"
+	novalidate
 	onsubmit={(event) => {
 		event.preventDefault();
 		save();
@@ -125,28 +119,25 @@
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		<div class="flex flex-col gap-2">
-			<label for="mcp-tunnel-display-name" class="text-sm font-light">
+			<label
+				for="mcp-tunnel-display-name"
+				class="text-sm font-light"
+				class:error={validation.has('displayName')}
+			>
 				{m.mcps_tunnels_display_name()}
 				{#if !readonly}
-					<span class="text-error" aria-hidden="true">*</span>
+					<RequiredMark invalid={validation.has('displayName')} />
 				{/if}
 			</label>
 			<input
-				id="mcp-tunnel-display-name"
-				class={twMerge('text-input-filled dark:bg-base-100', displayNameError && 'error')}
+				class="text-input-filled dark:bg-base-100"
+				class:error={validation.has('displayName')}
+				{...validation.attrs('displayName', 'mcp-tunnel-display-name')}
+				aria-required="true"
 				bind:value={manifest.displayName}
 				disabled={readonly}
-				aria-invalid={displayNameError ? 'true' : undefined}
-				aria-describedby={displayNameError ? 'mcp-tunnel-display-name-error' : undefined}
-				oninput={() => {
-					showErrors = false;
-				}}
 			/>
-			{#if displayNameError}
-				<p id="mcp-tunnel-display-name-error" class="text-error text-xs" role="alert">
-					{displayNameError}
-				</p>
-			{/if}
+			<FieldError id="mcp-tunnel-display-name" message={validation.message('displayName')} />
 		</div>
 
 		<div class="flex flex-col gap-2">
@@ -161,7 +152,14 @@
 
 		<div class="flex flex-col gap-3">
 			<div class="flex flex-col gap-1">
-				<span class="text-sm font-light">{m.mcps_tunnels_allowed_urls()}</span>
+				<span
+					class="text-sm font-light"
+					class:text-error={manifest.allowedURLs.some((_, i) => validation.has(`allowedURL.${i}`))}
+					>{m.mcps_tunnels_allowed_urls()}
+					<RequiredMark
+						invalid={manifest.allowedURLs.some((_, i) => validation.has(`allowedURL.${i}`))}
+					/></span
+				>
 				<p class="text-muted-content text-xs font-light">
 					{m.mcps_tunnels_allowed_urls_hint_prefix()}
 					<code>*</code>
@@ -175,22 +173,18 @@
 				<div class="flex items-start gap-2">
 					<div class="flex grow flex-col gap-1">
 						<input
-							id={`mcp-tunnel-allowed-url-${index}`}
-							class={twMerge(
-								'text-input-filled dark:bg-base-100',
-								allowedURLErrors[index] && 'error'
-							)}
+							class="text-input-filled dark:bg-base-100"
+							class:error={validation.has(`allowedURL.${index}`)}
+							{...validation.attrs(`allowedURL.${index}`, `mcp-tunnel-allowed-url-${index}`)}
+							aria-required="true"
 							bind:value={manifest.allowedURLs[index]}
 							disabled={readonly}
 							placeholder={m.mcps_tunnels_allowed_url_placeholder()}
-							aria-invalid={allowedURLErrors[index] ? 'true' : undefined}
-							oninput={() => {
-								showErrors = false;
-							}}
 						/>
-						{#if allowedURLErrors[index]}
-							<p class="text-error text-xs" role="alert">{allowedURLErrors[index]}</p>
-						{/if}
+						<FieldError
+							id={`mcp-tunnel-allowed-url-${index}`}
+							message={validation.message(`allowedURL.${index}`)}
+						/>
 					</div>
 					{#if !readonly}
 						<button
@@ -262,16 +256,17 @@
 				{/if}
 			</div>
 
-			<button
-				type="submit"
-				class="btn btn-primary flex items-center gap-1"
-				disabled={saving || !hasChanges}
-			>
-				{#if saving}
-					<Loading class="size-4" />
-				{/if}
-				{tunnel ? m.core_save_changes() : m.mcps_tunnels_create_tunnel()}
-			</button>
+			<div class="flex gap-2">
+				<button type="button" class="btn btn-secondary" onclick={cancel}>
+					{m.common_cancel()}
+				</button>
+				<button type="submit" class="btn btn-primary flex items-center gap-1" disabled={saving}>
+					{#if saving}
+						<Loading class="size-4" />
+					{/if}
+					{tunnel ? m.core_save_changes() : m.mcps_tunnels_create_tunnel()}
+				</button>
+			</div>
 		</div>
 	{/if}
 </form>

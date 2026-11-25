@@ -15,10 +15,11 @@
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
+	import { completeSave } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import { AdminService, UserService, type OrgUser, type AccessControlRule } from '$lib/services';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { goto, clearUrlParams } from '$lib/url';
+	import { goto } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import { BookOpenText, Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
@@ -102,9 +103,12 @@
 			.map((d) => convertToTableData(d, 'user'))
 	);
 
-	async function navigateToCreated(rule: AccessControlRule) {
-		clearUrlParams(['new']);
-		goto(`/mcp-servers/access-policies/${rule.id}`);
+	function navigateToCreated(rule: AccessControlRule) {
+		completeSave({
+			created: true,
+			message: m.mcps_access_policies_policy_created(),
+			href: `/mcp-servers/access-policies/${rule.id}`
+		});
 	}
 
 	function getAcrServerCount(powerUserWorkspaceID: string) {

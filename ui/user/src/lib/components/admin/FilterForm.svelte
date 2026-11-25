@@ -4,6 +4,7 @@
 	import { PAGE_TRANSITION_DURATION, PII_REDACT_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
 	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
 	import { HttpError } from '$lib/errors';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -22,7 +23,9 @@
 		convertServerRuntimeFormDataToManifest,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
+	import FieldError from '../FieldError.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import RequiredMark from '../RequiredMark.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
@@ -50,6 +53,7 @@
 		filter?: MCPFilterInput;
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
+		onCancel?: () => void;
 		readonly?: boolean;
 		mcpSystemCatalogEntryId?: string;
 	}
@@ -59,6 +63,7 @@
 		filter: initialFilter,
 		onCreate,
 		onUpdate,
+		onCancel,
 		readonly,
 		mcpSystemCatalogEntryId
 	}: Props = $props();
@@ -121,7 +126,6 @@
 		isCredentialFilter ? validateCredentialPolicy(credentialPolicy) : undefined
 	);
 	let runtimeTypeSelect = $derived(runtimeFormData ? runtimeFormData.runtime : 'webhook-url');
-	let showRuntimeRequired = $state<Record<string, boolean>>({});
 	const runtimeOptions = [
 		{ id: 'webhook-url', label: m.mcps_filters_webhook_url() },
 		{ id: 'remote', label: m.mcps_catalog_runtime_remote() },
@@ -133,7 +137,6 @@
 	let saving = $state<boolean | undefined>();
 	let showSecret = $state<boolean>(false);
 	let removingSecret = $state(false);
-	let showValidation = $state(false);
 
 	let launchFilterData = $state<MCPFilter>();
 	let launchError = $state<string>();
@@ -154,10 +157,36 @@
 		}
 	});
 
-	// Validation
-	let nameError = $derived(showValidation && !filter.name.trim());
-	let urlError = $derived(showValidation && !filter.url.trim());
-	let toolNameError = $derived(showValidation && !filter.toolName?.trim());
+	const validation = new FormValidation<string>(() => {
+		const errors: Record<string, string | true> = {};
+		if (!filter.name.trim()) errors.name = m.mcps_name_required();
+		if (!runtimeFormData && !filter.url.trim()) errors.url = m.mcps_filters_webhook_url_required();
+		if (runtimeFormData && !filter.toolName?.trim()) {
+			errors.toolName = m.mcps_filters_tool_name_required();
+		}
+		if (runtimeFormData && !isPrebuiltEntry) {
+			const { required, invalid } = validateRuntimeForm(
+				runtimeFormData as RuntimeFormData,
+				'filter',
+				true
+			);
+			for (const key of Object.keys(required)) errors[`runtime.required.${key}`] = true;
+			for (const key of Object.keys(invalid)) errors[`runtime.invalid.${key}`] = true;
+		}
+		if (isCredentialFilter && (credentialLoadError || credentialError)) {
+			errors.credential = credentialLoadError || credentialError || true;
+		}
+		return errors;
+	});
+	function runtimeErrors(prefix: string): Record<string, boolean> {
+		return Object.fromEntries(
+			Object.keys(validation.errors)
+				.filter((key) => key.startsWith(prefix))
+				.map((key) => [key.slice(prefix.length), true])
+		);
+	}
+	let showRuntimeRequired = $derived(runtimeErrors('runtime.required.'));
+	let showRuntimeInvalid = $derived(runtimeErrors('runtime.invalid.'));
 
 	onMount(() => {
 		if (initialFilterId) {
@@ -379,8 +408,16 @@
 		}
 	}
 
-	function handleUpdateRequired(field: string) {
-		delete showRuntimeRequired[field];
+	function handleCancel() {
+		if (onCancel) {
+			onCancel();
+			return;
+		}
+		if (initialFilterId) {
+			onUpdate?.(undefined);
+		} else {
+			onCreate?.(undefined);
+		}
 	}
 
 	function listLaunchLogs(filterId: string) {
@@ -473,29 +510,9 @@
 	}
 
 	async function handleSave() {
-		if (
-			isCredentialFilter &&
-			(!credentialConfigurationLoaded || credentialLoadError || credentialError)
-		)
-			return;
-		// Show validation errors if required fields are missing
-		if (
-			!filter.name.trim() ||
-			(!runtimeFormData && !filter.url.trim()) ||
-			(runtimeFormData && !filter.toolName?.trim())
-		) {
-			showValidation = true;
-			return;
-		}
-
-		if (runtimeFormData) {
-			showRuntimeRequired = {}; // reset
-			const { required } = validateRuntimeForm(runtimeFormData as RuntimeFormData, 'filter', true);
-			if (Object.keys(required).length > 0) {
-				showRuntimeRequired = required;
-				return;
-			}
-		}
+		// The saved credential policy is still loading; saving now would overwrite it.
+		if (isCredentialFilter && !credentialConfigurationLoaded) return;
+		if (!(await validation.check())) return;
 
 		saving = true;
 
@@ -586,6 +603,7 @@
 </script>
 
 <div
+	{@attach validation.attach}
 	class="flex h-full w-full flex-col gap-4"
 	out:fly={{ x: 100, duration }}
 	in:fly={{ x: 100, delay: duration }}
@@ -604,21 +622,24 @@
 		>
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
-					<label for="filter-name" class="flex-1 text-sm font-light capitalize">
+					<label
+						for="filter-name"
+						class="flex-1 text-sm font-light capitalize"
+						class:error={validation.has('name')}
+					>
 						{m.core_name()}
+						<RequiredMark invalid={validation.has('name')} />
 					</label>
 					<div class="flex grow flex-col gap-0.5">
 						<input
-							id="filter-name"
 							bind:value={filter.name}
-							class="text-input-filled dark:bg-base-100 mt-0.5 {nameError
-								? 'border-error focus:border-error focus:ring-error'
-								: ''}"
+							class="text-input-filled dark:bg-base-100 mt-0.5"
+							class:error={validation.has('name')}
+							{...validation.attrs('name', 'filter-name')}
+							aria-required="true"
 							disabled={readonly}
 						/>
-						{#if nameError}
-							<p class="text-xs text-error">{m.mcps_name_required()}</p>
-						{/if}
+						<FieldError id="filter-name" message={validation.message('name')} />
 					</div>
 				</div>
 
@@ -647,21 +668,24 @@
 				id={MCP_FILTERS_FIELD_IDS.runtimeFormDetails}
 			>
 				<div class="flex flex-col gap-2">
-					<label for="webhook-url" class="flex-1 text-sm font-light capitalize">
+					<label
+						for="webhook-url"
+						class="flex-1 text-sm font-light capitalize"
+						class:error={validation.has('url')}
+					>
 						{m.mcps_filters_webhook_url()}
+						<RequiredMark invalid={validation.has('url')} />
 					</label>
 					<input
-						id="webhook-url"
 						bind:value={filter.url}
-						class="text-input-filled dark:bg-base-100 mt-0.5 {urlError
-							? 'border-error focus:border-error focus:ring-error'
-							: ''}"
+						class="text-input-filled dark:bg-base-100 mt-0.5"
+						class:error={validation.has('url')}
+						{...validation.attrs('url', 'webhook-url')}
+						aria-required="true"
 						required
 						disabled={readonly || isPrebuiltEntry}
 					/>
-					{#if urlError}
-						<p class="text-xs text-error">{m.mcps_filters_webhook_url_required()}</p>
-					{/if}
+					<FieldError id="webhook-url" message={validation.message('url')} />
 				</div>
 
 				<div class="flex flex-col gap-2">
@@ -733,7 +757,6 @@
 							bind:config={runtimeFormData.npxConfig}
 							readonly={readonly || isPrebuiltEntry}
 							showRequired={showRuntimeRequired}
-							onFieldChange={handleUpdateRequired}
 						>
 							{@render toolNameForm()}
 						</NpxRuntimeForm>
@@ -742,7 +765,6 @@
 							bind:config={runtimeFormData.uvxConfig}
 							readonly={readonly || isPrebuiltEntry}
 							showRequired={showRuntimeRequired}
-							onFieldChange={handleUpdateRequired}
 						>
 							{@render toolNameForm()}
 						</UvxRuntimeForm>
@@ -751,7 +773,6 @@
 							bind:config={runtimeFormData.containerizedConfig}
 							readonly={readonly || isPrebuiltEntry}
 							showRequired={showRuntimeRequired}
-							onFieldChange={handleUpdateRequired}
 						>
 							{@render toolNameForm()}
 						</ContainerizedRuntimeForm>
@@ -761,7 +782,7 @@
 							variant="server"
 							readonly={readonly || isPrebuiltEntry}
 							showRequired={showRuntimeRequired}
-							onFieldChange={handleUpdateRequired}
+							showInvalid={showRuntimeInvalid}
 							isNewEntry={!initialFilterId}
 							disableStaticOAuth
 							disableHostnameOption
@@ -774,12 +795,19 @@
 				{#if isCredentialFilter}
 					{#if readonly && initialFilterId}<p class="text-sm text-muted-content">
 							Saved credential policy is available only to administrators.
-						</p>{:else if credentialLoadError}<p role="alert" class="text-error">
+						</p>{:else if credentialLoadError}<p
+							role="alert"
+							class="text-error"
+							data-invalid={validation.has('credential') ? '' : undefined}
+							tabindex="-1"
+						>
 							{credentialLoadError}
 						</p>{:else if !credentialConfigurationLoaded}<p>
 							Loading saved credential policy...
 						</p>{:else}
-						<CredentialFilterConfiguration bind:config={runtimeFormData.env} {readonly} />
+						<div data-invalid={validation.has('credential') ? '' : undefined}>
+							<CredentialFilterConfiguration bind:config={runtimeFormData.env} {readonly} />
+						</div>
 					{/if}
 				{:else if runtimeFormData.runtime !== 'remote'}
 					<CustomConfigurationForm
@@ -789,6 +817,7 @@
 						{isPrebuiltEntry}
 						overrideEnvField={[PII_REDACT_TYPES, PII_BLOCK_TYPES]}
 						showRequired={showRuntimeRequired.env}
+						showInvalid={showRuntimeInvalid.env}
 					>
 						{#snippet overrideEnvTemplate({ config })}
 							{#if config.key === PII_BLOCK_TYPES && runtimeFormData}
@@ -838,24 +867,13 @@
 					{/if}
 				</div>
 				<div class="flex gap-2">
-					<button
-						class="btn btn-secondary"
-						onclick={() => {
-							if (initialFilterId) {
-								onUpdate?.(undefined);
-							} else {
-								onCreate?.(undefined);
-							}
-						}}
-					>
+					<button class="btn btn-secondary" onclick={handleCancel}>
 						{m.common_cancel()}
 					</button>
 					<button
 						id={MCP_FILTERS_FIELD_IDS.saveBtn}
 						class="btn btn-primary text-sm"
-						disabled={saving ||
-							(isCredentialFilter &&
-								(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
+						disabled={saving || (isCredentialFilter && !credentialConfigurationLoaded)}
 						onclick={handleSave}
 					>
 						{#if saving}
@@ -919,24 +937,24 @@
 			for="tool-name"
 			class={twMerge(
 				'shrink-0 text-sm font-light capitalize',
-				runtimeFormData?.runtime === 'containerized' ? 'w-20' : ''
+				runtimeFormData?.runtime === 'containerized' ? 'w-20' : '',
+				validation.has('toolName') && 'error'
 			)}
 		>
 			{m.mcps_filters_tool_name()}
+			<RequiredMark invalid={validation.has('toolName')} />
 		</label>
 		<div class="flex grow flex-col gap-0.5">
 			<input
-				id="tool-name"
 				bind:value={filter.toolName}
-				class="text-input-filled dark:bg-base-100 mt-0.5 {toolNameError
-					? 'border-error focus:border-error focus:ring-error'
-					: ''}"
+				class="text-input-filled dark:bg-base-100 mt-0.5"
+				class:error={validation.has('toolName')}
+				{...validation.attrs('toolName', 'tool-name')}
+				aria-required="true"
 				required
 				disabled={readonly || isPrebuiltEntry}
 			/>
-			{#if toolNameError}
-				<p class="text-xs text-error">{m.mcps_filters_tool_name_required()}</p>
-			{/if}
+			<FieldError id="tool-name" message={validation.message('toolName')} />
 		</div>
 	</div>
 	<div class="flex flex-col gap-1">

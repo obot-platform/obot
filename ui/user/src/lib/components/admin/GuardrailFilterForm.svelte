@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { MCP_FILTERS_FIELD_IDS, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -20,6 +21,8 @@
 	import { guardrailTypeLabel } from '$lib/services/llm-gateway/guardrail-text';
 	import { convertSubjectsToTableData, resolveSubjects } from '$lib/subjectResolver';
 	import { resolve } from '$lib/url';
+	import FieldError from '../FieldError.svelte';
+	import RequiredMark from '../RequiredMark.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import NewGuardrailDialog from '../guardrails/NewGuardrailDialog.svelte';
@@ -37,10 +40,18 @@
 		filter?: MCPFilterInput;
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
+		onCancel?: () => void;
 		readonly?: boolean;
 	}
 
-	let { topContent, filter: initialFilter, onCreate, onUpdate, readonly }: Props = $props();
+	let {
+		topContent,
+		filter: initialFilter,
+		onCreate,
+		onUpdate,
+		onCancel,
+		readonly
+	}: Props = $props();
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const CONDITION_EXAMPLE = 'mcp_server == "github" && mcp_tool.startsWith("create_")';
@@ -129,7 +140,6 @@
 
 	let saving = $state(false);
 	let saveError = $state('');
-	let showValidation = $state(false);
 	let conditionError = $state('');
 	let validatingCondition = $state(false);
 
@@ -190,14 +200,38 @@
 	);
 	let subjectRows = $derived(convertSubjectsToTableData(subjects, resolved.users, resolved.groups));
 
-	let nameError = $derived(showValidation && !filter.name.trim());
-	let guardrailsError = $derived(showValidation && filter.guardrailIDs.length === 0);
-	let samplingRateError = $derived(
-		showValidation &&
-			(!Number.isFinite(Number(filter.samplingRate)) ||
-				Number(filter.samplingRate) < 1 ||
-				Number(filter.samplingRate) > 100)
+	const validation = new FormValidation<'name' | 'guardrails' | 'samplingRate' | 'condition'>(
+		() => {
+			const samplingRate = Number(filter.samplingRate);
+			return {
+				...(!filter.name.trim() && { name: m.mcps_name_required() }),
+				...(filter.guardrailIDs.length === 0 && {
+					guardrails: m.guardrails_filter_guardrails_required()
+				}),
+				...((!Number.isFinite(samplingRate) || samplingRate < 1 || samplingRate > 100) && {
+					samplingRate: m.guardrails_filter_sampling_rate_invalid()
+				}),
+				...(conditionError && { condition: conditionError })
+			};
+		}
 	);
+
+	function handleCancel() {
+		if (onCancel) {
+			onCancel();
+		} else if (initialFilterId) {
+			onUpdate?.(undefined);
+		} else {
+			onCreate?.(undefined);
+		}
+	}
+
+	async function conditionSettled() {
+		const deadline = Date.now() + 5000;
+		while (validatingCondition && Date.now() < deadline) {
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+	}
 
 	function toggleGuardrail(id: string, checked: boolean) {
 		filter.guardrailIDs = checked
@@ -239,20 +273,8 @@
 	}
 
 	async function handleSave() {
-		const samplingRate = Number(filter.samplingRate);
-		if (
-			!filter.name.trim() ||
-			filter.guardrailIDs.length === 0 ||
-			!Number.isFinite(samplingRate) ||
-			samplingRate < 1 ||
-			samplingRate > 100
-		) {
-			showValidation = true;
-			return;
-		}
-		if (conditionError || validatingCondition) {
-			return;
-		}
+		await conditionSettled();
+		if (!(await validation.check()) || validatingCondition) return;
 
 		saving = true;
 		saveError = '';
@@ -274,6 +296,7 @@
 </script>
 
 <div
+	{@attach validation.attach}
 	class="flex h-full w-full flex-col gap-4"
 	out:fly={{ x: 100, duration }}
 	in:fly={{ x: 100, delay: duration }}
@@ -292,21 +315,23 @@
 		>
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
-					<label for="filter-name" class="flex-1 text-sm font-light capitalize"
-						>{m.core_name()}</label
+					<label
+						for="filter-name"
+						class="flex-1 text-sm font-light capitalize"
+						class:error={validation.has('name')}
+						>{m.core_name()}
+						<RequiredMark invalid={validation.has('name')} /></label
 					>
 					<div class="flex grow flex-col gap-0.5">
 						<input
-							id="filter-name"
 							bind:value={filter.name}
-							class="text-input-filled dark:bg-base-100 mt-0.5 {nameError
-								? 'border-error focus:border-error focus:ring-error'
-								: ''}"
+							class="text-input-filled dark:bg-base-100 mt-0.5"
+							class:error={validation.has('name')}
+							{...validation.attrs('name', 'filter-name')}
+							aria-required="true"
 							disabled={readonly}
 						/>
-						{#if nameError}
-							<p class="text-xs text-error">{m.mcps_name_required()}</p>
-						{/if}
+						<FieldError id="filter-name" message={validation.message('name')} />
 					</div>
 				</div>
 				<div class="flex flex-col gap-1">
@@ -326,8 +351,12 @@
 			<div class="flex flex-col gap-2">
 				<div class="flex items-start justify-between gap-4">
 					<div class="flex flex-col gap-1">
-						<span id="guardrail-list-label" class="text-sm font-light"
-							>{m.guardrails_filter_guardrails()}</span
+						<span
+							id="guardrail-list-label"
+							class="text-sm font-light"
+							class:text-error={validation.has('guardrails')}
+							>{m.guardrails_filter_guardrails()}
+							<RequiredMark invalid={validation.has('guardrails')} /></span
 						>
 						<p class="text-muted-content text-xs">
 							{m.guardrails_filter_guardrails_description()}
@@ -354,8 +383,10 @@
 					aria-labelledby="guardrail-list-label"
 					class={twMerge(
 						'bg-base-200 dark:bg-base-100 rounded-lg p-3 shadow-inner',
-						guardrailsError && 'border-error border'
+						validation.has('guardrails') && 'ring-error ring-1'
 					)}
+					data-invalid={validation.has('guardrails') ? '' : undefined}
+					aria-describedby={validation.has('guardrails') ? 'guardrail-list-error' : undefined}
 				>
 					{#if guardrailsLoading}
 						<Loading class="size-4" />
@@ -411,9 +442,7 @@
 						</p>
 					{/if}
 				</div>
-				{#if guardrailsError}
-					<p class="text-xs text-error">{m.guardrails_filter_guardrails_required()}</p>
-				{/if}
+				<FieldError id="guardrail-list" message={validation.message('guardrails')} />
 			</div>
 
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -450,22 +479,24 @@
 					<p class="text-muted-content text-xs">{m.guardrails_filter_direction_description()}</p>
 				</div>
 				<div class="flex flex-col gap-2">
-					<label for="guardrail-sampling-rate" class="text-sm font-light"
+					<label
+						for="guardrail-sampling-rate"
+						class="text-sm font-light"
+						class:error={validation.has('samplingRate')}
 						>{m.guardrails_filter_sampling_rate()}</label
 					>
 					<input
-						id="guardrail-sampling-rate"
 						type="number"
 						min="1"
 						max="100"
 						bind:value={filter.samplingRate}
-						class="text-input-filled dark:bg-base-100 {samplingRateError
-							? 'border-error focus:border-error focus:ring-error'
-							: ''}"
+						class="text-input-filled dark:bg-base-100"
+						class:error={validation.has('samplingRate')}
+						{...validation.attrs('samplingRate', 'guardrail-sampling-rate')}
 						disabled={readonly}
 					/>
-					{#if samplingRateError}
-						<p class="text-xs text-error">{m.guardrails_filter_sampling_rate_invalid()}</p>
+					{#if validation.has('samplingRate')}
+						<FieldError id="guardrail-sampling-rate" message={validation.message('samplingRate')} />
 					{:else}
 						<p class="text-muted-content text-xs">
 							{m.guardrails_filter_sampling_rate_description()}
@@ -573,15 +604,14 @@
 				<textarea
 					id="guardrail-condition"
 					aria-label={m.guardrails_filter_condition()}
-					class="text-input-filled dark:bg-base-100 min-h-20 font-mono text-sm {conditionError
-						? 'border-error focus:border-error focus:ring-error'
-						: ''}"
+					class="text-input-filled dark:bg-base-100 min-h-20 font-mono text-sm"
+					class:error={!!conditionError}
+					aria-invalid={conditionError ? 'true' : undefined}
+					aria-describedby={conditionError ? 'guardrail-condition-error' : undefined}
 					placeholder={CONDITION_EXAMPLE}
 					bind:value={filter.condition}
 					disabled={readonly}></textarea>
-				{#if conditionError}
-					<p class="text-xs text-error" role="alert">{conditionError}</p>
-				{/if}
+				<FieldError id="guardrail-condition" message={conditionError} />
 				<div class="text-muted-content grid grid-cols-1 gap-x-4 gap-y-1 text-xs md:grid-cols-2">
 					{#each conditionVariables as v (v.name)}
 						<span><code class="text-base-content">{v.name}</code> — {v.description}</span>
@@ -624,22 +654,13 @@
 					{/if}
 				</div>
 				<div class="flex gap-2">
-					<button
-						class="btn btn-secondary"
-						onclick={() => {
-							if (initialFilterId) {
-								onUpdate?.(undefined);
-							} else {
-								onCreate?.(undefined);
-							}
-						}}
-					>
+					<button class="btn btn-secondary" onclick={handleCancel}>
 						{m.common_cancel()}
 					</button>
 					<button
 						id={MCP_FILTERS_FIELD_IDS.saveBtn}
 						class="btn btn-primary text-sm"
-						disabled={saving || validatingCondition || !!conditionError}
+						disabled={saving}
 						onclick={handleSave}
 					>
 						{#if saving}

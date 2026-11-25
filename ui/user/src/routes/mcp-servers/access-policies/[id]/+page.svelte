@@ -8,8 +8,7 @@
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
 	import { m } from '$lib/i18n';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { goto } from '$lib/url';
+	import { mcpServersAndEntries, notifications, profile } from '$lib/stores';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -37,7 +36,7 @@
 			<AccessControlRuleForm
 				{accessControlRule}
 				onUpdate={() => {
-					goto('/mcp-servers?view=access-policies');
+					notifications.add(m.mcps_access_policies_policy_updated(), 'success');
 				}}
 				mcpEntriesContextFn={() => mcpServersAndEntries.current}
 				readonly={profile.current.isAdminReadonly?.()}
@@ -46,7 +45,7 @@
 			<AccessControlRuleForm
 				{accessControlRule}
 				onUpdate={() => {
-					goto('/mcp-servers?view=access-policies');
+					notifications.add(m.mcps_access_policies_policy_updated(), 'success');
 				}}
 				entity="workspace"
 				id={workspaceId}

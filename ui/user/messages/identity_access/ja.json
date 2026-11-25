@@ -513,5 +513,7 @@
 	"identity_access_users_user_count_tooltip": "ローカルユーザーアカウントの作成は、ログインするまでユーザー上限にカウントされません。",
 	"identity_access_users_user_limits": "ユーザー数の上限：",
 	"identity_access_view_access_policies": "アクセスポリシーを表示",
-	"identity_access_users_workspace_downgrade_warning": "変更後の実効ロールにパワーユーザー権限がない場合、この変更によりユーザーのパワーユーザーワークスペースと公開済みリソースが削除されます。個人の接続には引き続きアクセスポリシーが適用されます。"
+	"identity_access_users_workspace_downgrade_warning": "変更後の実効ロールにパワーユーザー権限がない場合、この変更によりユーザーのパワーユーザーワークスペースと公開済みリソースが削除されます。個人の接続には引き続きアクセスポリシーが適用されます。",
+	"identity_access_agents_agent_created": "エージェント ID を作成しました。",
+	"identity_access_auth_providers_local_auth_email_invalid": "name@example.com のような有効なメールアドレスを入力してください。"
 }

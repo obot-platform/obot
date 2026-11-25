@@ -10,6 +10,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
+	import { completeSave } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import { AdminService, type Skill } from '$lib/services';
 	import type {
@@ -299,8 +300,11 @@
 	}
 
 	function navigateToCreated(policy: SkillAccessPolicy) {
-		clearUrlParams(['new']);
-		goto(`/skills/access-policies/${policy.id}`, { replaceState: false });
+		completeSave({
+			created: true,
+			message: m.skills_access_policy_created(),
+			href: `/skills/access-policies/${policy.id}`
+		});
 	}
 
 	onDestroy(() => {

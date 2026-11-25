@@ -459,3 +459,15 @@ export const MCP_FILTERS_FIELD_IDS = {
 };
 
 export const COMMUNITY_SIGNUP_BANNER_COPY = m.core_community_signup_banner();
+
+export const FORM_PARENT_ROUTES = {
+	entries: '/mcp-servers?view=entries',
+	filters: '/mcp-servers?view=filters',
+	tunnels: '/mcp-servers?view=tunnels',
+	mcpAccessPolicies: '/mcp-servers?view=access-policies',
+	skillAccessPolicies: '/skills?view=access-policies',
+	profiles: '/models?view=profiles',
+	routing: '/models?view=routing',
+	guardrails: '/models?view=guardrails',
+	agents: '/identity-access?view=agents'
+} as const;

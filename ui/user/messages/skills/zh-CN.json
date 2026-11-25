@@ -94,5 +94,8 @@
 	"skills_syncing_notice": "系统正在与您配置的 Git 仓库同步。",
 	"skills_this_policy": "此策略",
 	"skills_title": "技能",
-	"skills_view_source_on_git": "在 Git 上查看源代码"
+	"skills_view_source_on_git": "在 Git 上查看源代码",
+	"skills_access_policy_skills_required": "请至少添加一个技能。",
+	"skills_access_policy_created": "访问策略已创建。",
+	"skills_access_policy_updated": "访问策略已更新。"
 }

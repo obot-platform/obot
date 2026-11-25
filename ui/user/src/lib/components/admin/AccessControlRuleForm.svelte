@@ -5,6 +5,8 @@
 		ADMIN_ALL_OPTION,
 		MCP_ACCESS_POLICY_FIELD_IDS
 	} from '$lib/constants';
+	import { FORM_PARENT_ROUTES } from '$lib/constants';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -29,6 +31,8 @@
 		resolveSubjectPickerById
 	} from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
+	import FieldError from '../FieldError.svelte';
+	import RequiredMark from '../RequiredMark.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
@@ -186,14 +190,52 @@
 		});
 	}
 
-	function validate(rule: typeof accessControlRule) {
-		if (!rule) return false;
+	const validation = new FormValidation<'name'>(() =>
+		accessControlRule.displayName.trim() ? {} : { name: m.mcps_access_policies_name_required() }
+	);
 
-		return rule.displayName.length > 0;
+	function cancel() {
+		if (onCancel) onCancel();
+		else goto(FORM_PARENT_ROUTES.mcpAccessPolicies);
+	}
+
+	async function save() {
+		if (!id) return;
+		if (!(await validation.check())) return;
+		saving = true;
+		try {
+			let response: AccessControlRule;
+			if (accessControlRule.id) {
+				response =
+					entity === 'workspace'
+						? await UserService.updateWorkspaceAccessControlRule(
+								id,
+								accessControlRule.id,
+								accessControlRule
+							)
+						: await AdminService.updateAccessControlRule(accessControlRule.id, accessControlRule);
+				accessControlRule = response;
+				onUpdate?.(response);
+			} else {
+				response =
+					entity === 'workspace'
+						? await UserService.createWorkspaceAccessControlRule(id, accessControlRule)
+						: await AdminService.createAccessControlRule(accessControlRule);
+				accessControlRule = response;
+				onCreate?.(response);
+			}
+		} finally {
+			saving = false;
+		}
 	}
 </script>
 
-<div class="flex h-full w-full flex-col gap-4" out:fly={flyRightOut} in:fly={flyRightIn}>
+<div
+	{@attach validation.attach}
+	class="flex h-full w-full flex-col gap-4"
+	out:fly={flyRightOut}
+	in:fly={flyRightIn}
+>
 	<div class="flex grow flex-col gap-4" out:fly={flyLeftOut} in:fly={flyLeftIn}>
 		{#if topContent}
 			{@render topContent()}
@@ -238,14 +280,22 @@
 						<label
 							for={MCP_ACCESS_POLICY_FIELD_IDS.name}
 							class="flex-1 text-sm font-light capitalize"
+							class:error={validation.has('name')}
 						>
 							{m.core_name()}
+							<RequiredMark invalid={validation.has('name')} />
 						</label>
 						<input
-							id={MCP_ACCESS_POLICY_FIELD_IDS.name}
+							{...validation.attrs('name', MCP_ACCESS_POLICY_FIELD_IDS.name)}
+							aria-required="true"
 							bind:value={accessControlRule.displayName}
 							class="text-input-filled mt-0.5"
+							class:error={validation.has('name')}
 							disabled={readonly}
+						/>
+						<FieldError
+							id={MCP_ACCESS_POLICY_FIELD_IDS.name}
+							message={validation.message('name')}
 						/>
 					</div>
 				</div>
@@ -375,33 +425,14 @@
 		>
 			<div class="flex w-full justify-end gap-4">
 				{#if !accessControlRule.id}
-					<button
-						class="btn btn-secondary"
-						onclick={() => {
-							if (onCancel) {
-								onCancel();
-							} else {
-								goto('/mcp-servers?view=access-policies');
-							}
-						}}
-					>
+					<button class="btn btn-secondary" onclick={cancel}>
 						{m.common_cancel()}
 					</button>
 					<button
 						id={MCP_ACCESS_POLICY_FIELD_IDS.saveBtn}
 						class="btn btn-primary"
-						disabled={!validate(accessControlRule) || saving}
-						onclick={async () => {
-							if (!id) return;
-							saving = true;
-							const response =
-								entity === 'workspace'
-									? await UserService.createWorkspaceAccessControlRule(id, accessControlRule)
-									: await AdminService.createAccessControlRule(accessControlRule);
-							accessControlRule = response;
-							onCreate?.(response);
-							saving = false;
-						}}
+						disabled={saving}
+						onclick={save}
 					>
 						{#if saving}
 							<Loading class="size-4" />
@@ -425,28 +456,10 @@
 					>
 						{m.core_reset_shared()}
 					</button>
-					<button
-						class="btn btn-primary"
-						disabled={!validate(accessControlRule) || saving}
-						onclick={async () => {
-							if (!accessControlRule.id || !id) return;
-							saving = true;
-							const response =
-								entity === 'workspace'
-									? await UserService.updateWorkspaceAccessControlRule(
-											id,
-											accessControlRule.id,
-											accessControlRule
-										)
-									: await AdminService.updateAccessControlRule(
-											accessControlRule.id,
-											accessControlRule
-										);
-							accessControlRule = response;
-							onUpdate?.(response);
-							saving = false;
-						}}
-					>
+					<button class="btn btn-secondary" disabled={saving} onclick={cancel}>
+						{m.common_cancel()}
+					</button>
+					<button class="btn btn-primary" disabled={saving} onclick={save}>
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}
@@ -515,7 +528,7 @@
 		await (entity === 'workspace'
 			? UserService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
 			: AdminService.deleteAccessControlRule(accessControlRule.id));
-		goto('/mcp-servers?view=access-policies');
+		goto(FORM_PARENT_ROUTES.mcpAccessPolicies);
 	}}
 	oncancel={() => (deletingRule = false)}
 />
