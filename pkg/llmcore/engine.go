@@ -294,6 +294,9 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	// destination again at the last gate after any trusted plugin rewrites.
 	plugins := append([]schemas.LLMPlugin{&subscriptionPlugin{account: e.account}}, orderedPlugins(routing, opts.Plugins)...)
 	plugins = append(plugins, &providerTransitionPlugin{account: e.account})
+	for i, plugin := range plugins {
+		plugins[i] = failClosedPostHook{LLMPlugin: plugin, logger: logger}
+	}
 	e.client, err = bifrost.Init(ctx, schemas.BifrostConfig{
 		Account:      e.account,
 		LLMPlugins:   plugins,

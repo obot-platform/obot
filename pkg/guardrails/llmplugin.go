@@ -511,9 +511,6 @@ func (p *OutputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifr
 func disableRawPassthrough(ctx *schemas.BifrostContext) {
 	ctx.SetValue(schemas.BifrostContextKeyUseRawRequestBody, false)
 	ctx.ClearValue(schemas.BifrostContextKeyRawRequestBodyTextRewriter)
-	ctx.ClearValue(schemas.BifrostContextKeyRawRequestBodyTextTransformer)
-	ctx.ClearValue(schemas.BifrostContextKeyRawStreamTextCodec)
-	ctx.ClearValue(schemas.BifrostContextKeyRawResponseTextTransformer)
 	ctx.SetValue(schemas.BifrostContextKeySendBackRawResponse, false)
 	ctx.SetValue(schemas.BifrostContextKeyPassthroughOverridesPresent, false)
 	ctx.ClearValue(schemas.BifrostContextKeyURLPath)

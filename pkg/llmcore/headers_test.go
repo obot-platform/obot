@@ -36,7 +36,7 @@ func TestProviderHeaders(t *testing.T) {
 			if configuredAuth {
 				// Admin-configured authentication remains available to ordinary key traffic.
 				expectedAuth = "Bearer admin-fixture"
-				pc.NetworkConfig.ExtraHeaders = map[string]string{"Authorization": expectedAuth}
+				pc.NetworkConfig.ExtraHeaders = map[string]schemas.SecretVar{"Authorization": {Val: expectedAuth}}
 			}
 			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: pc}))
 			require.NoError(t, store.PutKey(t.Context(), "anthropic", schemas.Key{
