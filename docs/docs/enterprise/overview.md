@@ -62,8 +62,11 @@ or delete it with `DELETE /api/license`.
 
 ## How Obot validates a license
 
-Obot validates license keys with Obot's license service at `https://api.keygen.sh`. Obot needs outbound HTTPS access
+Obot validates license keys with Obot's license service at `https://license.obot.ai`. Obot needs outbound HTTPS access
 to that host to validate a license. See [Network requirements](../installation/network-requirements.md) for the other connections Obot makes.
+[Air-gapped installations](../installation/network-requirements.md#restricted-and-air-gapped-installations) use an
+[offline license file](../installation/network-requirements.md#offline-license-files) instead, which Obot verifies
+locally.
 
 Obot checks the license:
 
@@ -108,8 +111,8 @@ The fallback needs a successful check to fall back on. If a key has never been v
 entitlements and treats the installation as unregistered Obot Community until a check succeeds. This happens when:
 
 - `OBOT_SERVER_LICENSE_KEY` is set on a new installation, or on one with a new database, that can't reach
-  `https://api.keygen.sh`. Air-gapped installations can't validate a license key yet. Support for offline
-  licensing is coming soon.
+  `https://license.obot.ai`. Air-gapped installations use an
+  [offline license file](../installation/network-requirements.md#offline-license-files) instead.
 - The installation was upgraded from v0.26.3 or earlier, which didn't save entitlements, and the license service
   can't be reached at the first startup after the upgrade.
 - An administrator adds a key in the admin UI while the license service can't be reached. Obot doesn't save the key
@@ -180,8 +183,10 @@ provider without a license that includes it.
   installation was registered first. A registered installation returns to registered Obot Community.
 - **The license expires while the license service is unreachable.** See
   [When the license service can't be reached](#when-the-license-service-cant-be-reached).
-- **A license key was never validated**, for example on an air-gapped installation. See
+- **A license key was never validated**, for example because the installation can't reach the license service. See
   [When the license service can't be reached](#when-the-license-service-cant-be-reached).
+- **An offline license file expires.** See
+  [Expiration](../installation/network-requirements.md#license-file-expiration).
 - **The installation grows** past the user or device limit of its license.
 
 :::note
@@ -214,8 +219,12 @@ Select **Resolve** in the banner, or go to the **License** page, and do one of t
   time, so no provider is configured afterwards: configure another one before users can sign in again.
 - **Delete users or remove devices** until you're within the limits.
 
+With an [offline license file](../installation/network-requirements.md#offline-license-files), a new or renewed
+license means installing a new file from Obot.
+
 Nothing needs to be reconfigured afterwards. Obot applies a new or renewed license as soon as it validates the key,
-and lifts the restrictions as soon as you're back within what the license allows.
+and lifts the restrictions as soon as you're back within what the license allows. A license file configured with
+`OBOT_SERVER_LICENSE_FILE` applies to each replica when it restarts.
 
 The MCP server tester's built-in model, which Obot hosts, also requires a valid license of any kind. It isn't affected
 by compliance.

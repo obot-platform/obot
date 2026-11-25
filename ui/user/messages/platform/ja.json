@@ -98,7 +98,10 @@
 	"platform_license_delete": "ライセンスを削除",
 	"platform_license_delete_confirm": "ライセンスを削除してもよろしいですか？",
 	"platform_license_delete_failed": "ライセンスの削除に失敗しました：{error}",
+	"platform_license_drop_file": "ライセンスファイルをこのページの任意の場所にドロップするとインストールされます。",
 	"platform_license_enter_new_key": "以下に新しいライセンスキーを入力してください。",
+	"platform_license_file": "ライセンスファイル",
+	"platform_license_file_expires": "有効期限: {date}",
 	"platform_license_invalid": "無効",
 	"platform_license_invalid_bold": "無効",
 	"platform_license_invalid_mid": "です。ライセンスを更新するには、",
@@ -146,6 +149,7 @@
 	"platform_license_notice_required_suffix": " までお問い合わせください。",
 	"platform_license_notice_resolve": "解決",
 	"platform_license_notice_signup_message": "1 回の登録で、最大 100 ユーザーまで Entra、Okta、OneLogin、JumpCloud、Auth0 などの追加の認証プロバイダーを永続的に無料で利用できます。",
+	"platform_license_notice_status_expired": "期限切れ",
 	"platform_license_notice_status_invalid": "無効",
 	"platform_license_notice_status_missing": "未設定",
 	"platform_license_notice_status_prefix": "ライセンスが",
@@ -400,5 +404,6 @@
 	"platform_license_value_over": "{used} / {limit} · {over} 超過",
 	"platform_license_value_unlimited": "{used} · 無制限",
 	"platform_license_features": "機能",
-	"platform_license_recheck_failed": "ライセンスの再確認に失敗しました：{error}"
+	"platform_license_recheck_failed": "ライセンスの再確認に失敗しました：{error}",
+	"platform_license_upload_file": "ライセンスファイルをアップロード"
 }

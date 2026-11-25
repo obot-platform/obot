@@ -10,10 +10,7 @@ import (
 )
 
 func (p *Provider) hasEntitlement(key string) bool {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	_, ok := p.entitlements[keygen.EntitlementCode(key)]
+	_, ok := p.currentEntitlements()[keygen.EntitlementCode(key)]
 	return ok
 }
 
@@ -21,11 +18,9 @@ func (p *Provider) codes(ctx context.Context) ([]string, error) {
 	if err := p.refresh(ctx, false); err != nil {
 		return nil, err
 	}
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	codes := make([]string, 0, len(p.entitlements))
-	for code := range p.entitlements {
+	current := p.currentEntitlements()
+	codes := make([]string, 0, len(current))
+	for code := range current {
 		codes = append(codes, string(code))
 	}
 	slices.Sort(codes)

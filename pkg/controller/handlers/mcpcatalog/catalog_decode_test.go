@@ -420,3 +420,40 @@ func TestCatalogSyncSkipsOutOfRangeEntriesBeforeValidation(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, objects, 1)
 }
+
+func TestReadSystemMCPCatalogRewritesObotImages(t *testing.T) {
+	content := `- name: PII Filter
+  runtime: containerized
+  containerizedConfig:
+    image: ghcr.io/obot-platform/pii-filter:v0.5.6
+    port: 8080
+    path: /mcp
+  systemMCPServerType: filter
+  filterConfig:
+    toolName: filter_pii
+- name: Other Filter
+  runtime: containerized
+  containerizedConfig:
+    image: registry.example.com/other-filter:v1
+    port: 8080
+    path: /mcp
+  systemMCPServerType: filter
+  filterConfig:
+    toolName: filter_other
+`
+	path := filepath.Join(t.TempDir(), "catalog.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	handler := &Handler{imageRegistry: "registry.example.com/mirror"}
+	objects, err := handler.readSystemMCPCatalog(t.Context(), "default", path, "")
+	require.NoError(t, err)
+
+	var images []string
+	for _, obj := range objects {
+		images = append(images, obj.(*v1.SystemMCPServerCatalogEntry).Spec.Manifest.ContainerizedConfig.Image)
+	}
+	require.Equal(t, []string{
+		"registry.example.com/mirror/obot-platform/pii-filter:v0.5.6",
+		"registry.example.com/other-filter:v1",
+	}, images)
+}

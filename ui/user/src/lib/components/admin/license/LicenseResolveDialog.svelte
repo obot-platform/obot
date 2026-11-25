@@ -6,6 +6,7 @@
 	import { AdminService, type AuthProvider } from '$lib/services';
 	import { version, license, darkMode } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { canRegisterCommunity, hasLicense } from '$lib/stores/license.svelte';
 	import LicenseProviderDialog from './LicenseProviderDialog.svelte';
 	import { KeyRound, Mail } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
@@ -196,9 +197,9 @@
 
 <LicenseProviderDialog
 	bind:provider={licenseRequiredProvider}
-	licenseKey={license.current.licenseKey}
+	hasLicense={hasLicense(license.current)}
 	endpoint={AdminService.createCommunityLicense}
 	onSubmit={() => reloadPage()}
-	allowSignup
+	allowSignup={canRegisterCommunity(license.current)}
 	signUpMessage={m.platform_license_notice_signup_message()}
 />

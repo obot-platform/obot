@@ -98,7 +98,10 @@
 	"platform_license_delete": "删除许可证",
 	"platform_license_delete_confirm": "确定要删除许可证吗？",
 	"platform_license_delete_failed": "删除许可证失败：{error}",
+	"platform_license_drop_file": "将许可证文件拖放到此页面的任意位置即可安装。",
 	"platform_license_enter_new_key": "请在下方输入新的许可证密钥。",
+	"platform_license_file": "许可证文件",
+	"platform_license_file_expires": "过期时间：{date}",
 	"platform_license_invalid": "无效",
 	"platform_license_invalid_bold": "无效",
 	"platform_license_invalid_mid": "。请通过",
@@ -146,6 +149,7 @@
 	"platform_license_notice_required_suffix": " 了解详情或升级到 Obot Enterprise。",
 	"platform_license_notice_resolve": "解决",
 	"platform_license_notice_signup_message": "只需一次注册，即可永久免费使用 Entra、Okta、OneLogin、JumpCloud 和 Auth0 等更多身份验证提供商，最多支持 100 个用户。",
+	"platform_license_notice_status_expired": "已过期",
 	"platform_license_notice_status_invalid": "无效",
 	"platform_license_notice_status_missing": "缺失",
 	"platform_license_notice_status_prefix": "您的许可证",
@@ -400,5 +404,6 @@
 	"platform_license_value_over": "{used} / {limit} · 超出 {over}",
 	"platform_license_value_unlimited": "{used} · 无限制",
 	"platform_license_features": "功能",
-	"platform_license_recheck_failed": "重新检查许可证失败：{error}"
+	"platform_license_recheck_failed": "重新检查许可证失败：{error}",
+	"platform_license_upload_file": "上传许可证文件"
 }

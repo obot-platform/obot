@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -34,6 +35,7 @@ type fakeCommunityLicenseProvider struct {
 	lastInstalledKey   string
 	installedCommunity bool
 	validateError      error
+	airgap             bool
 }
 
 type fakeCommunityIssuer struct {
@@ -78,6 +80,26 @@ func (p *fakeCommunityLicenseProvider) install(key string, community bool) error
 	p.valid = true
 	p.entitlements = apitypes.Entitlements{Community: true}
 	return nil
+}
+
+func (p *fakeCommunityLicenseProvider) SetLicenseFile(_ context.Context, contents string) error {
+	return p.install(contents, false)
+}
+
+func (p *fakeCommunityLicenseProvider) LicenseFile(context.Context) (bool, *time.Time, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	return false, nil, nil
+}
+
+func (p *fakeCommunityLicenseProvider) LicenseFileError() string {
+	return ""
+}
+
+func (p *fakeCommunityLicenseProvider) Airgap() bool {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	return p.airgap
 }
 
 func (p *fakeCommunityLicenseProvider) RemoveLicenseKey(context.Context) error {
@@ -268,6 +290,16 @@ func TestCreateCommunityLicenseEligibility(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("air-gapped", func(t *testing.T) {
+		issuer := &fakeCommunityIssuer{key: "issued-key"}
+		handler := NewLicenseHandler(&fakeCommunityLicenseProvider{airgap: true}, issuer)
+		request, _ := communityAPIContext(t, `{"name":"Ada","email":"ada@example.com"}`)
+		requireHTTPError(t, handler.CreateCommunityLicense(request), http.StatusBadRequest)
+		if issuer.requestCount() != 0 {
+			t.Fatal("issuer was called for an air-gapped installation")
+		}
+	})
 }
 
 func TestCreateCommunityLicensePropagatesEligibilityLookupError(t *testing.T) {

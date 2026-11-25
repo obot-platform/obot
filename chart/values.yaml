@@ -147,6 +147,9 @@ secret:
   # secret.OBOT_SERVER_LICENSE_KEY -- A license key for Obot Enterprise. If set here, it cannot be set in the UI.
   OBOT_SERVER_LICENSE_KEY: ""
 
+  # secret.OBOT_SERVER_LICENSE_FILE -- The contents of an offline license file, which licenses an air-gapped installation. Requires config.OBOT_SERVER_AIRGAP. If set here, the license cannot be changed in the UI.
+  OBOT_SERVER_LICENSE_FILE: ""
+
 # config - Non-sensitive configuration variables for the Obot deployment. These values are converted to a ConfigMap and used via envFrom.
 config:
   # Egress audit records are retained for 90 days; 0 disables cleanup.
@@ -269,6 +272,10 @@ config:
 
   # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Defaults to false.
   OBOT_SERVER_DISABLE_UPDATE_CHECK: ""
+  # config.OBOT_SERVER_AIRGAP -- Air-gapped installation: Obot never contacts Obot's services (product analytics, update checks, the MCP Tester model proxy, and license keys, so only a license file licenses it), and a new installation starts without Obot's MCP catalog and with the copy of the system MCP catalog that ships in the image. Defaults to false.
+  OBOT_SERVER_AIRGAP: ""
+  # config.OBOT_SERVER_IMAGE_REGISTRY -- Registry that mirrors Obot's images, such as registry.example.com/mirror. Obot pulls the MCP base images, the Claude runner and Substrate worker images, and system MCP catalog images under ghcr.io/obot-platform from there instead. Images in your MCP catalogs are used as written.
+  OBOT_SERVER_IMAGE_REGISTRY: ""
 
   # config.OBOT_SERVER_HIDE_K8S_DETAILS -- Hide Kubernetes configuration details such as the Server Scheduling page from the UI. Defaults to false.
   OBOT_SERVER_HIDE_K8S_DETAILS: false

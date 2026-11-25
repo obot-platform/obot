@@ -61,3 +61,19 @@ func TestSetUpDefaultSystemMCPCatalogRequestsSyncAfterMigratingSource(t *testing
 	assert.Equal(t, []string{newSource}, catalog.Spec.SourceURLs)
 	assert.Equal(t, "true", catalog.Annotations[v1.SystemMCPCatalogSyncAnnotation])
 }
+
+func TestSetUpDefaultCatalogsForAirgappedInstallation(t *testing.T) {
+	c := newCatalogFakeClient()
+	handler := &Handler{defaultSystemCatalogPath: "/system-mcp-catalog"}
+
+	require.NoError(t, handler.SetUpDefaultMCPCatalog(t.Context(), c))
+	require.NoError(t, handler.SetUpDefaultSystemMCPCatalog(t.Context(), c))
+
+	var catalog v1.MCPCatalog
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultCatalog}, &catalog))
+	assert.Empty(t, catalog.Spec.SourceURLs)
+
+	var systemCatalog v1.SystemMCPCatalog
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultCatalog}, &systemCatalog))
+	assert.Equal(t, []string{"/system-mcp-catalog"}, systemCatalog.Spec.SourceURLs)
+}

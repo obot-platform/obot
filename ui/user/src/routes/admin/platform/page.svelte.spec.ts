@@ -390,6 +390,169 @@ describe('Platform Page', () => {
 			});
 		});
 
+		describe('license file', () => {
+			const day = 24 * 60 * 60 * 1000;
+			const licenseFile = (expiresAt: string): License => ({
+				...getLicenseResponse,
+				enterprise: true,
+				entitlements: { ...getLicenseResponse.entitlements, enterprise: true },
+				licenseFile: true,
+				expiresAt
+			});
+			const contents = '-----BEGIN LICENSE FILE-----\nfile\n-----END LICENSE FILE-----\n';
+
+			const dropHint = () =>
+				page.getByText('Drop a license file anywhere on this page to install it.', { exact: true });
+			const uploadButton = () =>
+				page.getByRole('button', { name: 'Upload License File', exact: true });
+
+			// dropFile drops a file on the page the way a drag from the desktop does.
+			function dropFile(file: File) {
+				const dataTransfer = new DataTransfer();
+				dataTransfer.items.add(file);
+				window.dispatchEvent(new DragEvent('drop', { dataTransfer, cancelable: true }));
+			}
+
+			it('shows that a license file is in effect, and its expiry', async () => {
+				const expiresAt = new Date(Date.now() + 200 * day).toISOString();
+				await renderPlatformPage({ license: licenseFile(expiresAt) });
+
+				await expect.element(page.getByText('License File', { exact: true })).toBeVisible();
+				await expect
+					.element(
+						page.getByText(
+							`Expires ${new Date(expiresAt).toLocaleDateString('en', { dateStyle: 'medium' })}`,
+							{ exact: true }
+						)
+					)
+					.toBeVisible();
+				await expect.element(page.getByText('Valid', { exact: true })).toBeVisible();
+				await expect
+					.element(page.getByText('License Key', { exact: true }))
+					.not.toBeInTheDocument();
+				await expect
+					.element(page.getByRole('button', { name: 'Delete License', exact: true }))
+					.toBeVisible();
+			});
+
+			it('installs a license file dropped anywhere on the page, and reloads', async () => {
+				const upload = vi.fn();
+				worker.use(
+					http.put('/api/license', async ({ request }) => {
+						upload(await request.json());
+						return HttpResponse.json(licenseFile(new Date(Date.now() + 365 * day).toISOString()));
+					})
+				);
+
+				await renderPlatformPage({ license: { ...getLicenseResponse, airgap: true } });
+				await expect.element(dropHint()).toBeVisible();
+				dropFile(new File([contents], 'license.lic'));
+
+				await vi.waitFor(() => {
+					expect(upload).toHaveBeenCalledWith({ licenseFile: contents });
+					expect(navigation.reloadPage).toHaveBeenCalledOnce();
+				});
+			});
+
+			it('ignores a dropped file unless the installation is air-gapped', async () => {
+				const upload = vi.fn();
+				worker.use(http.put('/api/license', () => (upload(), HttpResponse.json({}))));
+
+				await renderPlatformPage({ license: getLicenseResponse });
+				await expect.element(dropHint()).not.toBeInTheDocument();
+				await expect.element(uploadButton()).not.toBeInTheDocument();
+				dropFile(new File([contents], 'license.lic'));
+
+				await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+				expect(upload).not.toHaveBeenCalled();
+			});
+
+			it('installs a license file picked with Upload License File, and reloads', async () => {
+				const upload = vi.fn();
+				worker.use(
+					http.put('/api/license', async ({ request }) => {
+						upload(await request.json());
+						return HttpResponse.json(licenseFile(new Date(Date.now() + 365 * day).toISOString()));
+					})
+				);
+
+				await renderPlatformPage({ license: { ...getLicenseResponse, airgap: true } });
+				await expect.element(uploadButton()).toBeEnabled();
+				await page
+					.getByLabelText('License File', { exact: true })
+					.upload(new File([contents], 'license.lic'));
+
+				await vi.waitFor(() => {
+					expect(upload).toHaveBeenCalledWith({ licenseFile: contents });
+					expect(navigation.reloadPage).toHaveBeenCalledOnce();
+				});
+			});
+
+			it("says a dropped file can't replace a license set by configuration", async () => {
+				const upload = vi.fn();
+				worker.use(http.put('/api/license', () => (upload(), HttpResponse.json({}))));
+
+				await renderPlatformPage({
+					license: {
+						...licenseFile(new Date(Date.now() + 365 * day).toISOString()),
+						airgap: true,
+						locked: true
+					}
+				});
+				await expect.element(dropHint()).not.toBeInTheDocument();
+				await expect.element(uploadButton()).toBeDisabled();
+				dropFile(new File([contents], 'license.lic'));
+
+				await expect
+					.element(page.getByRole('alert').filter({ hasText: 'locked and cannot be updated' }))
+					.toBeVisible();
+				expect(upload).not.toHaveBeenCalled();
+			});
+
+			it('takes only a license file when the installation is air-gapped', async () => {
+				await renderPlatformPage({ license: { ...getLicenseResponse, airgap: true } });
+
+				await expect.element(dropHint()).toBeVisible();
+				await expect.element(uploadButton()).toBeVisible();
+				await expect
+					.element(page.getByRole('button', { name: 'Add License Key', exact: true }))
+					.not.toBeInTheDocument();
+				await expect
+					.element(page.getByRole('button', { name: 'Register', exact: true }))
+					.not.toBeInTheDocument();
+			});
+
+			it("shows why a license file that couldn't be verified grants nothing", async () => {
+				await renderPlatformPage({
+					license: {
+						...getLicenseResponse,
+						licenseFile: true,
+						licenseFileError: "the license file isn't signed by an account this Obot release trusts"
+					}
+				});
+
+				await expect
+					.element(page.getByText(/isn't signed by an account this Obot release trusts/))
+					.toBeVisible();
+			});
+
+			it('shows why the server refused a license file', async () => {
+				worker.use(
+					http.put('/api/license', () =>
+						HttpResponse.json({ error: 'the license file has expired' }, { status: 400 })
+					)
+				);
+
+				await renderPlatformPage({ license: { ...getLicenseResponse, airgap: true } });
+				dropFile(new File([contents], 'license.lic'));
+
+				await expect
+					.element(page.getByText('the license file has expired', { exact: true }))
+					.toBeVisible();
+				expect(navigation.reloadPage).not.toHaveBeenCalled();
+			});
+		});
+
 		it('renders banner when user limit is near limit', async () => {
 			await renderPlatformPage({
 				license: {

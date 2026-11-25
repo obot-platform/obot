@@ -23,6 +23,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/git"
 	"github.com/obot-platform/obot/pkg/gitcredential"
+	"github.com/obot-platform/obot/pkg/imageregistry"
 	"github.com/obot-platform/obot/pkg/mcp"
 	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/openapi"
@@ -68,6 +69,7 @@ type Handler struct {
 	maxRepoSizeMB             int
 	defaultCatalogPath        string
 	defaultSystemCatalogPath  string
+	imageRegistry             string
 	httpClient                *http.Client
 	gatewayClient             *gclient.Client
 	accessControlRuleHelper   *accesscontrolrule.Helper
@@ -87,7 +89,7 @@ type userInfo struct {
 // the controller schedules the next periodic sync once it starts.
 type discardResponse struct{}
 
-func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager, maxRepoSizeMB int) *Handler {
+func New(defaultCatalogPath, defaultSystemCatalogPath, imageRegistry string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager, maxRepoSizeMB int) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	validationOptions := mcpSessionManager.ValidationOptions()
 	safeHTTPOptions := remoteURLValidationConfig.SafeHTTPOptions()
@@ -96,6 +98,7 @@ func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gcl
 		maxRepoSizeMB:             maxRepoSizeMB,
 		defaultCatalogPath:        defaultCatalogPath,
 		defaultSystemCatalogPath:  defaultSystemCatalogPath,
+		imageRegistry:             imageRegistry,
 		gatewayClient:             gatewayClient,
 		httpClient:                safehttp.NewClient(safeHTTPOptions),
 		accessControlRuleHelper:   accessControlRuleHelper,
@@ -617,6 +620,10 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 		}
 
 		catalogvalidation.NormalizeSystemManifest(&entry)
+		// Pull Obot's images from the mirror, when one's configured, instead of ghcr.io.
+		if entry.ContainerizedConfig != nil {
+			entry.ContainerizedConfig.Image = imageregistry.Rewrite(entry.ContainerizedConfig.Image, h.imageRegistry)
+		}
 		if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, mcp.ValidationOptions{}); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate system catalog entry %s: %w", entry.Name, err))
 			continue

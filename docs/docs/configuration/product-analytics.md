@@ -23,6 +23,8 @@ Set `OBOT_SERVER_PRODUCT_ANALYTICS_MODE` to control analytics for the installati
 - `on`: Always share usage data and hide the consent prompt and settings controls.
 - `off`: Never share usage data and hide the consent prompt and settings controls.
 
+`OBOT_SERVER_AIRGAP=true` turns analytics off whatever the mode.
+
 Obot Cloud deployments are always opted in to product analytics.
 
 ## Data included

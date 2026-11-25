@@ -110,6 +110,10 @@ func (h *LicenseHandler) communityEligibilityError(ctx context.Context) error {
 	if h.licenseProvider.LicenseKeyViaConfiguration() {
 		return apitypes.NewErrAlreadyExists("license key is configured at startup and cannot be updated via the API")
 	}
+	if h.licenseProvider.Airgap() {
+		// Registration contacts Obot services, which an air-gapped installation never does.
+		return apitypes.NewErrBadRequest("%s", license.ErrAirgap.Error())
+	}
 	return nil
 }
 

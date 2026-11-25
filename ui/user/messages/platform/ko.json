@@ -98,7 +98,10 @@
 	"platform_license_delete": "라이선스 삭제",
 	"platform_license_delete_confirm": "라이선스를 삭제하시겠습니까?",
 	"platform_license_delete_failed": "라이선스를 삭제하지 못했습니다: {error}",
+	"platform_license_drop_file": "라이선스 파일을 이 페이지의 아무 곳에나 끌어다 놓으면 설치됩니다.",
 	"platform_license_enter_new_key": "아래에 새 라이선스 키를 입력하세요.",
+	"platform_license_file": "라이선스 파일",
+	"platform_license_file_expires": "만료: {date}",
 	"platform_license_invalid": "유효하지 않음",
 	"platform_license_invalid_bold": "유효하지 않습니다",
 	"platform_license_invalid_mid": ". 라이선스를 갱신하려면",
@@ -146,6 +149,7 @@
 	"platform_license_notice_required_suffix": "으로 지원팀에 문의하세요.",
 	"platform_license_notice_resolve": "해결",
 	"platform_license_notice_signup_message": "한 번만 등록하면 최대 100명의 사용자까지 Entra, Okta, OneLogin, JumpCloud, Auth0 등 추가 인증 제공자를 영구적으로 무료로 이용할 수 있습니다.",
+	"platform_license_notice_status_expired": "만료됨",
 	"platform_license_notice_status_invalid": "유효하지 않습니다",
 	"platform_license_notice_status_missing": "없습니다",
 	"platform_license_notice_status_prefix": "라이선스가 ",
@@ -400,5 +404,6 @@
 	"platform_license_value_over": "{used} / {limit} · {over} 초과",
 	"platform_license_value_unlimited": "{used} · 무제한",
 	"platform_license_features": "기능",
-	"platform_license_recheck_failed": "라이선스를 다시 확인하지 못했습니다: {error}"
+	"platform_license_recheck_failed": "라이선스를 다시 확인하지 못했습니다: {error}",
+	"platform_license_upload_file": "라이선스 파일 업로드"
 }

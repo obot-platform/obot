@@ -84,3 +84,6 @@ __pycache__/
 
 # SBOMs generated during build/release
 .release-sboms/
+
+# Image list generated during release
+.release-images/

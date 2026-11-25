@@ -2,13 +2,16 @@ package license
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"os"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +30,11 @@ const (
 	// CommunityLicenseKeyPropertyKey is the database property key used to persist the Obot Community license key issued
 	// at registration, so deleting a license key that replaced it falls back to it.
 	CommunityLicenseKeyPropertyKey = "obot-community-license-key"
+
+	// LicenseFilePropertyKey is the database property key used to persist an uploaded license file.
+	// It's separate from LicenseKeyPropertyKey so releases without license file support never read a file as a key,
+	// and so a stored key stays underneath to fall back to.
+	LicenseFilePropertyKey = "obot-license-file"
 
 	// LicenseMachineIDPropertyKey is the database property key used to persist the Keygen machine fingerprint.
 	LicenseMachineIDPropertyKey = "obot-license-machine-id"
@@ -71,11 +79,28 @@ var (
 
 	// ErrLicenseCheckFailed indicates Keygen didn't give a verdict on a license key.
 	ErrLicenseCheckFailed = errors.New("failed to check license key")
+
+	// ErrLicenseFileAsKey indicates a license file was given as a license key.
+	ErrLicenseFileAsKey = errors.New("license key is a license file")
+
+	// ErrAirgap indicates a license key was given to an air-gapped installation, which never contacts Keygen.
+	ErrAirgap = errors.New("air-gapped installations are licensed with a license file, not a license key")
+
+	// ErrNotAirgap indicates a license file was given to an installation that isn't air-gapped, which is licensed with a
+	// license key.
+	ErrNotAirgap = errors.New("license files are only used by air-gapped installations; set OBOT_SERVER_AIRGAP=true")
+
+	// errLicenseFileExpired refuses the upload of a license file that verifies but has already expired.
+	errLicenseFileExpired = &FileError{Message: "the license file has expired; ask Obot for a new one"}
 )
 
-// Config contains the Keygen settings needed to validate an Obot license.
+// Config contains the settings needed to license an Obot installation.
 type Config struct {
-	LicenseKey string `usage:"Keygen license key for this Obot installation"`
+	LicenseKey  string `usage:"Keygen license key for this Obot installation"`
+	LicenseFile string `usage:"Contents of a Keygen license file for this air-gapped Obot installation"`
+
+	// airgap is set with WithAirgap rather than a flag of its own, since the server's air-gap setting decides it.
+	airgap bool
 }
 
 type Provider struct {
@@ -87,10 +112,31 @@ type Provider struct {
 	gatewayClient        *client.Client
 	configuredLicenseKey string
 	keygenAPIURL         string
+
+	// airgap means the installation never contacts Keygen: only license files license it, and license keys, stored
+	// or new, are ignored or refused. An installation that isn't air-gapped never uses a license file.
+	airgap bool
+
+	// configuredLicenseFile is the license file from configuration, set once at startup; file is set when there is one.
+	configuredLicenseFile licenseKeySnapshot
+
+	// licenseFile is the verified license file in effect, cached alongside licenseKeySnapshot.
+	// It's nil while a license key is in effect, and when the license file in effect couldn't be read or verified.
+	// licenseFileErr then says why, in words that are safe to show an administrator.
+	licenseFile    *licenseFile
+	licenseFileErr string
+
+	// licenseFilePublicKey is the key license files must be signed with; tests swap in their own.
+	licenseFilePublicKey ed25519.PublicKey
+
+	// now is the clock license files are checked against on every read; tests swap in their own.
+	now func() time.Time
 }
 
+// licenseKeySnapshot identifies the license in effect: a license key, or a license file's contents when file is set.
 type licenseKeySnapshot struct {
 	key              string
+	file             bool
 	updatedAt        time.Time
 	propertyKey      string
 	viaConfiguration bool
@@ -112,16 +158,42 @@ type keygenValidationResponse struct {
 
 func (s licenseKeySnapshot) equal(other licenseKeySnapshot) bool {
 	return s.key == other.key &&
+		s.file == other.file &&
 		s.viaConfiguration == other.viaConfiguration &&
 		s.updatedAt.Equal(other.updatedAt)
 }
 
-// NewProvider creates a Keygen-backed license provider.
-func NewProvider(ctx context.Context, gatewayClient *client.Client, config Config) (*Provider, error) {
-	return newProvider(ctx, gatewayClient, config, keygenAPIURL)
+// WithAirgap returns the config for an air-gapped installation, which is licensed only by license files and never
+// contacts Keygen.
+func (c Config) WithAirgap(airgap bool) Config {
+	c.airgap = airgap
+	return c
 }
 
-func newProvider(ctx context.Context, gatewayClient *client.Client, config Config, apiURL string) (*Provider, error) {
+// NewProvider creates a Keygen-backed license provider. An air-gapped installation is licensed only by license files,
+// verified offline, and any other only by license keys.
+// It refuses to start only for settings that contradict each other:
+// - A license file is configured for an installation that isn't air-gapped
+// - The configured license key is a license file
+// - A license key is configured for an air-gapped installation
+// A configured license file that can't be verified starts the installation unlicensed instead, and LicenseFileError
+// says why, rather than a damaged copy or a rotated key keeping Obot from starting.
+func NewProvider(ctx context.Context, gatewayClient *client.Client, config Config) (*Provider, error) {
+	return newProvider(ctx, gatewayClient, config, keygenAPIURL, productionLicenseFilePublicKey())
+}
+
+func newProvider(ctx context.Context, gatewayClient *client.Client, config Config, apiURL string, licenseFilePublicKey ed25519.PublicKey) (*Provider, error) {
+	configuredLicenseKey, configuredLicenseFile := strings.TrimSpace(config.LicenseKey), strings.TrimSpace(config.LicenseFile)
+	switch {
+	case configuredLicenseFile != "" && !config.airgap:
+		return nil, fmt.Errorf("a license file is configured: %w", ErrNotAirgap)
+	case isLicenseFile(configuredLicenseKey):
+		// Never send a license file to Keygen as a key.
+		return nil, fmt.Errorf("%w, configure it as the license file instead", ErrLicenseFileAsKey)
+	case configuredLicenseKey != "" && config.airgap:
+		return nil, fmt.Errorf("a license key is configured: %w", ErrAirgap)
+	}
+
 	machineFingerprint, err := ensureMachineFingerprint(ctx, gatewayClient)
 	if err != nil {
 		return nil, err
@@ -134,16 +206,28 @@ func newProvider(ctx context.Context, gatewayClient *client.Client, config Confi
 	k := &Provider{
 		machineFingerprint:   machineFingerprint,
 		gatewayClient:        gatewayClient,
-		configuredLicenseKey: strings.TrimSpace(config.LicenseKey),
+		configuredLicenseKey: configuredLicenseKey,
 		keygenAPIURL:         apiURL,
+		airgap:               config.airgap,
+		licenseFilePublicKey: licenseFilePublicKey,
+		now:                  time.Now,
+	}
+
+	if configuredLicenseFile != "" {
+		// The first refresh verifies it. A file that doesn't verify stays the configured license and grants nothing.
+		k.configuredLicenseFile = licenseKeySnapshot{
+			key:              normalizeLicenseFile(configuredLicenseFile),
+			file:             true,
+			viaConfiguration: true,
+		}
 	}
 
 	if err := k.refresh(ctx, true); err != nil {
 		slog.Warn("initial license refresh failed", "error", err)
 	}
 
-	if k.entitlements != nil {
-		slog.Info("license provider initialized", "entitlements", k.entitlements)
+	if entitlements := k.currentEntitlements(); entitlements != nil {
+		slog.Info("license provider initialized", "entitlements", entitlements)
 	}
 
 	go k.poll(ctx)
@@ -163,12 +247,43 @@ func ensureMachineFingerprint(ctx context.Context, gatewayClient *client.Client)
 	return property.Value, nil
 }
 
+// LicenseKey returns the license key in effect.
+// It returns nothing while a license file is in effect, so callers that send the key to Keygen or Obot services have
+// nothing to send.
 func (p *Provider) LicenseKey(ctx context.Context) (string, error) {
-	snapshot, err := p.loadLicenseKey(ctx)
-	if err != nil {
+	snapshot, err := p.loadLicense(ctx)
+	if err != nil || snapshot.file {
 		return "", err
 	}
 	return snapshot.key, nil
+}
+
+// LicenseFile reports whether a license file is in effect and, when it verified, its effective expiry.
+// A license file that couldn't be read or verified is still in effect, it just grants nothing; see LicenseFileError.
+func (p *Provider) LicenseFile(ctx context.Context) (bool, *time.Time, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return false, nil, err
+	}
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	if p.licenseFile == nil {
+		return p.licenseKeySnapshot.file, nil, nil
+	}
+	return true, p.licenseFile.Expiry, nil
+}
+
+// LicenseFileError returns why the license file in effect grants nothing, when it couldn't be read or verified.
+// It goes by the state LicenseFile last refreshed, and is safe to show an administrator.
+func (p *Provider) LicenseFileError() string {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.licenseFileErr
+}
+
+// Airgap reports whether the installation is air-gapped, so only license files license it.
+func (p *Provider) Airgap() bool {
+	return p.airgap
 }
 
 // MachineFingerprint returns the existing persisted installation identity.
@@ -176,8 +291,41 @@ func (p *Provider) MachineFingerprint() string {
 	return p.machineFingerprint
 }
 
+// LicenseKeyViaConfiguration reports whether configuration supplies the license, as a key or a file, so it can't be
+// changed through the API.
 func (p *Provider) LicenseKeyViaConfiguration() bool {
-	return p.configuredLicenseKey != ""
+	return p.configuredLicenseKey != "" || p.configuredLicenseFile.file
+}
+
+// loadLicense returns the license in effect. An air-gapped installation is licensed by the configured license file, else
+// the stored one. Any other by the license key in effect; see loadLicenseKey.
+func (p *Provider) loadLicense(ctx context.Context) (licenseKeySnapshot, error) {
+	switch {
+	case !p.airgap:
+		return p.loadLicenseKey(ctx)
+	case p.configuredLicenseFile.file:
+		return p.configuredLicenseFile, nil
+	case p.gatewayClient == nil:
+		return licenseKeySnapshot{}, nil
+	}
+
+	property, err := p.gatewayClient.GetProperty(ctx, LicenseFilePropertyKey)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return licenseKeySnapshot{}, nil
+	}
+	if err != nil {
+		return licenseKeySnapshot{}, fmt.Errorf("failed to get %s property: %w", LicenseFilePropertyKey, err)
+	}
+	contents := strings.TrimSpace(property.Value)
+	if contents == "" {
+		return licenseKeySnapshot{}, nil
+	}
+	return licenseKeySnapshot{
+		key:         contents,
+		file:        true,
+		updatedAt:   property.UpdatedAt,
+		propertyKey: LicenseFilePropertyKey,
+	}, nil
 }
 
 // loadLicenseKey returns the license key in effect: the configured key, else the key in LicenseKeyPropertyKey, else the
@@ -228,7 +376,14 @@ func (p *Provider) setLicenseKey(ctx context.Context, licenseKey string, communi
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
 	}
+	if p.airgap {
+		return ErrAirgap
+	}
 	licenseKey = strings.TrimSpace(licenseKey)
+	if isLicenseFile(licenseKey) {
+		// Never send a license file to Keygen as a key, it goes through SetLicenseFile.
+		return ErrLicenseFileAsKey
+	}
 
 	state, err := p.validate(ctx, licenseKey)
 	if err != nil {
@@ -271,7 +426,47 @@ func (p *Provider) setLicenseKey(ctx context.Context, licenseKey string, communi
 	// Cache the snapshot as read back, since the database stores updatedAt with less precision than it was written with.
 	// If that fails, or another replica has replaced the key since, the next refresh catches up.
 	if snapshot, err := p.loadLicenseKey(ctx); err == nil && snapshot.key == licenseKey {
-		p.setCachedState(snapshot, state.Entitlements)
+		p.setCachedState(snapshot, state.Entitlements, nil, "")
+	}
+	return nil
+}
+
+// SetLicenseFile stores a license file after verifying it, which licenses an air-gapped installation.
+// It returns ErrNotAirgap for any other installation, and a *FileError when the file fails verification or has expired;
+// then nothing is stored. It never contacts Keygen.
+func (p *Provider) SetLicenseFile(ctx context.Context, contents string) error {
+	if !p.airgap {
+		return ErrNotAirgap
+	}
+	if p.LicenseKeyViaConfiguration() {
+		return ErrLicenseKeyViaConfiguration
+	}
+	contents = normalizeLicenseFile(contents)
+
+	file, err := verifyLicenseFile(contents, p.licenseFilePublicKey)
+	if err != nil {
+		return err
+	}
+	// Refuse a file that would grant nothing as soon as it's stored.
+	if file.expired(p.now()) {
+		return errLicenseFileExpired
+	}
+
+	if p.gatewayClient == nil {
+		return fmt.Errorf("failed to persist license file: gateway client is not configured")
+	}
+
+	// Serialize the stored value and its cached state with refresh, the same as setLicenseKey.
+	p.refreshLock.Lock()
+	defer p.refreshLock.Unlock()
+
+	if _, err := p.gatewayClient.SetProperty(ctx, LicenseFilePropertyKey, contents); err != nil {
+		return err
+	}
+
+	// Cache the file as read back, so this replica doesn't verify it again. Other replicas verify it on their next read.
+	if snapshot, err := p.loadLicense(ctx); err == nil && snapshot.key == contents {
+		p.setCachedState(snapshot, nil, &file, "")
 	}
 	return nil
 }
@@ -316,8 +511,8 @@ func (p *Provider) Validate(ctx context.Context) error {
 	return p.refresh(ctx, true)
 }
 
-// RemoveLicenseKey removes the license key in effect.
-// Removing a license key that replaced a registered Community key falls back to the Community key, and removing the
+// RemoveLicenseKey removes the license in effect: the stored license file of an air-gapped installation, else the license
+// key. Removing a license key that replaced a registered Community key falls back to the Community key, and removing the
 // Community key itself leaves the installation unregistered.
 func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	if p.LicenseKeyViaConfiguration() {
@@ -333,17 +528,18 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 		return err
 	}
 
-	p.setCachedState(licenseKeySnapshot{}, nil)
+	p.setCachedState(licenseKeySnapshot{}, nil, nil, "")
 	return nil
 }
 
-// deleteLicenseKey deletes the key in effect from every property that holds it.
+// deleteLicenseKey deletes the license in effect: an air-gapped installation's stored license file, or a key from every
+// property that holds it.
 func (p *Provider) deleteLicenseKey(ctx context.Context) error {
-	removed, err := p.loadLicenseKey(ctx)
+	removed, err := p.loadLicense(ctx)
 	if err != nil || removed.propertyKey == "" {
 		return err
 	}
-	if err := p.gatewayClient.DeleteProperty(ctx, removed.propertyKey); err != nil {
+	if err := p.gatewayClient.DeleteProperty(ctx, removed.propertyKey); err != nil || removed.file {
 		return err
 	}
 
@@ -570,10 +766,22 @@ func (p *Provider) HasValidLicense(ctx context.Context) (bool, error) {
 	if err := p.refresh(ctx, false); err != nil {
 		return false, err
 	}
+	return p.currentEntitlements() != nil, nil
+}
+
+// currentEntitlements returns the cached entitlements of the license in effect.
+// A license file's entitlements count only until its expiry at p.now(), so a file expires without a restart.
+func (p *Provider) currentEntitlements() map[keygen.EntitlementCode]struct{} {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	return p.entitlements != nil, nil
+	if !p.licenseKeySnapshot.file {
+		return p.entitlements
+	}
+	if p.licenseFile == nil || p.licenseFile.expired(p.now()) {
+		return nil
+	}
+	return p.licenseFile.Entitlements
 }
 
 // poll checks the license key with Keygen once a day.
@@ -589,11 +797,7 @@ func (p *Provider) poll(ctx context.Context) {
 			if err := p.Validate(ctx); err != nil {
 				slog.Warn("license update failed", "error", err)
 			} else {
-				p.lock.RLock()
-				entitlements := p.entitlements
-				p.lock.RUnlock()
-
-				slog.Info("license update finished", "entitlements", entitlements)
+				slog.Info("license update finished", "entitlements", p.currentEntitlements())
 			}
 		}
 	}
@@ -605,22 +809,27 @@ func (p *Provider) cachedSnapshotMatches(snapshot licenseKeySnapshot) bool {
 	return p.licenseKeySnapshot.equal(snapshot)
 }
 
-func (p *Provider) setCachedState(snapshot licenseKeySnapshot, entitlements map[keygen.EntitlementCode]struct{}) {
+func (p *Provider) setCachedState(snapshot licenseKeySnapshot, entitlements map[keygen.EntitlementCode]struct{}, file *licenseFile, fileErr string) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.licenseKeySnapshot = snapshot
 	p.entitlements = entitlements
+	p.licenseFile = file
+	p.licenseFileErr = fileErr
 }
 
 // refresh checks the license key with Keygen and caches its entitlements, unless force is false and the key hasn't
 // changed since the last check.
+// A license file is verified locally instead, and only when it changes, even when forced. It never contacts Keygen.
 // When Keygen doesn't give a verdict, it falls back to the entitlements Keygen last accepted for the key, unless the
 // license has expired since, and a forced check also returns the ErrLicenseCheckFailed error.
 func (p *Provider) refresh(ctx context.Context, force bool) error {
-	snapshot, err := p.loadLicenseKey(ctx)
+	snapshot, err := p.loadLicense(ctx)
 	if err != nil {
 		return err
 	}
+	// A license file can't change without the stored value changing, so there's nothing to recheck.
+	force = force && !snapshot.file
 	if !force && p.cachedSnapshotMatches(snapshot) {
 		return nil
 	}
@@ -629,7 +838,7 @@ func (p *Provider) refresh(ctx context.Context, force bool) error {
 	defer p.refreshLock.Unlock()
 
 	// Another request may have refreshed the provider while this request waited.
-	snapshot, err = p.loadLicenseKey(ctx)
+	snapshot, err = p.loadLicense(ctx)
 	if err != nil {
 		return err
 	}
@@ -637,8 +846,14 @@ func (p *Provider) refresh(ctx context.Context, force bool) error {
 		return nil
 	}
 
+	if snapshot.file {
+		// A file that fails verification leaves the replica unlicensed, with no fallback to a key or Keygen.
+		file, err := p.loadLicenseFile(snapshot.key)
+		p.setCachedState(snapshot, nil, file, licenseFileErrorMessage(err))
+		return nil
+	}
 	if snapshot.key == "" {
-		p.setCachedState(snapshot, nil)
+		p.setCachedState(snapshot, nil, nil, "")
 		return nil
 	}
 
@@ -657,10 +872,39 @@ func (p *Provider) refresh(ctx context.Context, force bool) error {
 		return err
 	}
 
-	p.setCachedState(snapshot, state.Entitlements)
+	p.setCachedState(snapshot, state.Entitlements, nil, "")
 	if force {
 		// The license keeps working, but an explicit check should report that Keygen didn't answer.
 		return checkErr
 	}
 	return nil
+}
+
+// loadLicenseFile verifies a license file against the provider's public key and logs the outcome.
+// The log carries the file's id, expiry, status, and entitlements, never its contents, since it embeds the license key.
+func (p *Provider) loadLicenseFile(contents string) (*licenseFile, error) {
+	file, err := verifyLicenseFile(contents, p.licenseFilePublicKey)
+	if err != nil {
+		slog.Error("license file rejected", "error", err)
+		return nil, err
+	}
+	expiry := "never"
+	if file.Expiry != nil {
+		expiry = file.Expiry.Format(time.RFC3339)
+	}
+	slog.Info("license file verified",
+		"id", file.ID,
+		"expiry", expiry,
+		"expired", file.expired(p.now()),
+		"entitlements", slices.Sorted(maps.Keys(file.Entitlements)),
+	)
+	return &file, nil
+}
+
+// licenseFileErrorMessage returns the message of a license file error, which is safe to show an administrator.
+func licenseFileErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }

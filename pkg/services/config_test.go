@@ -1,11 +1,14 @@
 package services
 
 import (
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/producttelemetry"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -497,5 +500,135 @@ func TestWithURLScheme(t *testing.T) {
 				t.Fatalf("withURLScheme(%q) = %q, want %q", tc.hostname, got, tc.expected)
 			}
 		})
+	}
+}
+
+func TestApplyAirgap(t *testing.T) {
+	const (
+		mcpCatalog    = "https://github.com/obot-platform/mcp-catalog/v2-schema"
+		systemCatalog = "https://github.com/obot-platform/system-mcp-catalog/v2-schema"
+		modelProxyURL = "https://model-service.obot.ai"
+	)
+
+	tests := []struct {
+		name              string
+		config            Config
+		wantAnalyticsMode producttelemetry.Mode
+		wantModelProxyURL string
+		wantMCPCatalog    string
+		wantSystemCatalog string
+	}{
+		{
+			name: "not air-gapped",
+			config: Config{
+				ProductAnalyticsMode:        producttelemetry.ModeOn,
+				ModelProxyURL:               modelProxyURL,
+				DefaultMCPCatalogPath:       mcpCatalog,
+				DefaultSystemMCPCatalogPath: systemCatalog,
+			},
+			wantAnalyticsMode: producttelemetry.ModeOn,
+			wantModelProxyURL: modelProxyURL,
+			wantMCPCatalog:    mcpCatalog,
+			wantSystemCatalog: systemCatalog,
+		},
+		{
+			name: "air-gapped with the image's catalogs",
+			config: Config{
+				Airgap:                      true,
+				ProductAnalyticsMode:        producttelemetry.ModeConsent,
+				ModelProxyURL:               modelProxyURL,
+				DefaultMCPCatalogPath:       mcpCatalog,
+				DefaultSystemMCPCatalogPath: systemCatalog,
+			},
+			wantAnalyticsMode: producttelemetry.ModeOff,
+			wantSystemCatalog: systemMCPCatalogImagePath,
+		},
+		{
+			name: "air-gapped with repository catalog URLs",
+			config: Config{
+				Airgap:                      true,
+				ProductAnalyticsMode:        producttelemetry.ModeOn,
+				ModelProxyURL:               "https://proxy.example.com",
+				DefaultMCPCatalogPath:       "https://github.com/obot-platform/mcp-catalog/",
+				DefaultSystemMCPCatalogPath: "https://github.com/obot-platform/system-mcp-catalog",
+			},
+			wantAnalyticsMode: producttelemetry.ModeOff,
+			wantSystemCatalog: systemMCPCatalogImagePath,
+		},
+		{
+			name: "air-gapped without catalogs",
+			config: Config{
+				Airgap: true,
+			},
+			wantAnalyticsMode: producttelemetry.ModeOff,
+			wantSystemCatalog: systemMCPCatalogImagePath,
+		},
+		{
+			name: "air-gapped with mirrored catalogs",
+			config: Config{
+				Airgap:                      true,
+				DefaultMCPCatalogPath:       "https://git.example.com/obot-platform/mcp-catalog-mirror",
+				DefaultSystemMCPCatalogPath: "/catalogs/system",
+			},
+			wantAnalyticsMode: producttelemetry.ModeOff,
+			wantMCPCatalog:    "https://git.example.com/obot-platform/mcp-catalog-mirror",
+			wantSystemCatalog: "/catalogs/system",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := applyAirgap(tt.config)
+			if got.ProductAnalyticsMode != tt.wantAnalyticsMode {
+				t.Errorf("ProductAnalyticsMode = %q, want %q", got.ProductAnalyticsMode, tt.wantAnalyticsMode)
+			}
+			if got.ModelProxyURL != tt.wantModelProxyURL {
+				t.Errorf("ModelProxyURL = %q, want %q", got.ModelProxyURL, tt.wantModelProxyURL)
+			}
+			if got.DisableUpdateCheck != tt.config.Airgap {
+				t.Errorf("DisableUpdateCheck = %v, want %v", got.DisableUpdateCheck, tt.config.Airgap)
+			}
+			if got.DefaultMCPCatalogPath != tt.wantMCPCatalog {
+				t.Errorf("DefaultMCPCatalogPath = %q, want %q", got.DefaultMCPCatalogPath, tt.wantMCPCatalog)
+			}
+			if got.DefaultSystemMCPCatalogPath != tt.wantSystemCatalog {
+				t.Errorf("DefaultSystemMCPCatalogPath = %q, want %q", got.DefaultSystemMCPCatalogPath, tt.wantSystemCatalog)
+			}
+		})
+	}
+}
+
+func TestApplyImageRegistry(t *testing.T) {
+	const obotImage = "ghcr.io/obot-platform/example:v1"
+
+	// Every image setting is rewritten, including the ones this test doesn't name.
+	settings := ImageSettings()
+	if !slices.ContainsFunc(settings, func(setting reflect.StructField) bool { return setting.Name == "MCPBaseImage" }) {
+		t.Fatalf("ImageSettings() = %v, want it to include MCPBaseImage", settings)
+	}
+	config := Config{ImageRegistry: "registry.example.com/mirror"}
+	for _, setting := range settings {
+		reflect.ValueOf(&config).Elem().FieldByIndex(setting.Index).SetString(obotImage)
+	}
+
+	got := reflect.ValueOf(applyImageRegistry(config))
+	for _, setting := range settings {
+		if image, want := got.FieldByIndex(setting.Index).String(), "registry.example.com/mirror/obot-platform/example:v1"; image != want {
+			t.Errorf("%s = %q, want %q", setting.Name, image, want)
+		}
+	}
+
+	// Without a registry, and for images that aren't Obot's, nothing changes.
+	config = Config{
+		MCPBaseImage:    obotImage,
+		MCPOpenAPIImage: "registry.example.com/openapi:v1",
+		ImageRegistry:   "registry.example.com/mirror",
+	}
+	if image := applyImageRegistry(config).MCPOpenAPIImage; image != "registry.example.com/openapi:v1" {
+		t.Errorf("MCPOpenAPIImage = %q, want it unchanged", image)
+	}
+	config.ImageRegistry = ""
+	if image := applyImageRegistry(config).MCPBaseImage; image != obotImage {
+		t.Errorf("MCPBaseImage = %q, want it unchanged without a registry", image)
 	}
 }

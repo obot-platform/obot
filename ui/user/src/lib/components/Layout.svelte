@@ -67,6 +67,7 @@
 		appNotification as appNotificationStore
 	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { canRegisterCommunity } from '$lib/stores/license.svelte';
 	import { resolve } from '$lib/url';
 	import { validateVersionUserLimit } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
@@ -462,6 +463,7 @@
 
 	const canShowCommunitySignup = $derived.by(() => {
 		if (!(profile.current.isAdmin?.() || profile.current.isBootstrapUser?.())) return false;
+		if (!canRegisterCommunity(licenseStore.current)) return false;
 		if (hasCommunityOrEnterpriseLicense) return false;
 		if (!communitySignupBannerDismissed.isReady) return false;
 		return !isCommunitySignupDismissedForCurrentProfile();

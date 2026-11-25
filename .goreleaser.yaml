@@ -7,6 +7,9 @@ before:
     # With MODEL_DATA_URL set, as the release workflow sets it, download the LLM gateway's
     # model prices and capabilities, which the binary embeds (see pkg/modeldata).
     - go run ./tools/fetch-model-data
+    # List the images this release pulls, including those of the system MCP catalog the release
+    # workflow checked out, for the release to publish as images.txt.
+    - go run -trimpath -tags=kustomize_disable_go_plugin_support ./tools/list-images -tag {{ .Tag }} -system-catalog .release-images/system-mcp-catalog -out .release-images/images.txt
 
 builds:
   - id: build-darwin
@@ -60,6 +63,7 @@ release:
     name: "obot"
   extra_files:
     - glob: .release-sboms/*.spdx.json
+    - glob: .release-images/images.txt
   make_latest: false
   prerelease: auto
 

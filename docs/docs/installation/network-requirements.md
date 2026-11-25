@@ -1,6 +1,10 @@
 ---
 title: Network requirements
+toc_max_heading_level: 4
 ---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Network requirements
 
@@ -29,8 +33,9 @@ To allow all of them, allow outbound HTTPS to:
   configured.
 - **If it fails:** Obot keeps the entitlements from the last successful check until the license's last known expiration date. See
   [How Obot validates a license](../enterprise/overview.md#how-obot-validates-a-license).
-- **To change or avoid it:** Required to use a license key. Air-gapped installations can't validate a key yet.
-  Support for offline license key validation is coming soon.
+- **To change or avoid it:** Required to use a license key.
+  [Air-gapped installations](#restricted-and-air-gapped-installations) use an
+  [offline license file](#offline-license-files) instead, which Obot verifies without this connection.
 
 ### Update checks, registration, and product analytics
 
@@ -40,7 +45,8 @@ To allow all of them, allow outbound HTTPS to:
   administrator consent, or always when `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=on`.
 - **If it fails:** Not fatal. Registration fails with an error.
 - **To change or avoid it:** `OBOT_SERVER_DISABLE_UPDATE_CHECK=true` stops update checks, and
-  `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off` stops analytics. `OBOT_UPGRADE_SERVER_URL` changes the host for all three.
+  `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off` stops analytics. `OBOT_SERVER_AIRGAP=true` stops all three.
+  `OBOT_UPGRADE_SERVER_URL` changes the host for all three.
 
 ### Default MCP catalogs
 
@@ -52,7 +58,8 @@ To allow all of them, allow outbound HTTPS to:
   created. On a host other than GitHub, GitLab, or Bitbucket, the repository path in a mirror URL must end in `.git`,
   optionally followed by `/<branch>`. Otherwise Obot fetches it as a single file instead of cloning it. Without a
   branch, Obot uses `main`, but the default catalogs use the `v2-schema` branch, so include it, for example
-  `https://git.example.com/obot/mcp-catalog.git/v2-schema`.
+  `https://git.example.com/obot/mcp-catalog.git/v2-schema`. A new installation with `OBOT_SERVER_AIRGAP=true` uses
+  neither: see [Restricted and air-gapped installations](#restricted-and-air-gapped-installations).
 
 ### Default skill repository
 
@@ -90,8 +97,8 @@ To allow all of them, allow outbound HTTPS to:
   **Platform > Settings** to show model service usage. Only when the LLM gateway has no providers, a valid license is
   present, and **Enable Model Proxy** is on under **Platform > Settings > Model Proxy**.
 - **If it fails:** The tester can't generate, and **Platform > Settings** shows model service usage as N/A.
-- **To change or avoid it:** Add a provider to the LLM gateway, turn off **Enable Model Proxy**, or set
-  `OBOT_SERVER_MODEL_PROXY_URL` to an empty string to turn it off.
+- **To change or avoid it:** Add a provider to the LLM gateway, turn off **Enable Model Proxy**, or turn it off with
+  `OBOT_SERVER_AIRGAP=true` or by setting `OBOT_SERVER_MODEL_PROXY_URL` to an empty string.
 
 Startup doesn't depend on any of these. Obot starts without internet access, and the affected features recover once
 the destination is reachable.
@@ -103,7 +110,7 @@ Docker, or the cluster's nodes and pods when it runs them on Kubernetes. Both ru
 
 | Destination | Purpose | When | How to change or avoid it |
 |---|---|---|---|
-| `ghcr.io` | MCP server base images (`ghcr.io/obot-platform/mcp-images/*`) | Each time an MCP server starts | Mirror the images and set `OBOT_SERVER_MCPBASE_IMAGE`, `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE`, and `OBOT_SERVER_MCPOPEN_APIIMAGE`. See [Server configuration](../configuration/server-configuration.md). |
+| `ghcr.io` | MCP server base images (`ghcr.io/obot-platform/mcp-images/*`) and the images of system MCP servers | Each time an MCP server starts | [Mirror Obot's images](#mirror-obots-images) and set `OBOT_SERVER_IMAGE_REGISTRY`, or set `OBOT_SERVER_MCPBASE_IMAGE`, `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE`, and `OBOT_SERVER_MCPOPEN_APIIMAGE` individually. See [Server configuration](../configuration/server-configuration.md). |
 | The registry of each containerized MCP server's image | The MCP server's image | Each time the MCP server starts | Use images from a registry you can reach |
 | `registry.npmjs.org`, `pypi.org`, `files.pythonhosted.org` | Packages for `npx` and `uvx` MCP servers, downloaded by the MCP server container | Each time one of those MCP servers starts | Set a registry env var on each `npx` or `uvx` server, for example a static `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL` value. Obot has no global setting for this. Or use containerized MCP servers with images in your registry. |
 | Whatever each MCP server calls | The MCP server's own work, such as a SaaS API | While the MCP server runs | Depends on the MCP server |
@@ -191,24 +198,159 @@ License validation, update checks, model pricing, and Git clones don't have thes
 
 To run Obot without internet access:
 
-1. Before first startup, point `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` and `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH`
-   at local copies or internal Git mirrors of the catalogs, and `OBOT_DEFAULT_SKILL_REPO_URL` at the HTTPS URL of an
-   internal Git mirror of the skills repository. Mirror repository paths must end in `.git`, followed by the
-   `v2-schema` branch for the catalogs.
-2. Point `OBOT_SERVER_MDM_ASSET_SOURCE` at a local copy or an internal URL, and set
+1. Set `OBOT_SERVER_AIRGAP=true` before first startup. Obot then:
+   - Never contacts Obot's services. Product analytics, update checks, and the MCP server tester's hosted model are
+     off, whatever their own settings say.
+   - Never contacts the license service. License keys and Community registration aren't available, a license key
+     stored earlier isn't used, and only an [offline license file](#offline-license-files) licenses the installation.
+     Obot doesn't start if `OBOT_SERVER_LICENSE_KEY` is also set.
+   - Creates the default MCP catalog without Obot's catalog from GitHub. To start with entries, point
+     `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` at a local copy or an internal Git mirror of a catalog, or add sources in
+     the UI later.
+   - Uses the copy of the system MCP catalog that ships in the Obot image, unless
+     `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH` points at a local copy or an internal Git mirror.
+
+   Air-gap mode is for new installations: the default catalogs are created at first startup.
+2. [Mirror Obot's images](#mirror-obots-images) and set `OBOT_SERVER_IMAGE_REGISTRY` to the mirror.
+3. Before first startup, point `OBOT_DEFAULT_SKILL_REPO_URL` at the HTTPS URL of an internal Git mirror of the skills
+   repository. On a host other than GitHub, GitLab, or Bitbucket, the repository path must end in `.git`.
+4. Point `OBOT_SERVER_MDM_ASSET_SOURCE` at a local copy or an internal URL, and set
    `OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL` to `off` or to an internal HTTP(S) mirror.
-3. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true`, `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off`, and
-   `OBOT_SERVER_MODEL_PROXY_URL=""`.
-4. Mirror the MCP base images and set the image variables. With the Docker runtime, include `OBOT_SERVER_MCPBASE_IMAGE`
-   for setup containers even if you only use containerized MCP servers with file configuration.
 5. Use containerized MCP servers with images in your registry, or set a registry env var, such as
    `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL`, on each `npx` and `uvx` server.
 6. Use an auth provider and LLM gateway providers that you can reach.
+7. To license the installation, install an [offline license file](#offline-license-files).
+
+### Mirror Obot's images {#mirror-obots-images}
+
+Each Obot release, starting with v0.29.0, publishes `images.txt` with its assets on GitHub. It lists every image the
+release pulls by default: the Obot server images, the MCP base images, the Claude runner image, the images in the
+system MCP catalog, and the images the Helm chart deploys with Substrate.
+
+Copy Obot's images, the ones under `ghcr.io/obot-platform/`, into your registry under the same path without
+`ghcr.io/`, for example with [crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane):
+
+```bash
+grep '^ghcr.io/obot-platform/' images.txt | while read -r image; do
+  crane copy "$image" "registry.example.com/mirror/${image#ghcr.io/}"
+done
+```
+
+Then set `OBOT_SERVER_IMAGE_REGISTRY=registry.example.com/mirror`. Obot pulls these images from the mirror instead of
+`ghcr.io`: the MCP base images, the Claude runner and Substrate worker images, and the images of system MCP catalog
+entries. It uses every other image as written, including all images in your MCP catalogs.
+`OBOT_SERVER_IMAGE_REGISTRY` doesn't change the Obot server image itself, so set it where you deploy Obot: the
+`image.repository` Helm value, or the image in your `docker run` command.
+
+The Helm chart, not Obot, deploys Substrate's own components, so `OBOT_SERVER_IMAGE_REGISTRY` doesn't reach them. If
+you enable Substrate, point the chart at your mirror too, using the kubectl image's tag and digest from `images.txt`:
+
+```yaml
+substrate:
+  image:
+    repository: registry.example.com/mirror/obot-platform/substrate
+  resourceInstallerImage: <the kubectl image in your registry>
+```
+
+The other images in `images.txt` aren't Obot's: kubectl, Envoy, Postgres, and the Kubernetes pause image. Mirror them
+the way your registry and container runtime expect. The Substrate chart writes the Envoy, Postgres, and pause images
+directly into its templates, and no setting changes them, so configure your cluster's container runtime to pull them
+from your mirror. A runtime mirror for Docker Hub looks for official images such as Postgres under `library/`.
 
 Setting a URL variable to an empty string doesn't turn the feature off, except for `OBOT_SERVER_MODEL_PROXY_URL`: Obot
 ignores empty values and uses the default. Point the variable at an internal mirror instead, or at a local path where
 that setting supports one.
 
-A license key can't be validated without access to `https://license.obot.ai`, so an air-gapped installation runs as
-unregistered Obot Community for now. Support for offline license key validation for air-gapped installations is
-coming soon. See [Editions and licensing](../enterprise/overview.md#when-the-license-service-cant-be-reached).
+### Offline license files {#offline-license-files}
+
+An air-gapped installation (`OBOT_SERVER_AIRGAP=true`) is licensed with an offline license file instead of a license
+key, and only an air-gapped installation uses one. Obot verifies the file locally and makes no licensing network
+requests. Offline license files need Obot v0.29.0 or later.
+
+#### Get a license file {#get-a-license-file}
+
+[Contact Obot](https://obot.ai/contact-us/) or your account team. You receive a file, for example `obot-license.lic`,
+that starts with `-----BEGIN LICENSE FILE-----`. It contains your license key, so keep it secret.
+
+#### Install a license file {#install-a-license-file}
+
+Upload the file on the **License** page, or configure it with `OBOT_SERVER_LICENSE_FILE`. Obot refuses to start with
+`OBOT_SERVER_LICENSE_FILE` set unless `OBOT_SERVER_AIRGAP=true`, or with `OBOT_SERVER_LICENSE_KEY` set when it is.
+
+<Tabs>
+  <TabItem value="upload" label="Upload" default>
+
+As an administrator, open the **License** page and drop the file anywhere on it, or select **Upload License File**.
+Obot installs it straight away. You can also send `PUT /api/license` with `{"licenseFile": "<contents>"}`.
+
+Obot rejects a file that can't be verified or has expired, shows the reason, and keeps the current license. Every
+replica uses an accepted file from its next request, without a restart. Uploading isn't available while
+`OBOT_SERVER_LICENSE_FILE` or `OBOT_SERVER_LICENSE_KEY` is set.
+
+Upload a file only once every replica runs a release with license file support, since older replicas don't see it.
+
+  </TabItem>
+  <TabItem value="docker" label="Docker">
+
+Set `OBOT_SERVER_LICENSE_FILE` to the file's contents. Add this to the `docker run` command from
+[Docker](./docker-deployment.md):
+
+```bash
+-e OBOT_SERVER_LICENSE_FILE="$(cat obot-license.lic)"
+```
+
+  </TabItem>
+  <TabItem value="helm" label="Helm">
+
+Add the file to your Helm values under `secret`, not `config`, indenting every line:
+
+```yaml
+secret:
+  OBOT_SERVER_LICENSE_FILE: |
+    -----BEGIN LICENSE FILE-----
+    ...
+    -----END LICENSE FILE-----
+```
+
+Run `helm upgrade` with these values, and the chart restarts the pods. Include them in every later `helm upgrade`, or
+the upgrade removes the file and restarts the pods without a license.
+
+With `secret.existingSecret`, add an `OBOT_SERVER_LICENSE_FILE` key with the file's contents to that Secret instead,
+then run `kubectl rollout restart deployment/<deployment>`. The chart doesn't restart pods when an existing Secret
+changes.
+
+  </TabItem>
+</Tabs>
+
+#### Check the License page {#confirm-the-license-file}
+
+The **License** page shows **License File** with its expiration date, a **Valid** badge, and the license's
+features. At startup, a configured file logs `license file verified` with its status and expiration date.
+
+#### Expiration {#license-file-expiration}
+
+A license file's expiration date and entitlements are fixed when it's issued; only a new file changes them. A file
+issued without an expiration date doesn't expire.
+
+When the file expires, Obot behaves as if no license were installed, immediately and with no grace period. See
+[License compliance](../enterprise/overview.md#license-compliance). Each replica checks the file against its own clock,
+so keep server clocks accurate. A configured file that has expired doesn't stop Obot from starting, but Obot starts
+without a license.
+
+#### Replace a license file {#replace-a-license-file}
+
+Request a new file before the current one expires, and install it the same way:
+
+- **Uploaded file:** upload the new one.
+- **Configured file:** change the value where you set it, then restart: recreate the Docker container with the same
+  data volume, run `helm upgrade` with the new values, or update the existing Secret and run `kubectl rollout restart`.
+  Each pod uses the file it started with until it restarts.
+
+#### Invalid license files {#invalid-license-file}
+
+If Obot can't verify a license file, for example a damaged copy or a file made for another Obot release, it
+runs without a license, logs `license file rejected` with the reason, and shows the reason to administrators on the
+**License** page. Install a valid file: fix the configured value and restart, or upload a new file.
+
+A release without license file support ignores an uploaded file, and reads `OBOT_SERVER_LICENSE_FILE` and
+`OBOT_SERVER_AIRGAP` as unknown settings.
