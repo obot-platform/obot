@@ -26,7 +26,7 @@
 		isDeprecatedMCPServer,
 		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
-	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { notifications, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -129,7 +129,7 @@
 				dontLogErrors: true
 			});
 		} catch (err) {
-			errors.append(m.mcps_deployments_secret_targets_load_failed({ error: String(err) }));
+			notifications.add(m.mcps_deployments_secret_targets_load_failed({ error: String(err) }));
 			secretBindingTargets = [];
 		} finally {
 			secretBindingTargetsLoaded = true;

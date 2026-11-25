@@ -4,9 +4,8 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { m } from '$lib/i18n';
 	import { UserService } from '$lib/services';
-	import { profile, errors, version, userDeviceSettings } from '$lib/stores';
+	import { profile, notifications, version, userDeviceSettings } from '$lib/stores';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
-	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -31,12 +30,12 @@
 				}
 			});
 			if (response.ok) {
-				success.add(m.account_logged_out_other_sessions());
+				notifications.add(m.account_logged_out_other_sessions(), 'success');
 				toRevoke = false;
 			}
 		} catch (error) {
 			console.error('Failed to logout all sessions:', error);
-			errors.items.push(new Error(m.account_log_out_other_sessions_failed()));
+			notifications.add(new Error(m.account_log_out_other_sessions_failed()));
 		}
 	}
 
@@ -47,7 +46,7 @@
 			goto('/oauth2/sign_out?rd=/');
 		} catch (error) {
 			console.error('Failed to delete account:', error);
-			errors.items.push(new Error(m.account_delete_failed()));
+			notifications.add(new Error(m.account_delete_failed()));
 		} finally {
 			toDelete = false;
 		}

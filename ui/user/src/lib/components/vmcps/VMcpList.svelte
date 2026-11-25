@@ -22,8 +22,7 @@
 		parseSelectedFilterIds,
 		vmcpMatchesStatusFilter
 	} from '$lib/services/vmcps/utils';
-	import { errors, profile, responsive, version, vmcpInstances } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { notifications, profile, responsive, version, vmcpInstances } from '$lib/stores';
 	import { clearUrlParams, goto, setSortUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { connectionsBlocked, getUserDisplayName } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -266,13 +265,14 @@
 				onDeleted?.(vmcp);
 				delete selected[vmcp.id];
 			}
-			success.add(
+			notifications.add(
 				deleted.length === 1
 					? m.vmcps_named_deleted({ name: deleted[0].displayName || 'vMCP' })
-					: m.vmcps_count_vmcps_deleted({ count: deleted.length })
+					: m.vmcps_count_vmcps_deleted({ count: deleted.length }),
+				'success'
 			);
 		} catch {
-			errors.append(m.vmcps_failed_to_delete_vmcps());
+			notifications.add(m.vmcps_failed_to_delete_vmcps());
 		} finally {
 			tableRef?.clearSelectAll();
 			bulkDeleting = false;

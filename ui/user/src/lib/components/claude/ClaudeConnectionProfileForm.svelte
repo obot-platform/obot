@@ -15,7 +15,7 @@
 		type EnvironmentProfile
 	} from '$lib/services';
 	import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
-	import { success } from '$lib/stores/success';
+	import { notifications } from '$lib/stores';
 	import {
 		OBOT_ADMIN_PICKER_ID,
 		resolveSubjectFromGroup,
@@ -402,7 +402,7 @@
 			: [...profiles, saved];
 		const updated = await persist(next);
 		if (!updated) return false;
-		if (environment.id) success.add(m.hosted_agents_profile_saved({ name }));
+		if (environment.id) notifications.add(m.hosted_agents_profile_saved({ name }), 'success');
 		onSaved(updated);
 		return true;
 	}
@@ -434,7 +434,7 @@
 		const next = profiles.filter((item) => item.name !== name);
 		const updated = await persist(next);
 		if (!updated) return;
-		success.add(m.hosted_agents_profile_deleted({ name }));
+		notifications.add(m.hosted_agents_profile_deleted({ name }), 'success');
 		confirmDelete = undefined;
 		onSaved(updated);
 	}

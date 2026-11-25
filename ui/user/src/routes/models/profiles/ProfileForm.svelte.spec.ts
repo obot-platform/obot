@@ -1,7 +1,6 @@
 import { Group } from '$lib/services';
 import type { ModelAccessPolicy } from '$lib/services/admin/types';
-import { errors } from '$lib/stores';
-import { success } from '$lib/stores/success';
+import { notifications } from '$lib/stores';
 import { goto, replaceState } from '$lib/url';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
@@ -145,7 +144,7 @@ let notified: ReturnType<typeof vi.spyOn>;
 beforeEach(async () => {
 	vi.mocked(goto).mockClear();
 	vi.mocked(replaceState).mockClear();
-	notified = vi.spyOn(success, 'add');
+	notified = vi.spyOn(notifications, 'add');
 	await preparePageData({ profile: createMockProfile([Group.ADMIN]) });
 });
 
@@ -169,7 +168,7 @@ describe('Profile form', () => {
 
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile saved.'));
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile saved.', 'success'));
 		await vi.waitFor(() =>
 			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
 		);
@@ -203,7 +202,7 @@ describe('Profile form', () => {
 
 	it('moves to the created profile and reports what failed when a budget cannot be saved', async () => {
 		mockGateway({ failBudgetCreate: true });
-		errors.items = [];
+		notifications.items = [];
 		render(ProfileForm, {});
 
 		await page.getByLabelText('Name', { exact: true }).fill('Sales');
@@ -215,10 +214,10 @@ describe('Profile form', () => {
 		await vi.waitFor(() =>
 			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
 		);
-		const reported = errors.items.map((e) => e.message).join('\n');
+		const reported = notifications.items.map((e) => e.message).join('\n');
 		expect(reported).toContain('The profile was created, but these budgets');
 		expect(reported).toContain('Too much: limit is too high');
-		errors.items = [];
+		notifications.items = [];
 	});
 
 	it('edits and deletes budgets within the form', async () => {
@@ -240,7 +239,7 @@ describe('Profile form', () => {
 		expect(calls).not.toHaveBeenCalled();
 
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
-		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile saved.'));
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile saved.', 'success'));
 		expect(goto).not.toHaveBeenCalled();
 		await expect.element(page.getByRole('heading', { name: 'Engineering' })).toBeVisible();
 		const writes = calls.mock.calls;

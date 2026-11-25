@@ -24,7 +24,7 @@
 	} from '$lib/services';
 	import { isKubernetesRuntimeBackend } from '$lib/services/user/mcp';
 	import { catalogConfigurationFields, hasSensitiveCatalogValue } from '$lib/services/vmcps/utils';
-	import { errors, profile, version } from '$lib/stores';
+	import { notifications, profile, version } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -227,7 +227,7 @@
 			.catch((err) => {
 				if (controller.signal.aborted || isAbortError(err)) return;
 				secretBindingTargets = [];
-				errors.append(m.mcps_catalog_form_load_secrets_failed({ error: String(err) }));
+				notifications.add(m.mcps_catalog_form_load_secrets_failed({ error: String(err) }));
 			});
 	}
 

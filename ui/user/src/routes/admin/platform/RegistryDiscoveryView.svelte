@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
 	import { AdminService, type RegistrySettings } from '$lib/services';
-	import { profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { profile, notifications } from '$lib/stores';
 	import { untrack } from 'svelte';
 
 	let {
@@ -39,7 +38,7 @@
 			});
 			enabled = response.anonymousAccessEnabled;
 			persistedEnabled = response.anonymousAccessEnabled;
-			success.add(m.platform_registry_discovery_updated());
+			notifications.add(m.platform_registry_discovery_updated(), 'success');
 			return true;
 		} catch (_err) {
 			// The shared HTTP client surfaces the error; retain the unsaved change.

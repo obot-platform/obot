@@ -12,7 +12,7 @@
 		type TokenUsageStatsModel
 	} from '$lib/services';
 	import { providerLabel } from '$lib/services/llm-gateway/providers';
-	import { errors } from '$lib/stores';
+	import { notifications } from '$lib/stores';
 	import { formatTokenUsageUSD as formatUSD } from './tokenUsageTimeline';
 	import { twMerge } from 'tailwind-merge';
 
@@ -55,7 +55,7 @@
 			})
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
-				errors.append(err);
+				notifications.add(err);
 			})
 			.finally(() => {
 				if (!controller.signal.aborted) loading = false;

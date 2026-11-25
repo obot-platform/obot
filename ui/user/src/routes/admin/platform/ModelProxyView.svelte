@@ -8,8 +8,7 @@
 		type ModelProxyTokenUsage,
 		type ModelProxyUsage
 	} from '$lib/services';
-	import { profile, version } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { profile, version, notifications } from '$lib/stores';
 	import { formatTimeUntil } from '$lib/time';
 	import { Info, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
@@ -53,7 +52,7 @@
 			enabled = response.enabled;
 			persistedEnabled = response.enabled;
 			await invalidate('model-proxy:usage');
-			success.add(m.platform_settings_model_proxy_updated());
+			notifications.add(m.platform_settings_model_proxy_updated(), 'success');
 			return true;
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling

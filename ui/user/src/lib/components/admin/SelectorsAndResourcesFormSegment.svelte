@@ -7,7 +7,7 @@
 		type MCPFilterWebhookSelector,
 		type VMCP
 	} from '$lib/services';
-	import { errors, mcpServersAndEntries } from '$lib/stores';
+	import { notifications, mcpServersAndEntries } from '$lib/stores';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
@@ -35,7 +35,7 @@
 		try {
 			vmcps = await UserService.listVMCPs({ all: true, minimal: true });
 		} catch {
-			errors.append(m.mcps_filters_failed_load_vmcps());
+			notifications.add(m.mcps_filters_failed_load_vmcps());
 		}
 	});
 	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));

@@ -30,8 +30,7 @@
 		type Guardrail,
 		type GuardrailTestResult
 	} from '$lib/services/llm-gateway/guardrails';
-	import { profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { profile, notifications } from '$lib/stores';
 	import { Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -231,7 +230,7 @@
 			guardrailError = saved.error ?? '';
 			secrets = {};
 			const created = !guardrailID;
-			success.add(created ? m.guardrails_created() : m.guardrails_saved());
+			notifications.add(created ? m.guardrails_created() : m.guardrails_saved(), 'success');
 			if (created && saved.id) {
 				createdID = saved.id;
 			}

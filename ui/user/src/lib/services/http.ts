@@ -6,8 +6,7 @@ import {
 import { hasCookie } from '$lib/cookies';
 import { createHttpError } from '$lib/errors';
 import { getLocale } from '$lib/i18n';
-import { profile } from '$lib/stores';
-import errors from '$lib/stores/errors.svelte';
+import { profile, notifications } from '$lib/stores';
 
 // For SSR, use VITE_API_TARGET if set (for remote API development)
 // For browser, use window.location.origin (requests go through Vite proxy)
@@ -121,7 +120,7 @@ export async function doGetForResponse(path: string, opts?: GetOptions): Promise
 		if (opts?.dontLogErrors) {
 			throw e;
 		}
-		errors.items.push(e);
+		notifications.add(e);
 		throw e;
 	}
 
@@ -186,7 +185,7 @@ export async function handleResponse(
 		if (opts?.dontLogErrors || opts?.errorHandler) {
 			throw e;
 		}
-		errors.items.push(e);
+		notifications.add(e);
 		throw e;
 	}
 	if (resp.headers.get('Content-Type')?.includes('application/json')) {
@@ -247,7 +246,7 @@ export async function doWithBody(
 		if (opts?.dontLogErrors) {
 			throw e;
 		}
-		errors.append(e);
+		notifications.add(e);
 		throw e;
 	}
 }

@@ -29,8 +29,7 @@
 		getMcpValueLabel,
 		isMcpLoginURL
 	} from '$lib/services/user/mcp';
-	import { profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { profile, notifications } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
@@ -668,7 +667,7 @@
 					.catch(() => {});
 			}
 			if (message) {
-				success.add(message);
+				notifications.add(message, 'success');
 			}
 		}
 	}
