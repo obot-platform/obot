@@ -3,9 +3,14 @@
 	import { toAuditLogFilterSelectOption, toStringFilterSelectOptions } from '$lib/auditlogs';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import AdminExportFilters, {
+		toAdminAuditEventExportFilters,
+		toAdminExportFilterValues
+	} from '$lib/components/admin/audit-log-exports/AdminExportFilters.svelte';
 	import {
 		ALL_SOURCE_TYPES,
 		clearSourceScopedFilters,
+		defaultExportKeyPrefix,
 		COMMON_FILTER_KEYS,
 		eventTypeParamFromSourceTypes,
 		filterVisibleExportFields,
@@ -23,6 +28,7 @@
 		Group,
 		UserService,
 		type AuditLogExport,
+		type AuditLogType,
 		type AuditLogFilterOption,
 		type LLMAuditLogURLFilters,
 		type OrgUser,
@@ -32,7 +38,7 @@
 	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { TriangleAlert, ChevronDown, ChevronUp } from '@lucide/svelte';
 	import { subDays, set } from 'date-fns';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -40,6 +46,7 @@
 	type AuditLogExportMultiSelectFilterKey =
 		| 'api_key_id'
 		| 'actor'
+		| 'on_behalf_of'
 		| 'operation'
 		| 'mcp_server'
 		| 'tool'
@@ -64,6 +71,7 @@
 	type LLMAuditLogExportMultiSelectFilterKey =
 		| 'api_key_id'
 		| 'user_id'
+		| 'on_behalf_of'
 		| 'user_agent'
 		| 'client_session_id'
 		| 'model_provider'
@@ -119,6 +127,13 @@
 				filterKey: 'api_key_id',
 				title: m.audit_usage_exports_filter_title_api_keys(),
 				description: m.audit_usage_exports_filter_desc_api_keys_used()
+			},
+			// As are the users agents acted for.
+			{
+				filterKey: 'on_behalf_of',
+				title: m.identity_access_on_behalf_of(),
+				description: m.identity_access_on_behalf_of_description(),
+				useUserDisplayNames: true
 			},
 			// Single-source filters. Shown only when exactly one log source is selected.
 			{
@@ -217,6 +232,12 @@
 				useUserDisplayNames: true
 			},
 			{
+				filterKey: 'on_behalf_of',
+				title: m.identity_access_on_behalf_of(),
+				description: m.identity_access_on_behalf_of_description(),
+				useUserDisplayNames: true
+			},
+			{
 				filterKey: 'model_provider',
 				title: m.audit_usage_exports_filter_title_model_providers(),
 				description: m.audit_usage_exports_filter_desc_list_model_providers()
@@ -258,14 +279,14 @@
 		onSubmit: (result?: AuditLogExport) => void;
 		mode?: 'create' | 'view' | 'edit';
 		initialData?: AuditLogExport;
-		logType?: 'mcp' | 'llm';
+		logType?: AuditLogType;
 	}
 
 	let { onCancel, onSubmit, mode = 'create', initialData, logType = 'mcp' }: Props = $props();
 
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
-	let defaultKeyPrefix = $derived(logType === 'llm' ? 'llm-audit-logs' : 'mcp-audit-logs');
+	let defaultKeyPrefix = $derived(defaultExportKeyPrefix(logType));
 
 	const hasAuditorPermissions = $derived(profile.current.groups.includes(Group.AUDITOR));
 
@@ -286,6 +307,7 @@
 			tool: '',
 			client: '',
 			user_id: '',
+			on_behalf_of: '',
 			mcp_id: '',
 			mcp_server_display_name: '',
 			mcp_server_catalog_entry_name: '',
@@ -311,11 +333,16 @@
 		} as Partial<AuditLogURLFilters & LLMAuditLogURLFilters>
 	});
 
+	// The admin change audit has its own filters, with fixed options, so they are kept apart from
+	// the MCP and LLM ones.
+	let adminFilters = $state(toAdminExportFilterValues(untrack(() => initialData?.adminFilters)));
+
 	let creating = $state(false);
 	let error = $state('');
 
 	let mcpFiltersIds = [
 		'actor',
+		'on_behalf_of',
 		'operation',
 		'mcp_server',
 		'tool',
@@ -342,6 +369,7 @@
 	let llmFiltersIds = [
 		'api_key_id',
 		'user_id',
+		'on_behalf_of',
 		'user_agent',
 		'client_session_id',
 		'model_provider',
@@ -350,7 +378,10 @@
 		'response_status',
 		'target_model'
 	];
-	let filtersIds = $derived(logType === 'llm' ? llmFiltersIds : mcpFiltersIds);
+	// The filters whose options are read from the audit log. The admin filters' options are fixed.
+	let filtersIds = $derived(
+		logType === 'llm' ? llmFiltersIds : logType === 'admin' ? [] : mcpFiltersIds
+	);
 
 	let usersMap = new SvelteMap<string, OrgUser>();
 	let filtersOptions: Record<string, AuditLogFilterOption[]> = $state({});
@@ -363,11 +394,17 @@
 			form.startTime = initialData.startTime ? new Date(initialData.startTime) : form.startTime;
 			form.endTime = initialData.endTime ? new Date(initialData.endTime) : form.endTime;
 
+			if (logType === 'admin') {
+				showAdvancedOptions = true;
+				return;
+			}
+
 			if (logType === 'llm' && initialData.llmFilters) {
 				const filters = initialData.llmFilters;
 				form.filters = {
 					api_key_id: join(filters.apiKeyIDs),
 					user_id: join(filters.userIDs),
+					on_behalf_of: join(filters.onBehalfOf),
 					model_provider: join(filters.modelProviders),
 					target_model: join(filters.targetModels),
 					request_path: join(filters.requestPaths),
@@ -392,6 +429,7 @@
 					tool: join(filters.tools),
 					outcome: join(filters.outcomes),
 					client: join(filters.clients),
+					on_behalf_of: join(filters.onBehalfOf),
 					user_id: join(filters.userIDs),
 					mcp_id: join(filters.mcpIDs),
 					mcp_server_display_name: join(filters.mcpServerDisplayNames),
@@ -436,7 +474,7 @@
 			}
 
 			// Set filters if provided
-			const filterKeys = logType === 'llm' ? llmFiltersIds : mcpFiltersIds;
+			const filterKeys = filtersIds;
 
 			let hasFilters = false;
 			filterKeys.forEach((key) => {
@@ -447,7 +485,7 @@
 				}
 			});
 			const query = params.get('query');
-			if (query) {
+			if (query && logType !== 'admin') {
 				form.filters.query = query;
 				hasFilters = true;
 			}
@@ -564,6 +602,20 @@
 				throw new Error(m.audit_usage_exports_bucket_required());
 			}
 
+			if (logType === 'admin') {
+				const result = await AdminService.createAuditLogExport({
+					name: form.name,
+					type: 'admin',
+					bucket: form.bucket,
+					keyPrefix: form.keyPrefix,
+					startTime: form.startTime.toISOString(),
+					endTime: form.endTime.toISOString(),
+					adminFilters: toAdminAuditEventExportFilters(adminFilters)
+				});
+				onSubmit(result);
+				return;
+			}
+
 			if (logType === 'llm') {
 				const request = {
 					name: form.name,
@@ -575,6 +627,7 @@
 					llmFilters: {
 						apiKeyIDs: splitNumbers(form.filters.api_key_id),
 						userIDs: split(form.filters.user_id),
+						onBehalfOf: split(form.filters.on_behalf_of),
 						modelProviders: split(form.filters.model_provider),
 						targetModels: split(form.filters.target_model),
 						requestPaths: split(form.filters.request_path),
@@ -612,6 +665,7 @@
 					tools: split(form.filters.tool),
 					outcomes: split(form.filters.outcome),
 					clients: split(form.filters.client),
+					onBehalfOf: split(form.filters.on_behalf_of),
 					userIDs: split(form.filters.user_id),
 					mcpIDs: split(form.filters.mcp_id),
 					mcpServerDisplayNames: split(form.filters.mcp_server_display_name),
@@ -680,7 +734,8 @@
 			handleSubmit();
 		}}
 	>
-		{#if !isViewMode && !hasAuditorPermissions}
+		<!-- The admin change audit records no request or response content to withhold. -->
+		{#if !isViewMode && !hasAuditorPermissions && logType !== 'admin'}
 			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
 				<TriangleAlert class="size-5 text-warning" />
 				<div class="text-sm">
@@ -824,66 +879,70 @@
 						{m.audit_usage_exports_leave_filters_empty()}
 					</p>
 
-					<div class="flex flex-col gap-1">
-						<label class="text-sm font-medium" for="query"
-							>{m.audit_usage_exports_search_query()}</label
-						>
-						<input
-							id="query"
-							class={twMerge(
-								'text-input-filled',
-								isViewMode && 'text-[currentColor] disabled:opacity-100'
-							)}
-							bind:value={form.filters.query}
-							placeholder={m.audit_usage_exports_search_placeholder()}
-							readonly={isViewMode}
-							disabled={isViewMode}
-						/>
-						<p class="text-muted-content text-xs">
-							{m.audit_usage_exports_search_help()}
-						</p>
-					</div>
-
-					{#snippet auditLogExportFilterSelect(
-						filterKey: AuditLogExportMultiSelectFilterKey | LLMAuditLogExportMultiSelectFilterKey,
-						title: string,
-						description: string,
-						selectOptions: { id: string; label: string }[]
-					)}
+					{#if logType === 'admin'}
+						<AdminExportFilters bind:values={adminFilters} users={usersMap} disabled={isViewMode} />
+					{:else}
 						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for={filterKey}>{title}</label>
-							<Select
-								id={filterKey}
-								class={twMerge(isViewMode && 'text-[currentColor] disabled:opacity-100')}
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-base-400 bg-transparent'
-								}}
-								options={selectOptions}
-								bind:selected={
-									() => form.filters[filterKey] ?? '', (v) => (form.filters[filterKey] = v ?? '')
-								}
-								disabled={isViewMode}
+							<label class="text-sm font-medium" for="query"
+								>{m.audit_usage_exports_search_query()}</label
+							>
+							<input
+								id="query"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
+								)}
+								bind:value={form.filters.query}
+								placeholder={m.audit_usage_exports_search_placeholder()}
 								readonly={isViewMode}
-								multiple
-								valueFormat={filterKey === 'mcp_server' ? 'json' : 'comma-separated'}
+								disabled={isViewMode}
 							/>
-							{#if (isViewMode && form.filters[filterKey]) || !isViewMode}
-								<p class="text-muted-content text-xs">{description}</p>
-							{/if}
+							<p class="text-muted-content text-xs">
+								{m.audit_usage_exports_search_help()}
+							</p>
 						</div>
-					{/snippet}
 
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each logType === 'llm' ? LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS : visibleAuditLogExportFields as field (field.filterKey)}
-							{@render auditLogExportFilterSelect(
-								field.filterKey,
-								field.title,
-								field.description,
-								selectOptionsForField(field)
-							)}
-						{/each}
-					</div>
+						{#snippet auditLogExportFilterSelect(
+							filterKey: AuditLogExportMultiSelectFilterKey | LLMAuditLogExportMultiSelectFilterKey,
+							title: string,
+							description: string,
+							selectOptions: { id: string; label: string }[]
+						)}
+							<div class="flex flex-col gap-1">
+								<label class="text-sm font-medium" for={filterKey}>{title}</label>
+								<Select
+									id={filterKey}
+									class={twMerge(isViewMode && 'text-[currentColor] disabled:opacity-100')}
+									classes={{
+										root: 'w-full',
+										clear: 'hover:bg-base-400 bg-transparent'
+									}}
+									options={selectOptions}
+									bind:selected={
+										() => form.filters[filterKey] ?? '', (v) => (form.filters[filterKey] = v ?? '')
+									}
+									disabled={isViewMode}
+									readonly={isViewMode}
+									multiple
+									valueFormat={filterKey === 'mcp_server' ? 'json' : 'comma-separated'}
+								/>
+								{#if (isViewMode && form.filters[filterKey]) || !isViewMode}
+									<p class="text-muted-content text-xs">{description}</p>
+								{/if}
+							</div>
+						{/snippet}
+
+						<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+							{#each logType === 'llm' ? LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS : visibleAuditLogExportFields as field (field.filterKey)}
+								{@render auditLogExportFilterSelect(
+									field.filterKey,
+									field.title,
+									field.description,
+									selectOptionsForField(field)
+								)}
+							{/each}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>

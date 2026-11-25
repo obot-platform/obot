@@ -46,7 +46,8 @@ func (c *Controller) setupRoutes() {
 	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.EntitlementProvider, c.services.ProviderRegistryPaths)
 	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.EntitlementProvider, c.services.PostgresDSN, c.services.StorageClient)
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL)
-	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
+	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.AgentDelegationCleanup)
+	agentCleanup := cleanup.NewAgentCleanup(c.services.GatewayClient, c.services.AgentDelegationCleanup)
 	authProviderCleanup := cleanup.NewAuthProviderCleanup(c.services.GatewayClient)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPSessionManager, c.services.GitMaxRepoSizeMB)
 	mdmAssetSource := mdmassetsource.New(c.services.MDMAssetSource, c.services.ServerURL, c.services.GatewayClient)
@@ -54,7 +55,8 @@ func (c *Controller) setupRoutes() {
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	vmcpinstance := vmcpinstance.New(c.services.GatewayClient)
-	vmcpHandler := vmcphandler.New(c.services.GatewayClient, c.services.AccessControlRuleHelper)
+	vmcpHandler := vmcphandler.New(c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.VMCPPreconfiguredOAuth)
+	vmcpHandler.SetComponentOAuthProber(c.services.MCPSessionManager)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GatewayClient, c.services.MCPHTTPWebhookBaseImage)
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
@@ -94,6 +96,10 @@ func (c *Controller) setupRoutes() {
 
 	// User Cleanup
 	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)
+
+	// Agent identity lifecycle: a change needs nothing beyond authentication, and a delete removes what the agent owns
+	root.Type(&v1.AgentIdentityChange{}).HandlerFunc(cleanup.DeleteAgentIdentityEvent)
+	root.Type(&v1.AgentIdentityDelete{}).HandlerFunc(agentCleanup.DeletedAgent)
 
 	// Auth Provider Cleanup
 	root.Type(&v1.AuthProviderCleanup{}).HandlerFunc(authProviderCleanup.Cleanup)
@@ -182,10 +188,24 @@ func (c *Controller) setupRoutes() {
 
 	// VMCP
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.PruneUnauthorizedComponents)
+	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.ReconcileProfiles)
+	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.CollectPreconfiguredOAuth)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.SyncStatus)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.EnsureMCPServers)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.DetectDrift)
-	root.Type(&v1.VMCP{}).FinalizeFunc(v1.VMCPFinalizer, credentialCleanup.RemoveVMCPStaticConfigurationCredentials)
+	// Last, so the probes, which reach remote servers, delay none of the vMCP's other handlers.
+	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.ProbeComponentOAuth)
+	// The vMCP's one finalizer deletes its preconfigured OAuth grants, what users set up for it through agents, then its
+	// static configuration.
+	root.Type(&v1.VMCP{}).FinalizeFunc(v1.VMCPFinalizer, func(req router.Request, resp router.Response) error {
+		if err := vmcpHandler.RemovePreconfiguredOAuth(req, resp); err != nil {
+			return err
+		}
+		if err := vmcphandler.RemoveDelegatedSetup(req, resp); err != nil {
+			return err
+		}
+		return credentialCleanup.RemoveVMCPStaticConfigurationCredentials(req, resp)
+	})
 
 	// VMCPInstance
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(cleanup.Cleanup)

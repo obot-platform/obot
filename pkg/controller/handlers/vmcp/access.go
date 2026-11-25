@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,9 +22,21 @@ import (
 )
 
 type Handler struct {
-	userInfo    func(context.Context, uint) (kuser.Info, error)
+	userInfo    func(context.Context, principal.Principal) (kuser.Info, error)
 	acrHelper   *accesscontrolrule.Helper
 	credentials credentialClient
+	// preconfiguredOAuth deletes the preconfigured OAuth grants of components removed from a vMCP, and of a vMCP being
+	// deleted.
+	preconfiguredOAuth preconfiguredOAuthCollector
+	// componentOAuth probes remote components for whether they ask for OAuth (ProbeComponentOAuth).
+	componentOAuth ComponentOAuthProber
+	// now is the clock of the probes' schedule. Nil is time.Now.
+	now func() time.Time
+}
+
+type preconfiguredOAuthCollector interface {
+	DeleteRemovedComponentGrants(ctx context.Context, vmcp *v1.VMCP) (bool, error)
+	DeleteVMCPGrants(ctx context.Context, vmcp v1.VMCP) error
 }
 
 type credentialClient interface {
@@ -32,8 +45,12 @@ type credentialClient interface {
 	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
 }
 
-func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper) *Handler {
-	return &Handler{userInfo: gatewayClient.UserInfoByID, acrHelper: acrHelper, credentials: gatewayClient}
+func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, preconfiguredOAuth *vmcpconfig.PreconfiguredOAuthStore) *Handler {
+	handler := &Handler{userInfo: gatewayClient.IdentityInfo, acrHelper: acrHelper, credentials: gatewayClient}
+	if preconfiguredOAuth != nil {
+		handler.preconfiguredOAuth = preconfiguredOAuth
+	}
+	return handler
 }
 
 // PruneUnauthorizedComponents preserves missing sources, but removes existing
@@ -69,12 +86,15 @@ func (h *Handler) PruneUnauthorizedComponents(req router.Request, _ router.Respo
 		return nil
 	}
 
-	userID, err := strconv.ParseUint(vmcp.Spec.UserID, 10, 64)
+	ownerID, err := principal.Parse(vmcp.Spec.UserID)
 	if err != nil {
 		return fmt.Errorf("invalid VMCP owner ID %q: %w", vmcp.Spec.UserID, err)
 	}
+	if _, ok := ownerID.UserID(); !ok {
+		return fmt.Errorf("invalid VMCP owner ID %q: personal VMCPs are owned by users", vmcp.Spec.UserID)
+	}
 
-	owner, err := h.userInfo(req.Ctx, uint(userID))
+	owner, err := h.userInfo(req.Ctx, ownerID)
 	if err != nil {
 		return fmt.Errorf("get VMCP owner %q: %w", vmcp.Spec.UserID, err)
 	}

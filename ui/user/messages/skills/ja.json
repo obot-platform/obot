@@ -4,6 +4,7 @@
 	"skills_access_policies_all_skills": "すべてのスキル",
 	"skills_access_policies_no_skills_added": "スキルが追加されていません。",
 	"skills_access_policies_remove_skill": "スキルを削除",
+	"skills_access_policies_subjects_description": "このルールが適用されるユーザー、グループ、エージェント。",
 	"skills_access_policies_tab": "アクセスポリシー",
 	"skills_access_policy_fallback_title": "スキルアクセスポリシー",
 	"skills_add": "追加",

@@ -88,9 +88,8 @@ func (r *llmUsageRecorder) finish(err error) {
 		return
 	}
 	r.once.Do(func() {
-		// Recorded against the owner for the same reason the limit is checked against them:
-		// an agent has no user row of its own, and its usage should still land on whoever
-		// created it.
+		// Recorded against the caller, which for an agent is the agent itself and no user: its usage
+		// is attributed by principal kind and ID, and survives the agent's deletion.
 		activity := newRunTokenActivity(r.user, r.model, r.usage)
 		activity.Outcome, _, _ = llmOutcome(r.status, err)
 		activity.DurationMs = time.Since(r.start).Milliseconds()
@@ -104,16 +103,20 @@ func (r *llmUsageRecorder) finish(err error) {
 		}
 		activity.Fallback = route.Fallback
 		if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
-			slog.Warn("failed to save token usage for user", "userID", activity.UserID, "error", err)
+			slog.Warn("failed to save token usage", "principalKind", activity.PrincipalKind, "principalID", activity.PrincipalID, "userID", activity.UserID, "error", err)
 		}
 	})
 }
 
 func newRunTokenActivity(user kuser.Info, model string, usage types.TokenUsage) *types.RunTokenActivity {
+	actor := types.ActorForCaller(user)
 	activity := &types.RunTokenActivity{
-		UserID: user.GetUID(),
-		Model:  model,
-		Usage:  usage,
+		UserID:        actor.UserID,
+		PrincipalKind: actor.PrincipalKind,
+		PrincipalID:   actor.PrincipalID,
+		OnBehalfOf:    actor.OnBehalfOf,
+		Model:         model,
+		Usage:         usage,
 	}
 	if attribution, ok := principal.APIKeyAttributionFromUser(user); ok {
 		activity.APIKeyID = &attribution.ID

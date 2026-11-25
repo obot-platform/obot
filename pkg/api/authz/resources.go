@@ -72,6 +72,14 @@ var (
 			"GET    /api/users/{user_id}/token-usage",
 			"GET    /api/users/{user_id}/total-token-usage",
 			"GET    /api/workspaces",
+			"DELETE /api/me/agent-delegations/{delegation_id}",
+			// What the user set up through the agent of one of their delegations (checkAgentDelegation). The vMCP's path
+			// value is not vmcp_id, so that checkVMCP does not apply: the user reaches the vMCP through the agent,
+			// whatever they may reach on their own.
+			"GET    /api/me/agent-delegations/{delegation_id}/setup",
+			"PUT    /api/me/agent-delegations/{delegation_id}/setup/vmcps/{setup_vmcp_id}/configuration",
+			"POST   /api/me/agent-delegations/{delegation_id}/setup/vmcps/{setup_vmcp_id}/components/{component_id}/oauth",
+			"DELETE /api/me/agent-delegations/{delegation_id}/setup/vmcps/{setup_vmcp_id}/components/{component_id}/oauth",
 		},
 		types.GroupPowerUser: {
 			"GET    /api/workspaces/{workspace_id}",
@@ -152,7 +160,9 @@ type Resources struct {
 	SkillID            string
 	DeviceScanID       string
 	OAuthAuthRequestID string
-	Authorizated       ResourcesAuthorized
+	// AgentDelegationID is a user's approval for an agent to act on their behalf, which only the user reaches.
+	AgentDelegationID string
+	Authorizated      ResourcesAuthorized
 }
 
 type ResourcesAuthorized struct {
@@ -178,6 +188,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		SkillID:                 vars("skill_id"),
 		DeviceScanID:            vars("scan_id"),
 		OAuthAuthRequestID:      vars("oauth_request_id"),
+		AgentDelegationID:       vars("delegation_id"),
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
@@ -225,6 +236,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 	}
 
 	if ok, err := a.checkOAuthAuthRequest(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkAgentDelegation(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

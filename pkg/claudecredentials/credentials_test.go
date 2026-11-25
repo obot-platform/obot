@@ -215,7 +215,7 @@ func TestClaudeLLMEgressCredential(t *testing.T) {
 	key, err := gateway.ValidateAPIKey(ctx, string(first.OpaqueBytes))
 	require.NoError(t, err)
 	require.Equal(t, gt.APIKeyScopes{CanAccessLLMProxy: true}, key.APIKeyScopes)
-	require.Equal(t, env.ClaudeTagUserID, fmt.Sprint(key.UserID))
+	require.Equal(t, env.ClaudeTagUserID, fmt.Sprint(*key.UserID))
 	require.True(t, key.ClaudeEnvironment)
 	require.WithinRange(t, *key.ExpiresAt, started.Add(5*time.Minute), finished.Add(5*time.Minute))
 

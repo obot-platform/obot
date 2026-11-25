@@ -200,6 +200,14 @@ func TestWriteNewSubjects(t *testing.T) {
 					Type: types.SubjectTypeObotGroup,
 					ID:   types.GroupAdmin,
 				},
+				{
+					Type: types.SubjectTypeAgent,
+					ID:   missingGroupID,
+				},
+				{
+					Type: types.SubjectTypeAgent,
+					ID:   "*",
+				},
 			},
 		},
 	}

@@ -140,6 +140,61 @@ func TestNewLLMAuditRecorderCapturesMaskedUnnamedAPIKeyAttribution(t *testing.T)
 	}
 }
 
+func TestNewLLMAuditRecorderAttributesCallersByPrincipal(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		requestUser   *user.DefaultInfo
+		wantUserID    string
+		wantKind      string
+		wantPrincipal string
+		wantAPIKey    string
+	}{
+		{
+			name:        "user",
+			requestUser: principalTestUser("7", principal.KindUser),
+			wantUserID:  "7",
+			wantKind:    "user",
+		},
+		{
+			name: "agent has no user ID and keeps its key",
+			requestUser: principalTestUser("agent:7", principal.KindAgent,
+				principal.APIKeyIDExtra, "42", principal.APIKeyNameExtra, "oak1-7-42-*****"),
+			wantKind:      "agent",
+			wantPrincipal: "7",
+			wantAPIKey:    "oak1-7-42-*****",
+		},
+		{
+			name:        "a caller that is not a principal keeps its UID",
+			requestUser: &user.DefaultInfo{UID: "system"},
+			wantUserID:  "system",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/responses", nil)
+			log := newLLMAuditRecorder(req, tt.requestUser, 5<<20).log
+
+			if log.UserID != tt.wantUserID || log.PrincipalKind != tt.wantKind || log.PrincipalID != tt.wantPrincipal || log.APIKeyName != tt.wantAPIKey {
+				t.Errorf("attribution = user %q, kind %q, principal %q, key %q; want user %q, kind %q, principal %q, key %q",
+					log.UserID, log.PrincipalKind, log.PrincipalID, log.APIKeyName, tt.wantUserID, tt.wantKind, tt.wantPrincipal, tt.wantAPIKey)
+			}
+			if tt.wantAPIKey != "" && (log.APIKeyID == nil || *log.APIKeyID != 42) {
+				t.Errorf("APIKeyID = %v, want 42", log.APIKeyID)
+			}
+		})
+	}
+}
+
+// principalTestUser is a caller as its authenticator records it: with the kind of principal it is, and extra
+// key-value pairs.
+func principalTestUser(uid string, kind principal.Kind, extra ...string) *user.DefaultInfo {
+	info := &user.DefaultInfo{UID: uid, Extra: map[string][]string{}}
+	principal.RecordKind(info.Extra, kind)
+	for i := 0; i+1 < len(extra); i += 2 {
+		info.Extra[extra[i]] = []string{extra[i+1]}
+	}
+	return info
+}
+
 func TestLLMAuditRecorderSetOutcome(t *testing.T) {
 	for _, tt := range []struct {
 		name           string

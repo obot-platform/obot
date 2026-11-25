@@ -39,8 +39,11 @@ const (
 	MCPGuardrailDirectionResponse = "response"
 	MCPGuardrailDirectionBoth     = "both"
 
-	// Guardrail filter subject types.
+	// Guardrail filter subject types. They name callers as the subjects of vMCP profiles do: a user by ID; an agent by
+	// its bare decimal ID, which is the only way a filter applies to an agent; the users in an auth provider group; and
+	// everyone, which is every user, and any caller Obot cannot identify, but no agent.
 	MCPGuardrailSubjectUser     = "user"
+	MCPGuardrailSubjectAgent    = "agent"
 	MCPGuardrailSubjectGroup    = "group"
 	MCPGuardrailSubjectEveryone = "everyone"
 )
@@ -58,7 +61,7 @@ type MCPGuardrailFilterConfig struct {
 	// SamplingRate is the percentage (1-100) of matching messages that are checked. It
 	// defaults to 100.
 	SamplingRate int `json:"samplingRate,omitempty"`
-	// Subjects limits the filter to users and groups. Empty means everyone.
+	// Subjects limits the filter to users, agents and groups. Empty means everyone.
 	Subjects []MCPGuardrailFilterSubject `json:"subjects,omitempty"`
 	// Condition is an optional CEL expression that must be true for the filter to apply.
 	Condition string `json:"condition,omitempty"`
@@ -66,10 +69,47 @@ type MCPGuardrailFilterConfig struct {
 	BlockMessage string `json:"blockMessage,omitempty"`
 }
 
-// MCPGuardrailFilterSubject is a user, a group or everyone.
+// MCPGuardrailFilterSubject is a user, an agent, a group or everyone. See the MCPGuardrailSubject constants.
 type MCPGuardrailFilterSubject struct {
 	Type string `json:"type"`
 	ID   string `json:"id,omitempty"`
+}
+
+// Subject returns the policy subject that names the same callers as s, and false for a type that is not a
+// guardrail filter subject type. Everyone is the selector wildcard, whatever its ID.
+func (s MCPGuardrailFilterSubject) Subject() (Subject, bool) {
+	switch s.Type {
+	case MCPGuardrailSubjectEveryone:
+		return Subject{Type: SubjectTypeSelector, ID: SubjectWildcardID}, true
+	case MCPGuardrailSubjectUser:
+		return Subject{Type: SubjectTypeUser, ID: s.ID}, true
+	case MCPGuardrailSubjectAgent:
+		return Subject{Type: SubjectTypeAgent, ID: s.ID}, true
+	case MCPGuardrailSubjectGroup:
+		return Subject{Type: SubjectTypeGroup, ID: s.ID}, true
+	}
+	return Subject{}, false
+}
+
+// ValidateMCPGuardrailFilterSubjects checks the subjects of a guardrail filter: each has a known type, user and
+// group subjects have an ID, and agent subjects have an agent's canonical decimal ID, as Subject.Validate requires.
+func ValidateMCPGuardrailFilterSubjects(subjects []MCPGuardrailFilterSubject) error {
+	for _, s := range subjects {
+		subject, ok := s.Subject()
+		if !ok {
+			return fmt.Errorf("guardrail subject type must be user, agent, group or everyone")
+		}
+		if s.Type != MCPGuardrailSubjectEveryone {
+			// Validate refuses a missing ID too; this keeps the guardrail filter's own message for it.
+			if s.ID == "" {
+				return fmt.Errorf("guardrail %s subjects need an id", s.Type)
+			}
+			if err := subject.Validate(); err != nil {
+				return fmt.Errorf("invalid guardrail %s subject: %w", s.Type, err)
+			}
+		}
+	}
+	return nil
 }
 
 type MCPWebhookValidationList List[MCPWebhookValidation]

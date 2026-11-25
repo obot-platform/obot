@@ -112,6 +112,9 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
 			continue
 		}
+		// A profile whose YAML sets no ID gets one derived from the vMCP and profile names, so syncing unchanged YAML
+		// keeps every profile's ID, which audit records name it by. Renaming such a profile makes it a new profile.
+		vmcpconfig.AssignDerivedProfileIDs(vmcp.Name, &vmcp.Spec.Manifest)
 		if err := vmcp.Spec.Manifest.Validate(); err != nil {
 			addSyncError(syncErrors, sourceURL, fmt.Sprintf("vMCP %q: %v", vmcp.Spec.Manifest.DisplayName, err))
 			continue

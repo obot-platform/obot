@@ -20,6 +20,7 @@ import {
 	vmcpManifest
 } from '$lib/services/vmcps/utils';
 import { notifications, profile } from '$lib/stores';
+import type { VMcpComponentSettings } from '$lib/vmcpComponentLinks';
 import { SvelteSet } from 'svelte/reactivity';
 
 export type VMcpToolDialog =
@@ -28,7 +29,8 @@ export type VMcpToolDialog =
 	| 'edit'
 	| 'actions'
 	| 'configure'
-	| 'details';
+	| 'details'
+	| 'oauth';
 
 interface PendingAddedServer {
 	component: VMCPComponent;
@@ -258,10 +260,29 @@ export function createVMcpToolFlow() {
 		dialog = 'setup';
 	}
 
-	function openComponent(component: { id?: string }, vmcp: VMCP) {
+	/**
+	 * Opens a component's settings: the list of what can be done with it or, when `settings` names one
+	 * the viewer can see, that dialog directly.
+	 */
+	function openComponent(
+		component: { id?: string },
+		vmcp: VMCP,
+		options?: { settings?: VMcpComponentSettings; readonly?: boolean; onDismissed?: () => void }
+	) {
 		const raw = findComponent(vmcp, component.id);
-		if (!raw) return;
-		if (configure(vmcp, raw, true)) dialog = 'actions';
+		if (!raw || !configure(vmcp, raw, true)) return false;
+		if (options?.settings === 'oauth' && canSeeComponentOAuth()) {
+			dialog = 'oauth';
+		} else if (
+			options?.settings === 'configuration' &&
+			canSeeComponentConfiguration(Boolean(options.readonly))
+		) {
+			dialog = 'configure';
+		} else {
+			dialog = 'actions';
+		}
+		onDialogDismissed = options?.onDismissed;
+		return true;
 	}
 
 	/** Skip the actions chooser: setup when there are no stored overrides, otherwise edit them. */
@@ -337,6 +358,34 @@ export function createVMcpToolFlow() {
 	function editDetails() {
 		if (!configuringComponent || !modifyingVMcp) return;
 		dialog = 'details';
+	}
+
+	function editOAuth() {
+		if (!canSeeComponentOAuth()) return;
+		dialog = 'oauth';
+	}
+
+	// A read-only view also lists catalog values that are set but hidden, so it is shown for a
+	// component that has only those.
+	function canSeeComponentConfiguration(readonly: boolean) {
+		if (!modifyingVMcp || !configuringEntry) return false;
+		if (!(profile.current.hasAdminAccess?.() || canRevealComponentConfiguration())) return false;
+		return (
+			hasVMcpComponentConfiguration(configuringEntry) ||
+			(readonly && catalogConfigurationFields(configuringEntry).some(hasSensitiveCatalogValue))
+		);
+	}
+
+	// Preconfigured OAuth belongs to a remote component of a shared vMCP. Administrators, read-only
+	// administrators and auditors see it; only administrators change it, which VMcpComponentOAuth
+	// decides. It is kept outside the manifest, so it stays available on a catalog-synced vMCP.
+	function canSeeComponentOAuth() {
+		return Boolean(
+			modifyingVMcp?.id &&
+			!modifyingVMcp.userID &&
+			configuringComponent?.catalogEntry?.manifest?.runtime === 'remote' &&
+			profile.current.hasAdminAccess?.()
+		);
 	}
 
 	function returnToActions() {
@@ -730,13 +779,9 @@ export function createVMcpToolFlow() {
 		get excludedComponentIds() {
 			return excludedComponentIds;
 		},
-		canSeeComponentConfiguration(readonly: boolean) {
-			if (!modifyingVMcp || !configuringEntry) return false;
-			if (!(profile.current.hasAdminAccess?.() || canRevealComponentConfiguration())) return false;
-			return (
-				hasVMcpComponentConfiguration(configuringEntry) ||
-				(readonly && catalogConfigurationFields(configuringEntry).some(hasSensitiveCatalogValue))
-			);
+		canSeeComponentConfiguration,
+		get canSeeComponentOAuth() {
+			return canSeeComponentOAuth();
 		},
 		canRevealComponentConfiguration,
 		get postCreateConfiguration() {
@@ -757,6 +802,7 @@ export function createVMcpToolFlow() {
 		selectToolsForAdded,
 		editConfiguration,
 		editDetails,
+		editOAuth,
 		returnToActions,
 		saveConfiguration,
 		saveDetails,

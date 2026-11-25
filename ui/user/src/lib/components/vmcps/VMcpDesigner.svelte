@@ -66,6 +66,7 @@
 		vmcpInstances
 	} from '$lib/stores';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { vmcpComponentTarget, withoutVMcpComponentTarget } from '$lib/vmcpComponentLinks';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -134,6 +135,7 @@
 	let duplicateComponentName = $state('');
 	const toolFlow = createVMcpToolFlow();
 	let openedModifyToolsFor: string | undefined;
+	let openedComponentTarget: string | undefined;
 	let selectedVMcp = $state<VMCP | undefined>(untrack(() => vmcp));
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
@@ -264,6 +266,36 @@
 		untrack(() => {
 			toolFlow.editComponent(match, vmcp, {
 				onDismissed: () => setUrlParamAndUpdateUrl(page.url, 'modify-tools', undefined)
+			});
+		});
+	});
+
+	// A link to a component's settings, such as one from the agent page for what keeps an agent from the
+	// vMCP, opens them; closing them drops the link's parameters.
+	$effect(() => {
+		const target = vmcpComponentTarget(page.url);
+		if (!target) {
+			openedComponentTarget = undefined;
+			return;
+		}
+		const vmcp = selectedVMcp;
+		const key = `${target.componentID}|${target.settings ?? ''}`;
+		if (!vmcp?.id || openedComponentTarget === key) return;
+		const match = vmcp.components?.find(
+			(component) => vmcpComponentId(component) === target.componentID
+		);
+		const clear = () => goto(withoutVMcpComponentTarget(page.url), { reset: false, replace: true });
+		if (!match || !(canEdit || profile.current.hasAdminAccess?.())) {
+			untrack(clear);
+			return;
+		}
+
+		openedComponentTarget = key;
+		untrack(() => {
+			toolFlow.openComponent(match, vmcp, {
+				settings: target.settings,
+				readonly: !canEdit || isCatalogSyncedVMcp(vmcp),
+				onDismissed: clear
 			});
 		});
 	});
@@ -644,6 +676,13 @@
 		setUrlParamAndUpdateUrl(page.url, 'query', value);
 	};
 
+	// The administrator who authorized a component's preconfigured OAuth, by the name the directory has
+	// for them.
+	function adminName(id: string) {
+		const user = usersMap.get(id);
+		return user ? (user.displayName ?? user.email ?? user.username ?? user.id) : undefined;
+	}
+
 	function handleBack() {
 		if (profilesPanel?.leaveEditor()) return;
 		if (onBack) {
@@ -885,7 +924,11 @@
 
 <VMcpDragOverlay drag={entryDrag} />
 
-<VMcpToolDialogs flow={toolFlow} readonly={!canEdit || isCatalogSyncedVMcp(selectedVMcp)} />
+<VMcpToolDialogs
+	flow={toolFlow}
+	readonly={!canEdit || isCatalogSyncedVMcp(selectedVMcp)}
+	userName={adminName}
+/>
 
 <VMcpActions
 	bind:this={vmcpActions}

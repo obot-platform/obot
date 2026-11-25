@@ -10,6 +10,7 @@ Set up CLI authentication and local bootstrap skills with the procedure below. U
 | Configure CLI authentication and local bootstrap skills | [CLI setup](#cli-setup-basic-usage) |
 | Sign in to an MCP server that requires a localhost OAuth callback | [MCP localhost OAuth sign-in](#mcp-localhost-oauth-sign-in) |
 | Obtain and scope API keys with `obot login` | [Agent authorization scopes](../functionality/agent-auth-scopes.md#creating-an-agent-authorization-scope-with-the-cli) |
+| Manage agent identities and their keys with `obot agents` | [Agent identities CLI](../security/agent-identities.md#cli) |
 | Generate vMCP definitions for migrated Git composites | [Catalog migration](../configuration/mcp-server-gitops.md#migrating-git-synced-composites-to-vmcps) |
 | Validate catalog YAML | [Catalog validation](../configuration/mcp-server-gitops.md#validating-catalog-entries) |
 | Run an outbound MCP tunnel | [Tunnel CLI and API](../functionality/mcp-tunnels.md) |

@@ -19,8 +19,14 @@ func (*Handler) EnsureMCPServerInstances(req router.Request, _ router.Response) 
 	if err := req.Get(&vmcp, instance.Namespace, instance.Spec.Manifest.VMCPID); err != nil {
 		return kclient.IgnoreNotFound(err)
 	}
+	components := vmcpconfig.ComponentsForInstance(vmcp, *instance)
+	if _, ok := vmcpconfig.PairOwner(*instance); ok {
+		// A pair's instance connects only to the components that may need the user; an agent acting on behalf of the
+		// user reaches every other one through the agent's own connection.
+		components = vmcpconfig.PairInstanceComponents(components)
+	}
 	desired := map[string]struct{}{}
-	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, *instance) {
+	for _, component := range components {
 		if !vmcpconfig.IsMultiUser(component) {
 			continue
 		}
@@ -40,7 +46,7 @@ func (*Handler) EnsureMCPServerInstances(req router.Request, _ router.Response) 
 			continue
 		}
 		connection := v1.MCPServerInstance{
-			Name:       name.SafeConcatName(system.MCPServerInstancePrefix+instance.Name, component.ID),
+			Name:       vmcpconfig.ComponentConnectionName(instance.Name, component.ID),
 			Namespace:  instance.Namespace,
 			Finalizers: []string{v1.MCPServerInstanceFinalizer},
 			Spec: v1.MCPServerInstanceSpec{

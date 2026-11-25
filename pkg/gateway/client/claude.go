@@ -111,7 +111,7 @@ func (c *Client) ensureClaudeCredential(ctx context.Context, credentialContext s
 		}
 
 		key, err := c.createAPIKey(tx, types.APIKey{
-			UserID:            userID,
+			UserID:            &userID,
 			Name:              keyName,
 			Description:       "Self-hosted Claude session",
 			ExpiresAt:         &expires,

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
@@ -13,6 +14,14 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Helper evaluates access control rules (ACRs) for callers.
+//
+// Agents never match an access control rule, through any subject, the selector wildcard (*) included: rules grant
+// users access to catalog and workspace MCP servers, and agents reach MCP servers only through vMCP profiles.
+// UserMatchesRules, which every function that decides whether a caller has access through rules matches subjects
+// with, refuses a caller that claims to be an agent (principal.ClaimsAgent); the workspace functions, which also grant
+// access through ownership, refuse it up front. A caller that only claims to be one, such as one whose UID and
+// recorded kind disagree, is refused too, so it is never read as a user.
 type Helper struct {
 	acrIndexer gocache.Indexer
 	client     kclient.Client
@@ -23,6 +32,40 @@ func NewAccessControlRuleHelper(acrIndexer gocache.Indexer, client kclient.Clien
 		acrIndexer: acrIndexer,
 		client:     client,
 	}
+}
+
+// UserMatchesRules reports whether a subject of any of rules names user: the user's ID, an auth provider or Obot group
+// they are in, or the selector wildcard (*). A caller that claims to be an agent (principal.ClaimsAgent) matches no
+// rule; see Helper.
+func UserMatchesRules(user kuser.Info, rules []v1.AccessControlRule) bool {
+	if principal.ClaimsAgent(user) {
+		return false
+	}
+	userID := user.GetUID()
+	groups, obotGroups := subjectgroups.Sets(user)
+	for _, rule := range rules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			switch subject.Type {
+			case types.SubjectTypeUser:
+				if subject.ID == userID {
+					return true
+				}
+			case types.SubjectTypeGroup:
+				if _, ok := groups[subject.ID]; ok {
+					return true
+				}
+			case types.SubjectTypeObotGroup:
+				if _, ok := obotGroups[subject.ID]; ok {
+					return true
+				}
+			case types.SubjectTypeSelector:
+				if subject.ID == "*" {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func (h *Helper) GetAccessControlRulesForUser(namespace, userID string) ([]v1.AccessControlRule, error) {
@@ -161,29 +204,8 @@ func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, 
 		return false, err
 	}
 
-	userID := user.GetUID()
-	groups, obotGroups := subjectgroups.Sets(user)
-	for _, rule := range selectorRules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
-			}
-		}
+	if UserMatchesRules(user, selectorRules) {
+		return true, nil
 	}
 
 	// Now see if there is a rule that includes this specific server in the catalog.
@@ -192,30 +214,7 @@ func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, 
 		return false, err
 	}
 
-	for _, rule := range rules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
-			}
-		}
-	}
-
-	return false, nil
+	return UserMatchesRules(user, rules), nil
 }
 
 // UserHasAccessToMCPServerCatalogEntryInCatalog checks if a user has access to a specific catalog entry through AccessControlRules
@@ -227,29 +226,8 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, 
 		return false, err
 	}
 
-	userID := user.GetUID()
-	groups, obotGroups := subjectgroups.Sets(user)
-	for _, rule := range selectorRules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
-			}
-		}
+	if UserMatchesRules(user, selectorRules) {
+		return true, nil
 	}
 
 	// Now see if there is a rule that includes this specific catalog entry.
@@ -258,30 +236,7 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, 
 		return false, err
 	}
 
-	for _, rule := range rules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
-			}
-		}
-	}
-
-	return false, nil
+	return UserMatchesRules(user, rules), nil
 }
 
 // UserHasAccessToMCPServerCatalogEntry provides backward compatibility, defaulting to the default catalog
@@ -414,11 +369,12 @@ func (h *Helper) GetAccessControlRulesForSelectorInWorkspace(namespace, selector
 
 // UserHasAccessToMCPServerInWorkspace checks if a user has access to a specific MCP server through workspace-scoped AccessControlRules
 func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName, workspaceID, serverUserID string) (bool, error) {
-	userID := user.GetUID()
-	groups, obotGroups := subjectgroups.Sets(user)
-
+	if principal.ClaimsAgent(user) {
+		// Agents never match an access control rule, and own nothing these grant through ownership; see Helper.
+		return false, nil
+	}
 	// If the server is owned by the current user, they have access to it to ignore the AccessControlRules
-	if serverUserID == userID {
+	if serverUserID == user.GetUID() {
 		return true, nil
 	}
 
@@ -428,27 +384,8 @@ func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName
 		return false, err
 	}
 
-	for _, rule := range selectorRules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
-			}
-		}
+	if UserMatchesRules(user, selectorRules) {
+		return true, nil
 	}
 
 	// Now see if there is a rule that includes this specific server in the workspace.
@@ -457,27 +394,8 @@ func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName
 		return false, err
 	}
 
-	for _, rule := range rules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
-			}
-		}
+	if UserMatchesRules(user, rules) {
+		return true, nil
 	}
 
 	return false, nil
@@ -485,35 +403,18 @@ func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName
 
 // UserHasAccessToMCPServerCatalogEntryInWorkspace checks if a user has access to a specific catalog entry through workspace-scoped AccessControlRules
 func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Context, user kuser.Info, entryName, workspaceID string) (bool, error) {
+	if principal.ClaimsAgent(user) {
+		// Agents never match an access control rule, and own nothing these grant through ownership; see Helper.
+		return false, nil
+	}
 	// See if there is a selector that this user is included on in the specified workspace.
 	selectorRules, err := h.GetAccessControlRulesForSelectorInWorkspace(system.DefaultNamespace, "*", workspaceID)
 	if err != nil {
 		return false, err
 	}
 
-	userID := user.GetUID()
-	groups, obotGroups := subjectgroups.Sets(user)
-	for _, rule := range selectorRules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
-			}
-		}
+	if UserMatchesRules(user, selectorRules) {
+		return true, nil
 	}
 
 	// Now see if there is a rule that includes this specific catalog entry.
@@ -522,27 +423,8 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Con
 		return false, err
 	}
 
-	for _, rule := range rules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
-			}
-		}
+	if UserMatchesRules(user, rules) {
+		return true, nil
 	}
 
 	// If the workspace is owned by the current user, they have access to all entries in the workspace
@@ -551,7 +433,7 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Con
 		if err := h.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: workspaceID}, &workspace); err != nil {
 			return false, err
 		}
-		if workspace.Spec.UserID == userID {
+		if workspace.Spec.UserID == user.GetUID() {
 			return true, nil
 		}
 	}

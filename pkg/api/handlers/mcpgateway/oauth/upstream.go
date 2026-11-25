@@ -201,7 +201,9 @@ func (f *MCPOAuthHandlerFactory) pendingCapturedAuth(req api.Context, requestID,
 
 		// The UI has one OAuth link per component. Additional provider challenges
 		// for that component become available after the current one completes.
-		if requirement.Completed || seen[requirement.Component] {
+		// A component the vMCP preconfigured OAuth for since the challenge was
+		// captured uses that, and the user never authorizes it.
+		if requirement.Completed || seen[requirement.Component] || cfg.OAuthGrant != nil {
 			continue
 		}
 

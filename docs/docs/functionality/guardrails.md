@@ -64,7 +64,7 @@ Guardrails are applied to LLM gateway traffic in [profiles](./model-access-polic
   - **Log** records the finding in the request's LLM audit log entry and lets the request through unchanged.
 - **Profile**: the profile it's applied in. It applies to that profile's users and groups. The applied guardrails of every profile a user is in apply to them.
 - **Condition** (optional): a [CEL](https://github.com/google/cel-spec) expression that must be true for the policy to apply.
-  - It can use `model` (for example `"openai/gpt-4.1"`), `provider`, `params` (currently only `params.max_tokens`, when the request sets it; test with `"max_tokens" in params`), `headers`, `user.id` and `user.groups`.
+  - It can use `model` (for example `"openai/gpt-4.1"`), `provider`, `params` (currently only `params.max_tokens`, when the request sets it; test with `"max_tokens" in params`), `headers`, `user.id`, `user.groups`, `principal.kind` and `principal.id`. For an [agent identity](../security/agent-identities.md), `user.id` is `agent:<id>`, `user.groups` is empty, and `principal.kind` is `"agent"`. See [CEL variables](../reference/agent-identities.md#cel).
   - `user.groups` holds the IDs of the user's auth provider groups, the same IDs that group subjects use. It doesn't hold group names or Obot roles.
   - For example: `model.startsWith("openai/") && !("<contractors group ID>" in user.groups)`.
   - Reading a header that isn't there is an error, so test for it first: `"x-team" in headers && headers["x-team"] == "sales"`. A condition that fails to evaluate is logged by the Obot server (at most once a minute per policy); the policy is then skipped, or blocks the request if it fails closed.
@@ -143,7 +143,7 @@ Guardrail filters are managed with the filter API, `/api/mcp-webhook-validations
 }
 ```
 
-`action` is `block` or `redact`; guardrail filters can't log only. `direction` is `request`, `response` or `both` (the default). `samplingRate` defaults to 100. `subjects` are `user`, `group` or `everyone`; none means everyone. `allowedToMutate` is set from the action (true for `redact`) and doesn't otherwise apply to guardrail filters.
+`action` is `block` or `redact`; guardrail filters can't log only. `direction` is `request`, `response` or `both` (the default). `samplingRate` defaults to 100. `subjects` are `user`, `agent`, `group` or `everyone`; none means everyone. An `agent` subject's `id` is the agent's decimal ID, never `*`. `everyone` is every user, and no agent. `allowedToMutate` is set from the action (true for `redact`) and doesn't otherwise apply to guardrail filters.
 
 ## Related topics
 

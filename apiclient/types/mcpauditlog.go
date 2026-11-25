@@ -144,11 +144,16 @@ type MCPUsageStats struct {
 
 // MCPToolCallStats represents statistics for individual tool calls
 type MCPToolCallStatsItem struct {
-	CreatedAt        Time   `json:"createdAt"`
-	UserID           string `json:"userID"`
-	ProcessingTimeMs int64  `json:"processingTimeMs"`
-	ResponseStatus   int    `json:"responseStatus"`
-	Error            string `json:"error"`
+	CreatedAt Time `json:"createdAt"`
+	// UserID is the user's ID. It is empty for a call made by an agent.
+	UserID string `json:"userID"`
+	// Principal is the user or agent that made the call.
+	Principal PrincipalRef `json:"principal,omitzero"`
+	// OnBehalfOf is the user an agent made the call for, when it acted for one.
+	OnBehalfOf       PrincipalRef `json:"onBehalfOf,omitzero"`
+	ProcessingTimeMs int64        `json:"processingTimeMs"`
+	ResponseStatus   int          `json:"responseStatus"`
+	Error            string       `json:"error"`
 }
 
 // MCPToolCallStats represents statistics for individual tool calls

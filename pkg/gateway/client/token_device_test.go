@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 )
 
 func TestCreateDeviceTokenRequest(t *testing.T) {
@@ -93,7 +94,7 @@ func TestAuthorizeTokenRequestByDeviceCode(t *testing.T) {
 		t.Fatalf("API key count = %d, want 1", len(keys))
 	}
 	key := keys[0]
-	if key.UserID != 42 || key.Name != request.Name || key.Description != request.Description {
+	if key.Owner() != principal.User(42) || key.Name != request.Name || key.Description != request.Description {
 		t.Fatalf("stored API key = %+v, want user and metadata from authorization/request", key)
 	}
 	if key.ExpiresAt == nil || key.ExpiresAt.Before(before.Add(expirationDur-time.Minute)) || key.ExpiresAt.After(before.Add(expirationDur+time.Minute)) {

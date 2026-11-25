@@ -1,5 +1,6 @@
 import { getLocale } from '$lib/i18n';
 import type { Model, OrgUser, TokenUsage, TokenUsageWithCategory } from '$lib/services';
+import type { AgentLookup } from '$lib/services/agent-identities/helpers';
 import {
 	CHART_LABEL,
 	TOKEN_GROUP_BY,
@@ -9,7 +10,7 @@ import {
 	type TokenGroupBy,
 	type TokenType
 } from './constants';
-import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
+import { aggregateTimelineDataByBucket, getUserLabels, tokenUsageGroupKey } from './utils';
 
 export type TokenUsageTimelineItem = TokenUsageWithCategory & {
 	bucketTokens?: number;
@@ -106,21 +107,14 @@ export function computeMainTimelineData(
 	group: TokenGroupBy,
 	users: Map<string, OrgUser>,
 	modelToName: Map<string, string>,
-	tokenType: TokenType
+	tokenType: TokenType,
+	agents?: Map<string, AgentLookup>
 ): TokenUsageTimelineItem[] {
 	if (group === TOKEN_GROUP_BY.USERS) {
-		const userKeys = [
-			...new Set(filtered.map((r) => r.userID ?? TOKEN_USAGE_CATEGORY.UNKNOWN))
-		].sort();
-		const userKeyToLabel = getUserLabels(users, userKeys);
-		return filtered.map((r) =>
-			toTimelineItem(
-				r,
-				userKeyToLabel.get(r.userID ?? TOKEN_USAGE_CATEGORY.UNKNOWN) ??
-					r.userID ??
-					TOKEN_USAGE_CATEGORY.UNKNOWN
-			)
-		);
+		const keyOf = (r: TokenUsage) => tokenUsageGroupKey(r) ?? TOKEN_USAGE_CATEGORY.UNKNOWN;
+		const userKeys = [...new Set(filtered.map(keyOf))].sort();
+		const userKeyToLabel = getUserLabels(users, userKeys, agents);
+		return filtered.map((r) => toTimelineItem(r, userKeyToLabel.get(keyOf(r)) ?? keyOf(r)));
 	}
 	if (group === TOKEN_GROUP_BY.MODELS) {
 		return filtered.map((r) =>
@@ -149,9 +143,10 @@ export function buildMainChartData(
 	start: Date,
 	end: Date,
 	users: Map<string, OrgUser>,
-	modelToName: Map<string, string>
+	modelToName: Map<string, string>,
+	agents?: Map<string, AgentLookup>
 ): TokenUsageTimelineItem[] {
-	const timeline = computeMainTimelineData(filtered, group, users, modelToName, tokenType);
+	const timeline = computeMainTimelineData(filtered, group, users, modelToName, tokenType, agents);
 	if (filtered.length <= TIMELINE_AGGREGATE_THRESHOLD) return timeline;
 	return timelineDataForChartWithRange(timeline, start, end);
 }

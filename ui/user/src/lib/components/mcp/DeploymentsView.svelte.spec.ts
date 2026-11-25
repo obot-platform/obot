@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import type { OrgUser } from '$lib/services';
 import { notifications, mcpServersAndEntries } from '$lib/stores';
 import { createMCPCatalogServer } from '../../../tests/helpers/mcp';
 import { worker } from '../../../tests/mocks/worker';
@@ -122,4 +123,35 @@ it.each(['View vMCP', 'View vMCP Deployment'])('shows one error when %s fails', 
 	});
 	expect(goto).not.toHaveBeenCalled();
 	notifications.items = [];
+});
+
+it('names the user, agent and deleted agent that own servers', async () => {
+	worker.use(
+		http.get('/api/agents', () =>
+			HttpResponse.json({
+				items: [
+					{ id: '7', displayName: 'Build Bot', status: 'active', activeAPIKeyCount: 1 },
+					{ id: '9', displayName: 'Old Bot', status: 'deleted', activeAPIKeyCount: 0 }
+				]
+			})
+		)
+	);
+	const owned = (id: string, userID: string) =>
+		createMCPCatalogServer({ id, name: `Server ${id}`, userID });
+
+	render(DeploymentsView, {
+		servers: [owned('s-user', 'user-1'), owned('s-agent', 'agent:7'), owned('s-gone', 'agent:9')],
+		usersMap: new Map([
+			['user-1', { id: 'user-1', displayName: 'Ada Admin', email: 'ada@example.com' } as OrgUser]
+		]),
+		skipLoadMcpsOnMount: true,
+		onReload: () => {}
+	});
+
+	await expect.element(page.getByText('Ada Admin', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Build Bot', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Old Bot (Deleted)', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Agent', { exact: true }).nth(1)).toBeVisible();
+	await expect.element(page.getByText('Agent', { exact: true }).nth(2)).not.toBeInTheDocument();
+	await expect.element(page.getByText(/agent:/)).not.toBeInTheDocument();
 });

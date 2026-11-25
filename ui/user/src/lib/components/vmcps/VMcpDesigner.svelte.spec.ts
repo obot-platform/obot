@@ -249,6 +249,8 @@ describe('VMcpDesigner.svelte', () => {
 		(appPage.url as URL).searchParams.delete('profile');
 		(appPage.url as URL).searchParams.delete('tab');
 		(appPage.url as URL).searchParams.delete('modify-tools');
+		(appPage.url as URL).searchParams.delete('component');
+		(appPage.url as URL).searchParams.delete('settings');
 		vmcpInstances.current = { items: [], loading: false };
 		responsive.isMobile = false;
 		finishVMcpCreateHandoff();
@@ -2589,6 +2591,203 @@ describe('VMcpDesigner.svelte', () => {
 			});
 
 			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
+		});
+	});
+
+	// Preconfigured OAuth is in the settings of each remote component of a shared vMCP: one account that
+	// everyone who uses the vMCP, users and agents, connects upstream as.
+	describe('preconfigured OAuth in component settings', () => {
+		const remoteEntry = createMCPCatalogEntry({
+			id: 'entry-remote',
+			name: 'Remote Server',
+			runtime: 'remote',
+			manifest: {
+				remoteConfig: { fixedURL: 'https://example.com/mcp' },
+				config: [
+					{
+						key: 'API_KEY',
+						name: 'API key',
+						description: 'Key',
+						required: true,
+						sensitive: false,
+						value: '',
+						usage: 'header'
+					}
+				]
+			}
+		});
+		const componentID = `component-${remoteEntry.id}`;
+		const oauthPath = `/api/vmcps/vmcp-1/components/${componentID}/preconfigured-oauth`;
+
+		function remoteVMcp(overrides: Partial<VMCP> = {}) {
+			return createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Remote vMCP',
+					components: [
+						createVMCPComponent(remoteEntry, {
+							configuration: [{ key: 'API_KEY', policy: 'userAllowed' }]
+						})
+					],
+					...overrides
+				},
+				[remoteEntry]
+			);
+		}
+
+		function mockOAuthState(state = 'needs_authorization') {
+			const read = vi.fn();
+			worker.use(
+				http.get(oauthPath, () => {
+					read();
+					return HttpResponse.json({ vmcpID: 'vmcp-1', componentID, state });
+				})
+			);
+			return read;
+		}
+
+		const remoteBlock = () => page.getByRole('button', { name: 'Remote Server', exact: true });
+		const oauthDialog = () =>
+			page
+				.getByRole('dialog')
+				.filter({ has: page.getByRole('heading', { name: 'Preconfigured OAuth' }) });
+
+		it("opens the OAuth of a remote component from the component's settings", async () => {
+			const read = mockOAuthState();
+			await renderDesigner([remoteEntry], remoteVMcp());
+
+			await remoteBlock().click();
+			await page.getByRole('button', { name: 'Manage OAuth' }).click();
+
+			await expect
+				.element(oauthDialog().getByText('Not authorized', { exact: true }))
+				.toBeVisible();
+			// Nothing is preconfigured yet, so there is no warning that everyone acts as its account.
+			await expect
+				.element(oauthDialog().getByText(/users and agents alike, acts in Remote Server/))
+				.not.toBeInTheDocument();
+			await expect
+				.element(oauthDialog().getByRole('button', { name: 'Authorize', exact: true }))
+				.toBeEnabled();
+			expect(read).toHaveBeenCalled();
+		});
+
+		it('keeps the OAuth changeable on a catalog-synced vMCP', async () => {
+			mockOAuthState();
+			await renderDesigner(
+				[remoteEntry],
+				remoteVMcp({ sourceURL: 'https://github.com/example/catalog' })
+			);
+
+			await remoteBlock().click();
+			// The manifest is read-only, but preconfigured OAuth is kept outside it.
+			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
+			await page.getByRole('button', { name: 'Manage OAuth' }).click();
+			await expect
+				.element(oauthDialog().getByRole('button', { name: 'Authorize', exact: true }))
+				.toBeEnabled();
+		});
+
+		it.each([
+			{ name: 'an auditor', groups: [Group.USER, Group.AUDITOR] },
+			{ name: 'a read-only admin', groups: [Group.USER, Group.ADMIN_READONLY] }
+		])('shows $name the OAuth without Authorize or Revoke', async ({ groups }) => {
+			mockOAuthState('authorized');
+			await renderDesigner([remoteEntry], remoteVMcp(), { groups });
+
+			await remoteBlock().click();
+			await expect
+				.element(page.getByRole('button', { name: 'Manage OAuth' }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View OAuth' }).click();
+			await expect.element(oauthDialog().getByText('Authorized', { exact: true })).toBeVisible();
+			await expect
+				.element(oauthDialog().getByRole('button', { name: 'Revoke', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(oauthDialog().getByRole('button', { name: 'Authorize', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
+		it('offers no OAuth for a component that is not remote', async () => {
+			const read = mockOAuthState();
+			await renderDesigner([componentEntry], orgVMcp());
+
+			await componentBlock().click();
+			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Manage OAuth' }))
+				.not.toBeInTheDocument();
+			expect(read).not.toHaveBeenCalled();
+		});
+
+		it('offers no OAuth on a personal vMCP', async () => {
+			const read = mockOAuthState();
+			await renderDesigner([remoteEntry], remoteVMcp({ userID: getProfileResponse.id }));
+
+			await remoteBlock().click();
+			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Manage OAuth' }))
+				.not.toBeInTheDocument();
+			expect(read).not.toHaveBeenCalled();
+		});
+
+		it('offers no OAuth to a user who is neither an administrator nor an auditor', async () => {
+			const read = mockOAuthState();
+			const vmcp = remoteVMcp();
+			// A user opens a shared component only to view the tools it was set up with.
+			vmcp.components[0].toolOverrides = [{ name: 'search', enabled: true }];
+			(appPage.url as URL).searchParams.set('component', componentID);
+			(appPage.url as URL).searchParams.set('settings', 'oauth');
+			await renderDesigner([remoteEntry], vmcp, { groups: [Group.USER] });
+
+			// A link to the OAuth opens nothing.
+			await vi.waitFor(() => expect((appPage.url as URL).searchParams.get('component')).toBeNull());
+			await remoteBlock().click();
+			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: /OAuth/ })).not.toBeInTheDocument();
+			expect(read).not.toHaveBeenCalled();
+		});
+
+		it("opens the component's OAuth a link from the agent page names, and drops the link when closed", async () => {
+			mockOAuthState();
+			(appPage.url as URL).searchParams.set('component', componentID);
+			(appPage.url as URL).searchParams.set('settings', 'oauth');
+			await renderDesigner([remoteEntry], remoteVMcp());
+
+			await expect
+				.element(oauthDialog().getByText('Not authorized', { exact: true }))
+				.toBeVisible();
+			await userEvent.keyboard('{Escape}');
+			await expect.element(oauthDialog()).not.toBeInTheDocument();
+			await vi.waitFor(() => {
+				expect((appPage.url as URL).searchParams.get('component')).toBeNull();
+				expect((appPage.url as URL).searchParams.get('settings')).toBeNull();
+			});
+		});
+
+		it("opens the component's configuration a link from the agent page names", async () => {
+			(appPage.url as URL).searchParams.set('component', componentID);
+			(appPage.url as URL).searchParams.set('settings', 'configuration');
+			await renderDesigner([remoteEntry], remoteVMcp());
+
+			const configuration = page.getByRole('dialog', { name: 'Supply Configuration' });
+			await expect
+				.element(configuration.getByRole('heading', { name: 'Configure Remote Server' }))
+				.toBeVisible();
+			await expect
+				.element(configuration.getByRole('combobox', { name: 'API key policy' }))
+				.toHaveValue('userAllowed');
+		});
+
+		it('drops a link to a component the vMCP does not have', async () => {
+			(appPage.url as URL).searchParams.set('component', 'component-gone');
+			(appPage.url as URL).searchParams.set('settings', 'oauth');
+			await renderDesigner([remoteEntry], remoteVMcp());
+
+			await vi.waitFor(() => expect((appPage.url as URL).searchParams.get('component')).toBeNull());
+			await expect.element(page.getByCSS('dialog[open]')).not.toBeInTheDocument();
 		});
 	});
 

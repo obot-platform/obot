@@ -7,17 +7,16 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
-	"strconv"
 
-	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -26,19 +25,20 @@ import (
 
 type Handler struct {
 	revealCredential func(context.Context, []string, string) (gatewaytypes.Credential, error)
-	userInfo         func(context.Context, uint) (kuser.Info, error)
+	userInfo         func(context.Context, principal.Principal) (kuser.Info, error)
 }
 
 func New(gatewayClient *gateway.Client) *Handler {
 	handler := &Handler{}
 	if gatewayClient != nil {
 		handler.revealCredential = gatewayClient.RevealCredential
-		handler.userInfo = gatewayClient.UserInfoByID
+		handler.userInfo = gatewayClient.IdentityInfo
 	}
 	return handler
 }
 
-// DeleteUnauthorized removes shared VMCP instances whose user no longer matches any profile.
+// DeleteUnauthorized removes shared VMCP instances whose owner, a user or an agent, no longer matches any profile,
+// and the instances of deleted agents.
 func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.VMCPInstance)
 
@@ -52,28 +52,26 @@ func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) erro
 		// Then this instance will be cleaned up on vMCP deletion by reference.
 		return nil
 	}
-
-	// Register a trigger so group membership changes also recheck profile access.
-	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
-		Namespace:     instance.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-	}); err != nil {
-		return err
+	if _, ok := vmcpconfig.PairOwner(*instance); ok {
+		// What a user set up through an agent stays when it no longer applies, because no vMCP profile names the agent,
+		// or no agent profile matches the user, any more: it is deleted only when the user revokes the agent, or the
+		// vMCP, the agent or the user is deleted (agentdelegation.Cleanup, and DeleteRefs for the vMCP).
+		return nil
 	}
 
-	if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
-		Namespace:     instance.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-	}); err != nil {
-		return err
-	}
-
-	id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+	// Register triggers so owner changes also recheck profile access. Profile changes recheck it through the vMCP,
+	// which req.Get above watches.
+	owner, err := watchOwnerChanges(req, *instance)
 	if err != nil {
-		return fmt.Errorf("invalid VMCP instance user ID: %w", err)
+		return err
 	}
 
-	u, err := h.userInfo(req.Ctx, uint(id))
+	u, err := h.userInfo(req.Ctx, owner)
+	if owner.Kind == principal.KindAgent && errors.Is(err, gorm.ErrRecordNotFound) {
+		// A deleted agent can never connect again, so its instance is removed like one whose access was revoked.
+		slog.Info("Deleting VMCPInstance of deleted agent", "instance", instance.Name, "userID", instance.Spec.UserID)
+		return kclient.IgnoreNotFound(req.Delete(instance))
+	}
 	if err != nil {
 		return err
 	}
@@ -86,10 +84,48 @@ func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) erro
 	return kclient.IgnoreNotFound(req.Delete(instance))
 }
 
+// watchOwnerChanges registers triggers on the lifecycle events of an instance's owner, which can change the profiles
+// the owner matches, and returns the owner. A user's groups and role change through UserGroupChange and
+// UserRoleChange. An agent has neither, but it is disabled, enabled and deleted through AgentIdentityChange and
+// AgentIdentityDelete. Events are selected by the owner's own kind, so a user's events never trigger the instance of
+// the agent with the same numeric ID, or the other way around.
+func watchOwnerChanges(req router.Request, instance v1.VMCPInstance) (principal.Principal, error) {
+	owner, err := principal.Parse(instance.Spec.UserID)
+	if err != nil {
+		return principal.Principal{}, fmt.Errorf("invalid VMCP instance user ID: %w", err)
+	}
+
+	if owner.Kind == principal.KindAgent {
+		for _, list := range []kclient.ObjectList{&v1.AgentIdentityChangeList{}, &v1.AgentIdentityDeleteList{}} {
+			if err := req.List(list, &kclient.ListOptions{
+				Namespace:     instance.Namespace,
+				FieldSelector: fields.OneTermEqualSelector("spec.agentID", owner.ID),
+			}); err != nil {
+				return principal.Principal{}, err
+			}
+		}
+		return owner, nil
+	}
+
+	for _, list := range []kclient.ObjectList{&v1.UserGroupChangeList{}, &v1.UserRoleChangeList{}} {
+		if err := req.List(list, &kclient.ListOptions{
+			Namespace:     instance.Namespace,
+			FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
+		}); err != nil {
+			return principal.Principal{}, err
+		}
+	}
+	return owner, nil
+}
+
 // ReconcileToolSelection permanently removes revoked tools from explicit selections.
 func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.VMCPInstance)
 	if len(instance.Spec.Manifest.ComponentSet) == 0 {
+		return nil
+	}
+	if _, ok := vmcpconfig.PairOwner(*instance); ok {
+		// A pair's instance has no tool selection: nobody connects through it.
 		return nil
 	}
 
@@ -118,36 +154,36 @@ func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) 
 	return req.Client.Update(req.Ctx, instance)
 }
 
-// instanceUser resolves the instance user for evaluating shared VMCP profiles.
-// Profiles depend on the user's groups and role, so changes to either retrigger
+// instanceUser resolves the instance owner, a user or an agent, for evaluating shared VMCP profiles.
+// Profiles depend on the owner's groups, role and lifecycle, so changes to any retrigger
 // the instance. Personal VMCPs do not use profiles, so they return a nil user.
 func (h *Handler) instanceUser(req router.Request, vmcp v1.VMCP, instance v1.VMCPInstance) (kuser.Info, error) {
 	if vmcp.Spec.UserID != "" {
 		return nil, nil
 	}
 
-	// Register a trigger on group list changes so we recalculate when things change.
-	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
-		Namespace:     instance.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-	}); err != nil {
-		return nil, err
-	}
-
-	// Same for user role changes.
-	if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
-		Namespace:     instance.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-	}); err != nil {
-		return nil, err
-	}
-
-	id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+	// Register triggers on the owner's lifecycle events so we recalculate when things change.
+	owner, err := watchOwnerChanges(req, instance)
 	if err != nil {
-		return nil, fmt.Errorf("invalid VMCP instance user ID: %w", err)
+		return nil, err
 	}
 
-	return h.userInfo(req.Ctx, uint(id))
+	return h.userInfo(req.Ctx, owner)
+}
+
+// instanceComponents returns, of components, those of vmcp that instance carries: those that the profiles enable for
+// its owner (EnabledComponents), or for a pair's instance, what a user set up through an agent, the components that
+// may need the user, whatever the vMCP profiles grant (vmcpconfig.PairInstanceComponents). Which of them
+// an agent acting on behalf of the user uses is decided on each connection.
+func (h *Handler) instanceComponents(req router.Request, vmcp v1.VMCP, instance v1.VMCPInstance, components []types.VMCPComponent) ([]types.VMCPComponent, error) {
+	if _, ok := vmcpconfig.PairOwner(instance); ok {
+		return vmcpconfig.PairInstanceComponents(components), nil
+	}
+	u, err := h.instanceUser(req, vmcp, instance)
+	if err != nil {
+		return nil, err
+	}
+	return vmcpconfig.EnabledComponents(u, vmcp, components), nil
 }
 
 // SyncUserConfigurationHash records the current instance credential without
@@ -163,28 +199,28 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 		return fmt.Errorf("get VMCP %q: %w", instance.Spec.Manifest.VMCPID, err)
 	}
 
-	u, err := h.instanceUser(req, vmcp, *instance)
-	if err != nil {
-		return err
-	}
-
 	configuration := map[string]string{}
 	effective := vmcp.Spec.Manifest
 	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, *instance)
 	// Components disabled for the user never require the user's configuration.
-	enabled := vmcpconfig.EnabledComponents(u, vmcp, slices.Clone(effective.Components))
+	enabled, err := h.instanceComponents(req, vmcp, *instance, slices.Clone(effective.Components))
+	if err != nil {
+		return err
+	}
 	checkHash := vmcpconfig.ConfigurationCheckHash(enabled, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation])
 	if instance.Status.ConfigurationCheckHash == checkHash {
 		return nil
 	}
-	credential, err := h.revealCredential(req.Ctx,
-		[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)},
-		vmcpconfig.ConfigurationCredentialName(),
-	)
-	if err == nil {
-		configuration = userAllowedConfiguration(effective, credential.Secrets)
-	} else if !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return fmt.Errorf("reveal configuration credential for VMCP instance %q: %w", instance.Name, err)
+	if vmcpconfig.InstanceTakesUserConfiguration(*instance) {
+		credential, err := h.revealCredential(req.Ctx,
+			[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)},
+			vmcpconfig.ConfigurationCredentialName(),
+		)
+		if err == nil {
+			configuration = userAllowedConfiguration(effective, credential.Secrets)
+		} else if !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return fmt.Errorf("reveal configuration credential for VMCP instance %q: %w", instance.Name, err)
+		}
 	}
 
 	var missing []string
@@ -230,14 +266,12 @@ func (h *Handler) EnsureMCPServers(req router.Request, _ router.Response) error 
 		return fmt.Errorf("get VMCP %q: %w", instance.Spec.Manifest.VMCPID, err)
 	}
 
-	u, err := h.instanceUser(req, vmcp, *instance)
+	// Exclude profile-disabled components so revoked dedicated servers are deleted
+	// and not recreated while access remains revoked. Restored access allows recreation.
+	components, err := h.instanceComponents(req, vmcp, *instance, vmcpconfig.ComponentsForInstance(vmcp, *instance))
 	if err != nil {
 		return err
 	}
-
-	// Exclude profile-disabled components so revoked dedicated servers are deleted
-	// and not recreated while access remains revoked. Restored access allows recreation.
-	components := vmcpconfig.EnabledComponents(u, vmcp, vmcpconfig.ComponentsForInstance(vmcp, *instance))
 	servers := make([]v1.MCPServer, 0, len(components))
 	for _, component := range components {
 		if vmcpconfig.IsMultiUser(component) {
@@ -328,7 +362,7 @@ func mcpServerForComponent(instance *v1.VMCPInstance, component types.VMCPCompon
 	}
 
 	return v1.MCPServer{
-		Name:        name.SafeConcatName(system.MCPServerPrefix+instance.Name, component.ID),
+		Name:        vmcpconfig.ComponentServerName(instance.Name, component.ID),
 		Namespace:   instance.Namespace,
 		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: utils.Digest(component.CatalogEntry)},
 		Spec: v1.MCPServerSpec{

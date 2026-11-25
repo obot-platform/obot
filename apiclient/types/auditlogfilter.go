@@ -9,5 +9,9 @@ type AuditLogAPIKeyFilterOption struct {
 	MaskedKey       string `json:"maskedKey"`
 	UserID          string `json:"userID"`
 	UserDisplayName string `json:"userDisplayName"`
-	Revoked         bool   `json:"revoked"`
+	// AgentID and AgentDisplayName are set instead of UserID for the key of an agent, and are those of the agent's
+	// record even after the agent is deleted.
+	AgentID          string `json:"agentID,omitempty"`
+	AgentDisplayName string `json:"agentDisplayName,omitempty"`
+	Revoked          bool   `json:"revoked"`
 }

@@ -396,7 +396,7 @@ func TestMigrateCompositeConnections(t *testing.T) {
 	require.Contains(t, target.Finalizers, v1.VMCPFinalizer)
 	require.True(t, target.Spec.Manifest.Components[0].ForceSingleUser)
 	require.True(t, target.Spec.Manifest.Components[1].ForceSingleUser)
-	require.Equal(t, []types.VMCPProfile{{Name: "owners", Subjects: rule.Spec.Manifest.Subjects, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}}, target.Spec.Manifest.Profiles)
+	require.Equal(t, []types.VMCPProfile{{ID: vmcp.DerivedProfileID(targetName, "owners"), Name: "owners", Subjects: rule.Spec.Manifest.Subjects, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}}, target.Spec.Manifest.Profiles)
 	require.Equal(t, "dynamicFile", string(target.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config[1].Usage))
 	require.Equal(t, "Bearer ", target.Spec.Manifest.Components[1].CatalogEntry.Manifest.Config[0].Prefix)
 	var instances v1.VMCPInstanceList
@@ -495,7 +495,7 @@ func TestMigrateRuleProfiles(t *testing.T) {
 	var targets v1.VMCPList
 	require.NoError(t, client.List(t.Context(), &targets))
 	require.Len(t, targets.Items, 1)
-	require.Equal(t, []types.VMCPProfile{{Name: "Engineering", Subjects: named.Spec.Manifest.Subjects, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}}, targets.Items[0].Spec.Manifest.Profiles)
+	require.Equal(t, []types.VMCPProfile{{ID: vmcp.DerivedProfileID(targets.Items[0].Name, "Engineering"), Name: "Engineering", Subjects: named.Spec.Manifest.Subjects, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}}, targets.Items[0].Spec.Manifest.Profiles)
 }
 
 func TestMigrateRetainsSourceOnOAuthCopyFailure(t *testing.T) {

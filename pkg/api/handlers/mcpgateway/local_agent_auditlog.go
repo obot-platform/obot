@@ -67,6 +67,10 @@ func localAgentSubmitterAttribution(req api.Context) (actorType types.AuditLogAc
 		}
 		return types.AuditLogActorTypeDevice, deviceID, deviceDeploymentID
 	}
+	// An agent's UID is its storage encoding, not a user's ID.
+	if principal.ClaimsAgent(req.User) {
+		return types.AuditLogActorTypeUnknown, "", 0
+	}
 	if userID := req.User.GetUID(); userID != "" {
 		return types.AuditLogActorTypeUser, userID, 0
 	}

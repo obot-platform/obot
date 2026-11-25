@@ -41,8 +41,13 @@ var (
 )
 
 func (c *Client) GetMCPOAuthToken(ctx context.Context, userID, mcpID, url string) (*types.MCPOAuthToken, error) {
+	return c.getMCPOAuthToken(ctx, c.db.WithContext(ctx), userID, mcpID, url)
+}
+
+// getMCPOAuthToken is GetMCPOAuthToken through db, which may be a transaction.
+func (c *Client) getMCPOAuthToken(ctx context.Context, db *gorm.DB, userID, mcpID, url string) (*types.MCPOAuthToken, error) {
 	var tokens []types.MCPOAuthToken
-	err := c.db.WithContext(ctx).Where("mcp_id = ? AND user_id = ?", mcpID, userID).Find(&tokens).Error
+	err := db.Where("mcp_id = ? AND user_id = ?", mcpID, userID).Find(&tokens).Error
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +113,12 @@ func (c *Client) RefreshMCPOAuthToken(ctx context.Context, userID, mcpID, url, g
 }
 
 func (c *Client) saveMCPOAuthToken(ctx context.Context, userID, mcpID, url, oauthAuthRequestID string, oauthConf *oauth2.Config, token *oauth2.Token, refreshGrantID *string, challenge string) error {
+	return c.saveMCPOAuthTokenIn(ctx, c.db.WithContext(ctx), userID, mcpID, url, oauthAuthRequestID, oauthConf, token, refreshGrantID, challenge)
+}
+
+// saveMCPOAuthTokenIn is saveMCPOAuthToken through db, which may be a transaction, in which it saves the token in a
+// nested one.
+func (c *Client) saveMCPOAuthTokenIn(ctx context.Context, db *gorm.DB, userID, mcpID, url, oauthAuthRequestID string, oauthConf *oauth2.Config, token *oauth2.Token, refreshGrantID *string, challenge string) error {
 	t := &types.MCPOAuthToken{
 		GrantID:            rand.Text(),
 		UpstreamChallenge:  challenge,
@@ -131,7 +142,7 @@ func (c *Client) saveMCPOAuthToken(ctx context.Context, userID, mcpID, url, oaut
 		return fmt.Errorf("failed to encrypt token: %w", err)
 	}
 
-	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		// Insert first so concurrent callbacks also serialize when no grant exists yet.
 		if refreshGrantID == nil {
 			result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(t)
@@ -142,7 +153,7 @@ func (c *Client) saveMCPOAuthToken(ctx context.Context, userID, mcpID, url, oaut
 
 		var current types.MCPOAuthToken
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Select("URL", "AuthURL", "TokenURL", "Scopes", "GrantID", "OAuthAuthRequestID", "UpstreamChallenge").
+			Select("URL", "AuthURL", "TokenURL", "Scopes", "GrantID", "OAuthAuthRequestID", "UpstreamChallenge", "AuthorizedBy", "AuthorizedAt", "InvalidatedAt", "InvalidReason").
 			Where("user_id = ? AND mcp_id = ?", userID, mcpID).Take(&current).Error; err != nil {
 			return err
 		}
@@ -160,10 +171,16 @@ func (c *Client) saveMCPOAuthToken(ctx context.Context, userID, mcpID, url, oaut
 			if current.GrantID != *refreshGrantID || current.URL != url {
 				return fmt.Errorf("upstream OAuth grant changed during refresh")
 			}
+			// A grant marked invalid stays invalid until it is authorized again; a refresh never revives it.
+			if current.InvalidatedAt != nil {
+				return fmt.Errorf("upstream OAuth grant is invalid")
+			}
 
 			t.GrantID = current.GrantID
 			t.OAuthAuthRequestID = current.OAuthAuthRequestID
 			t.UpstreamChallenge = current.UpstreamChallenge
+			t.AuthorizedBy = current.AuthorizedBy
+			t.AuthorizedAt = current.AuthorizedAt
 		}
 
 		return tx.Save(t).Error
@@ -222,7 +239,8 @@ func (c *Client) DeleteMCPOAuthTokenForAllUsers(ctx context.Context, mcpID strin
 }
 
 func (c *Client) triggerMCPOAuthTokenChange(ctx context.Context, mcpID string) error {
-	if mcpID == "" || c.mcpOAuthTokenTrigger == nil {
+	// A vMCP preconfigured OAuth grant's MCPID is "<vmcpID>/<componentID>", which names no MCPServer.
+	if mcpID == "" || strings.Contains(mcpID, "/") || c.mcpOAuthTokenTrigger == nil {
 		return nil
 	}
 	return c.mcpOAuthTokenTrigger(ctx, mcpID)

@@ -6,7 +6,11 @@ Obot credentials serve different connections. Manage them according to their own
 
 | Credential | Configure and revoke |
 |---|---|
-| Client API key | [Agent authorization scopes](../functionality/agent-auth-scopes.md); deleting a scope invalidates its keys |
+| Client API key | [Agent authorization scopes](../functionality/agent-auth-scopes.md), under **Identity & Access > API Keys**; deleting a scope invalidates its keys |
+| Agent API key | [Agent identities](./agent-identities.md#create-a-key); revoking a key, or disabling or deleting its agent, invalidates it |
+| Delegated tokens, approval codes and secrets | [Agents acting on behalf of users](./agents-on-behalf-of-users.md); revoking the approval, revoking the minting key, or disabling or deleting the agent or the user ends the tokens ([details](#agent-delegations)) |
+| Setup through an agent | Values and upstream accounts a user sets up through an agent; the user clears or disconnects them, or revoking the approval, or deleting the agent, the user or the vMCP deletes them ([details](#agent-delegations)) |
+| Preconfigured upstream OAuth | [Preconfigured OAuth](../mcp-gateway/server-types.md#preconfigured-oauth) on a shared vMCP's component, one account that every user and agent of the vMCP uses; **Revoke**, removing the component, or deleting the vMCP deletes it ([details](#preconfigured-oauth)) |
 | Upstream MCP OAuth application | [Static OAuth](../mcp-gateway/server-configuration.md#static-oauth); changing application credentials can interrupt use |
 | Shared or user-supplied MCP configuration | [vMCP configuration policies](../mcp-gateway/server-types.md#virtual-mcps-configuration-policies) |
 | Externally managed Kubernetes Secret | [Secret bindings](../concepts/mcp-hosting.md#mcp-servers-kubernetes-secret-bindings), including the required discovery/resolution label |
@@ -17,10 +21,40 @@ Application-level encryption is disabled by default. Read the [encryption covera
 
 Preserve key access when restoring encrypted data; losing the key or KMS permissions can make a database backup unusable.
 
-## Create an agent identity and authorization scope {#agent-auth-scopes-creating-an-agent-authorization-scope}
+## Preconfigured OAuth {#preconfigured-oauth}
 
-1. Open **Identity & Access > Agents**.
-2. Click **Create Agent Identity**.
+The upstream OAuth tokens that an administrator [preconfigures](../mcp-gateway/server-types.md#preconfigured-oauth) for a vMCP component belong to the vMCP, not to a user, an agent or a profile. Every user and agent that uses the component through the vMCP uses them. Until they're revoked, users' own tokens for the component aren't used, but Obot keeps them.
+
+Each preconfigured OAuth account is a row of the gateway database's MCP OAuth tokens, encrypted like users' tokens (`mcpoauthtokens.obot.obot.ai` below). Its owner is `vmcp-oauth:<vmcpID>`, which isn't a user or an agent, so nothing can authenticate as it, and its MCP ID is `<vmcpID>/<componentID>`. It's used only for the component URL it was authorized for. No API response, log or audit record contains its tokens.
+
+It's deleted when:
+
+- an administrator selects **Revoke** in the component's **OAuth** settings, or calls `DELETE /api/vmcps/{vmcp_id}/components/{component_id}/preconfigured-oauth`;
+- the component is removed from the vMCP;
+- the vMCP is deleted.
+
+Deleting an agent, or changing the vMCP's profiles, deletes nothing. Deleting preconfigured OAuth doesn't revoke its tokens at the provider. Revoke them there too if they may have leaked.
+
+## Agents acting on behalf of users {#agent-delegations}
+
+When a user approves an [agent to act on their behalf](./agents-on-behalf-of-users.md), Obot keeps these credentials:
+
+| Credential | How it's kept | How it ends |
+|---|---|---|
+| Delegated token | A JWT that Obot signs and doesn't store. It lasts 15 minutes and names the delegation and the agent key that minted it. | Refused on its next request when the user or an administrator revokes the approval, the minting key is revoked or expires, or the agent or the user is disabled or deleted, and when no user access entry matches the user. Other replicas apply it within 15 seconds. |
+| Approval secret | The agent keeps the secret in its own session. Obot stores only its SHA-256 digest. | With the approval request, after 10 minutes |
+| Approval code | Obot stores only its SHA-256 digest. | Once it's redeemed, or presented with a wrong secret, and after 2 minutes. Expired requests and their codes are deleted periodically. |
+| Values a user enters through an agent | A credential of the user's setup through that agent, encrypted like users' own configuration (`credentials.obot.obot.ai` below) | When the user clears them under **Agents acting for you**, revokes the agent, or an administrator revokes the approval, or the agent, the user or the vMCP is deleted |
+| Upstream accounts a user connects through an agent | Rows of the gateway database's MCP OAuth tokens, encrypted like users' tokens (`mcpoauthtokens.obot.obot.ai` below) | The same, or when the user disconnects the account. An account the provider refuses to refresh is removed. |
+
+The setup a user does through an agent is owned by `agent:<agentID>/user:<userID>`. It's kept apart from the user's own setup and from the agent's, and nothing can authenticate as that owner. Administrators can't see the values. Revoking or deleting it in Obot doesn't revoke an upstream account at its provider: users revoke it there too if its tokens may have leaked.
+
+## Create an API key {#agent-auth-scopes-creating-an-agent-authorization-scope}
+
+An API key lets your own scripts and tools call Obot as you. For automation that should have its own identity, independent of any user, use an [agent identity](./agent-identities.md) instead.
+
+1. Open **Identity & Access > API Keys**.
+2. Click **Create API Key**.
 3. Fill in the required information:
    - **Name** (required): A descriptive name that identifies the authorization scope's purpose
    - **Description** (optional): Additional context about how the authorization scope is used
@@ -35,15 +69,15 @@ Preserve key access when restoring encrypted data; losing the key or KMS permiss
      - **Device scan access**: Submit and read device scans
 4. Click **Save**.
 
-The UI calls these credentials **agent identities**; each identity has an authorization scope and one or more API keys. For CLI creation and client examples, see the [authorization scope reference](../functionality/agent-auth-scopes.md).
+This tab was called **Agents**, and these keys *agent identities*, before [agent identities](./agent-identities.md) became their own feature. Old links to the tab redirect to **API Keys**. For CLI creation and client examples, see the [API key reference](../functionality/agent-auth-scopes.md).
 
 After creation, you'll see a dialog displaying an initial new API key to use. **Copy and save this key immediately**—it will only be shown once and cannot be retrieved later.
 
-## Managing Agent Authorization Scopes {#agent-auth-scopes-managing-agent-authorization-scopes}
+## Managing API keys {#agent-auth-scopes-managing-agent-authorization-scopes}
 
-### Viewing Your Agent Authorization Scopes {#agent-auth-scopes-viewing-your-agent-authorization-scopes}
+### Viewing your API keys {#agent-auth-scopes-viewing-your-agent-authorization-scopes}
 
-Open **Identity & Access > Agents** to see all your agent authorization scopes. The table displays:
+Open **Identity & Access > API Keys** to see all your API keys. The table displays:
 
 | Column | Description |
 |--------|-------------|
@@ -52,14 +86,14 @@ Open **Identity & Access > Agents** to see all your agent authorization scopes. 
 | Last Used | When an API key generated for the scope was last used |
 | Expires | When the scope will expire (or "Never" if it has no expiration date) |
 
-### Deleting an Agent Authorization Scope {#agent-auth-scopes-deleting-an-agent-authorization-scope}
+### Deleting an API key {#agent-auth-scopes-deleting-an-agent-authorization-scope}
 
-1. Open **Identity & Access > Agents**
-2. Click the three-dot menu on the authorization scope you want to delete
+1. Open **Identity & Access > API Keys**
+2. Click the three-dot menu on the key you want to delete
 3. Select **Delete**
 4. Confirm the deletion
 
-Deleting an agent authorization scope immediately invalidates its API keys. This action cannot be undone.
+Deleting an API key immediately invalidates it. This action cannot be undone.
 
 ## Supported Encryption Providers {#overview-supported-encryption-providers}
 

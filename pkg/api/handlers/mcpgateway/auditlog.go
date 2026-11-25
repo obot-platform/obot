@@ -25,6 +25,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,11 +75,15 @@ var (
 	// defaultFilterOptions (a fixed enum); the rest resolve to distinct values across both sources.
 	unifiedFilterOptions = map[string]struct{}{
 		"actor":      {},
+		"actor_kind": {},
 		"operation":  {},
 		"mcp_server": {},
 		"tool":       {},
 		"outcome":    {},
 		"client":     {},
+
+		// The users agents acted for, which the on_behalf_of filter takes.
+		api.OnBehalfOfParam: {},
 	}
 )
 
@@ -214,6 +219,9 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 	opts := gateway.MCPAuditLogOptions{
 		APIKeyID:                  api.ParseUintList(query["api_key_id"]),
 		UserID:                    parseMultiValueParam(query, "user_id"),
+		IncludeOnBehalfOf:         api.IncludeOnBehalfOf(query),
+		OnBehalfOf:                parseMultiValueParam(query, api.OnBehalfOfParam),
+		ActorKind:                 parseMultiValueParam(query, "actor_kind"),
 		MCPID:                     parseMultiValueParam(query, "mcp_id"),
 		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
 		MCPServerCatalogEntryName: parseMultiValueParam(query, "mcp_server_catalog_entry_name"),
@@ -617,6 +625,9 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 		MCPServerDisplayNames:      mcpServerDisplayNames,
 		MCPServerCatalogEntryNames: mcpServerCatalogEntryNames,
 		UserIDs:                    userIDs,
+		IncludeOnBehalfOf:          api.IncludeOnBehalfOf(query),
+		// Unlike the filters above, it applies to a single server's stats too.
+		OnBehalfOf: parseMultiValueParam(query, api.OnBehalfOfParam),
 	}
 
 	// Apply scope filtering based on user role (same logic as audit logs)
@@ -691,23 +702,35 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 }
 
 // CollectMCPAuditEntry converts a nanobot audit log entry to an API audit log entry and queues it for processing.
+// The entry is the MCP server's, so nothing in it says that an agent acted on behalf of a user.
 func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 	h.collectMCPAuditEntry(context.Background(), entry)
 }
 
 func (h *AuditLogHandler) collectMCPAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog) {
-	h.collectMCPProxyAuditEntry(ctx, entry, false, "", "")
+	entry.Metadata = maps.Clone(entry.Metadata)
+	delete(entry.Metadata, mcp.AuditLogOnBehalfOf)
+	h.collectMCPEntry(ctx, entry, false, false, "", "")
 }
 
 // CollectMCPProxyAuditEntry records proxy-only persistence metadata. The
 // nanobot audit type predates ResponseReceived and has no internal exchange ID,
 // so the proxy passes both values separately. responseMethod is the MCP method a
 // response-only entry answers, when the proxy knows it.
+//
+// The gateway recorded the entry itself, for the caller it authenticated, so the user an agent acted on behalf of is
+// taken from the entry's metadata (mcp.AuditLogOnBehalfOf), which the gateway set from that caller.
 func (h *AuditLogHandler) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID, responseMethod string) {
 	h.collectMCPProxyAuditEntry(context.Background(), entry, responseReceived, proxyExchangeID, responseMethod)
 }
 
 func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID, responseMethod string) {
+	h.collectMCPEntry(ctx, entry, true, responseReceived, proxyExchangeID, responseMethod)
+}
+
+// collectMCPEntry records entry. byGateway reports that the MCP gateway recorded it for the caller it authenticated,
+// rather than an MCP server submitting it; only then is it attributed to a user an agent acted on behalf of.
+func (h *AuditLogHandler) collectMCPEntry(ctx context.Context, entry auditlogs.MCPAuditLog, byGateway, responseReceived bool, proxyExchangeID, responseMethod string) {
 	if !h.gatewayClient.MCPAuditLogEnabled() {
 		return
 	}
@@ -725,6 +748,9 @@ func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry a
 	}
 
 	convertMCPAuditLog(&auditLog)
+	if byGateway {
+		attributeOnBehalfOf(&auditLog)
+	}
 	if err := h.attributeMCPAuditLogAPIKey(ctx, &auditLog); err != nil {
 		slog.Warn("failed to attribute MCP audit log API key", "error", err)
 	}
@@ -748,21 +774,33 @@ func (h *AuditLogHandler) attributeMCPAuditLogAPIKey(ctx context.Context, auditL
 		return nil
 	}
 
-	ownerUserID, keyID, err := gateway.ParseRedactedAPIKey(mcpFields.APIKey)
+	ownerKind, ownerID, keyID, err := gateway.ParseRedactedAPIKey(mcpFields.APIKey)
 	if err != nil {
 		return nil
 	}
 
-	apiKey, err := h.gatewayClient.GetAPIKey(ctx, ownerUserID, keyID)
+	// The key is looked up as a key of the owner its prefix names, so an agent's key is never attributed to the
+	// user with the same ID, or the other way around.
+	var (
+		owner  principal.Principal
+		apiKey *gatewaytypes.APIKey
+	)
+	if ownerKind == principal.KindAgent {
+		owner = principal.Agent(ownerID)
+		apiKey, err = h.gatewayClient.GetAgentAPIKey(ctx, ownerID, keyID)
+	} else {
+		owner = principal.User(ownerID)
+		apiKey, err = h.gatewayClient.GetAPIKey(ctx, ownerID, keyID)
+	}
 	var attribution principal.APIKeyAttribution
 	if err == nil {
-		attribution = principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name)
+		attribution = principal.NewAPIKeyAttribution(apiKey.ID, owner, apiKey.Name)
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Older keys may no longer have metadata. Preserve the stable ID and
 		// safe display fallback anyway.
-		attribution = principal.NewAPIKeyAttribution(keyID, ownerUserID, "")
+		attribution = principal.NewAPIKeyAttribution(keyID, owner, "")
 	} else {
-		return fmt.Errorf("get API key %d for user %d: %w", keyID, ownerUserID, err)
+		return fmt.Errorf("get API key %d for %s %d: %w", keyID, ownerKind, ownerID, err)
 	}
 
 	auditLog.APIKeyID = &attribution.ID
@@ -780,29 +818,68 @@ func convertMCPAuditLog(auditLog *auditLogInput) {
 	if auditLog.SourceType == "" {
 		auditLog.SourceType = types.AuditLogSourceTypeMCP
 	}
+	// The subject arrives as the storage encoding of the caller, as the MCP server was given it, so it is decoded
+	// into the row's attribution here rather than from a UserInfo. An agent's call has no user ID. Nothing an MCP server
+	// sends can say that an agent acted for a user.
+	actor := gatewaytypes.ActorForOwner(auditLog.UserID)
+	auditLog.UserID, auditLog.PrincipalKind, auditLog.PrincipalID = actor.UserID, actor.PrincipalKind, actor.PrincipalID
+	auditLog.OnBehalfOf = actor.OnBehalfOf
 	if apiKeyID, err := strconv.ParseUint(auditLog.Metadata[principal.APIKeyIDExtra], 10, 0); err == nil && apiKeyID > 0 {
 		id := uint(apiKeyID)
 		auditLog.APIKeyID = &id
 		auditLog.APIKeyName = auditLog.Metadata[principal.APIKeyNameExtra]
 	}
 
-	mcp := auditLog.MCP()
-	if mcp == nil {
+	fields := auditLog.MCP()
+	if fields == nil {
 		return
 	}
 
-	if mcp.MCPID == "" {
-		mcp.MCPID = auditLog.Metadata["mcpID"]
+	if fields.MCPID == "" {
+		fields.MCPID = auditLog.Metadata["mcpID"]
 	}
-	if mcp.MCPServerCatalogEntryName == "" {
-		mcp.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
+	if fields.MCPServerCatalogEntryName == "" {
+		fields.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
 	}
-	if mcp.PowerUserWorkspaceID == "" {
-		mcp.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
+	if fields.PowerUserWorkspaceID == "" {
+		fields.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
 	}
-	if mcp.MCPServerDisplayName == "" {
-		mcp.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
+	if fields.MCPServerDisplayName == "" {
+		fields.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
 	}
+	if fields.VMCPID == "" {
+		fields.VMCPID = auditLog.Metadata[mcp.AuditLogVMCPID]
+	}
+	if fields.VMCPComponentID == "" {
+		fields.VMCPComponentID = auditLog.Metadata[mcp.AuditLogComponentID]
+	}
+	if len(fields.ProfileIDs) == 0 {
+		fields.ProfileIDs = auditProfileIDs(auditLog.Metadata[mcp.AuditLogProfiles])
+	}
+}
+
+// attributeOnBehalfOf attributes an entry that the MCP gateway recorded to the user that its agent acted on behalf of,
+// as the gateway recorded it from the caller it authenticated (proxyAudit.setCaller). Only an agent's call is, and only
+// with a user ID in canonical form.
+func attributeOnBehalfOf(auditLog *auditLogInput) {
+	onBehalfOf := auditLog.Metadata[mcp.AuditLogOnBehalfOf]
+	if onBehalfOf == "" || !principal.IsAgentKind(auditLog.PrincipalKind) || auditLog.PrincipalID == "" {
+		return
+	}
+	if user, err := principal.Parse(onBehalfOf); err == nil && user.Kind == principal.KindUser && user.ID == onBehalfOf {
+		auditLog.OnBehalfOf = onBehalfOf
+	}
+}
+
+// auditProfileIDs decodes the comma-separated profile IDs of audit metadata. Profile IDs never contain commas.
+func auditProfileIDs(value string) datatypes.JSONSlice[string] {
+	var ids datatypes.JSONSlice[string]
+	for id := range strings.SplitSeq(value, ",") {
+		if id = strings.TrimSpace(id); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // Close releases resources owned by the handler. AuditLogHandler currently owns no independent

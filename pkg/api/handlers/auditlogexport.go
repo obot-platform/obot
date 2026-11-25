@@ -52,6 +52,7 @@ func (h *AuditLogExportHandler) CreateAuditLogExport(req api.Context) error {
 			EndTime:                metav1.NewTime(createReq.EndTime.GetTime()),
 			Filters:                createReq.Filters,
 			LLMFilters:             createReq.LLMFilters,
+			AdminFilters:           createReq.AdminFilters,
 			WithRequestAndResponse: req.UserIsAuditor(),
 			Bucket:                 createReq.Bucket,
 			KeyPrefix:              createReq.KeyPrefix,
@@ -150,6 +151,7 @@ func (h *AuditLogExportHandler) CreateScheduledAuditLogExport(req api.Context) e
 			RetentionPeriodInDays:  createReq.RetentionPeriodInDays,
 			Filters:                createReq.Filters,
 			LLMFilters:             createReq.LLMFilters,
+			AdminFilters:           createReq.AdminFilters,
 			WithRequestAndResponse: req.UserIsAuditor(),
 			Bucket:                 createReq.Bucket,
 			KeyPrefix:              createReq.KeyPrefix,
@@ -253,17 +255,17 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 	if updateReq.RetentionPeriodInDays != nil {
 		scheduledExport.Spec.RetentionPeriodInDays = *updateReq.RetentionPeriodInDays
 	}
+	if err := checkExportFilterTypes(scheduledExport.Spec.EffectiveType(), updateReq.Filters, updateReq.LLMFilters, updateReq.AdminFilters); err != nil {
+		return types.NewErrBadRequest("%v", err)
+	}
 	if updateReq.Filters != nil {
-		if scheduledExport.Spec.EffectiveType() != types.AuditLogTypeMCP {
-			return types.NewErrBadRequest("filters can only be set for MCP audit log exports")
-		}
 		scheduledExport.Spec.Filters = updateReq.Filters
 	}
 	if updateReq.LLMFilters != nil {
-		if scheduledExport.Spec.EffectiveType() != types.AuditLogTypeLLM {
-			return types.NewErrBadRequest("llmFilters can only be set for LLM audit log exports")
-		}
 		scheduledExport.Spec.LLMFilters = updateReq.LLMFilters
+	}
+	if updateReq.AdminFilters != nil {
+		scheduledExport.Spec.AdminFilters = updateReq.AdminFilters
 	}
 	if updateReq.Bucket != nil {
 		scheduledExport.Spec.Bucket = *updateReq.Bucket
@@ -440,16 +442,7 @@ func (h *AuditLogExportHandler) validateExportRequest(req *types.AuditLogExportC
 	if req.StartTime.GetTime().After(req.EndTime.GetTime()) {
 		return fmt.Errorf("start time must be before end time")
 	}
-	if exportType == types.AuditLogTypeLLM {
-		if req.Filters != nil {
-			return fmt.Errorf("filters can only be set for MCP audit log exports")
-		}
-		return nil
-	}
-	if req.LLMFilters != nil {
-		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
-	}
-	return validateAuditLogExportFilters(req.Filters)
+	return validateExportFilterFields(exportType, req.Filters, req.LLMFilters, req.AdminFilters)
 }
 
 func (h *AuditLogExportHandler) validateScheduledExportRequest(req *types.ScheduledAuditLogExportCreateRequest) error {
@@ -464,16 +457,33 @@ func (h *AuditLogExportHandler) validateScheduledExportRequest(req *types.Schedu
 	if req.Bucket == "" {
 		return fmt.Errorf("bucket is required")
 	}
-	if exportType == types.AuditLogTypeLLM {
-		if req.Filters != nil {
-			return fmt.Errorf("filters can only be set for MCP audit log exports")
-		}
-		return nil
+	return validateExportFilterFields(exportType, req.Filters, req.LLMFilters, req.AdminFilters)
+}
+
+// validateExportFilterFields checks that an export sets only the filters of its type, and that the MCP ones, which are
+// required, are valid. The LLM and admin audit exports have filters that are all optional.
+func validateExportFilterFields(exportType types.AuditLogType, filters *types.AuditLogExportFilters, llmFilters *types.LLMAuditLogExportFilters, adminFilters *types.AdminAuditEventExportFilters) error {
+	if err := checkExportFilterTypes(exportType, filters, llmFilters, adminFilters); err != nil {
+		return err
 	}
-	if req.LLMFilters != nil {
+	if exportType == types.AuditLogTypeMCP {
+		return validateAuditLogExportFilters(filters)
+	}
+	return nil
+}
+
+// checkExportFilterTypes checks that an export of exportType sets only the filters of its type.
+func checkExportFilterTypes(exportType types.AuditLogType, filters *types.AuditLogExportFilters, llmFilters *types.LLMAuditLogExportFilters, adminFilters *types.AdminAuditEventExportFilters) error {
+	if exportType != types.AuditLogTypeMCP && filters != nil {
+		return fmt.Errorf("filters can only be set for MCP audit log exports")
+	}
+	if exportType != types.AuditLogTypeLLM && llmFilters != nil {
 		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
 	}
-	return validateAuditLogExportFilters(req.Filters)
+	if exportType != types.AuditLogTypeAdmin && adminFilters != nil {
+		return fmt.Errorf("adminFilters can only be set for admin audit log exports")
+	}
+	return nil
 }
 
 func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
@@ -503,7 +513,9 @@ func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
 	// user_id, session_id, and client_ip live on both sources' rows but are drill-down filters, so
 	// like the source-specific fields they are only offered for a single-source selection; a
 	// multi-source export uses the common Actors filter (user OR device) instead.
-	hasSharedColumnFilters := len(filters.UserIDs) > 0 || len(filters.SessionIDs) > 0 || len(filters.ClientIPs) > 0
+	hasSharedColumnFilters := len(filters.UserIDs) > 0 || len(filters.ActorKinds) > 0 ||
+		len(filters.SessionIDs) > 0 || len(filters.ClientIPs) > 0
+	// OnBehalfOf belongs to neither vocabulary: it narrows either, whatever the sources, like APIKeyIDs.
 
 	// Common cross-source filters and single-source filters are two distinct vocabularies keyed off
 	// the source selection; they can never be combined regardless of how many sources are selected.
@@ -560,6 +572,7 @@ func (h *AuditLogExportHandler) convertExportToAPI(export *v1.AuditLogExport) ty
 		EndTime:         types.Time{Time: export.Spec.EndTime.Time},
 		Filters:         export.Spec.Filters,
 		LLMFilters:      export.Spec.LLMFilters,
+		AdminFilters:    export.Spec.AdminFilters,
 		State:           string(export.Status.State),
 		Error:           export.Status.Error,
 		ExportSize:      export.Status.ExportSize,
@@ -589,6 +602,7 @@ func (h *AuditLogExportHandler) convertScheduledExportToAPI(export *v1.Scheduled
 		RetentionPeriodInDays: export.Spec.RetentionPeriodInDays,
 		Filters:               export.Spec.Filters,
 		LLMFilters:            export.Spec.LLMFilters,
+		AdminFilters:          export.Spec.AdminFilters,
 	}
 	if export.Status.LastRunAt != nil {
 		result.LastRunAt = types.Time{Time: export.Status.LastRunAt.Time}
@@ -603,8 +617,8 @@ func normalizeAuditLogType(exportType types.AuditLogType) (types.AuditLogType, e
 	if exportType == "" {
 		return types.AuditLogTypeMCP, nil
 	}
-	if exportType != types.AuditLogTypeMCP && exportType != types.AuditLogTypeLLM {
-		return "", fmt.Errorf("must be %q or %q", types.AuditLogTypeMCP, types.AuditLogTypeLLM)
+	if exportType != types.AuditLogTypeMCP && exportType != types.AuditLogTypeLLM && exportType != types.AuditLogTypeAdmin {
+		return "", fmt.Errorf("must be %q, %q or %q", types.AuditLogTypeMCP, types.AuditLogTypeLLM, types.AuditLogTypeAdmin)
 	}
 	return exportType, nil
 }

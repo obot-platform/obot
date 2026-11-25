@@ -18,6 +18,7 @@ import (
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -135,7 +136,7 @@ func TestDeviceCodeVerificationUsesAuthenticatedUser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(keys) != 1 || keys[0].UserID != 42 {
+	if len(keys) != 1 || keys[0].Owner() != principal.User(42) {
 		t.Fatalf("authenticated user's keys = %+v, want one key for user 42", keys)
 	}
 	otherKeys, err := gatewayClient.ListAPIKeys(t.Context(), 999)

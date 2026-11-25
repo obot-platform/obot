@@ -27,17 +27,32 @@ type APIKeyAttribution struct {
 	Name string
 }
 
-// MaskedAPIKeyName returns the non-secret identifier for an API key.
-func MaskedAPIKeyName(userID string, keyID uint) string {
-	return fmt.Sprintf("%s-%s-%d-*****", system.APIKeyPrefix, userID, keyID)
+// MaskedAPIKeyName returns the non-secret identifier for an API key of p: the key prefix of p's kind, p's ID and the
+// key's ID, with the secret masked.
+func (p Principal) MaskedAPIKeyName(keyID uint) string {
+	prefix := system.APIKeyPrefix
+	if p.Kind == KindAgent {
+		prefix = system.AgentAPIKeyPrefix
+	}
+	return fmt.Sprintf("%s-%s-%d-*****", prefix, p.ID, keyID)
+}
+
+// MaskedAPIKeyName returns Principal.MaskedAPIKeyName for an owner that is only known by its storage encoding
+// (Principal.String): an agent's key is masked with the agent key prefix, and any other owner is written as is after
+// the user key prefix.
+func MaskedAPIKeyName(owner string, keyID uint) string {
+	if agentID, ok := ParseAgent(owner); ok {
+		return Principal{Kind: KindAgent, ID: agentID}.MaskedAPIKeyName(keyID)
+	}
+	return Principal{Kind: KindUser, ID: owner}.MaskedAPIKeyName(keyID)
 }
 
 // NewAPIKeyAttribution creates event-time display attribution for an API key.
 // Unnamed keys use the reconstructable, non-secret masked key identifier so
 // audit consumers never need to join back to the API-key table to label them.
-func NewAPIKeyAttribution(id, ownerUserID uint, name string) APIKeyAttribution {
+func NewAPIKeyAttribution(id uint, owner Principal, name string) APIKeyAttribution {
 	if name == "" {
-		name = MaskedAPIKeyName(strconv.FormatUint(uint64(ownerUserID), 10), id)
+		name = owner.MaskedAPIKeyName(id)
 	}
 	return APIKeyAttribution{ID: id, Name: name}
 }

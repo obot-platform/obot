@@ -13,6 +13,7 @@
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpComponentDetailsDialog from './VMcpComponentDetailsDialog.svelte';
+	import VMcpComponentOAuth from './VMcpComponentOAuth.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
 	import { ArrowRightLeft, RefreshCcw, Server, Settings2 } from '@lucide/svelte';
 	import { tick } from 'svelte';
@@ -20,9 +21,11 @@
 	interface Props {
 		flow: VMcpToolFlow;
 		readonly?: boolean;
+		// Names the administrator who authorized a component's preconfigured OAuth, from their user ID.
+		userName?: (id: string) => string | undefined;
 	}
 
-	let { flow, readonly }: Props = $props();
+	let { flow, readonly, userName }: Props = $props();
 	let addedCreateDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let asIsButton = $state<HTMLButtonElement>();
 	let setupDialog = $state<ReturnType<typeof VMcpToolsSetup>>();
@@ -30,6 +33,7 @@
 	let componentActionsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
 	let detailsDialog = $state<ReturnType<typeof VMcpComponentDetailsDialog>>();
+	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let renderedDialog: VMcpToolDialog | undefined;
 	let synchronizing = false;
 	let pendingAffectedProfiles = $state<VMCPProfile[]>([]);
@@ -106,6 +110,7 @@
 				toolPrefix: flow.configuringComponent?.toolPrefix ?? ''
 			});
 		}
+		if (dialog === 'oauth') oauthDialog?.open();
 	}
 
 	function closeDialog(dialog: VMcpToolDialog | undefined) {
@@ -115,6 +120,7 @@
 		if (dialog === 'actions') componentActionsDialog?.close();
 		if (dialog === 'configure') configurationDialog?.close();
 		if (dialog === 'details') detailsDialog?.close();
+		if (dialog === 'oauth') oauthDialog?.close();
 	}
 
 	function handleDialogClose(dialog: VMcpToolDialog) {
@@ -130,6 +136,7 @@
 		if (dialog === 'actions') return Boolean(componentActionsDialog);
 		if (dialog === 'configure') return Boolean(configurationDialog);
 		if (dialog === 'details') return Boolean(detailsDialog);
+		if (dialog === 'oauth') return Boolean(oauthDialog);
 		return true;
 	}
 
@@ -383,6 +390,14 @@
 				{readonly ? m.vmcps_view_configuration() : m.vmcps_change_configuration()}
 			</button>
 		{/if}
+		{#if flow.canSeeComponentOAuth}
+			<!-- Preconfigured OAuth is kept outside the manifest: administrators change it on a read-only vMCP too. -->
+			<button class="btn btn-secondary w-full" onclick={flow.editOAuth}>
+				{profile.current.isAdmin?.()
+					? m.vmcps_preconfigured_oauth_manage()
+					: m.vmcps_preconfigured_oauth_view()}
+			</button>
+		{/if}
 		{#if !readonly}
 			<div
 				class="w-full"
@@ -400,6 +415,35 @@
 					})}
 				</button>
 			</div>
+		{/if}
+	</div>
+</ResponsiveDialog>
+
+<ResponsiveDialog
+	class="md:w-lg"
+	bind:this={oauthDialog}
+	onClose={() => handleDialogClose('oauth')}
+>
+	{#snippet titleContent()}
+		<div class="flex items-center gap-2 font-semibold">
+			{#if flow.configuringEntry?.manifest.icon}
+				<McpServerIcon icon={flow.configuringEntry.manifest.icon} />
+			{:else}
+				<div class="icon">
+					<Server class="size-6" />
+				</div>
+			{/if}
+			{flow.configuringComponent?.name}
+		</div>
+	{/snippet}
+	<div class="px-4 pb-4 md:p-0">
+		<!-- Mounted only while open, so it reads the state afresh and stops waiting on an authorization when closed. -->
+		{#if flow.dialog === 'oauth' && flow.modifyingVMcp && flow.configuringComponentId}
+			<VMcpComponentOAuth
+				vmcp={flow.modifyingVMcp}
+				componentID={flow.configuringComponentId}
+				{userName}
+			/>
 		{/if}
 	</div>
 </ResponsiveDialog>

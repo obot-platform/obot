@@ -581,6 +581,8 @@ func (h *Handler) ensureVMCP(ctx context.Context, client kclient.Client, target 
 		return err
 	}
 
+	// Derived IDs stay the same if the migration is retried.
+	vmcp.AssignDerivedProfileIDs(target.Name, &target.Spec.Manifest)
 	if err := target.Spec.Manifest.Validate(); err != nil {
 		return fmt.Errorf("migrate %q: %w", target.Spec.LegacySlug, err)
 	}

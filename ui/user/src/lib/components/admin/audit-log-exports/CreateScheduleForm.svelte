@@ -2,9 +2,14 @@
 	import { page } from '$app/state';
 	import { toAuditLogFilterSelectOption, toStringFilterSelectOptions } from '$lib/auditlogs';
 	import Select from '$lib/components/Select.svelte';
+	import AdminExportFilters, {
+		toAdminAuditEventExportFilters,
+		toAdminExportFilterValues
+	} from '$lib/components/admin/audit-log-exports/AdminExportFilters.svelte';
 	import {
 		ALL_SOURCE_TYPES,
 		clearSourceScopedFilters,
+		defaultExportKeyPrefix,
 		COMMON_FILTER_KEYS,
 		eventTypeParamFromSourceTypes,
 		filterVisibleExportFields,
@@ -19,6 +24,7 @@
 	import {
 		type LLMAuditLogURLFilters,
 		type AuditLogFilterOption,
+		type AuditLogType,
 		type OrgUser,
 		type ScheduledAuditLogExport,
 		AdminService,
@@ -29,7 +35,7 @@
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { TriangleAlert, GlobeIcon, ChevronDown, ChevronUp } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
 
@@ -38,7 +44,7 @@
 		onSubmit: (result?: ScheduledAuditLogExport) => void;
 		mode?: 'create' | 'view' | 'edit';
 		initialData?: ScheduledAuditLogExport;
-		logType?: 'mcp' | 'llm';
+		logType?: AuditLogType;
 	}
 
 	let { onCancel, onSubmit, mode = 'create', initialData, logType = 'mcp' }: Props = $props();
@@ -46,7 +52,7 @@
 	let defaultTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
-	let defaultKeyPrefix = $derived(logType === 'llm' ? 'llm-audit-logs' : 'mcp-audit-logs');
+	let defaultKeyPrefix = $derived(defaultExportKeyPrefix(logType));
 
 	// Form state. Every log source starts selected so a new schedule covers everything by default;
 	// the user narrows it by unchecking.
@@ -73,6 +79,7 @@
 			tool: '',
 			client: '',
 			user_id: '',
+			on_behalf_of: '',
 			mcp_id: '',
 			mcp_server_display_name: '',
 			mcp_server_catalog_entry_name: '',
@@ -97,6 +104,10 @@
 			query: ''
 		} as Partial<AuditLogURLFilters & LLMAuditLogURLFilters>
 	});
+
+	// The admin change audit has its own filters, with fixed options, so they are kept apart from
+	// the MCP and LLM ones.
+	let adminFilters = $state(toAdminExportFilterValues(untrack(() => initialData?.adminFilters)));
 
 	let creating = $state(false);
 	let error = $state('');
@@ -128,11 +139,17 @@
 			}
 
 			// Populate filters if they exist
+			if (logType === 'admin') {
+				showAdvancedOptions = true;
+				return;
+			}
+
 			if (logType === 'llm' && initialData.llmFilters) {
 				const filters = initialData.llmFilters;
 				form.filters = {
 					api_key_id: filters.apiKeyIDs?.join(',') ?? '',
 					user_id: filters.userIDs ? filters.userIDs.join(',') : '',
+					on_behalf_of: filters.onBehalfOf?.join(',') ?? '',
 					model_provider: filters.modelProviders ? filters.modelProviders.join(',') : '',
 					target_model: filters.targetModels ? filters.targetModels.join(',') : '',
 					request_path: filters.requestPaths ? filters.requestPaths.join(',') : '',
@@ -156,6 +173,7 @@
 					tool: filters.tools?.join(',') ?? '',
 					outcome: filters.outcomes?.join(',') ?? '',
 					client: filters.clients?.join(',') ?? '',
+					on_behalf_of: filters.onBehalfOf?.join(',') ?? '',
 					user_id: filters.userIDs ? filters.userIDs.join(',') : '',
 					mcp_id: filters.mcpIDs ? filters.mcpIDs.join(',') : '',
 					mcp_server_display_name: filters.mcpServerDisplayNames
@@ -180,7 +198,7 @@
 				};
 				showAdvancedOptions = true;
 			}
-		} else if (mode === 'create') {
+		} else if (mode === 'create' && logType !== 'admin') {
 			// Populate from URL parameters for create mode
 			const params = page.url.searchParams;
 			if (logType === 'mcp') {
@@ -197,6 +215,7 @@
 					? ({
 							api_key_id: 'api_key_id',
 							user_id: 'user_id',
+							on_behalf_of: 'on_behalf_of',
 							user_agent: 'user_agent',
 							client_session_id: 'client_session_id',
 							model_provider: 'model_provider',
@@ -214,6 +233,7 @@
 							tool: 'tool',
 							outcome: 'outcome',
 							client: 'client',
+							on_behalf_of: 'on_behalf_of',
 							user_id: 'user_id',
 							mcp_id: 'mcp_id',
 							mcp_server_display_name: 'mcp_server_display_name',
@@ -251,6 +271,7 @@
 
 	let mcpFiltersIds = [
 		'actor',
+		'on_behalf_of',
 		'operation',
 		'mcp_server',
 		'tool',
@@ -277,6 +298,7 @@
 	let llmFiltersIds = [
 		'api_key_id',
 		'user_id',
+		'on_behalf_of',
 		'user_agent',
 		'client_session_id',
 		'model_provider',
@@ -285,7 +307,10 @@
 		'response_status',
 		'target_model'
 	];
-	let filtersIds = $derived(logType === 'llm' ? llmFiltersIds : mcpFiltersIds);
+	// The filters whose options are read from the audit log. The admin filters' options are fixed.
+	let filtersIds = $derived(
+		logType === 'llm' ? llmFiltersIds : logType === 'admin' ? [] : mcpFiltersIds
+	);
 
 	let usersMap = new SvelteMap<string, OrgUser>();
 	let filtersOptions: Record<string, AuditLogFilterOption[]> = $state({});
@@ -334,6 +359,7 @@
 			| 'tool'
 			| 'client'
 			| 'user_id'
+			| 'on_behalf_of'
 			| 'mcp_id'
 			| 'mcp_server_display_name'
 			| 'call_type'
@@ -380,6 +406,16 @@
 					label: m.audit_usage_exports_filter_title_users(),
 					description: m.audit_usage_exports_filter_desc_csv_user_ids(),
 					options: toStringFilterSelectOptions(filtersOptions['user_id'], resolveUserDisplayName)
+				},
+				{
+					fieldId: 'on_behalf_of',
+					filterKey: 'on_behalf_of',
+					label: m.identity_access_on_behalf_of(),
+					description: m.identity_access_on_behalf_of_description(),
+					options: toStringFilterSelectOptions(
+						filtersOptions['on_behalf_of'],
+						resolveUserDisplayName
+					)
 				},
 				{
 					fieldId: 'model_provider',
@@ -484,6 +520,14 @@
 				label: m.audit_usage_exports_filter_title_api_keys(),
 				description: m.audit_usage_exports_filter_desc_api_keys_used(),
 				options: filtersOptions['api_key_id']?.map?.(sameLabel) ?? []
+			},
+			// As are the users agents acted for.
+			{
+				fieldId: 'on_behalf_of',
+				filterKey: 'on_behalf_of',
+				label: m.identity_access_on_behalf_of(),
+				description: m.identity_access_on_behalf_of_description(),
+				options: toStringFilterSelectOptions(filtersOptions['on_behalf_of'], resolveUserDisplayName)
 			},
 			// Single-source filters. Shown only when exactly one log source is selected.
 			{
@@ -614,6 +658,27 @@
 					.map((s) => Number(s))
 					.filter((n) => !Number.isNaN(n));
 
+			if (logType === 'admin') {
+				const request = {
+					name: form.name,
+					type: 'admin' as const,
+					bucket: form.bucket,
+					keyPrefix: form.keyPrefix,
+					enabled: form.enabled,
+					schedule: form.schedule,
+					retentionPeriodInDays: form.retentionPeriodInDays,
+					adminFilters: toAdminAuditEventExportFilters(adminFilters)
+				};
+				const result =
+					mode === 'edit' && initialData?.id
+						? await AdminService.updateScheduledAuditLogExport(initialData.id, request, {
+								dontLogErrors: true
+							})
+						: await AdminService.createScheduledAuditLogExport(request, { dontLogErrors: true });
+				onSubmit(result);
+				return;
+			}
+
 			if (logType === 'llm') {
 				const request = {
 					name: form.name,
@@ -626,6 +691,7 @@
 					llmFilters: {
 						apiKeyIDs: splitNumbers(form.filters.api_key_id),
 						userIDs: split(form.filters.user_id),
+						onBehalfOf: split(form.filters.on_behalf_of),
 						modelProviders: split(form.filters.model_provider),
 						targetModels: split(form.filters.target_model),
 						requestPaths: split(form.filters.request_path),
@@ -673,6 +739,7 @@
 					tools: split(form.filters.tool),
 					outcomes: split(form.filters.outcome),
 					clients: split(form.filters.client),
+					onBehalfOf: split(form.filters.on_behalf_of),
 					userIDs: form.filters.user_id ? form.filters.user_id.split(',').map((s) => s.trim()) : [],
 					mcpIDs: form.filters.mcp_id ? form.filters.mcp_id.split(',').map((s) => s.trim()) : [],
 					mcpServerDisplayNames: form.filters.mcp_server_display_name
@@ -795,7 +862,8 @@
 			handleSubmit();
 		}}
 	>
-		{#if !isViewMode && !hasAuditorPermissions}
+		<!-- The admin change audit records no request or response content to withhold. -->
+		{#if !isViewMode && !hasAuditorPermissions && logType !== 'admin'}
 			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
 				<TriangleAlert class="size-5 text-warning" />
 				<div class="text-sm">
@@ -1075,52 +1143,56 @@
 						{m.audit_usage_export_schedules_leave_filters_empty()}
 					</p>
 
-					<div class="flex flex-col gap-1">
-						<label class="text-sm font-medium" for="query"
-							>{m.audit_usage_exports_search_query()}</label
-						>
-						<input
-							id="query"
-							class="input-text-filled"
-							bind:value={form.filters.query}
-							placeholder={m.audit_usage_exports_search_placeholder()}
-							readonly={isViewMode}
-							disabled={isViewMode}
-						/>
-						<p class="text-muted-content text-xs">
-							{m.audit_usage_export_schedules_search_help()}
-						</p>
-					</div>
-
-					{#snippet auditScheduleAdvancedFilterField(row: AuditScheduleAdvancedFilterRow)}
+					{#if logType === 'admin'}
+						<AdminExportFilters bind:values={adminFilters} users={usersMap} disabled={isViewMode} />
+					{:else}
 						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for={row.fieldId}>{row.label}</label>
-							<Select
-								id={row.fieldId}
-								classes={{
-									root: 'w-full',
-									clear: 'hover:bg-base-400 bg-transparent'
-								}}
-								options={row.options}
-								bind:selected={
-									() => form.filters[row.filterKey] ?? '',
-									(v) => {
-										form.filters[row.filterKey] = v ?? '';
-									}
-								}
+							<label class="text-sm font-medium" for="query"
+								>{m.audit_usage_exports_search_query()}</label
+							>
+							<input
+								id="query"
+								class="input-text-filled"
+								bind:value={form.filters.query}
+								placeholder={m.audit_usage_exports_search_placeholder()}
+								readonly={isViewMode}
 								disabled={isViewMode}
-								multiple
-								valueFormat={row.filterKey === 'mcp_server' ? 'json' : 'comma-separated'}
 							/>
-							<p class="text-muted-content text-xs">{row.description}</p>
+							<p class="text-muted-content text-xs">
+								{m.audit_usage_export_schedules_search_help()}
+							</p>
 						</div>
-					{/snippet}
 
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each visibleScheduleFilterRows as row (row.fieldId)}
-							{@render auditScheduleAdvancedFilterField(row)}
-						{/each}
-					</div>
+						{#snippet auditScheduleAdvancedFilterField(row: AuditScheduleAdvancedFilterRow)}
+							<div class="flex flex-col gap-1">
+								<label class="text-sm font-medium" for={row.fieldId}>{row.label}</label>
+								<Select
+									id={row.fieldId}
+									classes={{
+										root: 'w-full',
+										clear: 'hover:bg-base-400 bg-transparent'
+									}}
+									options={row.options}
+									bind:selected={
+										() => form.filters[row.filterKey] ?? '',
+										(v) => {
+											form.filters[row.filterKey] = v ?? '';
+										}
+									}
+									disabled={isViewMode}
+									multiple
+									valueFormat={row.filterKey === 'mcp_server' ? 'json' : 'comma-separated'}
+								/>
+								<p class="text-muted-content text-xs">{row.description}</p>
+							</div>
+						{/snippet}
+
+						<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+							{#each visibleScheduleFilterRows as row (row.fieldId)}
+								{@render auditScheduleAdvancedFilterField(row)}
+							{/each}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>

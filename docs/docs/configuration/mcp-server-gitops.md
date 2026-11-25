@@ -201,7 +201,8 @@ components:
     name: Search
     mcpServerCatalogEntryKey: search
 profiles:
-  - name: everyone
+  - id: everyone
+    name: everyone
     subjects:
       - type: selector
         id: "*"
@@ -210,6 +211,8 @@ profiles:
         search-component:
           allowedTools: null # Allow all enabled tools for this component.
 ```
+
+Give each profile an explicit `id` (1–63 lowercase letters, digits and hyphens, starting and ending with a letter or digit). Without one, sync derives the ID from the vMCP and profile names, so renaming the profile makes it a new profile, which audit records name by its new ID. The `selector` subject `*` names every Obot user and no agent. A profile applies to an [agent](../security/agent-identities.md) only if it names the agent by ID (`type: agent`, `id: "7"`). Agent IDs belong to one Obot deployment, and `obot mcp validate-catalog` checks only their form, not that the agents exist. An agent can be named in several profiles of a vMCP and gets their union, as a user does. See [Catalog-synced vMCPs](../mcp-gateway/agent-setup.md#catalog-vmcps). [Preconfigured OAuth](../mcp-gateway/server-types.md#preconfigured-oauth) for a synced vMCP's remote components isn't part of the YAML: an administrator sets it on the vMCP in Obot, and syncs keep it.
 
 A component's `configuration` sets a policy for each of its entry's configuration fields: `fixed`, `userAllowed`, or `prohibited`. A `fixed` field can use `secretBinding` instead of a clear-text `value` so Obot reads the value from a Kubernetes Secret when the component server starts:
 

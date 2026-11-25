@@ -196,7 +196,7 @@ func testTokenUsageStats(t *testing.T, c *Client) {
 	if len(series) != 3 {
 		t.Errorf("series has %d records, want 3", len(series))
 	}
-	forUser, err := c.TokenUsageForUser(ctx, "u2", start, end)
+	forUser, err := c.TokenUsageForUser(ctx, "u2", start, end, false, nil)
 	if err != nil {
 		t.Fatalf("TokenUsageForUser: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestTokenUsageRangesIgnoreTimeZone(t *testing.T) {
 				t.Errorf("TokenUsageStats requests = %d, want 1", stats.Totals.Requests)
 			}
 
-			forUser, err := c.TokenUsageForUser(ctx, "u1", start, end)
+			forUser, err := c.TokenUsageForUser(ctx, "u1", start, end, false, nil)
 			if err != nil {
 				t.Fatalf("TokenUsageForUser: %v", err)
 			}

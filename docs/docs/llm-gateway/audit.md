@@ -54,7 +54,7 @@ A shield next to a request's timestamp marks a request a guardrail acted on, and
 Filter LLM logs by:
 
 - Date range
-- User
+- User or [agent](../security/agent-identities.md#audit), and actor kind
 - API key
 - Model provider
 - Target model

@@ -32,3 +32,33 @@ describe('local login redirect', () => {
 		}
 	);
 });
+
+describe('login hint', () => {
+	it("passes an agent approval link's login hint on to the local login", async () => {
+		vi.spyOn(UserService, 'getBootstrapStatus').mockResolvedValue({
+			enabled: false,
+			setupEnabled: false
+		});
+		vi.spyOn(UserService, 'listAuthProviders').mockResolvedValue([
+			{ id: CommonAuthProviderIds.LOCAL } as AuthProvider
+		]);
+		const url = new URL('https://obot.example/');
+		url.searchParams.set('rd', '/agents/approve/adr1req');
+		url.searchParams.set('login_hint', 'ada@example.com');
+
+		const result = load({
+			fetch: vi.fn(),
+			url,
+			parent: vi.fn(async () => ({}))
+		} as unknown as Parameters<typeof load>[0]);
+
+		await expect(result).rejects.toMatchObject({
+			status: 302,
+			location:
+				'/login/local?rd=' +
+				encodeURIComponent('/agents/approve/adr1req') +
+				'&login_hint=' +
+				encodeURIComponent('ada@example.com')
+		});
+	});
+});

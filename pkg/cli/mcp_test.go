@@ -432,6 +432,78 @@ func TestMCPValidateCatalogSupportsVMCPs(t *testing.T) {
 	}
 }
 
+// TestMCPValidateCatalogChecksVMCPAgentSubjects checks that validate-catalog accepts a catalog vMCP that names an agent
+// by ID, which it cannot check exists, since agent IDs belong to one deployment, in one profile or several, and refuses
+// the agent wildcard and an ID that is not an agent's decimal ID.
+func TestMCPValidateCatalogChecksVMCPAgentSubjects(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		profiles string
+		wantErr  string
+	}{
+		{
+			name: "an agent by ID",
+			profiles: `  - name: builder
+    subjects:
+      - {type: agent, id: "7"}
+  - name: everyone
+    subjects:
+      - {type: selector, id: "*"}
+`,
+		},
+		{
+			name: "the agent wildcard",
+			profiles: `  - name: agents
+    subjects:
+      - {type: agent, id: "*"}
+`,
+			wantErr: "agents must be named by ID",
+		},
+		{
+			name: "an agent's storage encoding",
+			profiles: `  - name: builder
+    subjects:
+      - {type: agent, id: "agent:7"}
+`,
+			wantErr: "agent subject ID must be the decimal ID of an agent",
+		},
+		{
+			// An agent named by several profiles gets the union of their grants, as a user does.
+			name: "an agent named by two profiles",
+			profiles: `  - name: builder
+    subjects:
+      - {type: agent, id: "7"}
+  - name: reviewer
+    subjects:
+      - {type: agent, id: "7"}
+`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "catalog.yaml")
+			content := `type: vmcp
+displayName: Agents
+components:
+  - name: Search
+    id: search
+    mcpServerCatalogEntryKey: search
+profiles:
+` + tt.profiles
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog", path)
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Fatalf("validate-catalog error = %v, want none", err)
+			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+				t.Fatalf("validate-catalog error = %v, want one containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestMCPValidateCatalogRequiresVMCPComponentID(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalog.yaml")
 	content := `type: vmcp

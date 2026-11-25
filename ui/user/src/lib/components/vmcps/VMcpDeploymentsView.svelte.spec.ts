@@ -2,7 +2,7 @@ import { Group, type VMCPInstance } from '$lib/services';
 import { notifications } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
-import { getProfileResponse } from '../../../tests/mocks/data';
+import { getProfileResponse, listUsersResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpDeploymentsView from './VMcpDeploymentsView.svelte';
 import { http, HttpResponse } from 'msw';
@@ -108,5 +108,55 @@ describe('VMcpDeploymentsView.svelte', () => {
 		await expect.element(page.getByCSS('input[name="API token"]')).not.toBeInTheDocument();
 		await expect.element(page.getByCSS('input[name="API_TOKEN"]')).not.toBeInTheDocument();
 		expect(reveal).not.toHaveBeenCalled();
+	});
+
+	it('names the user, agent and deleted agent that own instances, and looks up no user for an agent', async () => {
+		const vmcp = configurableVMcp();
+		const user = listUsersResponse[0]!;
+		const instance = (id: string, userID: string): VMCPInstance => ({
+			id,
+			vmcpID: vmcp.id,
+			userID,
+			created: '2026-01-01T00:00:00Z',
+			status: {}
+		});
+		const lookedUp = vi.fn();
+		worker.use(
+			http.get('/api/vmcp-instances', () =>
+				HttpResponse.json({
+					items: [
+						instance('vmcpi-user', user.id),
+						instance('vmcpi-agent', 'agent:7'),
+						instance('vmcpi-gone', 'agent:9')
+					]
+				})
+			),
+			http.get('/api/agents', () =>
+				HttpResponse.json({
+					items: [
+						{ id: '7', displayName: 'Build Bot', status: 'active', activeAPIKeyCount: 1 },
+						{ id: '9', displayName: 'Old Bot', status: 'deleted', activeAPIKeyCount: 0 }
+					]
+				})
+			),
+			http.get('/api/users/:id', ({ params }) => {
+				lookedUp(params.id);
+				return HttpResponse.json(user);
+			})
+		);
+		await preparePageData({ profile: createMockProfile([Group.ADMIN]) });
+
+		render(VMcpDeploymentsView, {
+			vmcps: [vmcp],
+			usersMap: new Map([[user.id, user]])
+		});
+
+		await expect.element(page.getByText(user.email, { exact: true }).first()).toBeVisible();
+		await expect.element(page.getByText('Build Bot', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Old Bot (Deleted)', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Agent', { exact: true }).nth(1)).toBeVisible();
+		await expect.element(page.getByText('Agent', { exact: true }).nth(2)).not.toBeInTheDocument();
+		await expect.element(page.getByText(/agent:/)).not.toBeInTheDocument();
+		expect(lookedUp).not.toHaveBeenCalled();
 	});
 });

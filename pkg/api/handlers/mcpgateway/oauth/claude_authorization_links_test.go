@@ -12,6 +12,7 @@ import (
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
@@ -87,7 +88,7 @@ func TestClaudeAuthorizationLinksReuseOAuthAcrossReplicas(t *testing.T) {
 	// Matching user or client metadata cannot enable the Claude-only API.
 	_, err := first.ClaudeAuthorizationURLs(req)
 	require.Error(t, err)
-	req.User = &kuser.DefaultInfo{UID: "42", Groups: []string{types.GroupClaudeEnvironment}}
+	req.User = principaltest.AsUser(&kuser.DefaultInfo{UID: "42", Groups: []string{types.GroupClaudeEnvironment}})
 	links, err := first.ClaudeAuthorizationURLs(req)
 	require.NoError(t, err)
 	require.Len(t, links, 1)

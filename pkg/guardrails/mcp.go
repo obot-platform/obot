@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/agentprofile"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
@@ -72,8 +73,48 @@ type jsonText struct {
 
 // ResolveIdentity resolves whose budgets and guardrails apply to a request, and whether the
 // caller is an admin or owner.
+//
+// The identity carries the caller's principal when its authenticator recorded one (principal.FromUserInfo), and the
+// zero Principal otherwise; guardrail filter subjects are matched against it. UserID is the principal's storage
+// encoding (Principal.String): a user's decimal ID, which is their UID as before, or "agent:<id>" for an agent. A
+// caller that is not a principal keeps its UID.
+//
+// An agent has no role and no groups: whatever its user info carries, its identity has no groups and it is never an
+// admin, so no budget that exempts admins exempts it. This covers any caller that claims to be an agent
+// (principal.ClaimsAgent), including a malformed one, rather than reading such a caller as a user. An agent acting on
+// behalf of a user carries the user, with the user's current groups as authentication read them, for the guardrail
+// filters that cover the user (Identity.OnBehalfOf); they are never the agent's own groups.
 func ResolveIdentity(_ context.Context, _ *gateway.Client, user kuser.Info) (Identity, bool, error) {
-	return Identity{UserID: user.GetUID(), Groups: user.GetExtra()["auth_provider_groups"]}, principal.IsAdminOrOwner(user), nil
+	userID := user.GetUID()
+	caller, ok := principal.FromUserInfo(user)
+	if ok {
+		userID = caller.String()
+	}
+	if principal.ClaimsAgent(user) {
+		identity := Identity{UserID: userID, Principal: caller}
+		if delegation, ok := agentprofile.DelegationOf(user); ok {
+			identity.OnBehalfOf = delegation.User
+		}
+		return identity, false, nil
+	}
+	return Identity{UserID: userID, Principal: caller, Groups: user.GetExtra()["auth_provider_groups"]}, principal.IsAdminOrOwner(user), nil
+}
+
+// filterSubjects returns the policy subjects that a guardrail filter's subjects name callers as. Everyone and the legacy
+// selector are the selector wildcard, whatever their ID, as they always have been. An unknown type becomes the zero
+// subject, which names no one: it is kept, so that a filter with only unknown subjects does not become one for
+// everyone.
+func filterSubjects(filterSubjects []types2.MCPGuardrailFilterSubject) []types2.Subject {
+	policySubjects := make([]types2.Subject, 0, len(filterSubjects))
+	for _, s := range filterSubjects {
+		if s.Type == "selector" {
+			policySubjects = append(policySubjects, types2.Subject{Type: types2.SubjectTypeSelector, ID: types2.SubjectWildcardID})
+			continue
+		}
+		subject, _ := s.Subject()
+		policySubjects = append(policySubjects, subject)
+	}
+	return policySubjects
 }
 
 // filterPolicy converts a guardrail filter into a policy. A guardrail that doesn't exist fails
@@ -93,10 +134,6 @@ func filterPolicy(f MCPFilter, guardrails map[string]*compiledGuardrail) *compil
 		// it was removed, blocks rather than letting findings through unnoticed.
 		action = types2.MCPGuardrailActionBlock
 	}
-	subjects := make([]types.GuardrailPolicySubject, 0, len(c.Subjects))
-	for _, s := range c.Subjects {
-		subjects = append(subjects, types.GuardrailPolicySubject{Type: s.Type, ID: s.ID})
-	}
 	r := &compiledPolicy{
 		policy: types.GuardrailPolicy{
 			ID:           f.ID,
@@ -110,7 +147,7 @@ func filterPolicy(f MCPFilter, guardrails map[string]*compiledGuardrail) *compil
 			FailClosed:   c.FailClosed,
 			BlockMessage: c.BlockMessage,
 			GuardrailIDs: c.GuardrailIDs,
-			Subjects:     subjects,
+			Subjects:     filterSubjects(c.Subjects),
 		},
 		allRedact: true,
 	}

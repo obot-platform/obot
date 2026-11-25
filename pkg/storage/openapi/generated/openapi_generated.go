@@ -25,6 +25,44 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                         schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                     schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                 schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AdminAuditEvent":                           schema_obot_platform_obot_apiclient_types_AdminAuditEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters":              schema_obot_platform_obot_apiclient_types_AdminAuditEventExportFilters(ref),
+		"github.com/obot-platform/obot/apiclient/types.AdminAuditEventList":                       schema_obot_platform_obot_apiclient_types_AdminAuditEventList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentAPIKey":                               schema_obot_platform_obot_apiclient_types_AgentAPIKey(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateRequest":                  schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateResponse":                 schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyList":                           schema_obot_platform_obot_apiclient_types_AgentAPIKeyList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegation":                           schema_obot_platform_obot_apiclient_types_AgentDelegation(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationAccess":                     schema_obot_platform_obot_apiclient_types_AgentDelegationAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent":                      schema_obot_platform_obot_apiclient_types_AgentDelegationAgent(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationApprovalRequest":            schema_obot_platform_obot_apiclient_types_AgentDelegationApprovalRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationList":                       schema_obot_platform_obot_apiclient_types_AgentDelegationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRedirect":                   schema_obot_platform_obot_apiclient_types_AgentDelegationRedirect(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRequestCreate":              schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreate(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationRequestCreated":             schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreated(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetup":                      schema_obot_platform_obot_apiclient_types_AgentDelegationSetup(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupComponent":             schema_obot_platform_obot_apiclient_types_AgentDelegationSetupComponent(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupConfiguration":         schema_obot_platform_obot_apiclient_types_AgentDelegationSetupConfiguration(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupField":                 schema_obot_platform_obot_apiclient_types_AgentDelegationSetupField(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupOAuth":                 schema_obot_platform_obot_apiclient_types_AgentDelegationSetupOAuth(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupVMCP":                  schema_obot_platform_obot_apiclient_types_AgentDelegationSetupVMCP(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationToken":                      schema_obot_platform_obot_apiclient_types_AgentDelegationToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationTokenRequest":               schema_obot_platform_obot_apiclient_types_AgentDelegationTokenRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationUser":                       schema_obot_platform_obot_apiclient_types_AgentDelegationUser(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPAccess":                 schema_obot_platform_obot_apiclient_types_AgentDelegationVMCPAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPProfile":                schema_obot_platform_obot_apiclient_types_AgentDelegationVMCPProfile(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentity":                             schema_obot_platform_obot_apiclient_types_AgentIdentity(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccess":                       schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccessProblem":                schema_obot_platform_obot_apiclient_types_AgentIdentityAccessProblem(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityDisableRequest":               schema_obot_platform_obot_apiclient_types_AgentIdentityDisableRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityList":                         schema_obot_platform_obot_apiclient_types_AgentIdentityList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityManifest":                     schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess":                 schema_obot_platform_obot_apiclient_types_AgentIdentityPolicyAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess":            schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentProfile":                              schema_obot_platform_obot_apiclient_types_AgentProfile(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason":                      schema_obot_platform_obot_apiclient_types_AgentReadinessReason(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadiness":                        schema_obot_platform_obot_apiclient_types_AgentVMCPReadiness(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadinessList":                    schema_obot_platform_obot_apiclient_types_AgentVMCPReadinessList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServer":                           schema_obot_platform_obot_apiclient_types_AllowlistServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage":                    schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppNotification":                           schema_obot_platform_obot_apiclient_types_AppNotification(ref),
@@ -277,6 +315,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":              schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                        schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                    schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.PrincipalRef":                              schema_obot_platform_obot_apiclient_types_PrincipalRef(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsent":                   schema_obot_platform_obot_apiclient_types_ProductTelemetryConsent(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsentUpdate":             schema_obot_platform_obot_apiclient_types_ProductTelemetryConsentUpdate(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":            schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
@@ -377,6 +416,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.VMCPInstanceStatus":                        schema_obot_platform_obot_apiclient_types_VMCPInstanceStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPList":                                  schema_obot_platform_obot_apiclient_types_VMCPList(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPManifest":                              schema_obot_platform_obot_apiclient_types_VMCPManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPPreconfiguredOAuth":                    schema_obot_platform_obot_apiclient_types_VMCPPreconfiguredOAuth(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPPreconfiguredOAuthAuthorization":       schema_obot_platform_obot_apiclient_types_VMCPPreconfiguredOAuthAuthorization(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfile":                               schema_obot_platform_obot_apiclient_types_VMCPProfile(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfilePermissions":                    schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPStatus":                                schema_obot_platform_obot_apiclient_types_VMCPStatus(ref),
@@ -385,6 +426,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.AccessControlRule{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_AccessControlRule(ref),
 		v1.AccessControlRuleList{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_AccessControlRuleList(ref),
 		v1.AccessControlRuleSpec{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_AccessControlRuleSpec(ref),
+		v1.AgentIdentityChange{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_AgentIdentityChange(ref),
+		v1.AgentIdentityChangeList{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_AgentIdentityChangeList(ref),
+		v1.AgentIdentityChangeSpec{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_AgentIdentityChangeSpec(ref),
+		v1.AgentIdentityDelete{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_AgentIdentityDelete(ref),
+		v1.AgentIdentityDeleteList{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_AgentIdentityDeleteList(ref),
+		v1.AgentIdentityDeleteSpec{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_AgentIdentityDeleteSpec(ref),
 		v1.AgentInstance{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_AgentInstance(ref),
 		v1.AgentInstanceList{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_AgentInstanceList(ref),
 		v1.AgentInstanceSpec{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_AgentInstanceSpec(ref),
@@ -582,12 +629,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.UserRoleChangeList{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref),
 		v1.UserRoleChangeSpec{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref),
 		v1.VMCP{}.OpenAPIModelName():                                                              schema_storage_apis_obotobotai_v1_VMCP(ref),
+		v1.VMCPComponentOAuth{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_VMCPComponentOAuth(ref),
 		v1.VMCPComponentStatus{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref),
 		v1.VMCPInstance{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_VMCPInstance(ref),
 		v1.VMCPInstanceList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_VMCPInstanceList(ref),
 		v1.VMCPInstanceSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_VMCPInstanceSpec(ref),
 		v1.VMCPInstanceStatus{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_VMCPInstanceStatus(ref),
 		v1.VMCPList{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPList(ref),
+		v1.VMCPPreconfiguredOAuthGrant{}.OpenAPIModelName():                                       schema_storage_apis_obotobotai_v1_VMCPPreconfiguredOAuthGrant(ref),
 		v1.VMCPSpec{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPSpec(ref),
 		v1.VMCPStatus{}.OpenAPIModelName():                                                        schema_storage_apis_obotobotai_v1_VMCPStatus(ref),
 		coordinationv1.Lease{}.OpenAPIModelName():                                                 schema_k8sio_api_coordination_v1_Lease(ref),
@@ -897,6 +946,1855 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_AdminAuditEvent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdminAuditEvent is one change an administrator, or Obot on its own, made to an agent, an agent's API key, a policy or profile that names agents, or a vMCP's preconfigured OAuth grants. It never carries a secret value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"actor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Actor is the administrator, as a user, who made the change, or the system. DisplayName is the user's, when the user can still be found.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.AuditLogActor"),
+						},
+					},
+					"action": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Action is what was done, such as agent.create, agent.key.revoke or vmcp.preconfigured_oauth.authorize.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resourceKind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceKind is agent, apiKey, vmcp, vmcpProfile, modelAccessPolicy or skillAccessRule, and ResourceID the ID of the resource: for a profile, its profile ID. A vMCP's preconfigured OAuth grant is recorded against the vMCP, with the component in Details.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resourceID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"parentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParentID is what holds the resource: the agent of an API key, or the vMCP of a profile.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"details": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Details depends on the action. It names what changed (fields, subjects, scopes, components), never the values of secrets.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+				Required: []string{"id", "createdAt", "actor", "action", "resourceKind", "resourceID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AuditLogActor", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AdminAuditEventExportFilters(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdminAuditEventExportFilters are the filters of an export of the admin change audit (AuditLogTypeAdmin). Each is a list of values that match any, and the filters combine with and.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceKinds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceKinds are agent, apiKey, vmcp, vmcpProfile, modelAccessPolicy or skillAccessRule.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"resourceIDs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Actors are user IDs, or \"system\".",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AdminAuditEventList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdminAuditEventList is a page of admin audit events, newest first.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEvent"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Total is how many events match the filters, over all pages.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEvent"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentAPIKey(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentAPIKey is an API key of an agent, without its secret. It has its own type rather than the type of a user's key, which has the API and device scan scopes that an agent's key never has.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"agentId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentID is the decimal ID of the agent the key belongs to.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"canAccessSkills": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"canAccessLLMProxy": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"mcpServerIds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerIDs is always present, so that a key with no vMCPs shows an empty list rather than none.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastUsedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"revokedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"id", "agentId", "name", "canAccessSkills", "canAccessLLMProxy", "mcpServerIds", "createdAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentAPIKeyCreateRequest is the body of a request to create an API key for an agent. Its scopes work as those of a user's API key do: a scope that is omitted is not granted, and the key must have at least one. An agent's key never grants access to the API or to device scans, so the request has no field for either, and a request that names one is refused.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExpiresAt is when the key stops working. A key with none does not expire.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"canAccessSkills": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"canAccessLLMProxy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"mcpServerIds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerIDs are the IDs of the vMCPs the key can connect to, or \"*\" for every vMCP the agent is granted.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentAPIKeyCreateResponse is the response to the creation of an agent's API key.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"agentId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentID is the decimal ID of the agent the key belongs to.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"canAccessSkills": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"canAccessLLMProxy": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"mcpServerIds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerIDs is always present, so that a key with no vMCPs shows an empty list rather than none.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastUsedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"revokedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Key is the full API key. It is only ever shown in this response.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "agentId", "name", "canAccessSkills", "canAccessLLMProxy", "mcpServerIds", "createdAt", "key"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentAPIKeyList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentAPIKey"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentAPIKey"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegation is a user's approval for an agent to act on their behalf.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent"),
+						},
+					},
+					"user": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationUser"),
+						},
+					},
+					"firstApprovedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastApprovedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastUsedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastUsedAt is when the agent last got a token from the delegation.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"id", "agent", "user", "firstApprovedAt", "lastApprovedAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent", "github.com/obot-platform/obot/apiclient/types.AgentDelegationUser", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationAccess is what an agent may do for a user one of its profiles matches: the agent's own grants, which are the same for every such user.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcps": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPs are the vMCPs, and the profiles of each that name the agent, that the agent may use for the user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPAccess"),
+									},
+								},
+							},
+						},
+					},
+					"modelAccessPolicies": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ModelAccessPolicies are the agent's LLM gateway policies, whose models and budgets apply to the agent for the user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"),
+									},
+								},
+							},
+						},
+					},
+					"skillAccessRules": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkillAccessRules are the agent's skill access rules, whose skills the agent may use for the user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcps", "modelAccessPolicies", "skillAccessRules"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPAccess", "github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationAgent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationAgent is the agent of a delegation or of a request for one.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "displayName", "status"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationApprovalRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationApprovalRequest is an agent's request, as the signed-in user who can approve it sees it: the agent, and what it will be able to do for them.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent"),
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"delegationID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DelegationID is the user's existing delegation of the agent, if they approved it before. Approving again keeps it.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"access": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Access is what the agent may do for the user: its own grants.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationAccess"),
+						},
+					},
+				},
+				Required: []string{"id", "agent", "expiresAt", "access"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationAccess", "github.com/obot-platform/obot/apiclient/types.AgentDelegationAgent", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegation"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegation"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationRedirect(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationRedirect is the response to approving or cancelling a request: the URL to send the user's browser to. It is the agent's return URL, with the request ID and code on approval, or with error=access_denied on cancellation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"redirectURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"redirectURL"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationRequestCreate is the body with which an agent asks for a link a user can open to let it act on their behalf (POST /api/agent-delegations). The agent authenticates with its API key.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"returnURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReturnURL is where the user's browser is sent back to after approving or cancelling: on approval with the requestID and code query parameters, and on cancellation with error=access_denied. It must use https and have one of the agent's allowed return hosts (AgentIdentityManifest.AllowedReturnHosts).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretHash is the S256 hash of a random secret that the agent keeps in the session of the user's browser: the unpadded base64url SHA-256 digest of it, as a PKCE code challenge is. The secret is 43 to 128 of the characters A-Z, a-z, 0-9, \"-\", \".\", \"_\" and \"~\". Only the agent's backend, with the secret from the session of the browser that comes back, can redeem the code, so an approval link that a user forwards to someone else is useless.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"loginHint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LoginHint is passed on to sign-in, as a convenience. It is never a check of who approves.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"delegationID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DelegationID is the agent's delegation that the request asks to have approved again, if any. It must be the agent's, and only its user can approve the request.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"returnURL", "secretHash"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationRequestCreated(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationRequestCreated is the response to AgentDelegationRequestCreate.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"requestID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"approvalURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ApprovalURL is the page, in Obot, at which the user approves the request. It works once, and until ExpiresAt.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"requestID", "approvalURL", "expiresAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetup is what a user has set up through an agent, and what they still need to, for each vMCP that the agent may use for them: those of which a profile names the agent (GET …/setup on a delegation request the user is approving, or on one of their delegations). It never carries a value or a token: values are reported as set or unset, and upstream accounts as connected or not.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcps": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupVMCP"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcps"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupVMCP"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupComponent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupComponent is the setup of one component of a vMCP through an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"covered": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Covered reports that the component needs nothing from the user, and CoveredBy why: AgentDelegationSetupCoveredFixed, AgentDelegationSetupCoveredPreconfiguredOAuth or AgentDelegationSetupCoveredNothing. The setup page skips covered components.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"coveredBy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready reports that nothing keeps the agent from the component on behalf of the user. Reasons say why it is not, as a connect would report them: a required value the user has not set, an upstream account the user has not connected, or a vMCP preconfigured OAuth grant that only an administrator can fix.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"reasons": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"),
+									},
+								},
+							},
+						},
+					},
+					"configuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configuration is the configuration the user enters for the component, with whether each value is set.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupField"),
+									},
+								},
+							},
+						},
+					},
+					"oauth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuth is AgentDelegationSetupOAuthNotRequired, AgentDelegationSetupOAuthPreconfigured, AgentDelegationSetupOAuthConnected or AgentDelegationSetupOAuthNeedsAuthorization.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"componentID", "covered", "ready", "configuration", "oauth"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupField", "github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupConfiguration is the body with which a user sets or clears the values they enter for a vMCP through an agent (PUT …/setup/vmcps/{vmcp_id}/configuration): by component ID, each key's new value, or null to clear it. Keys that are left out are left as they are.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"object"},
+										AdditionalProperties: &spec.SchemaOrBool{
+											Allows: true,
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Type:   []string{"string"},
+													Format: "",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"components"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupField(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupField is a value a user enters for a component, with the schema the user configuration form shows, and whether the user has set it through the agent. It never carries the value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"usage": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"options": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption"),
+									},
+								},
+							},
+						},
+					},
+					"set": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Set reports that the user has set the value through the agent.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"key", "name", "description", "sensitive", "required", "usage", "set"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupOAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupOAuth is the response to starting the authorization of a user's upstream account for a component through an agent (POST …/setup/vmcps/{vmcp_id}/components/{component_id}/oauth): the URL the user's browser opens. The provider's callback stores the account for the user's setup through the agent, but only in the browser session of the user who started it, and returns the browser to the page that started it.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"localhostCallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is Obot's local login URL, which `obot mcp login` opens and relays the callback from.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"authURL"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationSetupVMCP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationSetupVMCP is the setup of one vMCP through an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready reports that every component is ready (AgentDelegationSetupComponent.Ready).",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Components are the components that the vMCP's profiles naming the agent grant, in the vMCP's order.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupComponent"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcpID", "ready", "components"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationSetupComponent"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationToken(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationToken is a token with which an agent acts on behalf of a user. There is no refresh token: the agent mints a new token from the delegation when it needs one.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"delegationID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"accessToken": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"tokenType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenType is always \"Bearer\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"user": {
+						SchemaProps: spec.SchemaProps{
+							Description: "User is the user the agent acts for.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationUser"),
+						},
+					},
+				},
+				Required: []string{"delegationID", "accessToken", "tokenType", "expiresAt", "user"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationUser", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationTokenRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationTokenRequest is the body with which an agent gets a token to act on behalf of a user (POST /api/agent-delegations/token). The agent authenticates with its API key, which becomes the token's minting key.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"grantType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GrantType is AgentDelegationGrantCode or AgentDelegationGrantDelegation.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"requestID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequestID, Code and Secret redeem the code of an approved request (AgentDelegationGrantCode). The secret is the one whose hash the request was created with, from the session of the browser the code came back with. A code is used once: a wrong or missing secret uses it up too.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"delegationID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DelegationID mints a new token from a delegation of the agent (AgentDelegationGrantDelegation).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"grantType"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationUser(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationUser is the user of a delegation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"email": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"id"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationVMCPAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationVMCPAccess is a vMCP that an agent may use for a user, through the profiles listed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"vmcpDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profiles": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPProfile"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcpID", "profiles"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentDelegationVMCPProfile"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentDelegationVMCPProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentDelegationVMCPProfile is a profile of a vMCP.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "name"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentity is a non-human identity that calls Obot with its own API keys. It is not a hosted agent or an agent on a device; the path of its API is /api/agents.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Metadata.ID is the decimal ID of the agent.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisplayName names the agent for people. It is required, and need not be unique: an agent is identified by its ID.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Profiles says which users the agent may act for. An update replaces the whole list, so one that leaves it out removes every entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentProfile"),
+									},
+								},
+							},
+						},
+					},
+					"allowedReturnHosts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowedReturnHosts are the hosts that the agent may send a user's browser back to after the user approves or cancels its request to act on their behalf: host names or IP addresses, each with an optional port, such as \"agent.example.com\" or \"localhost:3000\". A return URL must use https, except that plain http is allowed to localhost or a loopback address on the list, for development. A host without a port allows only the default port. An agent with none cannot ask users for approval. An update replaces the whole list.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"creatorUserID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CreatorUserID is the ID of the admin who created the agent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is active, disabled, or deleted. A deleted agent is only listed with includeDeleted.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"disabledAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisabledAt and DisabledReason are set only while the agent is disabled.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"disabledReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"activeAPIKeyCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ActiveAPIKeyCount is how many of the agent's API keys neither are revoked nor have expired. It is always present, so a zero is shown as 0.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"Metadata", "displayName", "status", "activeAPIKeyCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentProfile", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityAccess is what the policies that can name agents grant an agent: the vMCP profiles, model access policies and skill access rules whose subjects name it by ID, the only way a policy names an agent. It lists grants of a disabled agent too, which apply again once it is enabled. Whether the agent can use a vMCP is the readiness API's (AgentVMCPReadiness). The summary only reports, as Problems, scopes of the agent's keys that none of these grants anything for.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"agentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentID is the decimal ID of the agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vmcpProfiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPProfiles are the profiles of shared vMCPs that name the agent. An agent named by several profiles of a vMCP is granted the union of their components and tools, as a user is.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess"),
+									},
+								},
+							},
+						},
+					},
+					"modelAccessPolicies": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ModelAccessPolicies are the model access policies (LLM gateway profiles) that name the agent.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"),
+									},
+								},
+							},
+						},
+					},
+					"skillAccessRules": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkillAccessRules are the skill access rules that name the agent.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"),
+									},
+								},
+							},
+						},
+					},
+					"problems": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Problems are scopes of the agent's active API keys that nothing grants access to: the LLM gateway without a model access policy, and skills without a skill access rule.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityAccessProblem"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"agentID", "vmcpProfiles", "modelAccessPolicies", "skillAccessRules", "problems"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccessProblem", "github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess", "github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityAccessProblem(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityAccessProblem is something that keeps an agent from using what one of its active API keys is scoped for.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Code is AgentProblemNoModelAccessPolicy or AgentProblemNoSkillAccessRule.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"code"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityDisableRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityDisableRequest is the body of a request to disable an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reason is why the agent is disabled. It is optional, and is shown with the agent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentity"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentIdentity"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityManifest is what an admin sets on an agent identity: its metadata, its agent profiles, and where it may send users back to after they approve it. Whether an agent is enabled, and what it is granted, are separate.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisplayName names the agent for people. It is required, and need not be unique: an agent is identified by its ID.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Profiles says which users the agent may act for. An update replaces the whole list, so one that leaves it out removes every entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentProfile"),
+									},
+								},
+							},
+						},
+					},
+					"allowedReturnHosts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowedReturnHosts are the hosts that the agent may send a user's browser back to after the user approves or cancels its request to act on their behalf: host names or IP addresses, each with an optional port, such as \"agent.example.com\" or \"localhost:3000\". A return URL must use https, except that plain http is allowed to localhost or a loopback address on the list, for development. A host without a port allows only the default port. An agent with none cannot ask users for approval. An update replaces the whole list.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"displayName"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentProfile"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityPolicyAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityPolicyAccess is a model access policy or skill access rule that names an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"id"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityVMCPProfileAccess is a vMCP profile that names an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"vmcpDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profileID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profileName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"vmcpID", "profileName"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentProfile is a profile of an agent: users the agent may act for. An agent acting on behalf of a user whom one of its profiles matches has exactly its own grants (the vMCP profiles, model access policies and skill access rules that name it), within the scopes of the key it acts with. A profile never narrows or widens them.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is assigned by Obot, and never changes. An entry sent without one is new; an entry sent with one must already be the agent's.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name labels the entry for administrators. It is required and unique within the agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"subjects": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Subjects are the users the entry applies to: users, groups, Obot groups, or the selector \"*\" (All Obot Users), which must then be the only subject. An agent is never a subject.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.Subject"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "subjects"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Subject"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentReadinessReason(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value. Every reason is fixed on the vMCP: a configuration reason by setting the value as fixed on the vMCP or on the component's catalog entry, or by no longer granting the component to the agent; an OAuth reason by authorizing the component's preconfigured OAuth, in its settings in the vMCP editor (VMCPPreconfiguredOAuth).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentID is the component the reason is about.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Code is one of the AgentReadiness constants.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"field": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Field is the configuration key that is missing, never its value.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"code"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentVMCPReadiness(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentVMCPReadiness is whether an agent can use a vMCP, computed when it is asked for, with the same checks that decide whether the agent can connect. It carries no configuration value and no token.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"vmcpDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready reports that the agent can connect to the vMCP. A disabled agent can be ready: it is refused at admission until it is enabled.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Disabled reports that the agent is disabled, so it cannot connect whatever its readiness is.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"reasons": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reasons are why the agent cannot use the vMCP, for the components that the profiles naming it grant. It is empty when it can.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"),
+									},
+								},
+							},
+						},
+					},
+					"preconfiguredComponents": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreconfiguredComponents are the IDs of the components that the profiles naming the agent grant for which the vMCP holds preconfigured OAuth that works (VMCPPreconfiguredOAuth), checked as a connection checks it: the agent uses that account upstream. Preconfigured OAuth that no longer works is a reason (AgentReadinessOAuthInvalid) instead. It is empty when there are none.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcpID", "ready", "disabled", "reasons", "preconfiguredComponents"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentVMCPReadinessList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentVMCPReadiness"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadiness"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_AllowlistServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1087,6 +2985,19 @@ func schema_obot_platform_obot_apiclient_types_AuditLogAPIKeyFilterOption(ref co
 							Format:  "",
 						},
 					},
+					"agentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentID and AgentDisplayName are set instead of UserID for the key of an agent, and are those of the agent's record even after the agent is deleted.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"agentDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"revoked": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -1154,9 +3065,23 @@ func schema_obot_platform_obot_apiclient_types_AuditLogActor(ref common.Referenc
 							Format: "",
 						},
 					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisplayName names the actor when it is an agent, from the agent's current record, also after the agent is deleted. In the admin audit it names the administrator. It is empty when the record cannot be found, and for other actors.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf is the user an agent acted for, when the actor is an agent that acted for one. The agent is still the actor.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
 					"credentialID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CredentialID records authentication context when the actor itself is a known user.",
+							Description: "CredentialID records authentication context when the actor itself is a known user or agent.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1169,9 +3094,11 @@ func schema_obot_platform_obot_apiclient_types_AuditLogActor(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"actorType"},
+				Required: []string{"actorType", "onBehalfOf"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.PrincipalRef"},
 	}
 }
 
@@ -1665,6 +3592,11 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -1683,7 +3615,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -1710,7 +3642,28 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					},
 					"actors": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Actors matches an Obot user ID or an enrolled device ID.",
+							Description: "Actors matches an Obot user ID, an agent as \"agent:<id>\", or an enrolled device ID.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"includeOnBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IncludeOnBehalfOf makes the users that Actors and UserIDs name also match the calls agents made on their behalf.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf matches the calls that agents made on behalf of any of these users, by ID. It narrows the other filters, with one source or several: with an agent in Actors or UserIDs, it selects that agent's calls for these users.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1808,8 +3761,21 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					},
 					"userIDs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Single-source filters.",
+							Description: "Single-source filters. UserIDs matches the user ID of a user, or \"agent:<id>\" for an agent. ActorKinds matches the kind of principal that made the call, \"user\" or \"agent\".",
 							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actorKinds": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -2130,6 +4096,11 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref common
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -2175,7 +4146,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -2305,6 +4276,33 @@ func schema_obot_platform_obot_apiclient_types_AuditLogScopeDetails(ref common.R
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPID is the vMCP the call was made through, and VMCPComponentID the component it reached when Obot resolved the call to one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vmcpComponentID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profileIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProfileIDs are the vMCP profiles that granted the caller its permissions, every one that names it, for an agent as for a user.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -6890,9 +8888,31 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "UserID is the user's ID. It is empty for a request made by an agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"principal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Principal is the user or agent that made the request. It is set for every request that has a caller.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf is the user an agent made the request for, when it acted for one.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
+					"agentDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentDisplayName is the current display name of the agent that made the request, also after the agent is deleted.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"apiKeyID": {
@@ -7128,11 +9148,11 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "duration", "userID", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "userAgent", "clientSessionID", "clientIP"},
+				Required: []string{"id", "createdAt", "duration", "userID", "principal", "onBehalfOf", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "userAgent", "clientSessionID", "clientIP"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditGuardrailFinding", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.LLMAuditGuardrailFinding", "github.com/obot-platform/obot/apiclient/types.PrincipalRef", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -7158,7 +9178,42 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref comm
 					},
 					"userIDs": {
 						SchemaProps: spec.SchemaProps{
+							Description: "UserIDs matches the user ID of a user, or \"agent:<id>\" for an agent. ActorKinds matches the kind of principal that made the request, \"user\" or \"agent\".",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actorKinds": {
+						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"includeOnBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IncludeOnBehalfOf makes the users that UserIDs names also match the requests agents made on their behalf.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf matches the requests that agents made on behalf of any of these users, by ID. It narrows the other filters: with an agent in UserIDs, it selects that agent's requests for these users.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -8478,7 +10533,7 @@ func schema_obot_platform_obot_apiclient_types_MCPGuardrailFilterConfig(ref comm
 					},
 					"subjects": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Subjects limits the filter to users and groups. Empty means everyone.",
+							Description: "Subjects limits the filter to users, agents and groups. Empty means everyone.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -8516,7 +10571,7 @@ func schema_obot_platform_obot_apiclient_types_MCPGuardrailFilterSubject(ref com
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MCPGuardrailFilterSubject is a user, a group or everyone.",
+				Description: "MCPGuardrailFilterSubject is a user, an agent, a group or everyone. See the MCPGuardrailSubject constants.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"type": {
@@ -10470,9 +12525,24 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.R
 					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "UserID is the user's ID. It is empty for a call made by an agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"principal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Principal is the user or agent that made the call.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf is the user an agent made the call for, when it acted for one.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
 						},
 					},
 					"processingTimeMs": {
@@ -10497,11 +12567,11 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.R
 						},
 					},
 				},
-				Required: []string{"createdAt", "userID", "processingTimeMs", "responseStatus", "error"},
+				Required: []string{"createdAt", "userID", "principal", "onBehalfOf", "processingTimeMs", "responseStatus", "error"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.PrincipalRef", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -14018,6 +16088,35 @@ func schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref common
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_PrincipalRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PrincipalRef identifies a user or an agent in API responses and audit records.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the decimal ID of the user or of the agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"kind", "id"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_ProductTelemetryConsent(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15780,12 +17879,17 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequ
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 				},
 				Required: []string{"name", "bucket", "schedule"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
 	}
 }
 
@@ -15895,6 +17999,11 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(r
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"lastRunAt": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
@@ -15910,7 +18019,7 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(r
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -15960,6 +18069,11 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -15976,7 +18090,7 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
 	}
 }
 
@@ -17520,8 +19634,23 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "UserID is the user's ID. It is empty for usage by an agent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"principal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Principal is the user or agent that made the requests.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
+					"onBehalfOf": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OnBehalfOf is the user an agent made the request for, when it acted for one. Totals have none.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
 						},
 					},
 					"model": {
@@ -17659,11 +19788,11 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"date", "inputTokens", "cacheReadTokens", "cacheWriteTokens", "outputTokens", "thinkingTokens", "totalTokens", "inputSpend", "cacheReadSpend", "cacheWriteSpend", "outputSpend", "totalSpend"},
+				Required: []string{"date", "principal", "onBehalfOf", "inputTokens", "cacheReadTokens", "cacheWriteTokens", "outputTokens", "thinkingTokens", "totalTokens", "inputSpend", "cacheReadSpend", "cacheWriteSpend", "outputSpend", "totalSpend"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.PrincipalRef", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -19140,6 +21269,120 @@ func schema_obot_platform_obot_apiclient_types_VMCPManifest(ref common.Reference
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_VMCPPreconfiguredOAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPPreconfiguredOAuth is the OAuth an administrator preconfigured for one remote component of a shared vMCP: one account, which everyone who reaches the component through the vMCP uses upstream, users and agents alike. While it is set, users are not asked to authorize the component themselves, and their own tokens for it are not used. It describes the grant, never its tokens.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "State is VMCPPreconfiguredOAuthNotRequired, VMCPPreconfiguredOAuthNeedsAuthorization, VMCPPreconfiguredOAuthAuthorized or VMCPPreconfiguredOAuthInvalid.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authorizedBy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizedBy is the administrator who authorized the grant, as a user ID.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authorizedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizedAt is when the grant was authorized.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Target is the upstream URL the grant was authorized for, for a component whose catalog entry fixes the URL: that URL is catalog data. The grant is used only for that URL. It is empty when the URL comes from the vMCP's fixed configuration, which is never returned: see TargetHostname.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"targetHostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetHostname is, for a component whose URL comes from the vMCP's fixed configuration (a hostname-constrained URL or a URL template), only the hostname of the URL the grant was authorized for, never its port, path, query or userinfo. It is not a URL.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scopes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scopes are the scopes the grant was authorized with.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"invalidReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InvalidReason says why an invalid grant stopped working.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"vmcpID", "componentID", "state"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPPreconfiguredOAuthAuthorization(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPPreconfiguredOAuthAuthorization starts an administrator's authorization of a vMCP's preconfigured OAuth for one component. The administrator opens AuthURL; the provider's callback stores the grant on the vMCP.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"localhostCallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is Obot's local login URL rather than the provider's: the administrator runs `obot mcp login <AuthURL>` on their own machine, which listens for the callback and relays it to Obot in their browser, as for a user's own connection. Only the authorization needs the relay; users and agents use and refresh the grant without it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"authURL"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19147,6 +21390,13 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceC
 				Description: "VMCPProfile grants access and tools to matching users and groups. Profiles are additive. AllowAllComponents grants all tools enabled on every component otherwise only the specified components and their allowed tools are granted.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the profile's immutable identity, which audit records name the profile by. The API assigns it: a request keeps a profile's ID by sending it back, and a profile sent without one is a new profile, even if it has the name of a profile being removed. Catalog YAML may set it; otherwise catalog sync derives it from the vMCP and profile names, so renaming a profile in YAML without an ID makes it a new profile.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -19456,6 +21706,232 @@ func schema_storage_apis_obotobotai_v1_AccessControlRuleSpec(ref common.Referenc
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AgentIdentityChange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityChange reports that an agent identity was disabled or enabled, so that controllers re-evaluate what depends on its access. Its name comes from the gateway lifecycle event it delivers. The agent may have changed again since, so handlers must read its current status.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.AgentIdentityChangeSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.EmptyStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"metadata", "spec", "status"},
+			},
+		},
+		Dependencies: []string{
+			v1.AgentIdentityChangeSpec{}.OpenAPIModelName(), v1.EmptyStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AgentIdentityChangeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.AgentIdentityChange{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1.AgentIdentityChange{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AgentIdentityChangeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"agentID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AgentIdentityDelete(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityDelete makes the controller remove what a deleted agent identity owns. Its name comes from the gateway lifecycle event it delivers.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.AgentIdentityDeleteSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.EmptyStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"metadata", "spec", "status"},
+			},
+		},
+		Dependencies: []string{
+			v1.AgentIdentityDeleteSpec{}.OpenAPIModelName(), v1.EmptyStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AgentIdentityDeleteList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.AgentIdentityDelete{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1.AgentIdentityDelete{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_AgentIdentityDeleteSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"agentID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -20267,6 +22743,11 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"scheduleUID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScheduleUID associates this fixed window with one schedule incarnation.",
@@ -20286,7 +22767,7 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", metav1.Time{}.OpenAPIModelName()},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -26619,6 +29100,11 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref common.Re
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"withRequestAndResponse": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WithRequestAndResponse includes source-specific sensitive request and response fields.",
@@ -26631,7 +29117,7 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", v1.Schedule{}.OpenAPIModelName()},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", v1.Schedule{}.OpenAPIModelName()},
 	}
 }
 
@@ -28509,6 +30995,51 @@ func schema_storage_apis_obotobotai_v1_VMCP(ref common.ReferenceCallback) common
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_VMCPComponentOAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPComponentOAuth records the probe of one component, for its current target.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"targetHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetHash identifies what the probe was made for (vmcp.ComponentOAuthTargetHash): the component's definition and the values fixed for everyone that its URL is built from. A change to it discards the probe, and the component is probed again.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required is what the last probe found, or, when it failed, what the last one that succeeded found, if any.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"checkedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CheckedAt is when the component was last probed, whether the probe succeeded or not.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"failures": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Failures counts the probes in a row that failed. The next probe waits longer after each.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"targetHash", "required", "checkedAt"},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -28835,6 +31366,41 @@ func schema_storage_apis_obotobotai_v1_VMCPList(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_VMCPPreconfiguredOAuthGrant(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPPreconfiguredOAuthGrant records the preconfigured OAuth grants that may be stored for one component of a vMCP.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"grantIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GrantIDs identify the grants that may be stored for the component: the one last published, and any being written since. Only one is stored at a time, and it has one of these IDs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"componentID"},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -28969,11 +31535,38 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"preconfiguredOAuth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreconfiguredOAuth records the OAuth grants that administrators preconfigure for the vMCP's remote components, one per component, which everyone who reaches the component through the vMCP uses (pkg/vmcp PreconfiguredOAuthStore). The grants are in the gateway database, never here. Each grant is recorded before it is stored, so the vMCP controller deletes every one it may have stored when its component leaves the manifest, and the store deletes exactly the recorded ones when an administrator revokes it.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCPPreconfiguredOAuthGrant{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"componentOAuth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentOAuth records, by component ID, whether the remote components of a shared vMCP ask for OAuth, as the vMCP controller last found by probing them without any credential. Agent readiness and the preconfigured OAuth state read it, and never probe. It never holds a URL.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCPComponentOAuth{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			v1.VMCPComponentStatus{}.OpenAPIModelName()},
+			v1.VMCPComponentOAuth{}.OpenAPIModelName(), v1.VMCPComponentStatus{}.OpenAPIModelName(), v1.VMCPPreconfiguredOAuthGrant{}.OpenAPIModelName()},
 	}
 }
 

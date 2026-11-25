@@ -10,7 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/subjectgroups"
+	"github.com/obot-platform/obot/pkg/subjects"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,10 +21,6 @@ import (
 )
 
 const (
-	mapUserIndex       = "user-id"
-	mapGroupIndex      = "group-id"
-	mapObotGroupIndex  = "obot-group-id"
-	mapSelectorIndex   = "selector-id"
 	dmaModelIndex      = "model-id"
 	modelProviderIndex = "model-provider"
 )
@@ -52,12 +48,7 @@ func NewHelper(ctx context.Context, backend backend.Backend) (*Helper, error) {
 		return nil, err
 	}
 
-	if err := mapInformer.AddIndexers(gocache.Indexers{
-		mapUserIndex:      mapSubjectIndexFunc(types.SubjectTypeUser),
-		mapGroupIndex:     mapSubjectIndexFunc(types.SubjectTypeGroup),
-		mapObotGroupIndex: mapSubjectIndexFunc(types.SubjectTypeObotGroup),
-		mapSelectorIndex:  mapSubjectIndexFunc(types.SubjectTypeSelector),
-	}); err != nil {
+	if err := mapInformer.AddIndexers(mapIndexers()); err != nil {
 		return nil, err
 	}
 
@@ -219,10 +210,25 @@ func (g *modelGrants) addModel(resource types.ModelResource, allowed map[string]
 	}
 }
 
-// UserPolicies returns the model access policies (gateway profiles) that apply to the user:
-// those naming everyone (*), the user, or one of their auth provider or Obot groups. Each
-// policy is returned once.
+// UserPolicies returns the model access policies (gateway profiles) that apply to the caller, each once. For a user,
+// those are the policies naming every user (*), the user, or one of their auth provider or Obot groups. For an agent,
+// they are only the policies that name the agent: never one for every user, or a user or group subject. An agent
+// acting on behalf of a user is the agent here, so it has the agent's policies, and never the user's. A caller that is
+// not a well-formed user or agent principal (subjects.CallerFromUserInfo) gets none.
+//
+// The other functions that take a user.Info resolve the caller's policies here, so they apply to agents the same way.
 func (h *Helper) UserPolicies(user kuser.Info) ([]*v1.ModelAccessPolicy, error) {
+	caller, ok := subjects.CallerFromUserInfo(user)
+	if !ok {
+		return nil, nil
+	}
+	return h.CallerPolicies(caller)
+}
+
+// CallerPolicies returns the model access policies whose subjects name caller, each once, as UserPolicies looks them
+// up. It is also for matching the policies of someone other than the request's caller, such as those that cover the
+// user an agent acts for, whose guardrails apply to the agent's requests for them.
+func (h *Helper) CallerPolicies(caller subjects.Caller) ([]*v1.ModelAccessPolicy, error) {
 	var (
 		result []*v1.ModelAccessPolicy
 		seen   = map[string]bool{}
@@ -240,22 +246,10 @@ func (h *Helper) UserPolicies(user kuser.Info) ([]*v1.ModelAccessPolicy, error) 
 		return nil
 	}
 
-	if err := add(h.getWildcardUserPolicies()); err != nil {
+	if err := subjects.LookupIndexes(caller, func(index, key string) error {
+		return add(h.getIndexedPolicies(index, key))
+	}); err != nil {
 		return nil, err
-	}
-	if err := add(h.getUserPolicies(user.GetUID())); err != nil {
-		return nil, err
-	}
-	groups, obotGroups := subjectgroups.Sets(user)
-	for groupID := range groups {
-		if err := add(h.getGroupPolicies(groupID)); err != nil {
-			return nil, err
-		}
-	}
-	for groupID := range obotGroups {
-		if err := add(h.getIndexedPolicies(mapObotGroupIndex, groupID)); err != nil {
-			return nil, err
-		}
 	}
 	return result, nil
 }
@@ -396,26 +390,11 @@ func (h *Helper) resolveTargetModel(provider, targetModel string) (*v1.Model, er
 	return newest, nil
 }
 
-// GetModelAccessPolicysForUser returns all policies that apply to a specific user.
-func (h *Helper) getUserPolicies(userID string) ([]v1.ModelAccessPolicy, error) {
-	return h.getIndexedPolicies(mapUserIndex, userID)
-}
-
-// getModelAccessPolicysForGroup returns all policies that apply to given group.
-func (h *Helper) getGroupPolicies(groupID string) ([]v1.ModelAccessPolicy, error) {
-	return h.getIndexedPolicies(mapGroupIndex, groupID)
-}
-
-// getAllUserPolicies returns all policies that apply to all users.
-func (h *Helper) getWildcardUserPolicies() ([]v1.ModelAccessPolicy, error) {
-	return h.getIndexedPolicies(mapSelectorIndex, "*")
-}
-
 // getIndexedPolicies returns all indexed policies for a given index and key.
 func (h *Helper) getIndexedPolicies(index, key string) ([]v1.ModelAccessPolicy, error) {
 	policies, err := h.mapIndexer.ByIndex(index, key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get model access policies with wildcard subject: %w", err)
+		return nil, fmt.Errorf("failed to get model access policies from index %s: %w", index, err)
 	}
 
 	result := make([]v1.ModelAccessPolicy, 0, len(policies))
@@ -448,27 +427,13 @@ func (h *Helper) getAliasModels() map[string]string {
 	return aliasModelIDs
 }
 
-// mapSubjectIndexFunc returns a function that ModelAccessPolicies with the given subject type by subject ID.
-func mapSubjectIndexFunc(subjectType types.SubjectType) gocache.IndexFunc {
-	return func(obj any) ([]string, error) {
+// mapIndexers returns the indexes of model access policies by subject that UserPolicies looks policies up in.
+func mapIndexers() gocache.Indexers {
+	return subjects.Indexers(func(obj any) ([]types.Subject, bool) {
 		policy := obj.(*v1.ModelAccessPolicy)
-		if !policy.DeletionTimestamp.IsZero() {
-			// Drop deleted objects from the index
-			return nil, nil
-		}
-
-		var (
-			subjects = policy.Spec.Manifest.Subjects
-			keys     = make([]string, 0, len(subjects))
-		)
-		for _, subject := range subjects {
-			if subject.Type == subjectType {
-				keys = append(keys, subject.ID)
-			}
-		}
-
-		return keys, nil
-	}
+		// Drop deleted objects from the index
+		return policy.Spec.Manifest.Subjects, policy.DeletionTimestamp.IsZero()
+	})
 }
 
 func dmaModelIndexFunc(obj any) ([]string, error) {

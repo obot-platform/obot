@@ -4,6 +4,7 @@
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		UserService,
@@ -11,7 +12,8 @@
 		type OrgUser,
 		type TokenUsage
 	} from '$lib/services';
-	import { notifications, responsive } from '$lib/stores';
+	import type { AgentLookup } from '$lib/services/agent-identities/helpers';
+	import { notifications, profile, responsive } from '$lib/stores';
 	import {
 		DEFAULT_TOKEN_GROUP_BY,
 		DEFAULT_TOKEN_TYPE,
@@ -42,6 +44,8 @@
 		data?: TokenUsage[];
 		loading?: boolean;
 		users?: OrgUser[];
+		// Agents by ID, to name their usage. Without them the card lists the agents itself.
+		agents?: Map<string, AgentLookup>;
 		models?: Model[];
 		selectedTokenType?: TokenType;
 		groupBy?: TokenGroupBy;
@@ -56,6 +60,7 @@
 		data: externalData,
 		loading: externalLoading = false,
 		users: externalUsers = [],
+		agents: externalAgents,
 		models: externalModels = [],
 		selectedTokenType: externalTokenType,
 		groupBy: externalGroupBy,
@@ -70,10 +75,15 @@
 	let fetchedUsers = $state<OrgUser[]>([]);
 	let fetchedModels = $state<Model[]>([]);
 	let fetchLoading = $state(false);
+	// Agents' usage is named from the agents' records, deleted ones included.
+	const agentLookup = createAgentLookup(
+		() => externalAgents === undefined && Boolean(profile.current.hasAdminAccess?.())
+	);
 
 	const selfFetch = $derived(externalData === undefined);
 	const data = $derived(externalData ?? fetchedData);
 	const users = $derived(externalUsers.length > 0 ? externalUsers : fetchedUsers);
+	const agents = $derived(externalAgents ?? agentLookup.current ?? new Map<string, AgentLookup>());
 	const models = $derived(externalModels.length > 0 ? externalModels : fetchedModels);
 	const loading = $derived(selfFetch ? fetchLoading : externalLoading);
 
@@ -135,6 +145,7 @@
 		const start = startDate;
 		const end = endDate;
 		const usersLookup = usersMap;
+		const agentsLookup = agents;
 		const modelToName = modelToDisplayName;
 		const threshold = TIMELINE_AGGREGATE_THRESHOLD;
 
@@ -146,7 +157,8 @@
 				start,
 				end,
 				usersLookup,
-				modelToName
+				modelToName,
+				agentsLookup
 			);
 			return;
 		}
@@ -163,7 +175,8 @@
 				start,
 				end,
 				usersLookup,
-				modelToName
+				modelToName,
+				agentsLookup
 			);
 		});
 	});

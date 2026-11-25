@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -119,6 +120,13 @@ var (
 		"/api/default-model-aliases/",
 		"/api/users",
 		"POST /api/users/{user_id}/enable",
+		// Agent identities, and their API keys. No other principal is granted these routes, and agents are confined
+		// to agentRules, so they never reach them.
+		"/api/agents",
+		"/api/agents/",
+		// The admin change audit is read-only. Read-only administrators and auditors are granted it below; no other
+		// principal is, and agents are confined to agentRules.
+		"GET /api/admin-audit-events",
 		"GET /api/groups",
 		"/api/group-role-assignments",
 		"/api/group-role-assignments/",
@@ -208,6 +216,9 @@ var (
 		"GET /api/vmcps",
 		"GET /api/vmcps/{vmcp_id}",
 		"GET /api/vmcps/{vmcp_id}/components/{component_id}/configuration-presence",
+		// The state of a component's preconfigured OAuth, from what is stored: who authorized it and when, never a
+		// token.
+		"GET /api/vmcps/{vmcp_id}/components/{component_id}/preconfigured-oauth",
 		"GET /api/vmcp-instances",
 		"GET /api/vmcp-instances/",
 		"GET /api/all-mcps",
@@ -329,6 +340,18 @@ var (
 		"GET /api/product-telemetry-consent",
 		"GET /api/admin-api-keys",
 		"GET /api/admin-api-keys/{id}",
+		// Agents and their API keys, which only administrators and owners change. Each read is listed, rather than
+		// a prefix, so that a new one is classified when it is added.
+		"GET /api/agents",
+		"GET /api/agents/{agent_id}",
+		"GET /api/agents/{agent_id}/access",
+		"GET /api/agents/{agent_id}/vmcps",
+		"GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness",
+		"GET /api/agents/{agent_id}/api-keys",
+		"GET /api/agents/{agent_id}/api-keys/{key_id}",
+		"GET /api/agents/{agent_id}/delegations",
+		// The admin change history of agents and the policies and profiles that name them.
+		"GET /api/admin-audit-events",
 	}
 	ownerRules = []string{
 		"POST /api/license/manage",
@@ -366,6 +389,10 @@ var (
 			"GET /api/mcp-capacity",
 			"GET /api/users",
 			"GET /api/users/",
+			// Read-only, like the admin API keys, which already list the keys of agents.
+			"GET /api/agents",
+			"GET /api/agents/",
+			"GET /api/admin-audit-events",
 			"GET /api/groups",
 			"GET /api/groups/",
 			"GET /api/group-role-assignments",
@@ -401,6 +428,7 @@ var (
 			"GET /api/vmcps/{vmcp_id}/resources/{resource_uri}",
 			"GET /api/vmcps/{vmcp_id}/prompts",
 			"GET /api/vmcps/{vmcp_id}/prompts/{prompt_name}",
+			"GET /api/vmcps/{vmcp_id}/components/{component_id}/preconfigured-oauth",
 			"GET /api/vmcp-instances",
 			"GET /api/vmcp-instances/",
 			"/api/audit-log-exports",
@@ -536,6 +564,9 @@ var (
 			"/api/oauth/redirect/{namespace}/{name}",
 			"DELETE /api/me",
 			"PATCH /api/me",
+			// The agents that may act on behalf of the caller. A delegation of theirs is reached as a resource
+			// (checkAgentDelegation), and approving an agent's request through authorizeAgentDelegationApproval.
+			"GET /api/me/agent-delegations",
 			"POST /api/logout-all",
 			"GET /api/version",
 			"GET /api/default-k8s-settings",
@@ -660,6 +691,17 @@ func IsMCPRegistryRequest(req *http.Request) bool {
 }
 
 func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
+	// An agent is confined to the routes agents may reach, whatever groups its principal has. This comes first, so
+	// that no rule for users, internal principals, any caller, or the UI ever applies to an agent.
+	if principal.ClaimsAgent(userInfo) {
+		return a.authorizeAgent(req, userInfo)
+	}
+
+	// No vMCP instance route reaches what a user set up through an agent, for anyone, administrators included.
+	if a.refusesDelegatedSetupInstance(req) {
+		return false
+	}
+
 	// The SCIM endpoint serves only a SCIM connection's principal, and that principal nothing else. There is at most
 	// one connection, so the path does not name it.
 	isSCIM := req.URL.Path == strings.TrimSuffix(scimPathPrefix, "/") || strings.HasPrefix(req.URL.Path, scimPathPrefix)
@@ -719,7 +761,7 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 		}
 	}
 
-	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
+	return a.authorizeAPIResources(req, user) || authorizeAgentDelegationApproval(req, user) || a.authorizeAgentDelegationRequestSetup(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
 }
 
 func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object) error {

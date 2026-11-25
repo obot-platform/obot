@@ -3,9 +3,14 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OrgGroup, type OrgUser } from '$lib/services';
+	import AgentIdentitiesService, { type AgentIdentity } from '$lib/services/agent-identities';
 	import { profile } from '$lib/stores';
-	import { OBOT_ADMIN_PICKER_ID } from '$lib/subjectResolver';
-	import { getUserRoleLabel, isDisabledUser } from '$lib/utils';
+	import {
+		isAgentPickerId,
+		isEveryonePickerId,
+		subjectPickerOptions,
+		type SubjectPickerOption
+	} from '$lib/subjectResolver';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
 	import { Check, TriangleAlert, User, Users } from '@lucide/svelte';
@@ -13,22 +18,37 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		onAdd: (users: OrgUser[], groups: OrgGroup[]) => void;
+		// All Obot Users arrives as the group "*".
+		onAdd: (users: OrgUser[], groups: OrgGroup[], agents: AgentIdentity[]) => void;
+		// filterIds are the picker IDs of the subjects already added (see resolveSubjectPickerById). They are
+		// not offered again.
 		filterIds?: string[];
 		initialUsers?: OrgUser[];
 		// offerObotAdmin offers the Obot Admin group, which only subjects that accept Obot groups can hold.
 		offerObotAdmin?: boolean;
+		// offerAgents offers the active agents, one by one, since All Obot Users never includes an agent.
+		// Only subjects that accept agents can use it.
+		offerAgents?: boolean;
+		// wildcardMustBeAlone is for subjects where All Obot Users has to be the only subject, apart from agents.
+		wildcardMustBeAlone?: boolean;
 	}
 
-	let { onAdd, filterIds, initialUsers = [], offerObotAdmin = true }: Props = $props();
+	let {
+		onAdd,
+		filterIds,
+		initialUsers = [],
+		offerObotAdmin = true,
+		offerAgents = false,
+		wildcardMustBeAlone = false
+	}: Props = $props();
 
 	let addUserGroupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let users = $state<OrgUser[]>([]);
 	let loading = $state(false);
 	let searchNames = $state('');
-	let selectedUsers = $state<(OrgUser | OrgGroup)[]>([]);
-	let selectedUsersMap = $derived(new Set(selectedUsers.map((user) => user.id)));
-	let filteredUsers = $state<OrgUser[]>([]);
+	let agents = $state<AgentIdentity[]>([]);
+	let selectedUsers = $state<SubjectPickerOption[]>([]);
+	let selectedUsersMap = $derived(new Set(selectedUsers.map((item) => item.key)));
 	let filteredGroups = $state<OrgGroup[]>([]);
 	let groupsHasMore = $state(false);
 	let groupsDegraded = $state(false);
@@ -48,34 +68,30 @@
 		}
 	});
 
-	function isGroup(item: OrgUser | OrgGroup): item is OrgGroup {
-		return 'name' in item;
+	let filteredData = $derived(
+		subjectPickerOptions({
+			users,
+			groups: filteredGroups,
+			agents,
+			query: searchNames,
+			offerAgents,
+			offerObotAdmin: offerObotAdmin && Boolean(profile.current.isAdmin?.()),
+			existingPickerIds: filterIds ?? []
+		})
+	);
+
+	// With wildcardMustBeAlone, All Obot Users cannot be added next to any user or group already added or
+	// selected, and no user or group can be added next to it. Agents are never blocked: All Obot Users
+	// doesn't include them, so a policy for every user names its agents next to it.
+	function isBlocked(item: SubjectPickerOption): boolean {
+		if (!wildcardMustBeAlone || selectedUsersMap.has(item.key) || isAgentPickerId(item.key))
+			return false;
+		const others = [...(filterIds ?? []), ...selectedUsers.map((selected) => selected.key)].filter(
+			(key) => !isAgentPickerId(key)
+		);
+		if (isEveryonePickerId(item.key)) return others.length > 0;
+		return others.some(isEveryonePickerId);
 	}
-
-	let filteredData = $derived.by(() => {
-		const everyoneGroup: OrgGroup = { id: '*', name: m.core_all_obot_users() };
-		const adminGroup: OrgGroup = {
-			id: OBOT_ADMIN_PICKER_ID,
-			name: m.identity_access_users_obot_admin()
-		};
-		const query = searchNames.toLowerCase();
-		const shouldIncludeEveryone =
-			!searchNames.length || everyoneGroup.name.toLowerCase().includes(query);
-		const shouldIncludeAdmin =
-			offerObotAdmin &&
-			profile.current.isAdmin?.() &&
-			(!searchNames.length || adminGroup.name.toLowerCase().includes(query));
-
-		const specialGroups = [
-			...(shouldIncludeEveryone ? [everyoneGroup] : []),
-			...(shouldIncludeAdmin ? [adminGroup] : [])
-		];
-		const allGroups = [...specialGroups, ...filteredGroups];
-		const combined: (OrgUser | OrgGroup)[] = [...allGroups, ...filteredUsers];
-		const filterIdSet = new Set(filterIds ?? []);
-
-		return combined.filter((item) => !filterIdSet.has(item.id));
-	});
 
 	async function search() {
 		if (!dialogOpen) {
@@ -87,18 +103,6 @@
 		inFlight = controller;
 
 		loading = true;
-
-		// Disabled users cannot sign in, so they are not offered.
-		const selectable = users.filter((user) => !isDisabledUser(user));
-		filteredUsers =
-			searchNames.length > 0
-				? selectable.filter(
-						(user) =>
-							(user.displayName ?? '').toLowerCase().includes(searchNames.toLowerCase()) ||
-							(user.email ?? '').toLowerCase().includes(searchNames.toLowerCase()) ||
-							(user.username ?? '').toLowerCase().includes(searchNames.toLowerCase())
-					)
-				: selectable;
 
 		try {
 			// Groups are searched and paged server-side: a directory can hold far more than can be
@@ -138,10 +142,17 @@
 		loading = true;
 
 		let loaded: OrgUser[] | undefined;
+		let loadedAgents: AgentIdentity[] | undefined;
 		try {
-			if (users.length === 0) {
-				loaded = await UserService.listUsers();
-			}
+			[loaded, loadedAgents] = await Promise.all([
+				users.length === 0 ? UserService.listUsers() : undefined,
+				offerAgents
+					? AgentIdentitiesService.listAgents().catch((error) => {
+							console.error('Error loading agents:', error);
+							return undefined;
+						})
+					: undefined
+			]);
 		} catch (error) {
 			console.error('Error loading initial users:', error);
 		} finally {
@@ -154,6 +165,9 @@
 		}
 		if (loaded) {
 			users = loaded;
+		}
+		if (loadedAgents) {
+			agents = loadedAgents;
 		}
 
 		// Now search to populate filtered data
@@ -169,7 +183,6 @@
 		loading = false;
 		searchNames = '';
 		selectedUsers = [];
-		filteredUsers = [];
 		filteredGroups = [];
 		groupsHasMore = false;
 		groupsDegraded = false;
@@ -181,7 +194,7 @@
 	bind:this={addUserGroupDialog}
 	{onClose}
 	{onOpen}
-	title={m.core_add_user_group()}
+	title={offerAgents ? m.core_add_user_group_agent() : m.core_add_user_group()}
 	class="h-full w-full overflow-visible md:h-125 md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
 >
@@ -194,7 +207,9 @@
 					searchNames = val;
 					handleSearch();
 				}}
-				placeholder={m.identity_access_users_search_users_groups()}
+				placeholder={offerAgents
+					? m.core_search_users_groups_agents()
+					: m.identity_access_users_search_users_groups()}
 			/>
 		</div>
 		{#if groupsDegraded}
@@ -218,38 +233,34 @@
 			</div>
 		{:else}
 			<div class="flex flex-col">
-				{#each filteredData ?? [] as item (item.id)}
+				{#each filteredData ?? [] as item (item.key)}
+					{@const blocked = isBlocked(item)}
 					<button
-						id={item.id === '*' ? MCP_ACCESS_POLICY_FIELD_IDS.allUsersOption : undefined}
+						id={item.key === '*' ? MCP_ACCESS_POLICY_FIELD_IDS.allUsersOption : undefined}
 						class={twMerge(
 							'dark:hover:bg-base-200 hover:bg-base-400 flex items-center gap-2 px-4 py-2 text-left',
-							selectedUsersMap.has(item.id) && 'bg-base-200/50'
+							selectedUsersMap.has(item.key) && 'bg-base-200/50',
+							blocked && 'cursor-not-allowed opacity-50 hover:bg-transparent'
 						)}
+						disabled={blocked}
+						title={blocked ? m.core_wildcard_unavailable() : undefined}
 						onclick={() => {
-							if (selectedUsersMap.has(item.id)) {
-								const index = selectedUsers.findIndex((u) => u.id === item.id);
+							if (selectedUsersMap.has(item.key)) {
+								const index = selectedUsers.findIndex((u) => u.key === item.key);
 								if (index !== -1) {
 									selectedUsers.splice(index, 1);
 								}
 							} else {
 								selectedUsers.push(item);
-								selectedUsersMap.add(item.id);
 							}
 						}}
 					>
 						<div class="flex grow flex-col">
-							{#if !isGroup(item)}
-								<p>{item.displayName ?? item.email ?? item.username ?? item.id}</p>
-								<p class="text-muted-content font-light">
-									{item.effectiveRole ? getUserRoleLabel(item.effectiveRole) : m.core_col_user()}
-								</p>
-							{:else}
-								<p>{item.name}</p>
-								<p class="text-muted-content font-light">{m.core_col_group()}</p>
-							{/if}
+							<p>{item.label}</p>
+							<p class="text-muted-content font-light">{item.kind}</p>
 						</div>
 						<div class="flex items-center justify-center">
-							{#if selectedUsersMap.has(item.id)}
+							{#if selectedUsersMap.has(item.key)}
 								<Check class="text-primary size-6" />
 							{/if}
 						</div>
@@ -277,9 +288,11 @@
 				id={MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn}
 				class="btn btn-primary w-full md:w-fit"
 				onclick={() => {
-					const users = selectedUsers.filter((user) => !isGroup(user)) as OrgUser[];
-					const groups = selectedUsers.filter((user) => isGroup(user)) as OrgGroup[];
-					onAdd(users, groups);
+					onAdd(
+						selectedUsers.flatMap((item) => (item.user ? [item.user] : [])),
+						selectedUsers.flatMap((item) => (item.group ? [item.group] : [])),
+						selectedUsers.flatMap((item) => (item.agent ? [item.agent] : []))
+					);
 					addUserGroupDialog?.close();
 				}}
 			>

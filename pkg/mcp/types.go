@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/net/idna"
@@ -26,6 +28,18 @@ const (
 
 	// AuditLogIgnore is a metadata field that tells the audit log persistence layer to ignore audit logs for this server
 	AuditLogIgnore = "obot.mcp.ignoreAuditLog"
+
+	// AuditLogVMCPID, AuditLogComponentID and AuditLogProfiles are the audit metadata of a call made through a vMCP:
+	// the vMCP, the component the call reached when the gateway knows it, and the comma-separated IDs of the profiles
+	// that granted the caller its permissions: every profile that names it, for an agent as for a user.
+	AuditLogVMCPID      = "vmcpID"
+	AuditLogComponentID = "componentID"
+	AuditLogProfiles    = "profiles"
+
+	// AuditLogOnBehalfOf is the audit metadata of the decimal ID of the user an agent made a call on behalf of. The MCP
+	// gateway sets it from the caller it authenticated, and only an entry the gateway itself records is attributed
+	// with it: one an MCP server submits never is, whatever its metadata says.
+	AuditLogOnBehalfOf = "onBehalfOf"
 )
 
 var (
@@ -85,6 +99,21 @@ type ServerConfig struct {
 	// ToolPreview marks a temporary server launched only to list tools. Backends label its
 	// resources so that a missed cleanup can be found and swept.
 	ToolPreview bool `json:"toolPreview,omitempty"`
+
+	// OAuthGrant is the vMCP's preconfigured OAuth grant that a connection to a component uses, in place of a token of
+	// the caller's own (SessionManager.applyPreconfiguredOAuth). For a user, it is set whenever the vMCP holds a grant
+	// for the component, working or not: the user is then never asked to authorize the component, and the token store
+	// refuses a grant that does not work. For an agent, it is set only when the vMCP holds a working grant, for the
+	// connection's URL, for a component that the agent's profiles grant.
+	OAuthGrant *OAuthGrantRef `json:"oauthGrant,omitempty"`
+}
+
+// OAuthGrantRef identifies a vMCP's preconfigured OAuth grant for a component: the component, and the key of the
+// grant's token.
+type OAuthGrantRef struct {
+	ComponentID string `json:"componentID"`
+	Owner       string `json:"owner"`
+	MCPID       string `json:"mcpID"`
 }
 
 type File struct {
@@ -94,6 +123,8 @@ type File struct {
 }
 
 type ComponentServer struct {
+	// ComponentID is the vMCP component the server serves.
+	ComponentID         string               `json:"componentID,omitempty"`
 	MCPServerInstanceID string               `json:"mcpServerInstanceID,omitempty"`
 	DisableTools        bool                 `json:"disableTools,omitempty"`
 	Name                string               `json:"name"`
@@ -101,6 +132,11 @@ type ComponentServer struct {
 	URL                 string               `json:"url"`
 	Tools               []types.ToolOverride `json:"tools"`
 	ToolPrefix          string               `json:"toolPrefix"`
+	// OAuthGrant is the vMCP's preconfigured OAuth grant a connection to the component uses, as the gateway selected it
+	// when it connected the caller, user or agent. It is nil when the vMCP holds no grant for the component. The gateway
+	// reports an authorization failure of a component with a grant as the grant being invalid, to an agent, and as one
+	// an administrator must authorize again, to a user, whom it never asks to authorize the component.
+	OAuthGrant *OAuthGrantRef `json:"oauthGrant,omitempty"`
 }
 
 // ConnectID identifies the connection while Name identifies its backing server.
@@ -109,6 +145,21 @@ func (c ComponentServer) ConnectID() string {
 		return c.MCPServerInstanceID
 	}
 	return c.Name
+}
+
+// OAuthTokenKey returns the key of the stored OAuth token that a connection to the server uses, and false when it
+// uses none. A connection to a vMCP component that the vMCP preconfigures OAuth for uses the vMCP's grant (OAuthGrant),
+// whoever's connection it is. Otherwise a user's connection uses the user's own token for the connection, as it always
+// has, and an agent's uses none: an agent never authorizes a connection of its own, so it never reads a token keyed by
+// itself, and so no one else's token can ever be read for it.
+func (s ServerConfig) OAuthTokenKey() (userID, mcpID string, ok bool) {
+	if s.OAuthGrant != nil {
+		return s.OAuthGrant.Owner, s.OAuthGrant.MCPID, true
+	}
+	if _, agent := principal.ParseAgent(s.UserID); agent || principal.IsPreconfiguredOAuthOwner(s.UserID) {
+		return "", "", false
+	}
+	return s.UserID, cmp.Or(s.MCPServerInstanceID, s.MCPServerName), true
 }
 
 // isHTTPContainerRuntime reports whether the runtime serves MCP over HTTP

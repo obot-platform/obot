@@ -5,16 +5,22 @@
 	import {
 		buildPillSearchParamFilters,
 		buildSearchParamFiltersArray,
+		auditLogActorKindLabel,
+		auditLogAgentActorLabel,
+		auditLogAgentID,
 		getAuditLogAPIKeyFilterOptionLabel,
 		isAuditLogAPIKeyFilterOption
 	} from '$lib/auditlogs';
 	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import IncludeOnBehalfOfToggle from '$lib/components/admin/audit-logs/IncludeOnBehalfOfToggle.svelte';
 	import LlmAuditLogsTable from '$lib/components/admin/audit-logs/LlmAuditLogsTable.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
+	import { parseMultiValue } from '$lib/multiValue';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		UserService,
@@ -23,8 +29,9 @@
 		type LLMAuditLogURLFilters,
 		type OrgUser
 	} from '$lib/services';
+	import { agentDisplayName, parseAgentActor } from '$lib/services/agent-identities/helpers';
 	import type { PaginatedResponse } from '$lib/services/http';
-	import { responsive } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 	import { goto, replaceState } from '$lib/url';
 	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
@@ -48,6 +55,9 @@
 	const supportedFilters: SupportedFilter[] = [
 		'api_key_id',
 		'user_id',
+		// The users agents acted for: with an agent as the user, what that agent requested for them.
+		'on_behalf_of',
+		'actor_kind',
 		'client_session_id',
 		'hide_models_requests',
 		'model_provider',
@@ -65,6 +75,8 @@
 	let response = $state<PaginatedResponse<LLMAuditLog>>();
 	let pageIndex = $state(0);
 	let users = $state<OrgUser[]>([]);
+	// Agents are named by an admin-only API, and the rows carry their names for everyone else.
+	const agents = createAgentLookup(() => Boolean(profile.current.hasAdminAccess?.()));
 	let apiKeyFilterOptions = $state<Record<string, AuditLogAPIKeyFilterOption>>({});
 	let showFilters = $state(false);
 	let rightSidebar = $state<HTMLDivElement>();
@@ -142,6 +154,15 @@
 	);
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
 
+	// Requests that agents made for a user are only listed with the user when asked for, and only a filter on a user
+	// can ask: an agent has none.
+	const hasUserFilter = $derived(
+		parseMultiValue(pillsSearchParamFilters.user_id).some((id) => !parseAgentActor(id))
+	);
+	const includeOnBehalfOf = $derived(
+		hasUserFilter && page.url.searchParams.get('include_on_behalf_of') === 'true'
+	);
+
 	const timeRangeFilters = $derived.by(() => {
 		if (startTimeOverride && endTimeOverride) {
 			return { startTime: startTimeOverride, endTime: endTimeOverride };
@@ -160,6 +181,7 @@
 	const filters = $derived<LLMAuditLogURLFilters>({
 		...pillsSearchParamFilters,
 		...propsFilters,
+		...(includeOnBehalfOf ? { include_on_behalf_of: 'true' } : {}),
 		start_time: timeRangeFilters.startTime.toISOString(),
 		end_time: timeRangeFilters.endTime.toISOString(),
 		limit: pageLimit,
@@ -282,6 +304,8 @@
 		if (_key === 'served_provider') return m.audit_usage_audit_logs_model_filter_served_provider();
 		if (_key === 'response_status') return m.core_status();
 		if (_key === 'user_id') return m.core_col_user();
+		if (_key === 'on_behalf_of') return m.identity_access_on_behalf_of();
+		if (_key === 'actor_kind') return m.audit_usage_actor_kind();
 		if (_key === 'user_agent') return m.audit_usage_audit_logs_user_agent();
 		if (_key === 'client_session_id')
 			return m.audit_usage_audit_logs_model_filter_client_session_id();
@@ -291,16 +315,30 @@
 		return key.replace(/_(\w)/g, ' $1');
 	}
 
+	function agentName(agentId: string, rowName?: string) {
+		return agentDisplayName(agents.current, agentId, rowName);
+	}
+
+	// Names a user_id value: a user, or an agent as "agent:<id>", which is never looked up as a user.
+	function userIdLabel(id: string, hasConflict?: () => boolean) {
+		const agentId = parseAgentActor(id);
+		if (agentId) return agentName(agentId);
+		return withDisabledMarker(getUserDisplayName(usersMap, id, hasConflict), usersMap.get(id));
+	}
+
 	function getFilterValue(label: keyof LLMAuditLogURLFilters, value: string | number) {
 		if (label === 'api_key_id') {
 			const option = apiKeyFilterOptions[value.toString()];
 			return option
-				? getAuditLogAPIKeyFilterOptionLabel(option, (id) => getUserDisplayName(usersMap, id))
+				? getAuditLogAPIKeyFilterOptionLabel(
+						option,
+						(id) => getUserDisplayName(usersMap, id),
+						agentName
+					)
 				: value.toString();
 		}
-		if (label === 'user_id') {
-			return withDisabledMarker(getUserDisplayName(usersMap, value + ''), usersMap.get(value + ''));
-		}
+		if (label === 'user_id' || label === 'on_behalf_of') return userIdLabel(value + '');
+		if (label === 'actor_kind') return auditLogActorKindLabel(value + '');
 		if (label === 'hide_models_requests')
 			return value === 'true'
 				? m.audit_usage_audit_logs_model_hidden()
@@ -378,6 +416,9 @@
 		</div>
 	</div>
 
+	{#if hasUserFilter}
+		<IncludeOnBehalfOfToggle />
+	{/if}
 	{#if hasFilterPills}
 		<FilterPills
 			{pillsSearchParamFilters}
@@ -402,13 +443,19 @@
 	<LlmAuditLogsTable
 		onSelectRow={(d: LLMAuditLog) => {
 			showFilters = false;
+			const agentId = auditLogAgentID(d);
 			selectedAuditLog = {
 				...d,
-				user: getUserDisplayName(usersMap, d.userID)
+				user: agentId
+					? auditLogAgentActorLabel(agentName(agentId, d.agentDisplayName), d.onBehalfOf, (id) =>
+							getUserDisplayName(usersMap, id)
+						)
+					: getUserDisplayName(usersMap, d.userID)
 			};
 			rightSidebar?.showPopover();
 		}}
 		getUserDisplayName={(id: string) => getUserDisplayName(usersMap, id)}
+		getAgentDisplayName={agentName}
 	/>
 {:else}
 	<div class="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center w-full">
@@ -489,18 +536,21 @@
 			isFilterClearable={(filterId) => !propsFiltersKeys.has(filterId)}
 			isFilterMultiSelect={(filterId) => filterId !== 'hide_models_requests'}
 			getDefaultValue={(filterId) => (filterId === 'hide_models_requests' ? 'true' : undefined)}
-			getUserDisplayName={(id, hasConflict) =>
-				withDisabledMarker(getUserDisplayName(usersMap, id, hasConflict), usersMap.get(id))}
+			getUserDisplayName={userIdLabel}
+			getAgentDisplayName={agentName}
 			{getFilterDisplayLabel}
 			getFilterOptionLabel={(key, value) =>
 				key === 'hide_models_requests'
 					? value === 'true'
 						? m.audit_usage_audit_logs_model_hidden()
 						: m.audit_usage_audit_logs_model_shown()
-					: value}
+					: key === 'actor_kind'
+						? auditLogActorKindLabel(value)
+						: value}
 			endpoint={async (filterId, opts) => {
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,
+					...(includeOnBehalfOf ? { include_on_behalf_of: 'true' } : {}),
 					query,
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime.toISOString()

@@ -1,4 +1,5 @@
 import { m } from '$lib/i18n';
+import type { PrincipalRef } from '../agent-identities/types';
 import {
 	type MCPServerTool,
 	type MCPSecretBinding,
@@ -101,7 +102,9 @@ export interface AppPreferencesManifest {
 
 // Audit log exports
 
-export type AuditLogType = 'mcp' | 'llm';
+// admin is the admin change audit: changes to agents, their API keys, and the policies and profiles
+// that name agents.
+export type AuditLogType = 'mcp' | 'llm' | 'admin';
 
 export interface AuditLogExportInput {
 	name: string;
@@ -112,6 +115,7 @@ export interface AuditLogExportInput {
 	endTime: string;
 	filters?: AuditLogExportFilters;
 	llmFilters?: LLMAuditLogExportFilters;
+	adminFilters?: AdminAuditEventExportFilters;
 }
 export interface AuditLogExport {
 	id: string;
@@ -130,6 +134,7 @@ export interface AuditLogExport {
 	completedAt?: string;
 	filters?: AuditLogExportFilterResponse;
 	llmFilters?: LLMAuditLogExportFilters;
+	adminFilters?: AdminAuditEventExportFilters;
 }
 export interface AuditLogExportFilterResponse {
 	apiKeyIDs?: number[];
@@ -141,6 +146,8 @@ export interface AuditLogExportFilterResponse {
 	tools?: string[];
 	outcomes?: string[];
 	clients?: string[];
+	// The users agents acted for, which narrows the other filters whatever the sources.
+	onBehalfOf?: string[];
 	// Single-source filters.
 	userIDs?: string[];
 	mcpIDs?: string[];
@@ -170,6 +177,8 @@ export type AuditLogExportFilters = {
 	tools?: string[];
 	outcomes?: string[];
 	clients?: string[];
+	// The users agents acted for, which narrows the other filters whatever the sources.
+	onBehalfOf?: string[];
 	// Single-source filters.
 	userIDs?: string[];
 	mcpIDs?: string[];
@@ -199,6 +208,7 @@ export interface ScheduledAuditLogExportInput {
 	retentionPeriodInDays: number;
 	filters?: AuditLogExportFilters;
 	llmFilters?: LLMAuditLogExportFilters;
+	adminFilters?: AdminAuditEventExportFilters;
 }
 export interface ScheduledAuditLogExport {
 	id: string;
@@ -217,11 +227,14 @@ export interface ScheduledAuditLogExport {
 	filters?: AuditLogExportFilterResponse;
 	llmFilters?: LLMAuditLogExportFilters;
 	lastExportedThrough?: string;
+	adminFilters?: AdminAuditEventExportFilters;
 }
 
 export type LLMAuditLogExportFilters = {
 	apiKeyIDs?: number[];
 	userIDs?: string[];
+	// The users agents acted for, which narrows the other filters.
+	onBehalfOf?: string[];
 	modelProviders?: string[];
 	targetModels?: string[];
 	requestPaths?: string[];
@@ -230,6 +243,17 @@ export type LLMAuditLogExportFilters = {
 	userAgents?: string[];
 	clientSessionIDs?: string[];
 	query?: string;
+};
+
+// Filters of an admin change audit export. Each lists values that match any; the filters combine
+// with and.
+export type AdminAuditEventExportFilters = {
+	// agent, apiKey, vmcpProfile, modelAccessPolicy or skillAccessRule.
+	resourceKinds?: string[];
+	resourceIDs?: string[];
+	// User IDs, or system.
+	actors?: string[];
+	actions?: string[];
 };
 
 // Auth and file scanner providers
@@ -766,7 +790,12 @@ export interface LLMAuditLog {
 	// subscription is true when the user's subscription paid for the request, which
 	// was then served with no provider key.
 	subscription?: boolean;
+	// userID is empty for a request made by an agent, which is named by principal and agentDisplayName.
 	userID: string;
+	principal?: PrincipalRef;
+	// onBehalfOf is the user an agent made the request for, when it acted for one.
+	onBehalfOf?: PrincipalRef;
+	agentDisplayName?: string;
 }
 
 export type LLMAuditLogURLFilters = {
@@ -788,6 +817,11 @@ export type LLMAuditLogURLFilters = {
 	target_model?: string | null;
 	user_agent?: string | null;
 	user_id?: string | null;
+	actor_kind?: string | null; // "user" or "agent"
+	// With a user_id, also lists the requests agents made on the user's behalf.
+	include_on_behalf_of?: string | null;
+	// Lists only the requests agents made on behalf of these users, which every other filter narrows.
+	on_behalf_of?: string | null;
 };
 
 // MCP capacity
@@ -1029,7 +1063,7 @@ export interface MCPFilterManifest {
 export type MCPGuardrailFilterAction = 'block' | 'redact';
 export type MCPGuardrailFilterDirection = 'request' | 'response' | 'both';
 export interface MCPGuardrailFilterSubject {
-	type: 'user' | 'group' | 'everyone';
+	type: 'user' | 'agent' | 'group' | 'everyone';
 	id?: string;
 }
 export interface MCPGuardrailFilterConfig {
@@ -1412,7 +1446,11 @@ export interface SystemMCPServer {
 
 export interface TokenUsage {
 	date: string;
+	// userID is empty for usage by an agent, which is named by principal.
 	userID?: string;
+	principal?: PrincipalRef;
+	// onBehalfOf is the user an agent made the requests for, when it acted for one.
+	onBehalfOf?: PrincipalRef;
 	model?: string;
 	apiKeyID?: number;
 	apiKeyName?: string;
@@ -1492,6 +1530,10 @@ export interface TokenUsageStats {
 
 export interface TokenUsageStatsFilters {
 	userIDs?: string[];
+	// Also counts the requests agents made on behalf of userIDs.
+	includeOnBehalfOf?: boolean;
+	// Counts only the requests agents made on behalf of these users.
+	onBehalfOf?: string[];
 	models?: string[];
 	apiKeyIDs?: string[];
 }

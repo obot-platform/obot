@@ -134,6 +134,15 @@ describe('Models profiles tab', () => {
 			.toHaveAttribute('title', 'Alice\nBob\nEngineers\nObot Admin');
 	});
 
+	// All Obot Users never includes an agent, so it is labeled as everywhere else.
+	it('labels the wildcard All Obot Users, as the editor does', async () => {
+		mockProfiles();
+		await renderModelsTab('profiles');
+
+		const everyone = page.getByRole('row').filter({ hasText: 'Everyone' });
+		await expect.element(everyone.getByTitle('All Obot Users')).toBeInTheDocument();
+	});
+
 	it('deletes a profile after saying its budgets and applied guardrails go with it', async () => {
 		const { deleted } = mockProfiles();
 		await renderModelsTab('profiles');

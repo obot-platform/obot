@@ -3,14 +3,26 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 )
 
 const (
+	// VMCPProfileIDPrefix starts every profile ID that Obot assigns, whether random (vMCPs managed through the API) or
+	// derived from the vMCP and profile names (catalog-synced and migrated vMCPs). IDs set in catalog YAML need not
+	// use it.
+	VMCPProfileIDPrefix = "vp1"
+
 	VMCPConfigurationPolicyProhibited  VMCPConfigurationPolicyType = "prohibited"
 	VMCPConfigurationPolicyFixed       VMCPConfigurationPolicyType = "fixed"
 	VMCPConfigurationPolicyUserAllowed VMCPConfigurationPolicyType = "userAllowed"
+)
+
+var (
+	// vmcpProfileIDPattern is a DNS label, so that a profile ID is safe in URL paths, credential contexts and object
+	// names.
+	vmcpProfileIDPattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
 )
 
 // VMCP is a stable, optionally multi-component MCP endpoint definition.
@@ -89,6 +101,11 @@ type VMCPConfigurationPolicyType string
 // are additive. AllowAllComponents grants all tools enabled on every component
 // otherwise only the specified components and their allowed tools are granted.
 type VMCPProfile struct {
+	// ID is the profile's immutable identity, which audit records name the profile by. The API
+	// assigns it: a request keeps a profile's ID by sending it back, and a profile sent without one is a new profile,
+	// even if it has the name of a profile being removed. Catalog YAML may set it; otherwise catalog sync derives it
+	// from the vMCP and profile names, so renaming a profile in YAML without an ID makes it a new profile.
+	ID          string                 `json:"id,omitempty"`
 	Name        string                 `json:"name"`
 	Subjects    []Subject              `json:"subjects"`
 	Permissions VMCPProfilePermissions `json:"vmcpPermissions,omitempty"`
@@ -242,6 +259,63 @@ type VMCPConfigurationPresence struct {
 	ConfiguredFields []string `json:"configuredFields"`
 }
 
+const (
+	// VMCPPreconfiguredOAuthNotRequired is the state of a remote component that the vMCP holds no preconfigured OAuth
+	// for, and that is not known to need OAuth: its catalog entry does not require static OAuth, and Obot's background
+	// probe, which connects without credentials, has not found that it asks for OAuth. An administrator can still
+	// authorize it: a probe that failed, or has not run yet, counts as not required.
+	VMCPPreconfiguredOAuthNotRequired = "not_required"
+	// VMCPPreconfiguredOAuthNeedsAuthorization is the state of a remote component that the vMCP holds no preconfigured
+	// OAuth for, and that is known to need OAuth. Users authorize it with their own accounts, and agents cannot use it,
+	// until an administrator authorizes it.
+	VMCPPreconfiguredOAuthNeedsAuthorization = "needs_authorization"
+	// VMCPPreconfiguredOAuthAuthorized is the state of a vMCP's preconfigured OAuth for a component that works.
+	VMCPPreconfiguredOAuthAuthorized = "authorized"
+	// VMCPPreconfiguredOAuthInvalid is the state of a vMCP's preconfigured OAuth for a component that no longer works:
+	// the provider refused to refresh it, or the component's upstream URL changed since it was authorized. An
+	// administrator must authorize it again, or revoke it so users authorize the component themselves.
+	VMCPPreconfiguredOAuthInvalid = "invalid"
+)
+
+// VMCPPreconfiguredOAuth is the OAuth an administrator preconfigured for one remote component of a shared vMCP: one
+// account, which everyone who reaches the component through the vMCP uses upstream, users and agents alike. While it
+// is set, users are not asked to authorize the component themselves, and their own tokens for it are not used. It
+// describes the grant, never its tokens.
+type VMCPPreconfiguredOAuth struct {
+	VMCPID      string `json:"vmcpID"`
+	ComponentID string `json:"componentID"`
+	// State is VMCPPreconfiguredOAuthNotRequired, VMCPPreconfiguredOAuthNeedsAuthorization,
+	// VMCPPreconfiguredOAuthAuthorized or VMCPPreconfiguredOAuthInvalid.
+	State string `json:"state"`
+	// AuthorizedBy is the administrator who authorized the grant, as a user ID.
+	AuthorizedBy string `json:"authorizedBy,omitempty"`
+	// AuthorizedAt is when the grant was authorized.
+	AuthorizedAt *Time `json:"authorizedAt,omitempty"`
+	// Target is the upstream URL the grant was authorized for, for a component whose catalog entry fixes the URL: that
+	// URL is catalog data. The grant is used only for that URL. It is empty when the URL comes from the vMCP's fixed
+	// configuration, which is never returned: see TargetHostname.
+	Target string `json:"target,omitempty"`
+	// TargetHostname is, for a component whose URL comes from the vMCP's fixed configuration (a hostname-constrained
+	// URL or a URL template), only the hostname of the URL the grant was authorized for, never its port, path, query or
+	// userinfo. It is not a URL.
+	TargetHostname string `json:"targetHostname,omitempty"`
+	// Scopes are the scopes the grant was authorized with.
+	Scopes []string `json:"scopes,omitempty"`
+	// InvalidReason says why an invalid grant stopped working.
+	InvalidReason string `json:"invalidReason,omitempty"`
+}
+
+// VMCPPreconfiguredOAuthAuthorization starts an administrator's authorization of a vMCP's preconfigured OAuth for one
+// component. The administrator opens AuthURL; the provider's callback stores the grant on the vMCP.
+type VMCPPreconfiguredOAuthAuthorization struct {
+	AuthURL string `json:"authURL"`
+	// LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is
+	// Obot's local login URL rather than the provider's: the administrator runs `obot mcp login <AuthURL>` on their own
+	// machine, which listens for the callback and relays it to Obot in their browser, as for a user's own connection.
+	// Only the authorization needs the relay; users and agents use and refresh the grant without it.
+	LocalhostCallback bool `json:"localhostCallback,omitempty"`
+}
+
 type VMCPInstanceManifest struct {
 	VMCPID string `json:"vmcpID"`
 	// Nil follows the current grant; an empty map explicitly selects no tools.
@@ -362,6 +436,7 @@ func (m VMCPManifest) Validate() error {
 	}
 
 	profileNames := make(map[string]struct{}, len(m.Profiles))
+	profileIDs := make(map[string]struct{}, len(m.Profiles))
 	for _, profile := range m.Profiles {
 		if err := m.ValidateComponents(profile.Permissions.AllowedComponents); err != nil {
 			return fmt.Errorf("profile %q: %w", profile.Name, err)
@@ -373,17 +448,45 @@ func (m VMCPManifest) Validate() error {
 			return fmt.Errorf("duplicate profile name %q", profile.Name)
 		}
 		profileNames[profile.Name] = struct{}{}
+		// The ID is assigned after validation on some paths, so a profile without one is accepted here.
+		if profile.ID != "" {
+			if err := ValidateVMCPProfileID(profile.ID); err != nil {
+				return fmt.Errorf("profile %q: %w", profile.Name, err)
+			}
+			if _, ok := profileIDs[profile.ID]; ok {
+				return fmt.Errorf("duplicate profile ID %q", profile.ID)
+			}
+			profileIDs[profile.ID] = struct{}{}
+		}
 		if len(profile.Subjects) == 0 {
 			return fmt.Errorf("profile %q must have at least one subject", profile.Name)
 		}
 		for _, subject := range profile.Subjects {
-			if err := subject.Validate(); err != nil {
+			if err := subject.ValidateFor(PolicySystemVMCPProfile); err != nil {
 				return fmt.Errorf("profile %q has invalid subject: %w", profile.Name, err)
 			}
 		}
 	}
 
 	return nil
+}
+
+// ValidateVMCPProfileID checks the format of a profile ID: a DNS label of lowercase letters, digits and hyphens, at
+// most 63 characters long, so that it is safe in URL paths, credential contexts and object names.
+func ValidateVMCPProfileID(id string) error {
+	if !vmcpProfileIDPattern.MatchString(id) {
+		return fmt.Errorf("invalid profile ID %q: use 1-63 lowercase letters, digits and hyphens, starting and ending with a letter or digit", id)
+	}
+	return nil
+}
+
+// Profile returns the profile with id, and whether the manifest has one. An empty id names no profile.
+func (m VMCPManifest) Profile(id string) (VMCPProfile, bool) {
+	index := slices.IndexFunc(m.Profiles, func(profile VMCPProfile) bool { return profile.ID == id })
+	if id == "" || index < 0 {
+		return VMCPProfile{}, false
+	}
+	return m.Profiles[index], true
 }
 
 func (m VMCPInstanceManifest) Validate() error {

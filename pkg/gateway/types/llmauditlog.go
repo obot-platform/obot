@@ -15,12 +15,25 @@ const (
 
 type LLMAuditLog struct {
 	ID        string    `gorm:"primaryKey;type:text"`
-	CreatedAt time.Time `gorm:"index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_user_agent_created,priority:2;index:idx_llm_audit_message_policy_triggered_created,priority:2;index:idx_llm_audit_api_key_created,priority:2;index:idx_llm_audit_served_provider_created,priority:2"`
+	CreatedAt time.Time `gorm:"index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_user_agent_created,priority:2;index:idx_llm_audit_message_policy_triggered_created,priority:2;index:idx_llm_audit_api_key_created,priority:2;index:idx_llm_audit_served_provider_created,priority:2;index:idx_llm_audit_on_behalf_of_created,priority:2"`
 	// UpdatedAt tracks persistence rather than the event timestamp supplied by the request.
 	UpdatedAt time.Time `gorm:"index"`
 	Duration  int64
-	UserID    string `gorm:"type:text;index:idx_llm_audit_user_created,priority:1"`
-	APIKeyID  *uint  `gorm:"index:idx_llm_audit_api_key_created,priority:1"`
+	// UserID is the user's ID. It is empty for an agent's request, which is attributed through PrincipalKind and
+	// PrincipalID instead; see Actor.
+	UserID string `gorm:"type:text;index:idx_llm_audit_user_created,priority:1"`
+	// PrincipalKind says whether a user or an agent made the request, and PrincipalID which agent. A user's row,
+	// including one from before agents existed, has no PrincipalID and reads as its UserID's user. They stay readable
+	// after an agent is deleted.
+	PrincipalKind string `gorm:"type:text;not null;default:user;index:idx_llm_audit_principal,priority:1"`
+	PrincipalID   string `gorm:"type:text;index:idx_llm_audit_principal,priority:2"`
+	// OnBehalfOf is the ID of the user an agent made the request for, and empty for any other request; see Actor.
+	// Rows from before agents acted for users have none.
+	OnBehalfOf string `gorm:"type:text;index:idx_llm_audit_on_behalf_of_created,priority:1"`
+	// AgentDisplayName is the current display name of the agent that made the request, populated when audit logs are
+	// read, from the agent row even when the agent has been deleted. It is not part of the historical event.
+	AgentDisplayName string `gorm:"-"`
+	APIKeyID         *uint  `gorm:"index:idx_llm_audit_api_key_created,priority:1"`
 	// APIKeyRevoked is current lifecycle metadata populated when audit logs are read.
 	// It is not persisted as part of the historical event snapshot.
 	APIKeyRevoked bool `gorm:"-"`
@@ -86,6 +99,9 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		CreatedAt:         *types2.NewTime(a.CreatedAt),
 		Duration:          a.Duration,
 		UserID:            a.UserID,
+		Principal:         Actor{PrincipalKind: a.PrincipalKind, PrincipalID: a.PrincipalID, UserID: a.UserID}.Ref(),
+		OnBehalfOf:        Actor{OnBehalfOf: a.OnBehalfOf}.OnBehalfOfRef(),
+		AgentDisplayName:  a.AgentDisplayName,
 		APIKeyID:          a.APIKeyID,
 		APIKeyRevoked:     a.APIKeyRevoked,
 		APIKeyName:        a.APIKeyName,

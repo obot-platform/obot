@@ -9,8 +9,16 @@ type LLMAuditLog struct {
 	ID        string `json:"id"`
 	CreatedAt Time   `json:"createdAt"`
 	Duration  int64  `json:"duration"`
-	UserID    string `json:"userID"`
-	APIKeyID  *uint  `json:"apiKeyID,omitempty"`
+	// UserID is the user's ID. It is empty for a request made by an agent.
+	UserID string `json:"userID"`
+	// Principal is the user or agent that made the request. It is set for every request that has a caller.
+	Principal PrincipalRef `json:"principal,omitzero"`
+	// OnBehalfOf is the user an agent made the request for, when it acted for one.
+	OnBehalfOf PrincipalRef `json:"onBehalfOf,omitzero"`
+	// AgentDisplayName is the current display name of the agent that made the request, also after the agent is
+	// deleted.
+	AgentDisplayName string `json:"agentDisplayName,omitempty"`
+	APIKeyID         *uint  `json:"apiKeyID,omitempty"`
 	// APIKeyRevoked reports the API key's current lifecycle state.
 	APIKeyRevoked bool `json:"apiKeyRevoked,omitempty"`
 	// APIKeyName is the event-time display value and is a masked identifier for unnamed keys.

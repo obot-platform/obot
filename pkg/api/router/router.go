@@ -52,6 +52,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	})
 
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
+	oauthChecker.SetPreconfiguredOAuth(services.VMCPPreconfiguredOAuth)
+	vmcpPreconfiguredOAuth := handlers.NewVMCPPreconfiguredOAuthHandler(oauthChecker, services.VMCPPreconfiguredOAuth)
 
 	mcpGateway, err := mcpgateway.NewHandler(
 		ctx,
@@ -85,6 +87,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.EntitlementProvider)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.EntitlementProvider)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
+	agentIdentities := handlers.NewAgentIdentityHandler(services.MCPSessionManager)
 	vmcps := handlers.NewVMCPHandler(services.AccessControlRuleHelper, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel)
 	vmcpInstances := handlers.NewVMCPInstanceHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
@@ -135,6 +138,15 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
+
+	// Agent identities. These are admin-only routes (see authz).
+	agentIdentities.RegisterRoutes(mux.HandleFunc)
+	// Agents acting on behalf of users: the agent's approval requests and tokens, the user's approval and delegations,
+	// and the administrators' list of an agent's delegations (see authz).
+	handlers.NewAgentDelegationHandler(services.PersistentTokenServer, services.AgentDelegationCleanup, services.ServerURL).RegisterRoutes(mux.HandleFunc)
+	// What users set up for vMCPs through agents, while approving a request and afterwards (see authz).
+	handlers.NewAgentDelegationSetupHandler(services.VMCPPreconfiguredOAuth, oauthChecker).RegisterRoutes(mux.HandleFunc)
+	handlers.NewAdminAuditEventHandler().RegisterRoutes(mux.HandleFunc)
 
 	// License
 	if services.BillingProvider != nil {
@@ -221,6 +233,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/components/{component_id}/configuration-presence", vmcps.ConfigurationPresence)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/deconfigure", vmcps.Deconfigure)
 	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}", vmcps.Delete)
+	vmcpPreconfiguredOAuth.RegisterRoutes(mux.HandleFunc)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews", mcpCatalogs.GenerateVMCPComponentToolPreviews)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateVMCPComponentToolPreviewsOAuthURL)
 

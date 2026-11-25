@@ -57,7 +57,7 @@ func TestTokenActivityRoundTrip(t *testing.T) {
 		}
 	}
 
-	got, err := c.TokenUsageForUser(ctx, "u1", now.Add(-time.Hour), now.Add(time.Hour))
+	got, err := c.TokenUsageForUser(ctx, "u1", now.Add(-time.Hour), now.Add(time.Hour), false, nil)
 	if err != nil {
 		t.Fatalf("TokenUsageForUser: %v", err)
 	}

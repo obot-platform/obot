@@ -210,6 +210,10 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		return newOAuthError(ErrServerError, fmt.Sprintf("failed to check access to MCP server: %v", err), "")
 	}
 
+	if err := requireUserTokenSubject(userID); err != nil {
+		return err
+	}
+
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthAuthRequest.Spec.Resource,
@@ -218,6 +222,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		IssuedAt:              persistent.NewTime(now),
 		ExpiresAt:             persistent.NewTime(now.Add(tokenExpiration)),
 		UserID:                userID,
+		PrincipalKind:         string(principal.KindUser),
 		UserName:              user.Username,
 		UserEmail:             user.Email,
 		Picture:               user.IconURL,
@@ -272,6 +277,17 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		RefreshToken: refreshToken,
 		Scope:        tknCtx.OAuthScope,
 	})
+}
+
+// requireUserTokenSubject returns an error unless subject, the subject of an MCP OAuth access token about to be
+// issued, is a user. MCP OAuth is interactive, and only users complete it: an agent authenticates with its own API
+// key, so it is never issued an MCP OAuth token, even should a grant somehow name one. The token's PrincipalKind is
+// set to user too, so that NewToken refuses any other subject as well.
+func requireUserTokenSubject(subject string) error {
+	if p, err := principal.Parse(subject); err != nil || p.Kind != principal.KindUser {
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "invalid user", ""))
+	}
+	return nil
 }
 
 // revokeIfUserDenied checks the owner again before delivering tokens. A disable
@@ -373,6 +389,12 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 		oauthToken.Spec.Audience, _ = strings.CutPrefix(oauthToken.Spec.Resource, h.baseURL+"/mcp-connect/")
 	}
 
+	// MCP OAuth tokens are only issued to users (see requireUserTokenSubject). A grant is only ever stored for a user,
+	// so one that names anything else is consumed.
+	if p, ok := principal.FromUserInfo(user); !ok || p.Kind != principal.KindUser {
+		return invalidGrant("invalid user")
+	}
+
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		OAuthScope:            oauthToken.Spec.Scope,
@@ -381,6 +403,7 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 		IssuedAt:              persistent.NewTime(now),
 		ExpiresAt:             persistent.NewTime(now.Add(tokenExpiration)),
 		UserID:                user.GetUID(),
+		PrincipalKind:         string(principal.KindUser),
 		UserName:              user.GetName(),
 		UserEmail:             cmp.Or(user.GetExtra()["email"]...),
 		UserGroups:            []string{types.GroupMCP, types.GroupAuthenticated},

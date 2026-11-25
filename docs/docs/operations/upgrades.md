@@ -21,4 +21,6 @@ Check the rollout, application health, sign-in, and representative workloads. Re
 
 Do not assume that changing the image tag or running a Helm rollback reverses database or resource migrations. Confirm downgrade compatibility for the exact release first. When it is not established, use the recorded prior application/configuration with a compatible pre-upgrade data restore in a rehearsed recovery procedure.
 
+Agent identities add schema that older versions tolerate, but older versions don't understand agents or their policy subjects. Before downgrading to a version without them, follow [Roll back agent identities](../security/agent-identities.md#rollback).
+
 A data restore can lose writes made after the backup. Decide how to stop traffic and scheduled work and how to handle that recovery point before proceeding with production changes.

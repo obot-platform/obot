@@ -1,9 +1,12 @@
+import * as navigation from '$lib/navigation';
 import type { AuthProvider, Profile } from '$lib/services';
 import type { PageProps } from './$types';
 import HomePage from './+page.svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock(import('$lib/navigation'), { spy: true });
 
 const oktaProvider = {
 	id: 'okta-auth-provider',
@@ -66,5 +69,32 @@ describe('home page', () => {
 
 		await expect.element(page.getByRole('button', { name: /Continue with Okta/ })).toBeVisible();
 		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+	});
+});
+
+describe('sign-in with a login hint', () => {
+	afterEach(() => {
+		vi.mocked(navigation.navigateTo).mockRestore();
+		window.history.replaceState(null, '', window.location.pathname);
+	});
+
+	it("passes an agent approval link's login hint on to the provider", async () => {
+		vi.mocked(navigation.navigateTo).mockImplementation(() => {});
+		window.history.replaceState(
+			null,
+			'',
+			window.location.pathname +
+				'?rd=' +
+				encodeURIComponent('/agents/approve/adr1req') +
+				'&login_hint=' +
+				encodeURIComponent('ada@example.com')
+		);
+		renderHomePage(false);
+
+		await page.getByRole('button', { name: /Continue with Okta/ }).click();
+
+		expect(navigation.navigateTo).toHaveBeenCalledWith(
+			'/oauth2/start?rd=%2Fagents%2Fapprove%2Fadr1req&obot-auth-provider=default/okta-auth-provider&login_hint=ada%40example.com'
+		);
 	});
 });

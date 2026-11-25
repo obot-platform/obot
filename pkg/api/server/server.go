@@ -326,6 +326,15 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			// Check if this is a FetchUserGroupsError which indicates an auth provider configuration issue
 			if fetchGroupsErr, ok := authenticationError[*gclient.FetchUserGroupsError](err); ok {
 				httpError(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", fetchGroupsErr.Message), http.StatusInternalServerError)
+			} else if invalid, ok := authenticationError[*gclient.AgentDelegationInvalidError](err); ok {
+				// An agent's token that acts on behalf of a user no longer does. The agent mints a new one, or asks the
+				// user to approve it again; the response names only that, as its error code.
+				slog.Debug("Refused a token with which an agent acts on behalf of a user", "reason", invalid.Reason)
+				if llm.IsProxyPath(req.URL.Path) {
+					httpError(rw, gclient.AgentDelegationInvalidCode, http.StatusUnauthorized)
+				} else {
+					api.WriteErrorWithReasons(rw, api.NewErrHTTPWithReasons(http.StatusUnauthorized, gclient.AgentDelegationInvalidCode, nil))
+				}
 			} else if denied, ok := authenticationError[*gclient.UserAccessDeniedError](err); ok {
 				// End the browser session, so that the login page is reachable and can say why.
 				http.SetCookie(rw, &http.Cookie{
@@ -373,6 +382,13 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			} else if lookupErr, ok := authenticationError[*gclient.UserAccessLookupError](err); ok {
 				slog.Error("Denied request because the user's status could not be checked", "userID", lookupErr.UserID, "error", lookupErr.Err)
 				httpError(rw, "Unable to verify account status. Please try again.", http.StatusServiceUnavailable)
+			} else if denied, ok := authenticationError[*gclient.AgentAccessDeniedError](err); ok {
+				// An agent has no browser session, so there is no cookie to clear and no login page to send it to.
+				httpErr := denied.HTTPError()
+				httpError(rw, httpErr.Message, httpErr.Code)
+			} else if lookupErr, ok := authenticationError[*gclient.AgentAccessLookupError](err); ok {
+				slog.Error("Denied request because the agent's status could not be checked", "agentID", lookupErr.AgentID, "error", lookupErr.Err)
+				httpError(rw, "Unable to verify agent status. Please try again.", http.StatusServiceUnavailable)
 			} else {
 				httpError(rw, err.Error(), http.StatusUnauthorized)
 			}
@@ -422,8 +438,9 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 		}
 		if isAPI {
-			// SCIM routes are outside /api/, so a SCIM connection's requests are never recorded as user activity.
-			if authenticated {
+			// SCIM routes are outside /api/, so a SCIM connection's requests are never recorded as user activity. Nor
+			// are an agent's: daily activity counts active users, and an agent is not one.
+			if authenticated && !principal.ClaimsAgent(user) {
 				// Best effort
 				if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
 					slog.Warn("Failed to add activity tracking for user", "user", user.GetName(), "error", err)
@@ -506,7 +523,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				scim.WriteError(w, code, message)
 			}
 		}
-		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+		if withReasons := (*api.ErrHTTPWithReasons)(nil); errors.As(err, &withReasons) && !isSCIM && !llm.IsProxyPath(req.URL.Path) {
+			api.WriteErrorWithReasons(rw, withReasons)
+			shouldLogError = withReasons.Code == http.StatusInternalServerError
+		} else if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 			writeError(rw, errHTTP.Message, errHTTP.Code)
 			shouldLogError = errHTTP.Code == http.StatusInternalServerError
 		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {

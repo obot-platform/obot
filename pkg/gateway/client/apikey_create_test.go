@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 )
 
 func TestCreateAPIKeyFromTokenRequestCopiesScopesAndUpdatesRequest(t *testing.T) {
@@ -40,8 +41,8 @@ func TestCreateAPIKeyFromTokenRequestCopiesScopesAndUpdatesRequest(t *testing.T)
 	if !strings.HasPrefix(resp.Key, "ok1-7-") {
 		t.Fatalf("API key = %q, want ok1-7-* prefix", resp.Key)
 	}
-	if resp.UserID != 7 {
-		t.Fatalf("UserID = %d, want 7", resp.UserID)
+	if resp.Owner() != principal.User(7) {
+		t.Fatalf("owner = %+v, want user 7", resp.Owner())
 	}
 	if resp.Name != "CLI login" {
 		t.Fatalf("Name = %q, want CLI login", resp.Name)

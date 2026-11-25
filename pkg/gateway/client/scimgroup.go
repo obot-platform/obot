@@ -246,7 +246,7 @@ func (c *Client) CreateSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 	}
 
 	if changed {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 
 	// The group is read once the write lock is released, so that reading its members holds up no other SCIM write.
@@ -430,7 +430,7 @@ func (c *Client) UpdateSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 	}
 
 	if changed {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 	return nil
 }
@@ -527,7 +527,7 @@ func (c *Client) PatchSCIMGroup(ctx context.Context, conn *types.SCIMConnection,
 	}
 
 	if changed {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 	return nil
 }
@@ -590,7 +590,7 @@ func (c *Client) DeleteSCIMGroup(ctx context.Context, conn *types.SCIMConnection
 	}
 
 	if changed {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 	return nil
 }

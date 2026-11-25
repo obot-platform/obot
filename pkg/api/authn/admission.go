@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
@@ -19,6 +18,19 @@ import (
 var (
 	// ErrRestricted refuses a principal while the environment is restricted.
 	ErrRestricted = types2.NewErrHTTP(http.StatusPaymentRequired, "Only admins can use this environment right now, because it's over its plan or its subscription couldn't be confirmed. An admin can bring usage back within the plan, or an owner can check the subscription.")
+
+	// errPreconfiguredOAuthCaller refuses a caller whose UID is the owner of a vMCP's preconfigured OAuth grants. No
+	// authenticator builds one, and none must: the owner stands for a vMCP's grants, never for anyone who can act.
+	errPreconfiguredOAuthCaller = errors.New("the owner of a vMCP's preconfigured OAuth grants cannot authenticate")
+
+	// errDelegatedOwnerCaller refuses a caller whose UID is the owner of a user's setup through an agent
+	// (principal.DelegatedOwner). It is an owner, never anyone who can act.
+	errDelegatedOwnerCaller = errors.New("the owner of a user's setup through an agent cannot authenticate")
+
+	// errInvalidOnBehalfOf refuses a caller that carries an on-behalf-of user that is not an agent's acting for a user
+	// (principal.HasInvalidOnBehalfOf). No authenticator builds one, and none must: it would act as the user it names,
+	// or as itself while claiming to act for someone else.
+	errInvalidOnBehalfOf = errors.New("only an agent can act on behalf of a user")
 
 	// nonUserGroups mark principals that act for Obot itself or for a device, never for a user, so they have no
 	// lifecycle status. Only their own authenticators assign these groups.
@@ -38,10 +50,11 @@ type Restriction interface {
 	Restricted(context.Context) (bool, error)
 }
 
-// AdmissionCheck denies requests made by or for users who may not access Obot: disabled, deleted, or missing
-// users, and while the environment is restricted, users who aren't admins or owners. It wraps the complete
+// AdmissionCheck denies requests made by or for users or agents who may not access Obot: disabled, deleted, or
+// missing ones, and while the environment is restricted, any who aren't admins or owners. It wraps the complete
 // authenticator chain, so it runs once per request, after authentication and before authorization, whichever
-// credential authenticated the request.
+// credential authenticated the request. Agents' authenticators record their lifecycle status as users' do, so an
+// agent is admitted by the same rule.
 type AdmissionCheck struct {
 	next        authenticator.Request
 	restriction Restriction
@@ -63,23 +76,31 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 	if resp == nil || resp.User == nil {
 		return nil, false, errors.New("authenticator returned no principal")
 	}
+	// The owner of a vMCP's preconfigured OAuth grants is refused whatever status or groups its authenticator recorded, so
+	// that no authenticator, now or later, can let a caller read or use the grants as their own.
+	if principal.IsPreconfiguredOAuthOwner(resp.User.GetUID()) {
+		return nil, false, errPreconfiguredOAuthCaller
+	}
+	// The same holds for the owner of a user's setup through an agent, and for a caller with an on-behalf-of user that
+	// is not an agent's.
+	if principal.IsDelegatedOwner(resp.User.GetUID()) {
+		return nil, false, errDelegatedOwnerCaller
+	}
+	if principal.HasInvalidOnBehalfOf(resp.User) {
+		return nil, false, errInvalidOnBehalfOf
+	}
 
 	status, recorded := principal.UserStatus(resp.User)
 	if !recorded {
 		// Principals that act for Obot itself or for a device have no status, and the restriction doesn't apply to them.
-		if isNonUserPrincipal(resp.User) {
+		// An agent is never a non-user principal: whatever groups it has, it is admitted only with a recorded status.
+		if !principal.ClaimsAgent(resp.User) && isNonUserPrincipal(resp.User) {
 			return resp, true, nil
 		}
-		return nil, false, &gclient.UserAccessLookupError{
-			UserID: admissionUserID(resp.User),
-			Err:    fmt.Errorf("the authenticator of principal %q did not report a user status", resp.User.GetName()),
-		}
+		return nil, false, accessLookupError(resp.User, fmt.Errorf("the authenticator of principal %q did not report a lifecycle status", resp.User.GetName()))
 	}
 	if status != types2.UserStatusActive {
-		return nil, false, &gclient.UserAccessDeniedError{
-			UserID: admissionUserID(resp.User),
-			Status: status,
-		}
+		return nil, false, accessDeniedError(resp.User, status)
 	}
 
 	// Check the restriction. Admins and owners keep access so they can bring usage back within the limits.
@@ -89,15 +110,46 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 	restricted, err := a.restriction.Restricted(req.Context())
 	if err != nil {
 		// Like a user status that can't be read: refused as unavailable, without the details.
-		return nil, false, &gclient.UserAccessLookupError{
-			UserID: admissionUserID(resp.User),
-			Err:    fmt.Errorf("failed to check whether the environment is restricted: %w", err),
-		}
+		return nil, false, accessLookupError(resp.User, fmt.Errorf("failed to check whether the environment is restricted: %w", err))
 	}
 	if restricted {
 		return nil, false, ErrRestricted
 	}
 	return resp, true, nil
+}
+
+// accessDeniedError returns the error that denies u for its lifecycle status. It names the agent a principal acts for,
+// so that a denial of an agent is never reported as one of the user with the same numeric ID, or of user 0.
+func accessDeniedError(u user.Info, status types2.UserStatus) error {
+	// A principal that acts for no one is the zero Principal, which is reported as user 0.
+	p, _ := principal.FromUserInfo(u)
+	if agentID, ok := p.AgentID(); ok {
+		return &gclient.AgentAccessDeniedError{
+			AgentID: agentID,
+			Status:  status,
+		}
+	}
+	userID, _ := p.UserID()
+	return &gclient.UserAccessDeniedError{
+		UserID: userID,
+		Status: status,
+	}
+}
+
+// accessLookupError returns the error that refuses u because its lifecycle status is unknown.
+func accessLookupError(u user.Info, err error) error {
+	p, _ := principal.FromUserInfo(u)
+	if agentID, ok := p.AgentID(); ok {
+		return &gclient.AgentAccessLookupError{
+			AgentID: agentID,
+			Err:     err,
+		}
+	}
+	userID, _ := p.UserID()
+	return &gclient.UserAccessLookupError{
+		UserID: userID,
+		Err:    err,
+	}
 }
 
 // isNonUserPrincipal reports whether a principal acts for Obot itself or for a device rather than for a user.
@@ -112,13 +164,4 @@ func isNonUserPrincipal(u user.Info) bool {
 	// A device's principal carries device-scans, which a user's API key can carry too, so it is recognized by the
 	// device ID its authenticator records.
 	return slices.Contains(groups, types2.GroupDeviceScans) && len(u.GetExtra()["device_id"]) > 0
-}
-
-// admissionUserID returns the ID of the user a principal acts for, for error reporting, or 0 if it has none.
-func admissionUserID(u user.Info) uint {
-	id, err := strconv.ParseUint(u.GetUID(), 10, 0)
-	if err != nil {
-		return 0
-	}
-	return uint(id)
 }

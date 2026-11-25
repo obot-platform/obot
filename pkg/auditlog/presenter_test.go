@@ -269,3 +269,98 @@ func TestPresentReportsUnavailablePayloads(t *testing.T) {
 		})
 	}
 }
+
+func TestPresentMCPAttributesAgentCalls(t *testing.T) {
+	apiKeyID := uint(42)
+	for _, test := range []struct {
+		name       string
+		apiKeyName string
+		wantKey    string
+	}{
+		{
+			name:       "named key shows its masked identifier, with the agent key prefix",
+			apiKeyName: "ci key",
+			wantKey:    "ci key (oak1-7-42-*****)",
+		},
+		{
+			name:       "unnamed key is not shown twice",
+			apiKeyName: "oak1-7-42-*****",
+			wantKey:    "oak1-7-42-*****",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			log := gatewaytypes.MCPAuditLog{
+				SourceType:       api.AuditLogSourceTypeMCP,
+				PrincipalKind:    "agent",
+				PrincipalID:      "7",
+				AgentDisplayName: "Nightly builder",
+				APIKeyID:         &apiKeyID,
+				APIKeyName:       test.apiKeyName,
+				APIKeyRevoked:    true,
+				MCPFields:        &gatewaytypes.MCPAuditLogFields{},
+			}
+
+			want := api.AuditLogActor{
+				ActorType:     api.AuditLogActorTypeAgent,
+				ID:            "7",
+				DisplayName:   "Nightly builder",
+				CredentialID:  test.wantKey,
+				APIKeyRevoked: true,
+			}
+			if actor := Present(log, PresentOptions{}).Actor; actor != want {
+				t.Fatalf("actor = %#v, want %#v", actor, want)
+			}
+		})
+	}
+}
+
+func TestPresentMCPKeepsAgentHistoryWhenTheAgentRecordIsGone(t *testing.T) {
+	log := gatewaytypes.MCPAuditLog{
+		SourceType:    api.AuditLogSourceTypeMCP,
+		PrincipalKind: "agent",
+		PrincipalID:   "7",
+		MCPFields:     &gatewaytypes.MCPAuditLogFields{},
+	}
+
+	want := api.AuditLogActor{ActorType: api.AuditLogActorTypeAgent, ID: "7"}
+	if actor := Present(log, PresentOptions{}).Actor; actor != want {
+		t.Fatalf("actor = %#v, want %#v", actor, want)
+	}
+}
+
+func TestPresentMCPKeepsUserRowsAsUsers(t *testing.T) {
+	// A row from before agents have the default kind and no principal ID.
+	log := gatewaytypes.MCPAuditLog{
+		SourceType:    api.AuditLogSourceTypeMCP,
+		PrincipalKind: "user",
+		UserID:        "7",
+		MCPFields:     &gatewaytypes.MCPAuditLogFields{},
+	}
+
+	want := api.AuditLogActor{ActorType: api.AuditLogActorTypeUser, ID: "7"}
+	if actor := Present(log, PresentOptions{}).Actor; actor != want {
+		t.Fatalf("actor = %#v, want %#v", actor, want)
+	}
+}
+
+func TestPresentMCPAttributesAgentCallsOnBehalfOfAUser(t *testing.T) {
+	log := gatewaytypes.MCPAuditLog{
+		SourceType:       api.AuditLogSourceTypeMCP,
+		PrincipalKind:    "agent",
+		PrincipalID:      "7",
+		OnBehalfOf:       "9",
+		AgentDisplayName: "Assistant",
+		MCPFields:        &gatewaytypes.MCPAuditLogFields{},
+	}
+
+	// The agent is the actor, with the user beside it.
+	want := api.AuditLogActor{
+		ActorType:   api.AuditLogActorTypeAgent,
+		ID:          "7",
+		DisplayName: "Assistant",
+		OnBehalfOf:  api.PrincipalRef{Kind: api.PrincipalKindUser, ID: "9"},
+	}
+	if actor := Present(log, PresentOptions{}).Actor; actor != want {
+		t.Fatalf("actor = %#v, want %#v", actor, want)
+	}
+}

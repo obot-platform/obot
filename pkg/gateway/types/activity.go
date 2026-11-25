@@ -17,10 +17,19 @@ type APIActivity struct {
 // has one, failed ones too (with no usage), so request counts and success rates can be
 // reported from it.
 type RunTokenActivity struct {
-	ID         uint
-	CreatedAt  time.Time `gorm:"index:idx_run_token_activity_created;index:idx_run_token_activity_user_created,priority:2;index:idx_run_token_activity_api_key_created,priority:2"`
-	Name       string
-	UserID     string `gorm:"index:idx_run_token_activity_user_created,priority:1"`
+	ID        uint
+	CreatedAt time.Time `gorm:"index:idx_run_token_activity_created;index:idx_run_token_activity_user_created,priority:2;index:idx_run_token_activity_api_key_created,priority:2;index:idx_run_token_activity_on_behalf_of_created,priority:2"`
+	Name      string
+	// UserID is the user's ID. It is empty for an agent's request, which is attributed through PrincipalKind and
+	// PrincipalID instead; see Actor.
+	UserID string `gorm:"index:idx_run_token_activity_user_created,priority:1"`
+	// PrincipalKind says whether a user or an agent made the request, and PrincipalID which agent. A user's record,
+	// including one from before agents existed, has no PrincipalID and reads as its UserID's user.
+	PrincipalKind string `gorm:"type:text;not null;default:user;index:idx_run_token_activity_principal,priority:1"`
+	PrincipalID   string `gorm:"type:text;index:idx_run_token_activity_principal,priority:2"`
+	// OnBehalfOf is the ID of the user an agent made the request for, and empty for any other request; see Actor.
+	// Records from before agents acted for users have none.
+	OnBehalfOf string `gorm:"type:text;index:idx_run_token_activity_on_behalf_of_created,priority:1"`
 	Model      string
 	APIKeyID   *uint  `gorm:"index:idx_run_token_activity_api_key_created,priority:1"`
 	APIKeyName string `gorm:"type:text"`
@@ -75,6 +84,8 @@ func ConvertAPIActivity(a APIActivity) types2.APIActivity {
 func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 	return types2.TokenUsage{
 		UserID:           a.UserID,
+		Principal:        Actor{PrincipalKind: a.PrincipalKind, PrincipalID: a.PrincipalID, UserID: a.UserID}.Ref(),
+		OnBehalfOf:       Actor{OnBehalfOf: a.OnBehalfOf}.OnBehalfOfRef(),
 		Model:            a.Model,
 		APIKeyID:         a.APIKeyID,
 		APIKeyName:       a.APIKeyName,

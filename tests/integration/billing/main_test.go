@@ -40,9 +40,9 @@ func TestMain(m *testing.M) {
 }
 
 func run(m *testing.M) int {
-	docker := startFakeDocker()
+	docker := harness.StartFakeDocker()
 	defer docker.Close()
-	if err := os.Setenv("DOCKER_HOST", docker.host()); err != nil {
+	if err := os.Setenv("DOCKER_HOST", docker.Host()); err != nil {
 		fmt.Fprintf(os.Stderr, "set DOCKER_HOST: %v\n", err)
 		return 1
 	}

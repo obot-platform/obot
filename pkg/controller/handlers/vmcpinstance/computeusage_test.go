@@ -8,6 +8,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	vmcphandler "github.com/obot-platform/obot/pkg/controller/handlers/vmcp"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
@@ -19,8 +21,8 @@ import (
 // users looks up user 7, who is in no groups.
 type users struct{}
 
-func (users) UserInfoByID(context.Context, uint) (kuser.Info, error) {
-	return &kuser.DefaultInfo{UID: "7"}, nil
+func (users) IdentityInfo(context.Context, principal.Principal) (kuser.Info, error) {
+	return principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}), nil
 }
 
 // Compute is counted from vMCPs and their instances before any server exists, so it has to add up to what the
@@ -123,7 +125,7 @@ func TestComputeUsageMatchesTheServersTheControllersCreate(t *testing.T) {
 			client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp, first, second).
 				WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPID} }).
 				WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID} }), "7").Build()
-			handler := &Handler{userInfo: users{}.UserInfoByID}
+			handler := &Handler{userInfo: users{}.IdentityInfo}
 
 			// Create the servers as the controllers do.
 			require.NoError(t, vmcphandler.EnsureMCPServers(router.Request{Ctx: t.Context(), Client: client, Object: vmcp}, nil))

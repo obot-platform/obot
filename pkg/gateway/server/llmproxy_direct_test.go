@@ -30,6 +30,7 @@ import (
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -175,6 +176,15 @@ func (p *directFixture) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bif
 
 func directProxy(t *testing.T, plugin *directFixture) (*llmProviderProxy, api.Context) {
 	t.Helper()
+	model := &v1.Model{Name: "m1-test", Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{Active: true, TargetModel: "openai/test", ModelProvider: system.LLMGatewayModelProvider, Usage: types.ModelUsageLLM}}}
+	policy := &v1.ModelAccessPolicy{Name: "profile", Namespace: system.DefaultNamespace, Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Models: []types.ModelResource{{ID: model.Name}}}}}
+	return directProxyWith(t, plugin, []*v1.Model{model}, []*v1.ModelAccessPolicy{policy})
+}
+
+// directProxyWith returns a proxy of a running gateway engine whose access helper knows models and policies, and a
+// request context for user 7.
+func directProxyWith(t *testing.T, plugin *directFixture, models []*v1.Model, policies []*v1.ModelAccessPolicy) (*llmProviderProxy, api.Context) {
+	t.Helper()
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store, err := llmcoreclient.New(storage, directCodec{})
 	require.NoError(t, err)
@@ -185,13 +195,15 @@ func directProxy(t *testing.T, plugin *directFixture) (*llmProviderProxy, api.Co
 	b := &directAccessBackend{storage: storage, informers: map[string]cache.SharedIndexInformer{}}
 	helper, err := modelaccesspolicy.NewHelper(t.Context(), b)
 	require.NoError(t, err)
-	model := &v1.Model{Name: "m1-test", Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{Active: true, TargetModel: "openai/test", ModelProvider: system.LLMGatewayModelProvider, Usage: types.ModelUsageLLM}}}
-	require.NoError(t, storage.Create(t.Context(), model))
-	require.NoError(t, b.informers["Model"].GetIndexer().Add(model))
-	policy := &v1.ModelAccessPolicy{Name: "profile", Namespace: system.DefaultNamespace, Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Models: []types.ModelResource{{ID: model.Name}}}}}
-	require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
+	for _, model := range models {
+		require.NoError(t, storage.Create(t.Context(), model))
+		require.NoError(t, b.informers["Model"].GetIndexer().Add(model))
+	}
+	for _, policy := range policies {
+		require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
+	}
 	c := newUsageTestClient(t)
-	return &llmProviderProxy{backend: &bifrostProviderBackend{engine: engine}, mapHelper: helper, modelProvider: &v1.ModelProvider{Name: system.LLMGatewayModelProvider, Namespace: system.DefaultNamespace}}, api.Context{Storage: storage, GatewayClient: c, User: &user.DefaultInfo{UID: "7"}}
+	return &llmProviderProxy{backend: &bifrostProviderBackend{engine: engine}, mapHelper: helper, modelProvider: &v1.ModelProvider{Name: system.LLMGatewayModelProvider, Namespace: system.DefaultNamespace}}, api.Context{Storage: storage, GatewayClient: c, User: principaltest.AsUser(&user.DefaultInfo{UID: "7"})}
 }
 
 func (w *notifyingWriter) FlushError() error {
@@ -289,7 +301,7 @@ func TestDirectUnaryPreparationErrorDialect(t *testing.T) {
 				req.Header.Set("Anthropic-Version", "2023-06-01")
 			}
 			w := httptest.NewRecorder()
-			out := &llmResponseWriter{w: w, request: req, header: make(http.Header), cancel: func() {}, mapHelper: helper, user: &user.DefaultInfo{UID: "7"}}
+			out := &llmResponseWriter{w: w, request: req, header: make(http.Header), cancel: func() {}, mapHelper: helper, user: principaltest.AsUser(&user.DefaultInfo{UID: "7"})}
 			_, err = out.Write([]byte(`{"data":[]}`))
 			require.NoError(t, err)
 			out.finish()
@@ -431,7 +443,7 @@ func TestDirectHandlerPanicDoesNotFlushSuccess(t *testing.T) {
 			require.InDelta(t, 0.1, logs[0].Spend, 1e-9)
 
 			start, end := time.Now().Add(-time.Hour), time.Now().Add(time.Hour)
-			usage, err := c.TokenUsageForUser(t.Context(), "7", start, end)
+			usage, err := c.TokenUsageForUser(t.Context(), "7", start, end, false, nil)
 			require.NoError(t, err)
 			require.Len(t, usage, 1)
 			require.Equal(t, gatewaytypes.LLMAuditOutcomeError, usage[0].Outcome)
@@ -500,7 +512,7 @@ func TestDirectMountedFlushFailure(t *testing.T) {
 			limiter, err := ratelimiter.New(ratelimiter.Options{AuthenticatedRateLimit: 100, UnauthenticatedRateLimit: 100})
 			require.NoError(t, err)
 			// LLM scope authorizes the fixture; the anonymous marker skips unrelated activity writes.
-			principal := &user.DefaultInfo{UID: "7", Groups: []string{types.GroupLLM, authz.UnauthenticatedGroup}}
+			principal := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{types.GroupLLM, authz.UnauthenticatedGroup}})
 			authentication := authn.NewAuthenticator(authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
 				return &authenticator.Response{User: principal}, true, nil
 			}))

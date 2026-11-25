@@ -7,7 +7,7 @@ Enable authentication before onboarding users or deploying servers for shared us
 1. Enable authentication using the [bootstrap setup procedure](../configuration/auth-providers.md#enabling-authentication-step-1-set-environment-variables), or use the [preconfigured Local owner](../installation/docker-deployment.md#preconfigure-a-local-owner) Docker setup.
 2. Configure one [authentication provider](../configuration/auth-providers.md), including allowed email domains and provider-specific group lookup requirements.
 3. Assign [roles](./policy-coverage.md) and resource policies for the users who sign in.
-4. Use [agent authorization scopes](../functionality/agent-auth-scopes.md) for programmatic clients that need API keys.
+4. Use [API keys](../functionality/agent-auth-scopes.md) for programmatic clients that act as a user, and [agent identities](./agent-identities.md) for automation that needs its own identity.
 
 Local authentication stores passwords as salted hashes and supports administrator-created accounts and required password changes. External providers authenticate through their configured OAuth/OIDC integration. Provider availability depends on [edition](../enterprise/overview.md).
 
@@ -15,7 +15,7 @@ Obot login and upstream MCP OAuth are separate authorizations. The [authenticati
 
 Before switching providers, read the [provider-switch procedure](../configuration/auth-providers.md#switching-between-auth-providers). Identities are provider-scoped; a new provider login is not an automatic transfer of the user's existing resources.
 
-After enabling authentication, open **Identity & Access** to manage users, roles, agent identities, and providers.
+After enabling authentication, open **Identity & Access** to manage users, roles, API keys, agent identities, and providers.
 
 ## Users {#user-management-users}
 
@@ -40,7 +40,7 @@ For detailed role descriptions and permissions, see [User Roles](./policy-covera
 
 ## Agent Authorization Scopes {#user-management-agent-authorization-scopes}
 
-Open **Identity & Access > Agents** to view and manage agent identities and their authorization scopes. Administrators can see which users have created agent authorization scopes and delete any if necessary. For details, see [Agent Authorization Scopes](../functionality/agent-auth-scopes.md).
+Open **Identity & Access > API Keys** to view and manage API keys. Administrators can see which users have created API keys and delete any if necessary. For details, see [Agent Authorization Scopes](../functionality/agent-auth-scopes.md). This tab was called **Agents** before [agent identities](./agent-identities.md), which are managed under **Identity & Access > Agents**.
 
 ## Auth Providers {#user-management-auth-providers}
 

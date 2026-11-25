@@ -20,6 +20,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -358,8 +359,8 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 	)
 
 	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
-		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
-		newSkillRule("rule-skill", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk-direct"}}),
+		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
+		newSkillRule("rule-skill", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk-direct"}}),
 	))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/skills?q=helper&limit=10", nil)
@@ -368,7 +369,7 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 		ResponseWriter: rec,
 		Request:        req,
 		Storage:        storage,
-		User:           testUser("user1"),
+		User:           testUser("1"),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -385,7 +386,7 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 		ResponseWriter: rec,
 		Request:        req,
 		Storage:        storage,
-		User:           testUser("user1"),
+		User:           testUser("1"),
 	})
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
@@ -416,7 +417,7 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 
 	// user1 has access only to repo-1 via skill access rules
 	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
-		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
+		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 	))
 
 	listSkills := func(t *testing.T, user kuser.Info, query string) []string {
@@ -441,40 +442,123 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 	}
 
 	t.Run("basic user without all=true sees only in-scope skills", func(t *testing.T) {
-		ids := listSkills(t, testUser("user1"), "")
+		ids := listSkills(t, testUser("1"), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
 	})
 	t.Run("basic user with all=true still sees only in-scope skills", func(t *testing.T) {
-		ids := listSkills(t, testUser("user1"), "?all=true")
+		ids := listSkills(t, testUser("1"), "?all=true")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
 	})
 
 	t.Run("admin without all=true sees only in-scope skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.RoleAdmin.RoleGroups()...), "")
+		ids := listSkills(t, testUserWithRole("1", types.RoleAdmin.RoleGroups()...), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
 	})
 	t.Run("admin with all=true sees all skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.RoleAdmin.RoleGroups()...), "?all=true")
+		ids := listSkills(t, testUserWithRole("1", types.RoleAdmin.RoleGroups()...), "?all=true")
 		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
 	})
 
 	t.Run("owner without all=true sees only in-scope skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.RoleOwner.RoleGroups()...), "")
+		ids := listSkills(t, testUserWithRole("1", types.RoleOwner.RoleGroups()...), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
 	})
 	t.Run("owner with all=true sees all skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.RoleOwner.RoleGroups()...), "?all=true")
+		ids := listSkills(t, testUserWithRole("1", types.RoleOwner.RoleGroups()...), "?all=true")
 		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
 	})
 
 	t.Run("auditor without all=true sees only in-scope skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.GroupAuditor), "")
+		ids := listSkills(t, testUserWithRole("1", types.GroupAuditor), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
 	})
 	t.Run("auditor with all=true sees all skills", func(t *testing.T) {
-		ids := listSkills(t, testUserWithRole("user1", types.GroupAuditor), "?all=true")
+		ids := listSkills(t, testUserWithRole("1", types.GroupAuditor), "?all=true")
 		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
 	})
+}
+
+// TestSkillHandlerListIgnoresAllTrueForAgents checks that ?all=true lists no more for an agent than its skill access
+// rules grant, even when its user info carries an administrator's or auditor's groups: an agent has no role. Invalid
+// skills, which ?all=true lists for administrators, stay hidden too.
+func TestSkillHandlerListIgnoresAllTrueForAgents(t *testing.T) {
+	storage := newFakeStorage(t,
+		&v1.Skill{
+			Name: "sk-in-scope", Namespace: system.DefaultNamespace,
+			Spec: v1.SkillSpec{
+				SkillManifest: types.SkillManifest{Name: "in-scope-skill"},
+				RepoID:        "repo-1",
+			},
+			Status: v1.SkillStatus{Valid: true},
+		},
+		&v1.Skill{
+			Name: "sk-invalid", Namespace: system.DefaultNamespace,
+			Spec: v1.SkillSpec{
+				SkillManifest: types.SkillManifest{Name: "invalid-skill"},
+				RepoID:        "repo-1",
+			},
+			Status: v1.SkillStatus{Valid: false},
+		},
+		&v1.Skill{
+			Name: "sk-out-scope", Namespace: system.DefaultNamespace,
+			Spec: v1.SkillSpec{
+				SkillManifest: types.SkillManifest{Name: "out-of-scope-skill"},
+				RepoID:        "repo-3",
+			},
+			Status: v1.SkillStatus{Valid: true},
+		},
+	)
+	// Agent 1 has access to repo-1 only. The rule for user 1 grants agent 1 nothing.
+	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
+		newSkillRule("rule-agent", []types.Subject{{Type: types.SubjectTypeAgent, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
+		newSkillRule("rule-user", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-3"}}),
+	))
+
+	listSkills := func(t *testing.T, user kuser.Info, query string) []string {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		require.NoError(t, handler.List(api.Context{
+			ResponseWriter: rec,
+			Request:        httptest.NewRequest(http.MethodGet, "/api/skills"+query, nil),
+			Storage:        storage,
+			User:           user,
+		}))
+		var list types.SkillList
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+		ids := make([]string, len(list.Items))
+		for i := range list.Items {
+			ids[i] = list.Items[i].ID
+		}
+		return ids
+	}
+
+	for _, tt := range []struct {
+		name   string
+		groups []string
+	}{
+		{
+			name:   "agent with the Skills scope",
+			groups: []string{types.GroupSkills, types.GroupAuthenticated},
+		},
+		{
+			name:   "agent whose user info carries an administrator's groups",
+			groups: append([]string{types.GroupSkills}, types.RoleOwner.Groups()...),
+		},
+		{
+			name:   "agent whose user info carries an auditor's groups",
+			groups: []string{types.GroupSkills, types.GroupAuditor, types.GroupAuthenticated},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := gclient.AgentUserInfo(&gatewaytypes.Agent{ID: 1}, tt.groups, nil)
+			assert.ElementsMatch(t, []string{"sk-in-scope"}, listSkills(t, agent, ""))
+			assert.ElementsMatch(t, []string{"sk-in-scope"}, listSkills(t, agent, "?all=true"))
+		})
+	}
+
+	// An administrator, and a read-only administrator, still list every skill, invalid ones included.
+	assert.ElementsMatch(t, []string{"sk-in-scope", "sk-invalid", "sk-out-scope"}, listSkills(t, testUserWithRole("1", types.RoleAdmin.RoleGroups()...), "?all=true"))
+	assert.ElementsMatch(t, []string{"sk-in-scope", "sk-invalid", "sk-out-scope"}, listSkills(t, testUserWithRole("1", (types.RoleBasic|types.RoleAdminReadonly).RoleGroups()...), "?all=true"))
 }
 
 func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
@@ -503,7 +587,7 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 	require.NoError(t, os.WriteFile(tempDir+"/scripts/run.sh", []byte("echo hi\n"), 0o755))
 
 	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
-		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
+		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 	))
 	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string, maxRepoSizeMB int) (func(), string, error) {
 		assert.Equal(t, 100, maxRepoSizeMB)
@@ -522,7 +606,7 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 		Request:        req,
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
-		User:           testUser("user1"),
+		User:           testUser("1"),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -559,7 +643,7 @@ func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
 	require.NoError(t, os.WriteFile(tempDir+"/SKILL.md", want, 0o644))
 
 	handler := NewSkillHandler(100, newSkillAccessRuleHelper(t,
-		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
+		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 	))
 	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill, token string, maxRepoSizeMB int) (func(), string, error) {
 		assert.Equal(t, 100, maxRepoSizeMB)
@@ -577,7 +661,7 @@ func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
 		Request:        req,
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
-		User:           testUser("user1"),
+		User:           testUser("1"),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -636,14 +720,14 @@ func newFakeStorage(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 }
 
 func testUser(userID string) kuser.Info {
-	return &kuser.DefaultInfo{
+	return principaltest.AsUser(&kuser.DefaultInfo{
 		Name:   userID,
 		UID:    userID,
 		Groups: []string{types.GroupBasic, types.GroupAuthenticated},
 		Extra: map[string][]string{
 			"auth_provider_groups": nil,
 		},
-	}
+	})
 }
 
 // testUserWithRole returns a user with the given ID and role groups (e.g. GroupAdmin).
@@ -655,78 +739,17 @@ func testUserWithRole(userID string, roleGroups ...string) kuser.Info {
 	if !slices.Contains(groups, types.GroupAuthenticated) {
 		groups = append(groups, types.GroupAuthenticated)
 	}
-	return &kuser.DefaultInfo{
+	return principaltest.AsUser(&kuser.DefaultInfo{
 		Name:   userID,
 		UID:    userID,
 		Groups: groups,
-	}
+	})
 }
 
 func newSkillAccessRuleHelper(t *testing.T, rules ...*v1.SkillAccessRule) *skillaccessrule.Helper {
 	t.Helper()
 
-	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
-		"skill-ids": func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == types.SkillResourceTypeSkill {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"repository-ids": func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == types.SkillResourceTypeSkillRepository {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"selectors": func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == types.SkillResourceTypeSelector {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"user-ids": func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == types.SubjectTypeUser {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		"group-ids": func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == types.SubjectTypeGroup {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		"subject-selectors": func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == types.SubjectTypeSelector {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-	})
+	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, skillaccessrule.Indexers())
 
 	for _, rule := range rules {
 		require.NoError(t, indexer.Add(rule))

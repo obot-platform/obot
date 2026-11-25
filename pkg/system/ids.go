@@ -12,6 +12,8 @@ const (
 	DefaultModelAliasPrefix       = "dma1"
 	DeviceEnrollmentPrefix        = "ode1"
 	UserDeletePrefix              = "ud1"
+	AgentIdentityChangePrefix     = "aic1"
+	AgentIdentityDeletePrefix     = "aid1"
 	AuthProviderCleanupPrefix     = "apc1"
 	ProviderChangePrefix          = "pcc1"
 	UserRoleChangePrefix          = "urc1"
@@ -40,6 +42,7 @@ const (
 	ModelAccessPolicyPrefix       = "map1"
 	MessagePolicyPrefix           = "mp1"
 	APIKeyPrefix                  = "ok1"
+	AgentAPIKeyPrefix             = "oak1"
 
 	ProviderChangeAuthName = ProviderChangePrefix + "auth"
 	ProviderSyncName       = "provider-sync"

@@ -16,6 +16,7 @@ import (
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -148,7 +149,7 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 					req.Header.Set("Authorization", "Bearer caller-token")
 					req.Header.Set("X-Bf-Key", "caller-key")
 					w := httptest.NewRecorder()
-					require.NoError(t, routes["/api/llm-proxy/"+prefix+"/{path...}"](api.Context{Request: req, ResponseWriter: w, Storage: storage, GatewayClient: gateway, User: &user.DefaultInfo{UID: "7"}}))
+					require.NoError(t, routes["/api/llm-proxy/"+prefix+"/{path...}"](api.Context{Request: req, ResponseWriter: w, Storage: storage, GatewayClient: gateway, User: principaltest.AsUser(&user.DefaultInfo{UID: "7"})}))
 					require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 					require.NotEmpty(t, attempts)
 					var recorded []attempt

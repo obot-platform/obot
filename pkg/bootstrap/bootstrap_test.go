@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -259,4 +262,25 @@ func TestBootstrapStaysEnabledUntilAnOwnerSignsIn(t *testing.T) {
 		t.Fatalf("failed to delete owner: %v", err)
 	}
 	assertEnabled(true, "once the only owner who signed in is deleted")
+}
+
+func TestBootstrapPrincipalRecordsTheUserKind(t *testing.T) {
+	c, ctx := newBootstrapTestClient(t)
+	b := &Bootstrap{
+		token:              "bootstrap-token",
+		authEnabled:        true,
+		gatewayClient:      c,
+		authProviderGetter: staticAuthProviderGetter("okta-auth-provider"),
+	}
+
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer bootstrap-token")
+	resp, ok, err := b.AuthenticateRequest(req)
+	if err != nil || !ok {
+		t.Fatalf("authenticate = %v, %v; want the bootstrap principal", ok, err)
+	}
+	got, ok := principal.FromUserInfo(resp.User)
+	if !ok || got.Kind != principal.KindUser || got.String() != resp.User.GetUID() {
+		t.Fatalf("FromUserInfo() = %#v, %v; want the user with UID %q", got, ok, resp.User.GetUID())
+	}
 }

@@ -120,9 +120,12 @@ A policy can grant access to:
 
 - **Individual users** — Select specific people by name
 - **Groups** — Select authentication provider groups (such as "engineering" or "data-science")
+- **Individual agents** — Select specific [agent identities](../security/agent-identities.md) by name
 - **Everyone** — Use the "All Obot Users" option to grant access to all authenticated users
 
 Using "All Obot Users" is convenient for making a baseline set of skills universally available, while separate policies can grant additional skills to specific teams.
+
+"All Obot Users" and groups never match agents, so a policy grants an agent skills only if it names that agent. To include agents in a grant for every user, add them next to "All Obot Users". Agents are the only subjects that can be added next to it. Administrators' full access never applies to an agent.
 
 ### Skills {#skill-access-policies-skills}
 

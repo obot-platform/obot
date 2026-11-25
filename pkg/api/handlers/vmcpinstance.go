@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"strconv"
+	"net/http"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -12,6 +12,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -42,6 +43,11 @@ func (*VMCPInstanceHandler) List(req api.Context) error {
 
 	items := make([]types.VMCPInstance, 0, len(list.Items))
 	for _, item := range list.Items {
+		if principal.IsDelegatedOwner(item.Spec.UserID) {
+			// What a user set up through an agent is listed to no one here, an administrator included
+			// (authz.UserCanReadVMCPInstance).
+			continue
+		}
 		if !privileged {
 			var vmcp v1.VMCP
 			if err := req.Get(&vmcp, item.Spec.Manifest.VMCPID); err != nil {
@@ -134,11 +140,11 @@ func (*VMCPInstanceHandler) Update(req api.Context) error {
 	}
 	selectionUser := req.User
 	if instance.Spec.UserID != req.User.GetUID() && len(manifest.ComponentSet) > 0 {
-		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+		ownerID, err := principal.Parse(instance.Spec.UserID)
 		if err != nil {
 			return fmt.Errorf("invalid VMCP instance user ID: %w", err)
 		}
-		owner, err := req.GatewayClient.UserInfoByID(req.Context(), uint(id))
+		owner, err := req.GatewayClient.IdentityInfo(req.Context(), ownerID)
 		if err != nil {
 			return err
 		}
@@ -166,6 +172,9 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 	var instance v1.VMCPInstance
 	if err := req.Get(&instance, req.PathValue("vmcp_instance_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP instance: %w", err)
+	}
+	if err := refuseAgentInstanceConfiguration(instance); err != nil {
+		return err
 	}
 
 	var vmcp v1.VMCP
@@ -286,6 +295,9 @@ func (*VMCPInstanceHandler) Reveal(req api.Context) error {
 	if err := req.Get(&instance, req.PathValue("vmcp_instance_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP instance: %w", err)
 	}
+	if err := refuseAgentInstanceConfiguration(instance); err != nil {
+		return err
+	}
 
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, instance.Spec.Manifest.VMCPID); err != nil {
@@ -310,6 +322,9 @@ func (*VMCPInstanceHandler) Deconfigure(req api.Context) error {
 	if err := req.Get(&instance, req.PathValue("vmcp_instance_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP instance: %w", err)
 	}
+	if err := refuseAgentInstanceConfiguration(instance); err != nil {
+		return err
+	}
 
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(),
 		vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
@@ -321,6 +336,17 @@ func (*VMCPInstanceHandler) Deconfigure(req api.Context) error {
 		return err
 	}
 	return req.Write(convertVMCPInstance(instance))
+}
+
+// refuseAgentInstanceConfiguration refuses to configure, deconfigure or reveal the configuration of an agent's
+// instance. Agents are given only the values fixed for everyone, by the vMCP or the catalog entry, so that no one can
+// give an agent a value a user would enter, and an agent's instance configuration is never read
+// (vmcpconfig.InstanceTakesUserConfiguration).
+func refuseAgentInstanceConfiguration(instance v1.VMCPInstance) error {
+	if !vmcpconfig.InstanceTakesUserConfiguration(instance) {
+		return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("VMCP instance %q belongs to an agent, which uses only the configuration that the vMCP or the catalog entry fixes", instance.Name))
+	}
+	return nil
 }
 
 func convertVMCPInstance(instance v1.VMCPInstance) types.VMCPInstance {

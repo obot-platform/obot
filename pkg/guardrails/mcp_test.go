@@ -3,11 +3,15 @@ package guardrails
 import (
 	"encoding/json"
 	"errors"
+	"maps"
+	"reflect"
 	"strings"
 	"testing"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -174,13 +178,93 @@ func TestMCPFilterSubjects(t *testing.T) {
 	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectGroup, ID: "eng"}}
 	msg := MCPMessage{Method: MCPMethodToolsCall, Name: "send", Stage: StageInput, Params: json.RawMessage(`{"name":"send","arguments":{"a":"` + leakedKey + `"}}`)}
 
-	msg.Identity = Identity{UserID: "u", Groups: []string{"sales"}}
+	msg.Identity = Identity{UserID: "5", Principal: principal.User(5), Groups: []string{"sales"}}
 	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
 		t.Fatalf("filter applied to a user outside its subjects: %+v", d)
 	}
 	msg.Identity.Groups = []string{"eng"}
 	if d := e.CheckMCPFilter(t.Context(), f, msg); !d.Blocked {
 		t.Fatalf("filter should block its subjects: %+v", d)
+	}
+
+	// Neither a group nor everyone, nor a filter without subjects, names an agent: only a filter that names the agent
+	// applies to it.
+	msg.Identity = Identity{UserID: "agent:5", Principal: principal.Agent(5), Groups: []string{"eng"}}
+	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
+		t.Fatalf("a group filter applied to an agent: %+v", d)
+	}
+	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectEveryone}}
+	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
+		t.Fatalf("a filter for everyone applied to an agent: %+v", d)
+	}
+	f.Config.Subjects = nil
+	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
+		t.Fatalf("a filter without subjects applied to an agent: %+v", d)
+	}
+	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectAgent, ID: "5"}}
+	if d := e.CheckMCPFilter(t.Context(), f, msg); !d.Blocked {
+		t.Fatalf("a filter that names the agent should block it: %+v", d)
+	}
+
+	// A caller Obot cannot identify as a user or an agent is still restricted by a filter for everyone.
+	msg.Identity = Identity{UserID: "agent:5", Groups: []string{"eng"}}
+	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectEveryone}}
+	if d := e.CheckMCPFilter(t.Context(), f, msg); !d.Blocked {
+		t.Fatalf("a filter for everyone should block an unidentified caller: %+v", d)
+	}
+}
+
+func TestResolveIdentityRecordsThePrincipal(t *testing.T) {
+	withKind := func(uid string, kind principal.Kind, extra map[string][]string) kuser.Info {
+		extra = maps.Clone(extra)
+		if extra == nil {
+			extra = map[string][]string{}
+		}
+		if kind != "" {
+			principal.RecordKind(extra, kind)
+		}
+		return &kuser.DefaultInfo{UID: uid, Extra: extra}
+	}
+	for _, tt := range []struct {
+		name string
+		user kuser.Info
+		want Identity
+	}{
+		{
+			name: "user",
+			user: withKind("5", principal.KindUser, map[string][]string{"auth_provider_groups": {"eng"}}),
+			want: Identity{UserID: "5", Principal: principal.User(5), Groups: []string{"eng"}},
+		},
+		{
+			name: "agent",
+			user: withKind("agent:5", principal.KindAgent, nil),
+			want: Identity{UserID: "agent:5", Principal: principal.Agent(5)},
+		},
+		{
+			name: "no recorded kind",
+			user: withKind("5", "", map[string][]string{"auth_provider_groups": {"eng"}}),
+			want: Identity{UserID: "5", Groups: []string{"eng"}},
+		},
+		{
+			name: "agent UID recorded as a user",
+			user: withKind("agent:5", principal.KindUser, nil),
+			want: Identity{UserID: "agent:5"},
+		},
+		{
+			name: "agent whose user info carries groups",
+			user: withKind("agent:5", principal.KindAgent, map[string][]string{"auth_provider_groups": {"eng"}}),
+			want: Identity{UserID: "agent:5", Principal: principal.Agent(5)},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _, err := ResolveIdentity(t.Context(), nil, tt.user)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("ResolveIdentity() = %+v, want %+v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -229,6 +313,27 @@ func TestResolveIdentityAdmin(t *testing.T) {
 			name: "LLM-only API key of a basic user",
 			user: &kuser.DefaultInfo{UID: "4", Groups: []string{apitypes.GroupLLM}, Extra: map[string][]string{
 				"obot_groups": {apitypes.GroupBasic},
+			}},
+			admin: false,
+		},
+		{
+			name:  "agent",
+			user:  gateway.AgentUserInfo(&types.Agent{ID: 1}, []string{apitypes.GroupLLM, apitypes.GroupAuthenticated}, nil),
+			admin: false,
+		},
+		{
+			// An agent has no role. Whatever groups its user info carries, it is never an admin, so budgets that
+			// exempt admins never exempt it.
+			name: "agent whose user info carries an admin's groups",
+			user: gateway.AgentUserInfo(&types.Agent{ID: 1}, append([]string{apitypes.GroupLLM}, apitypes.RoleOwner.Groups()...), map[string][]string{
+				"obot_groups": {apitypes.GroupAdmin, apitypes.GroupOwner},
+			}),
+			admin: false,
+		},
+		{
+			name: "agent UID with an admin's groups but no recorded kind",
+			user: &kuser.DefaultInfo{UID: "agent:1", Groups: []string{apitypes.GroupAdmin}, Extra: map[string][]string{
+				"obot_groups": {apitypes.GroupAdmin},
 			}},
 			admin: false,
 		},

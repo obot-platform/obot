@@ -23,6 +23,7 @@
 	import MyAccount from '../profile/MyAccount.svelte';
 	import {
 		Book,
+		Bot,
 		LogOut,
 		Moon,
 		Sun,
@@ -164,6 +165,16 @@
 			{/if}
 			{#if profile.current.email && !page.url.pathname.startsWith('/profile')}
 				<MyAccount onClose={() => menu?.toggle(false)} />
+			{/if}
+			{#if !profile.current.isBootstrapUser?.()}
+				<a
+					class="dropdown-link"
+					href={resolve('/agents/delegations')}
+					onclick={() => menu?.toggle(false)}
+				>
+					<Bot class="size-4" />
+					{m.identity_access_acting_for_you_title()}
+				</a>
 			{/if}
 			<button
 				class="dropdown-link"

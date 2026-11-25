@@ -162,7 +162,7 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 	}
 	user, created := ensured.user, ensured.created
 	if ensured.roleRaised {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 
 	if user.DisabledAt != nil {

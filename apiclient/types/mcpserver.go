@@ -310,7 +310,7 @@ func (m MCPServerManifest) ValidateConfig() error {
 	}
 	for _, config := range m.Config {
 		if config.Usage == Header {
-			if _, reserved := CanonicalObotHeader(config.Key); reserved {
+			if _, reserved := ReservedObotHeader(config.Key); reserved {
 				return fmt.Errorf("config key %q is reserved for injectObotHeaders", config.Key)
 			}
 		}

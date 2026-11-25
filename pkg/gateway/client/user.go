@@ -172,18 +172,52 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 	if err != nil {
 		return nil, err
 	}
+	return UserInfo(u, groupIDs), nil
+}
+
+// UserInfo returns the user.Info of u, a user read with its effective role (UserByIDWithEffectiveRole), in the auth
+// provider groups with groupIDs, as UserInfoByID builds it.
+func UserInfo(u *types.User, groupIDs []string) kuser.Info {
+	extra := map[string][]string{
+		"obot_groups":          u.Role.Groups(),
+		"auth_provider_groups": groupIDs,
+		"email":                {u.Email},
+	}
+	principal.RecordPrincipal(extra, principal.KindUser, u.Status())
 
 	return &kuser.DefaultInfo{
 		Name:   u.Username,
 		UID:    fmt.Sprintf("%d", u.ID),
 		Groups: u.Role.Groups(),
-		Extra: map[string][]string{
-			"obot_groups":             u.Role.Groups(),
-			"auth_provider_groups":    groupIDs,
-			"email":                   {u.Email},
-			principal.UserStatusExtra: {string(u.Status())},
-		},
-	}, nil
+		Extra:  extra,
+	}
+}
+
+// IdentityInfo loads the current identity of a stored owner, for evaluating access as that owner. For a user it is
+// UserInfoByID: groups, role groups and lifecycle status. An agent has no groups, so for an agent it is only its
+// principal and lifecycle status (AgentUserInfo). A deleted or missing owner is an error that wraps
+// gorm.ErrRecordNotFound.
+func (c *Client) IdentityInfo(ctx context.Context, p principal.Principal) (kuser.Info, error) {
+	switch p.Kind {
+	case principal.KindUser:
+		id, ok := p.UserID()
+		if !ok {
+			return nil, fmt.Errorf("invalid user principal ID %q", p.ID)
+		}
+		return c.UserInfoByID(ctx, id)
+	case principal.KindAgent:
+		id, ok := p.AgentID()
+		if !ok {
+			return nil, fmt.Errorf("invalid agent principal ID %q", p.ID)
+		}
+		agent, err := c.GetAgent(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("agent %d: %w", id, err)
+		}
+		return AgentUserInfo(agent, nil, nil), nil
+	default:
+		return nil, fmt.Errorf("unknown principal kind %q", p.Kind)
+	}
 }
 
 // getUserAndGroupIDs fetches a user and their group memberships.
@@ -279,7 +313,7 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 		return err
 	}
 
-	c.kickUserLifecycleDelivery()
+	c.kickLifecycleEventDelivery()
 	c.requestUsageRecount(ctx)
 	return nil
 }

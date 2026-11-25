@@ -194,16 +194,18 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 		return nil, false, err
 	}
 
+	extra := map[string][]string{
+		"auth_provider_name": {system.BootstrapName},
+		"obot_groups":        types2.RoleOwner.Groups(),
+	}
+	principal.RecordPrincipal(extra, principal.KindUser, gatewayUser.Status())
+
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name:   system.BootstrapName,
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
 			Groups: types2.RoleOwner.Groups(),
-			Extra: map[string][]string{
-				"auth_provider_name":      {system.BootstrapName},
-				"obot_groups":             types2.RoleOwner.Groups(),
-				principal.UserStatusExtra: {string(gatewayUser.Status())},
-			},
+			Extra:  extra,
 		},
 	}, true, nil
 }

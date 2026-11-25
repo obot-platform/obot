@@ -38,6 +38,7 @@
 			startDate.toISOString(),
 			endDate.toISOString(),
 			filters.userIDs ?? [],
+			filters.includeOnBehalfOf ?? false,
 			filters.models ?? [],
 			filters.apiKeyIDs ?? []
 		])

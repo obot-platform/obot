@@ -82,7 +82,7 @@
 	"guardrails_filter_non_redacting_other": "{names} はマスキングのために検出箇所を特定できません。これらのガードレールの検出結果は代わりにブロックされます。",
 	"guardrails_filter_block_message": "ブロック時のメッセージ (省略可)",
 	"guardrails_filter_block_message_placeholder": "既定のメッセージを使う場合は空欄のままにします",
-	"guardrails_filter_subjects_description": "このフィルターを、これらのユーザーとグループからの呼び出しに限定します。",
+	"guardrails_filter_subjects_description": "このフィルターを、これらのユーザー、グループ、エージェントからの呼び出しに限定します。",
 	"guardrails_filter_subjects_empty": "対象は限定されていません。フィルターは全員に適用されます。",
 	"guardrails_filter_remove_subject": "ユーザー/グループを削除",
 	"guardrails_filter_condition_optional": "条件 (省略可)",

@@ -33,7 +33,8 @@ var (
 		{"HUGGINGFACE_TOKEN", regexp.MustCompile(`\bhf_[A-Za-z]{34}\b`), 0},
 		{"JWT", regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`), 0},
 		{"DATABASE_URL", regexp.MustCompile(`\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://[^\s:@/]+:([^\s@/]{3,})@`), 1},
-		{"OBOT_API_KEY", regexp.MustCompile(`\bok1-\d+-\d+-[A-Za-z0-9]{20,}\b`), 0},
+		// User (ok1-) and agent (oak1-) API keys.
+		{"OBOT_API_KEY", regexp.MustCompile(`\b(?:ok1|oak1)-\d+-\d+-[A-Za-z0-9]{20,}\b`), 0},
 	}
 
 	// codeReference is a value that names something in code, such as cfg.ClientSecret.

@@ -33,6 +33,14 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 		UserID: 7,
 		Err:    errors.New("database unavailable"),
 	}
+	agentDenied := &gclient.AgentAccessDeniedError{
+		AgentID: 7,
+		Status:  types2.UserStatusDisabled,
+	}
+	agentLookup := &gclient.AgentAccessLookupError{
+		AgentID: 7,
+		Err:     errors.New("database unavailable"),
+	}
 
 	const pageAccept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 
@@ -104,6 +112,29 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 			err:        utilerrors.NewAggregate([]error{lookup}),
 			wantStatus: http.StatusServiceUnavailable,
 			wantBody:   "Unable to verify account status",
+		},
+		{
+			name:       "agent denied by an authenticator inside the chain",
+			err:        utilerrors.NewAggregate([]error{utilerrors.NewAggregate([]error{errors.New("declined"), agentDenied})}),
+			path:       "/mcp-connect/vmcp1",
+			wantStatus: http.StatusForbidden,
+			wantBody:   gclient.AgentNotActiveMessage,
+		},
+		{
+			// An agent has no browser session or login page, so it is refused as text, whatever it accepts.
+			name:       "agent denied on a page load",
+			err:        agentDenied,
+			path:       "/mcp-servers",
+			accept:     pageAccept,
+			wantStatus: http.StatusForbidden,
+			wantBody:   gclient.AgentNotActiveMessage,
+		},
+		{
+			name:       "agent status could not be read",
+			err:        utilerrors.NewAggregate([]error{agentLookup}),
+			path:       "/api/llm-proxy/v1/models",
+			wantStatus: http.StatusServiceUnavailable,
+			wantBody:   "Unable to verify agent status",
 		},
 		{
 			name:       "other authentication failure",

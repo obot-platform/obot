@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 	const (
 		vmcpID = "vmcp1action"
-		userID = "user-1"
+		userID = "1"
 	)
 
 	instanceID := "vmcpi1-action-instance"
@@ -44,7 +45,7 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 			},
 		},
 	}
-	user := &kuser.DefaultInfo{UID: userID, Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
+	user := principaltest.AsUser(&kuser.DefaultInfo{UID: userID, Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}})
 	instance := syncedVMCPInstanceForUser(&v1.VMCPInstance{
 		Name:      instanceID,
 		Namespace: system.DefaultNamespace,

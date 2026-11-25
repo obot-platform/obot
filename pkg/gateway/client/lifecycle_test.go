@@ -110,7 +110,7 @@ func disableUser(t *testing.T, c *Client, provider AuthProviderRef, userID uint,
 		return nil, err
 	}
 	if changed {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 	return user, c.decryptUser(t.Context(), user)
 }
@@ -454,7 +454,7 @@ func TestValidateAPIKeyReportsItsOwnersCurrentStatus(t *testing.T) {
 			t.Fatalf("owner status = %q, want %q", key.OwnerStatus, want)
 		}
 		// The key is read together with its user, and must come back whole.
-		if key.ID != created.ID || key.UserID != user.ID || !key.CanAccessAPI || !slices.Equal(key.MCPServerIDs, []string{"ms1-first", "ms1-second"}) {
+		if key.ID != created.ID || key.Owner() != principal.User(user.ID) || !key.CanAccessAPI || !slices.Equal(key.MCPServerIDs, []string{"ms1-first", "ms1-second"}) {
 			t.Fatalf("validated key = %+v, want the key as created", key)
 		}
 	}
@@ -660,11 +660,11 @@ func TestLifecycleEventClaimsAreExclusive(t *testing.T) {
 	event := lifecycleEvents(t, c, user.ID)[0]
 
 	now := time.Now()
-	claimed, err := c.claimUserLifecycleEvents(ctx, []uint{event.ID}, now)
+	claimed, err := c.userLifecycleOutbox().claim(ctx, []uint{event.ID}, now)
 	if err != nil || len(claimed) != 1 || claimed[0].ID != event.ID {
 		t.Fatalf("first claim = %+v, %v; want the event claimed", claimed, err)
 	}
-	claimed, err = c.claimUserLifecycleEvents(ctx, []uint{event.ID}, now)
+	claimed, err = c.userLifecycleOutbox().claim(ctx, []uint{event.ID}, now)
 	if err != nil || len(claimed) != 0 {
 		t.Fatalf("second claim = %+v, %v; want refused", claimed, err)
 	}
@@ -1522,5 +1522,40 @@ func TestSignInOfDeletedUserIsRefusedUntilCleanup(t *testing.T) {
 	}
 	if recreated.ID == user.ID {
 		t.Fatalf("sign-up after cleanup returned the deleted user %d", user.ID)
+	}
+}
+
+func TestUserDecoratorRecordsTheUserKindOverAnyProviderValue(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	user := createLifecycleTestUser(t, c, "ursula", lifecycleTestProvider)
+
+	decorator := NewUserDecorator(
+		authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
+			return &authenticator.Response{
+				User: &kuser.DefaultInfo{
+					Name: "ursula",
+					UID:  "00u-ursula",
+					Extra: map[string][]string{
+						"email":                   {"ursula@example.com"},
+						"auth_provider_name":      {lifecycleTestProvider.Name},
+						"auth_provider_namespace": {lifecycleTestProvider.Namespace},
+						// An auth provider must not be able to choose the kind of principal.
+						principal.KindExtra: {string(principal.KindAgent)},
+					},
+				},
+			}, true, nil
+		}),
+		c,
+		entitlementsFunc(func(context.Context) (apitypes.Entitlements, error) {
+			return apitypes.Entitlements{}, nil
+		}),
+	)
+
+	resp, ok, err := decorator.AuthenticateRequest(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+	if err != nil || !ok {
+		t.Fatalf("authenticate = %v, %v; want a principal", ok, err)
+	}
+	if got, ok := principal.FromUserInfo(resp.User); !ok || got != principal.User(user.ID) {
+		t.Fatalf("FromUserInfo() = %#v, %v; want %#v", got, ok, principal.User(user.ID))
 	}
 }

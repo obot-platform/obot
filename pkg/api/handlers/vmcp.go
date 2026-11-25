@@ -139,12 +139,12 @@ func vmcpForUser(req api.Context, vmcp v1.VMCP) v1.VMCP {
 	manifest.Components = vmcpconfig.EnabledComponents(req.User, vmcp, manifest.Components)
 	// Only the profiles grant tools here. An instance's selection narrows its own
 	// connection, not the VMCP definition.
-	grant := vmcpconfig.AllowedTools(req.User, manifest.Profiles, nil)
+	grant := vmcpconfig.AllowedTools(req.User, vmcp, nil)
 	for i := range manifest.Components {
 		component := &manifest.Components[i]
 		component.ToolOverrides, _ = vmcpconfig.GrantedToolOverrides(component.ID, component.ToolOverrides, grant)
 	}
-	manifest.Profiles = vmcpconfig.MatchingProfiles(req.User, manifest.Profiles)
+	manifest.Profiles = vmcpconfig.CallerProfiles(req.User, vmcp)
 
 	// Component statuses are keyed by name. Readiness only reflects the visible components.
 	visible := make(map[string]struct{}, len(manifest.Components))
@@ -188,6 +188,9 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	if err := vmcpconfig.InitializeComponentIDs(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
+	if err := vmcpconfig.InitializeProfileIDs(&manifest); err != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
 
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, nil)
 
@@ -201,7 +204,7 @@ func (h *VMCPHandler) Create(req api.Context) error {
 			CreatorUserID: req.User.GetUID(),
 		},
 	}
-	if err := writeNewGroupSubjects(req, groupref.VMCPProfileSubjects(manifest), nil, func() error {
+	if err := writeNewSubjects(req, groupref.VMCPProfileSubjects(manifest), nil, func() error {
 		if err := req.Create(&vmcp); err != nil {
 			return fmt.Errorf("failed to create VMCP: %w", err)
 		}
@@ -209,6 +212,8 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	}); err != nil {
 		return err
 	}
+	// The vMCP exists from here, whatever later fails and removes it, so the subjects it granted are recorded.
+	recordProfileSubjectChanges(req, vmcp.Name, subjectChangeCreate, nil, manifest.Profiles)
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
 		Name:    vmcpconfig.ConfigurationCredentialName(),
@@ -254,6 +259,9 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
+	if err := vmcpconfig.ReconcileProfileIDs(vmcp.Spec.Manifest, &manifest); err != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
 	vmcpconfig.PruneRemovedComponentProfiles(vmcp.Spec.Manifest.Components, &manifest)
 	if err := h.loadComponentSnapshots(req, &manifest, vmcp.Spec.UserID, vmcp.Spec.Manifest.Components, true); err != nil {
 		return err
@@ -278,6 +286,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	hadCredential := err == nil
 
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, cred.Secrets)
+	previousProfiles := slices.Clone(vmcp.Spec.Manifest.Profiles)
 	vmcp.Spec.Manifest = manifest
 	if vmcp.Spec.StaticConfigurationCredentialName != "" {
 		vmcpconfig.VersionStaticConfiguration(&vmcp, staticConfiguration)
@@ -285,7 +294,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
 	}
 
-	if err := writeNewGroupSubjects(req, groupref.VMCPProfileSubjects(manifest), previousSubjects, func() error {
+	if err := writeNewSubjects(req, groupref.VMCPProfileSubjects(manifest), previousSubjects, func() error {
 		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 			Context: credentialContext,
 			Name:    vmcpconfig.StaticConfigurationCredentialName(&vmcp),
@@ -330,6 +339,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	}); err != nil {
 		return err
 	}
+	recordProfileSubjectChanges(req, vmcp.Name, subjectChangeUpdate, previousProfiles, manifest.Profiles)
 	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 	if err != nil {
 		return err
@@ -648,10 +658,14 @@ func (*VMCPHandler) Delete(req api.Context) error {
 		return types.NewErrBadRequest("cannot delete vMCP %s synced from a catalog", vmcpID)
 	}
 
-	return req.Delete(&v1.VMCP{
+	if err := req.Delete(&v1.VMCP{
 		Name:      vmcpID,
 		Namespace: req.Namespace(),
-	})
+	}); err != nil {
+		return err
+	}
+	recordProfileSubjectChanges(req, vmcpID, subjectChangeDelete, vMCP.Spec.Manifest.Profiles, nil)
+	return nil
 }
 
 func vmcpConfiguration(components []types.VMCPComponent, secrets map[string]string, policyType types.VMCPConfigurationPolicyType) types.VMCPConfiguration {

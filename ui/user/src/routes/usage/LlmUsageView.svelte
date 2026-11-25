@@ -4,6 +4,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import IncludeOnBehalfOfToggle from '$lib/components/admin/audit-logs/IncludeOnBehalfOfToggle.svelte';
 	import TokenUsageRequestStats from '$lib/components/admin/token-usage/TokenUsageRequestStats.svelte';
 	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
 	import {
@@ -41,12 +42,19 @@
 		TIMELINE_AGGREGATE_THRESHOLD,
 		type TokenUsageTimelineItem
 	} from '$lib/components/admin/token-usage/tokenUsageTimeline';
-	import { getAPIKeyFilterOptions, getUserLabels } from '$lib/components/admin/token-usage/utils';
+	import {
+		actorLabel,
+		getAPIKeyFilterOptions,
+		getUserLabels,
+		tokenUsageActorKey,
+		tokenUsageGroupKey
+	} from '$lib/components/admin/token-usage/utils';
 	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		type Model,
@@ -55,6 +63,11 @@
 		type TotalTokenUsage,
 		UserService
 	} from '$lib/services';
+	import {
+		agentActorValue,
+		parseAgentActor,
+		type AgentLookup
+	} from '$lib/services/agent-identities/helpers';
 	import { notifications, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
@@ -86,6 +99,19 @@
 	const selectedUserIdsForSelect = $derived(
 		selectedUserIds.length > 0 ? selectedUserIds.join(',') : ALL_USERS
 	);
+	// Usage of agents that acted for the selected users is only counted with them when asked for, and only users can
+	// ask: an agent has none.
+	const hasSelectedUser = $derived(
+		selectedUserIds.some((id) => id !== ALL_USERS && !parseAgentActor(id))
+	);
+	const includeOnBehalfOf = $derived(
+		hasSelectedUser && page.url.searchParams.get('include_on_behalf_of') === 'true'
+	);
+	// The users agents acted for. Unlike the toggle, it is a filter of its own that the others narrow: with an agent
+	// selected, it is what that agent did for these users.
+	const selectedOnBehalfOfIds = $derived(
+		page.url.searchParams.getAll(TOKEN_USAGE_PARAMS.ON_BEHALF_OF)
+	);
 	const selectedAPIKeyIDs = $derived(page.url.searchParams.getAll(TOKEN_USAGE_PARAMS.API_KEY));
 	const selectedAPIKeyIDsForSelect = $derived(
 		selectedAPIKeyIDs.length > 0 ? selectedAPIKeyIDs.join(',') : ALL_API_KEYS
@@ -113,7 +139,19 @@
 		const userIdsToFilter = selectedUserIds.filter((id) => id !== ALL_USERS);
 		if (userIdsToFilter.length > 0) {
 			const userSet = new Set(userIdsToFilter);
-			result = result.filter((row) => row.userID != null && userSet.has(row.userID));
+			result = result.filter((row) => {
+				const actorKey = tokenUsageActorKey(row);
+				if (actorKey !== undefined && userSet.has(actorKey)) return true;
+				return (
+					includeOnBehalfOf && row.onBehalfOf?.kind === 'user' && userSet.has(row.onBehalfOf.id)
+				);
+			});
+		}
+		if (selectedOnBehalfOfIds.length > 0) {
+			const onBehalfOfSet = new Set(selectedOnBehalfOfIds);
+			result = result.filter(
+				(row) => row.onBehalfOf?.kind === 'user' && onBehalfOfSet.has(row.onBehalfOf.id)
+			);
 		}
 		if (selectedTargetModels) {
 			result = result.filter((row) => row.model != null && selectedTargetModels.has(row.model));
@@ -130,6 +168,8 @@
 	// The request statistics are filtered on the server, by the same filters.
 	const statsFilters = $derived({
 		userIDs: selectedUserIds.filter((id) => id !== ALL_USERS),
+		includeOnBehalfOf,
+		onBehalfOf: selectedOnBehalfOfIds,
 		models: selectedTargetModels ? [...selectedTargetModels] : [],
 		apiKeyIDs: selectedAPIKeyIDs.filter((id) => id !== ALL_API_KEYS)
 	});
@@ -149,6 +189,9 @@
 	}
 
 	const usersMap = $derived(new Map(usersData.map((u) => [u.id, u])));
+	// Agents are listed with the users, as "agent:<id>", and are named from their own records.
+	const agentLookup = createAgentLookup(() => true);
+	const agents = $derived(agentLookup.current ?? new Map<string, AgentLookup>());
 	const modelsToDisplayName = $derived(new Map(modelsData.map((model) => [model.id, model])));
 
 	onMount(async () => {
@@ -249,6 +292,7 @@
 	$effect(() => {
 		const filtered = filteredData;
 		const users = usersMap;
+		const agentsLookup = agents;
 		const modelToName = targetModelToDisplayName;
 		const threshold = TIMELINE_AGGREGATE_THRESHOLD;
 
@@ -281,7 +325,7 @@
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			const byUser = new Map<string, TokenUsage[]>();
 			for (const r of filtered) {
-				const userKey = r.userID ?? TOKEN_USAGE_CATEGORY.UNKNOWN;
+				const userKey = tokenUsageGroupKey(r) ?? TOKEN_USAGE_CATEGORY.UNKNOWN;
 				let rows = byUser.get(userKey);
 				if (!rows) {
 					rows = [];
@@ -290,7 +334,7 @@
 				rows.push(r);
 			}
 			const userKeys = [...byUser.keys()].sort();
-			const userKeyToLabel = getUserLabels(users, userKeys);
+			const userKeyToLabel = getUserLabels(users, userKeys, agentsLookup);
 			return userKeys.map((userKey) => {
 				const userRows = byUser.get(userKey)!;
 				const userLabel = userKeyToLabel.get(userKey) ?? userKey;
@@ -317,7 +361,10 @@
 				rows.push(row);
 			}
 			const labels = new Map(
-				getAPIKeyFilterOptions(filtered, users).map((option) => [option.id, option.label])
+				getAPIKeyFilterOptions(filtered, users, agentsLookup).map((option) => [
+					option.id,
+					option.label
+				])
 			);
 			return [...byAPIKey.entries()].map(([apiKeyID, rows]) => {
 				const apiKeyLabel =
@@ -579,6 +626,23 @@
 		}
 	}
 
+	function setOnBehalfOfFilter(userIds: string[]) {
+		const currentUrl = new URL(page.url.toString());
+		currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.ON_BEHALF_OF);
+		for (const id of userIds) {
+			currentUrl.searchParams.append(TOKEN_USAGE_PARAMS.ON_BEHALF_OF, id);
+		}
+		goto(currentUrl, { noScroll: true, keepFocus: true });
+	}
+
+	function handleToggleOnBehalfOfFilter(userId: string) {
+		setOnBehalfOfFilter(
+			selectedOnBehalfOfIds.includes(userId)
+				? selectedOnBehalfOfIds.filter((id) => id !== userId)
+				: [...selectedOnBehalfOfIds, userId]
+		);
+	}
+
 	function handleRemoveAPIKeyFilter(apiKeyID: string) {
 		const currentUrl = new URL(page.url.toString());
 		const apiKeyIDs = currentUrl.searchParams
@@ -672,8 +736,20 @@
 		...usersData.map((user) => ({
 			label: withDisabledMarker(getUserDisplayName(usersMap, user.id), user),
 			id: user.id
+		})),
+		...[...agents.keys()].map((agentId) => ({
+			label: actorLabel(usersMap, agentActorValue(agentId), agents),
+			id: agentActorValue(agentId)
 		}))
 	]);
+
+	// Agents act only on behalf of users.
+	const onBehalfOfOptions = $derived(
+		usersData.map((user) => ({
+			label: withDisabledMarker(getUserDisplayName(usersMap, user.id), user),
+			id: user.id
+		}))
+	);
 
 	const modelsOptions = $derived([
 		{ label: m.audit_usage_usage_all_models(), id: ALL_MODELS },
@@ -682,7 +758,7 @@
 
 	const apiKeyOptions = $derived([
 		{ label: m.audit_usage_usage_all_api_keys(), id: ALL_API_KEYS },
-		...getAPIKeyFilterOptions(data, usersMap)
+		...getAPIKeyFilterOptions(data, usersMap, agents)
 	]);
 	const apiKeyOptionsMap = $derived(
 		new Map(apiKeyOptions.map((option) => [option.id, option.label]))
@@ -781,6 +857,25 @@
 					classes={{
 						root: 'w-full md:flex-1 dark:border-base-400'
 					}}
+					options={onBehalfOfOptions}
+					selected={selectedOnBehalfOfIds.join(',')}
+					onSelect={(option) => handleToggleOnBehalfOfFilter(option.id)}
+					onClear={(option) =>
+						option && setOnBehalfOfFilter(selectedOnBehalfOfIds.filter((id) => id !== option.id))}
+					onClearAll={selectedOnBehalfOfIds.length > 0 ? () => setOnBehalfOfFilter([]) : undefined}
+					id="on-behalf-of-select"
+					multiple
+					searchInDropdown
+					placeholder={m.identity_access_on_behalf_of_placeholder()}
+					buttonReadOnly
+					buttonTitle={m.identity_access_on_behalf_of()}
+					displayCount={selectedOnBehalfOfIds.length > 0}
+				/>
+				<Select
+					class="bg-base-100 border-base-300 dark:border-base-400"
+					classes={{
+						root: 'w-full md:flex-1 dark:border-base-400'
+					}}
 					options={modelsOptions}
 					selected={filteredByModel}
 					onSelect={(option) => handleToggleModelFilter(option.id)}
@@ -799,15 +894,12 @@
 				<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
 				<AuditLogCalendar start={startDate} end={endDate} onChange={handleDateRangeChange} />
 			</div>
-			{#if filteredByModel !== ALL_MODELS || selectedUserIdsForSelect !== ALL_USERS || selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
+			{#if filteredByModel !== ALL_MODELS || selectedUserIdsForSelect !== ALL_USERS || selectedOnBehalfOfIds.length > 0 || selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 				<div class="flex flex-wrap items-center gap-2" in:slide={{ axis: 'y', duration: 100 }}>
 					{#if selectedUserIdsForSelect !== ALL_USERS}
 						{@const userPills = selectedUserIds.map((selectedUser) => ({
 							id: selectedUser,
-							label: withDisabledMarker(
-								getUserDisplayName(usersMap, selectedUser),
-								usersMap.get(selectedUser)
-							)
+							label: actorLabel(usersMap, selectedUser, agents)
 						}))}
 						{#each userPills as userPill (userPill.id)}
 							<div class="filter-primary">
@@ -819,6 +911,19 @@
 							</div>
 						{/each}
 					{/if}
+					{#each selectedOnBehalfOfIds as userId (userId)}
+						<div class="filter-primary">
+							<span class="font-semibold">{m.identity_access_on_behalf_of_label()}</span
+							>{actorLabel(usersMap, userId, agents)}
+							<button
+								class="ml-1"
+								onclick={() =>
+									setOnBehalfOfFilter(selectedOnBehalfOfIds.filter((id) => id !== userId))}
+							>
+								<X class="size-3" />
+							</button>
+						</div>
+					{/each}
 					{#if selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 						{#each selectedAPIKeyIDs as apiKeyID (apiKeyID)}
 							<div class="filter-primary">
@@ -848,6 +953,9 @@
 					{/if}
 				</div>
 			{/if}
+			{#if hasSelectedUser}
+				<IncludeOnBehalfOfToggle />
+			{/if}
 			<TokenUsageRequestStats
 				{startDate}
 				{endDate}
@@ -860,6 +968,7 @@
 				data={filteredData}
 				loading={loadingTableData}
 				users={usersData}
+				{agents}
 				models={modelsData}
 				{selectedTokenType}
 				{groupBy}

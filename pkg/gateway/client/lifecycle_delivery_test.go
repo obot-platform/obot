@@ -139,7 +139,7 @@ func TestDeliveryDeliversEveryBatchAtOnce(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	ctx := t.Context()
 
-	const users = 2*userLifecycleDeliveryBatchSize + 50
+	const users = 2*lifecycleDeliveryBatchSize + 50
 	changes := make(map[uint]bool, users)
 	for userID := uint(1); userID <= users; userID++ {
 		changes[userID] = false

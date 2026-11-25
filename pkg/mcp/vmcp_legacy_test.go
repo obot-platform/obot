@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -61,7 +62,7 @@ func TestMigratedVMCPConnectIDsPreserveInstanceAndAudience(t *testing.T) {
 		},
 	} {
 		t.Run(test.id, func(t *testing.T) {
-			_, _, config, err := sm.ServerForActionWithConnectID(t.Context(), test.id, &kuser.DefaultInfo{UID: "7"})
+			_, _, config, err := sm.ServerForActionWithConnectID(t.Context(), test.id, principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -73,14 +74,14 @@ func TestMigratedVMCPConnectIDsPreserveInstanceAndAudience(t *testing.T) {
 				t.Fatalf("wrong migrated connection audit attribution: %#v", config.AuditLogMetadata)
 			}
 			// This is the ID the aggregate gateway uses on its internal loopback.
-			loopback, err := sm.ServerConfigForVMCP(t.Context(), config.MCPServerName, &kuser.DefaultInfo{UID: "7"})
+			loopback, err := sm.ServerConfigForVMCP(t.Context(), config.MCPServerName, principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}))
 			if err != nil || loopback.Components[0].Name != test.component {
 				t.Fatalf("loopback changed instance: %#v, %v", loopback, err)
 			}
 		})
 	}
 	for _, id := range []string{second.Spec.LegacySlug, second.Name} {
-		if _, err := sm.ServerConfigForVMCP(t.Context(), id, &kuser.DefaultInfo{UID: "other-user"}); err == nil {
+		if _, err := sm.ServerConfigForVMCP(t.Context(), id, principaltest.AsUser(&kuser.DefaultInfo{UID: "other-user"})); err == nil {
 			t.Fatalf("other user resolved %s", id)
 		}
 	}

@@ -1,6 +1,12 @@
 import { SCIM_VIEW_PATH } from '$lib/constants';
 import { HttpError } from '$lib/errors';
-import { AdminService, ApiKeysService, Group, UserService } from '$lib/services';
+import {
+	AdminService,
+	AgentIdentitiesService,
+	ApiKeysService,
+	Group,
+	UserService
+} from '$lib/services';
 import type {
 	SCIMConnection,
 	SCIMConnectionReview,
@@ -56,7 +62,7 @@ describe('Identity & Access load', () => {
 		const listAllApiKeys = vi.spyOn(ApiKeysService, 'listAllApiKeys').mockResolvedValue([apiKey]);
 		const listUsers = vi.spyOn(UserService, 'listUsers').mockResolvedValue(listUsersResponse);
 
-		const result = await loadIdentityAccess('/identity-access?view=agents', [Group.ADMIN]);
+		const result = await loadIdentityAccess('/identity-access?view=api-keys', [Group.ADMIN]);
 
 		expect(result).toMatchObject({
 			apiKeys: [apiKey],
@@ -65,6 +71,48 @@ describe('Identity & Access load', () => {
 		expect(listApiKeys).not.toHaveBeenCalled();
 		expect(listAllApiKeys).toHaveBeenCalledOnce();
 		expect(listUsers).toHaveBeenCalledOnce();
+	});
+
+	it('redirects the old Agents tab, which was the API keys, to the API Keys tab', async () => {
+		for (const [from, to] of [
+			['/identity-access?view=agents', '/identity-access?view=api-keys'],
+			['/identity-access?view=agents&new=true', '/identity-access?view=api-keys&new=true']
+		]) {
+			let error: { status?: number; location?: string } | undefined;
+			try {
+				await loadIdentityAccess(from, [Group.ADMIN]);
+			} catch (err) {
+				error = err as { status: number; location: string };
+			}
+
+			expect(isRedirect(error)).toBe(true);
+			expect(error?.status).toBe(301);
+			expect(error?.location).toBe(to);
+		}
+	});
+
+	it.each([
+		{ name: 'admins', groups: [Group.ADMIN] },
+		{ name: 'read-only admins', groups: [Group.USER, Group.ADMIN_READONLY] },
+		{ name: 'auditors', groups: [Group.USER, Group.AUDITOR] }
+	])('loads agents and users for the Agents tab of $name', async ({ groups }) => {
+		const listAgents = vi.spyOn(AgentIdentitiesService, 'listAgents').mockResolvedValue([]);
+		vi.spyOn(UserService, 'listUsers').mockResolvedValue(listUsersResponse);
+
+		const result = await loadIdentityAccess('/identity-access?view=agent-identities', groups);
+
+		expect(result).toMatchObject({ agents: [], users: listUsersResponse });
+		expect(listAgents).toHaveBeenCalledOnce();
+	});
+
+	it('gives non-admins the API Keys tab instead of the Agents tab', async () => {
+		const listAgents = vi.spyOn(AgentIdentitiesService, 'listAgents');
+		vi.spyOn(ApiKeysService, 'listApiKeys').mockResolvedValue([]);
+
+		const result = await loadIdentityAccess('/identity-access?view=agent-identities', [Group.USER]);
+
+		expect(result).toMatchObject({ agents: [] });
+		expect(listAgents).not.toHaveBeenCalled();
 	});
 
 	describe('Auth Providers tab', () => {

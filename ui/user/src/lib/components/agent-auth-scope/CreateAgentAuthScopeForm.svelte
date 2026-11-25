@@ -42,7 +42,7 @@
 	onMount(() => {
 		UserService.listVMCPs({ minimal: true })
 			.then((items) => (vmcps = items))
-			.catch(() => notifications.add(m.identity_access_agents_failed_to_load_vmcps()));
+			.catch(() => notifications.add(m.identity_access_api_keys_failed_to_load_vmcps()));
 	});
 
 	let mcpServers = $derived([
@@ -75,8 +75,8 @@
 
 	const allServersOption = {
 		id: '*',
-		name: m.identity_access_agents_all_mcp_servers(),
-		description: m.identity_access_agents_all_mcp_servers_description(),
+		name: m.identity_access_api_keys_all_mcp_servers(),
+		description: m.identity_access_api_keys_all_mcp_servers_description(),
 		icon: '',
 		legacy: undefined
 	};
@@ -145,7 +145,7 @@
 				<label for="agent-auth-scope-name" class="input-label">
 					{m.core_name()}
 					{#if nameError}
-						<span class="text-xs text-error">{m.identity_access_agents_name_is_required()}</span>
+						<span class="text-xs text-error">{m.identity_access_api_keys_name_is_required()}</span>
 					{/if}
 				</label>
 				<input
@@ -161,47 +161,47 @@
 
 			<div class="flex flex-col gap-2">
 				<label for="agent-auth-scope-description" class="input-label"
-					>{m.identity_access_agents_description_optional()}</label
+					>{m.identity_access_api_keys_description_optional()}</label
 				>
 				<input
 					id="agent-auth-scope-description"
 					type="text"
 					bind:value={description}
-					placeholder={m.identity_access_agents_agent_identity_description_placeholder()}
+					placeholder={m.identity_access_api_keys_agent_identity_description_placeholder()}
 					class="text-input-filled"
 				/>
 			</div>
 
 			<div class="flex flex-col gap-2">
 				<label for="agent-auth-scope-expires" class="input-label"
-					>{m.identity_access_agents_expiration_date_optional()}</label
+					>{m.identity_access_api_keys_expiration_date_optional()}</label
 				>
 				<DatePicker
 					id="agent-auth-scope-expires"
 					bind:value={expiresAt}
 					onChange={(date) => (expiresAt = date)}
-					placeholder={m.identity_access_agents_no_expiration()}
+					placeholder={m.identity_access_api_keys_no_expiration()}
 					minDate={new Date()}
 				/>
-				<p class="input-description">{m.identity_access_agents_leave_empty_no_expiration()}</p>
+				<p class="input-description">{m.identity_access_api_keys_leave_empty_no_expiration()}</p>
 			</div>
 		</div>
 	</div>
 
 	<section class="paper flex flex-col gap-2 p-4">
 		<p>
-			<span class="text-lg font-semibold">{m.identity_access_agents_mcp_servers()}</span>
+			<span class="text-lg font-semibold">{m.identity_access_api_keys_mcp_servers()}</span>
 			{#if serverError}
 				<span class="text-xs text-error">
-					{m.identity_access_agents_select_server_or_capability()}
+					{m.identity_access_api_keys_select_server_or_capability()}
 				</span>
 			{/if}
 		</p>
 		<p class="input-description">
-			{m.identity_access_agents_select_servers_for_identity()}
+			{m.identity_access_api_keys_select_servers_for_identity()}
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
-					({#if selectedServerIds.has('*')}{m.identity_access_agents_all_selected()}{:else}{m.core_n_selected(
+					({#if selectedServerIds.has('*')}{m.identity_access_api_keys_all_selected()}{:else}{m.core_n_selected(
 							{
 								count: selectedServerIds.size
 							}
@@ -214,7 +214,7 @@
 			class="text-input-filled"
 			onChange={(val) => (search = val)}
 			value={search}
-			placeholder={m.identity_access_agents_search_servers_placeholder()}
+			placeholder={m.identity_access_api_keys_search_servers_placeholder()}
 		/>
 
 		<div
@@ -226,8 +226,8 @@
 			{#if filteredServers.length === 0}
 				<div class="text-muted-content flex items-center justify-center py-8 text-sm">
 					{search
-						? m.identity_access_agents_no_servers_match_search()
-						: m.identity_access_agents_no_mcp_servers_available()}
+						? m.identity_access_api_keys_no_servers_match_search()
+						: m.identity_access_api_keys_no_mcp_servers_available()}
 				</div>
 			{:else}
 				{#each filteredServers as server (server.id)}
@@ -272,7 +272,7 @@
 
 	<section class="paper gap-2 p-4">
 		<p class="text-lg font-semibold" id="agent-auth-scope-scopes">
-			{m.identity_access_agents_api_scopes()}
+			{m.identity_access_api_keys_api_scopes()}
 		</p>
 		<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-scopes">
 			{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}

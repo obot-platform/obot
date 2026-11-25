@@ -4,11 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -243,6 +248,86 @@ func TestCompileCondition(t *testing.T) {
 	}
 	if _, err := CompileCondition(types.GuardrailTargetLLM, `model`); err == nil {
 		t.Fatal("non-boolean conditions must be rejected")
+	}
+}
+
+// TestConditionsSeeTheCallersPrincipal checks what conditions see of the caller: user.id is the storage encoding of
+// its principal ("agent:<id>" for an agent), and principal.kind and principal.id its kind and bare ID.
+func TestConditionsSeeTheCallersPrincipal(t *testing.T) {
+	resolve := func(u kuser.Info) Identity {
+		identity, _, err := ResolveIdentity(t.Context(), nil, u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return identity
+	}
+	userExtra := map[string][]string{"auth_provider_groups": {"eng"}}
+	principal.RecordKind(userExtra, principal.KindUser)
+	user := resolve(&kuser.DefaultInfo{UID: "7", Extra: userExtra})
+	agent := resolve(gateway.AgentUserInfo(&types.Agent{ID: 7}, []string{apitypes.GroupLLM}, nil))
+	unknown := resolve(&kuser.DefaultInfo{UID: "system"})
+
+	tests := []struct {
+		name     string
+		identity Identity
+		expr     string
+		want     bool
+	}{
+		{
+			name:     "an agent's user.id is its encoded ID",
+			identity: agent,
+			expr:     `user.id == "agent:7"`,
+			want:     true,
+		},
+		{
+			name:     "an agent's principal",
+			identity: agent,
+			expr:     `principal.kind == "agent" && principal.id == "7"`,
+			want:     true,
+		},
+		{
+			name:     "an agent has no groups",
+			identity: agent,
+			expr:     `size(user.groups) == 0`,
+			want:     true,
+		},
+		{
+			name:     "a user's user.id is their ID, as before",
+			identity: user,
+			expr:     `user.id == "7" && "eng" in user.groups`,
+			want:     true,
+		},
+		{
+			name:     "a user's principal",
+			identity: user,
+			expr:     `principal.kind == "user" && principal.id == "7"`,
+			want:     true,
+		},
+		{
+			name:     "the user with an agent's numeric ID is not that agent",
+			identity: user,
+			expr:     `principal.kind == "agent"`,
+			want:     false,
+		},
+		{
+			name:     "a caller that is not a principal has an empty one",
+			identity: unknown,
+			expr:     `principal.kind == "" && principal.id == "" && user.id == "system"`,
+			want:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, target := range []string{types.GuardrailTargetLLM, types.GuardrailTargetMCP} {
+				got, err := evalCondition(target, tt.expr, tt.identity, nil)
+				if err != nil {
+					t.Fatalf("%s: %v", target, err)
+				}
+				if got != tt.want {
+					t.Errorf("%s: %s = %v, want %v", target, tt.expr, got, tt.want)
+				}
+			}
+		})
 	}
 }
 
@@ -538,4 +623,121 @@ func equalCalls(a, b [][]string) bool {
 		}
 	}
 	return true
+}
+
+// TestSubjectsMatch checks every MCP guardrail filter subject form against a user, an agent with the same numeric
+// ID, and callers without a recorded kind. Subjects are matched by kind, as in vMCP profiles: everyone, like empty
+// subjects, is every user and no agent, and a caller without a kind matches only everyone, so that it never escapes a
+// filter for everyone.
+func TestSubjectsMatch(t *testing.T) {
+	callers := map[string]Identity{
+		"user":  {UserID: "5", Principal: principal.User(5), Groups: []string{"eng"}},
+		"agent": {UserID: "agent:5", Principal: principal.Agent(5), Groups: []string{"eng"}},
+		// A caller whose UID would match a user subject by string, but whose kind was never recorded.
+		"kindless": {UserID: "5", Groups: []string{"eng"}},
+		// A caller without a kind whose UID is an agent's storage encoding.
+		"kindless agent UID": {UserID: "agent:5", Groups: []string{"eng"}},
+	}
+	subject := func(typ, id string) []apitypes.MCPGuardrailFilterSubject {
+		return []apitypes.MCPGuardrailFilterSubject{{Type: typ, ID: id}}
+	}
+	everyCaller := []string{"user", "agent", "kindless", "kindless agent UID"}
+	// everyone are the callers that everyone restricts: every user, and every caller Obot cannot identify, but no agent.
+	everyone := []string{"user", "kindless", "kindless agent UID"}
+
+	for _, tt := range []struct {
+		name     string
+		subjects []apitypes.MCPGuardrailFilterSubject
+		want     []string
+	}{
+		{
+			name: "no subjects is everyone",
+			want: everyone,
+		},
+		{
+			name:     "everyone",
+			subjects: subject(apitypes.MCPGuardrailSubjectEveryone, ""),
+			want:     everyone,
+		},
+		{
+			name:     "everyone with an ID is still everyone",
+			subjects: subject(apitypes.MCPGuardrailSubjectEveryone, "ignored"),
+			want:     everyone,
+		},
+		{
+			name:     "legacy selector",
+			subjects: subject("selector", "*"),
+			want:     everyone,
+		},
+		{
+			// No principal has the ID "*".
+			name:     "user wildcard names no one",
+			subjects: subject(apitypes.MCPGuardrailSubjectUser, "*"),
+		},
+		{
+			// Validation refuses it, but a filter stored before agents were named only by ID may hold it.
+			name:     "stored agent wildcard names no one",
+			subjects: subject(apitypes.MCPGuardrailSubjectAgent, "*"),
+		},
+		{
+			name:     "user 5 is not agent 5",
+			subjects: subject(apitypes.MCPGuardrailSubjectUser, "5"),
+			want:     []string{"user"},
+		},
+		{
+			name:     "agent 5 is not user 5",
+			subjects: subject(apitypes.MCPGuardrailSubjectAgent, "5"),
+			want:     []string{"agent"},
+		},
+		{
+			name:     "a user subject with an agent's storage encoding names no one",
+			subjects: subject(apitypes.MCPGuardrailSubjectUser, "agent:5"),
+		},
+		{
+			name:     "another user",
+			subjects: subject(apitypes.MCPGuardrailSubjectUser, "6"),
+		},
+		{
+			name:     "another agent",
+			subjects: subject(apitypes.MCPGuardrailSubjectAgent, "6"),
+		},
+		{
+			name:     "a group never names an agent",
+			subjects: subject(apitypes.MCPGuardrailSubjectGroup, "eng"),
+			want:     []string{"user"},
+		},
+		{
+			name:     "another group",
+			subjects: subject(apitypes.MCPGuardrailSubjectGroup, "sales"),
+		},
+		{
+			name:     "an unknown type names no one",
+			subjects: subject("service", "*"),
+		},
+		{
+			name: "any matching subject applies the filter",
+			subjects: []apitypes.MCPGuardrailFilterSubject{
+				{Type: apitypes.MCPGuardrailSubjectUser, ID: "6"},
+				{Type: apitypes.MCPGuardrailSubjectAgent, ID: "5"},
+			},
+			want: []string{"agent"},
+		},
+		{
+			name: "everyone and the agent apply the filter to both",
+			subjects: []apitypes.MCPGuardrailFilterSubject{
+				{Type: apitypes.MCPGuardrailSubjectEveryone},
+				{Type: apitypes.MCPGuardrailSubjectAgent, ID: "5"},
+			},
+			want: everyCaller,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, name := range everyCaller {
+				want := slices.Contains(tt.want, name)
+				if got := subjectsMatch(filterSubjects(tt.subjects), callers[name]); got != want {
+					t.Errorf("%s: subjectsMatch() = %v, want %v", name, got, want)
+				}
+			}
+		})
+	}
 }

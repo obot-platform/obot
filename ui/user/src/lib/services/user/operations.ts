@@ -70,6 +70,8 @@ import {
 	type VMCPManifest,
 	type VMCPConfiguration,
 	type VMCPConfigurationPresence,
+	type VMCPPreconfiguredOAuth,
+	type VMCPPreconfiguredOAuthAuthorization,
 	type Skill
 } from './types';
 
@@ -171,6 +173,42 @@ export async function updateVMCP(
 
 export async function deleteVMCP(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
 	await doDelete(`/vmcps/${id}`, opts);
+}
+
+// The preconfigured OAuth of one remote component of a shared vMCP. Admins, owners and auditors read
+// it; only admins and owners authorize and revoke it. Errors are returned to the caller, which shows
+// them beside the control that failed.
+function preconfiguredOAuthPath(vmcpID: string, componentID: string): string {
+	return `/vmcps/${encodeURIComponent(vmcpID)}/components/${encodeURIComponent(componentID)}/preconfigured-oauth`;
+}
+
+export async function getVMCPPreconfiguredOAuth(
+	vmcpID: string,
+	componentID: string,
+	opts?: { signal?: AbortSignal }
+): Promise<VMCPPreconfiguredOAuth> {
+	return (await doGet(preconfiguredOAuthPath(vmcpID, componentID), {
+		...opts,
+		dontLogErrors: true
+	})) as VMCPPreconfiguredOAuth;
+}
+
+export async function authorizeVMCPPreconfiguredOAuth(
+	vmcpID: string,
+	componentID: string
+): Promise<VMCPPreconfiguredOAuthAuthorization> {
+	return (await doPost(
+		preconfiguredOAuthPath(vmcpID, componentID),
+		{},
+		{ dontLogErrors: true }
+	)) as VMCPPreconfiguredOAuthAuthorization;
+}
+
+export async function revokeVMCPPreconfiguredOAuth(
+	vmcpID: string,
+	componentID: string
+): Promise<void> {
+	await doDelete(preconfiguredOAuthPath(vmcpID, componentID), { dontLogErrors: true });
 }
 
 export async function triggerVMCPUpdate(

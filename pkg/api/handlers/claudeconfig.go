@@ -198,8 +198,9 @@ func refreshEnvironmentCredentials(req api.Context, environment *gt.ClaudeEnviro
 			if _, err := req.GatewayClient.DeleteCredential(req.Context(), "substrate-agent", instance.Name); err != nil {
 				return err
 			}
-		} else if key.ExpiresAt != nil && key.ExpiresAt.After(time.Now()) {
-			if _, err := req.GatewayClient.EnsureClaudeCredential(req.Context(), key.UserID, instance.Name, effective.MCPServerIDs, *key.ExpiresAt); err != nil {
+		} else if userID, ok := key.Owner().UserID(); ok && key.ExpiresAt != nil && key.ExpiresAt.After(time.Now()) {
+			// Claude session keys are issued to users only, so a key of any other owner is never renewed.
+			if _, err := req.GatewayClient.EnsureClaudeCredential(req.Context(), userID, instance.Name, effective.MCPServerIDs, *key.ExpiresAt); err != nil {
 				return err
 			}
 		}
@@ -215,6 +216,13 @@ func (h *ClaudeRunnerHandler) validateEnvironment(req api.Context, environment *
 	if environment.Profiles != nil {
 		manifest.Profiles = []types.VMCPProfile{}
 		for _, profile := range environment.Profiles {
+			// Profiles are validated as vMCP profiles, which accept agent subjects, but hosted Claude sessions belong to
+			// users, so an agent subject here could never match anyone.
+			for _, subject := range profile.Subjects {
+				if subject.Type == types.SubjectTypeAgent {
+					return types.NewErrBadRequest("profile %q: agent subjects are not supported in Claude environments", profile.Name)
+				}
+			}
 			manifest.Profiles = append(manifest.Profiles, types.VMCPProfile{Name: profile.Name, Subjects: profile.Subjects})
 		}
 	}

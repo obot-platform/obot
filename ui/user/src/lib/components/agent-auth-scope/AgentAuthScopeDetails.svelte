@@ -34,7 +34,7 @@
 	onMount(() => {
 		UserService.listVMCPs({ minimal: true })
 			.then((items) => (vmcps = items))
-			.catch(() => notifications.add(m.identity_access_agents_failed_to_load_vmcps()));
+			.catch(() => notifications.add(m.identity_access_api_keys_failed_to_load_vmcps()));
 	});
 
 	let mcpServers = $derived(
@@ -64,7 +64,7 @@
 			const server = serverMap.get(id);
 			return {
 				id,
-				name: getMCPDisplayName(server, m.identity_access_agents_deleted_parenthetical()),
+				name: getMCPDisplayName(server, m.identity_access_api_keys_deleted_parenthetical()),
 				description: server?.manifest.description,
 				icon: server?.manifest.icon,
 				exists: !!server,
@@ -91,7 +91,7 @@
 			? [
 					{
 						id: 'all-mcp-servers',
-						name: m.identity_access_agents_all_mcp_servers(),
+						name: m.identity_access_api_keys_all_mcp_servers(),
 						description: '',
 						icon: '',
 						exists: true,
@@ -102,7 +102,7 @@
 	);
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const title = $derived(agentAuthScope?.name || m.identity_access_agents_agent_identity());
+	const title = $derived(agentAuthScope?.name || m.identity_access_api_keys_agent_identity());
 </script>
 
 {#if agentAuthScope}
@@ -126,19 +126,19 @@
 					<div class="text-sm flex flex-col gap-0.5">
 						<h1 class="text-xl font-semibold">{title}</h1>
 						<p>{agentAuthScope.description}</p>
-						<p><b>{m.identity_access_agents_last_used_label()}</b> {lastUsedDisplay}</p>
-						<p><b>{m.identity_access_agents_expires_label()}</b> {expiresDisplay}</p>
+						<p><b>{m.identity_access_api_keys_last_used_label()}</b> {lastUsedDisplay}</p>
+						<p><b>{m.identity_access_api_keys_expires_label()}</b> {expiresDisplay}</p>
 						<p class="text-muted-content font-light">
-							{m.identity_access_agents_created_time({ time: createdDisplay })}
+							{m.identity_access_api_keys_created_time({ time: createdDisplay })}
 						</p>
 					</div>
 				</div>
-				{#if agentAuthScope.userId.toString() === profile.current.id || profile.current.isAdmin?.()}
+				{#if String(agentAuthScope.userId) === profile.current.id || profile.current.isAdmin?.()}
 					<div class="flex w-full @md:w-auto justify-end">
 						<IconButton
 							class=""
 							variant="danger2"
-							tooltip={{ text: m.identity_access_agents_delete_named({ name: title }) }}
+							tooltip={{ text: m.identity_access_api_keys_delete_named({ name: title }) }}
 							disabled={saving}
 							onclick={() => (deletingAgentAuthScope = true)}
 						>
@@ -150,7 +150,7 @@
 
 			<section class="paper flex flex-col gap-2 p-4">
 				<p>
-					<span class="text-lg font-semibold">{m.identity_access_agents_mcp_servers()}</span>
+					<span class="text-lg font-semibold">{m.identity_access_api_keys_mcp_servers()}</span>
 				</p>
 
 				<ul
@@ -158,7 +158,7 @@
 				>
 					{#if mcpServerData.length === 0}
 						<li class="text-muted-content flex items-center justify-center py-8 text-sm">
-							{m.identity_access_agents_no_mcp_servers()}
+							{m.identity_access_api_keys_no_mcp_servers()}
 						</li>
 					{:else}
 						{#each mcpServerData as server (server.id)}
@@ -191,7 +191,7 @@
 
 			<section class="paper gap-2 p-4">
 				<p class="text-lg font-semibold" id="agent-auth-scope-scopes">
-					{m.identity_access_agents_api_scopes()}
+					{m.identity_access_api_keys_api_scopes()}
 				</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-scopes">
 					{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
@@ -221,13 +221,13 @@
 
 			<section class="paper gap-2 p-4">
 				<p class="text-lg font-semibold" id="agent-auth-scope-keys">
-					{m.identity_access_agents_api_keys()}
+					{m.identity_access_api_keys_api_keys()}
 				</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-keys">
 					{#if isAdmin}
 						<a
 							href={resolve(
-								`/identity-access/agents/${agentAuthScope.id}/${encodeURIComponent(agentAuthScope.prefix)}` as `/${string}`
+								`/identity-access/api-keys/${agentAuthScope.id}/${encodeURIComponent(agentAuthScope.prefix)}` as `/${string}`
 							)}
 							class="bg-base-200 hover:bg-base-300 flex justify-between items-center gap-3 rounded-lg p-3 text-sm transition-colors"
 						>
@@ -246,7 +246,7 @@
 {/if}
 
 <Confirm
-	msg={m.identity_access_agents_confirm_delete_named({ name: title })}
+	msg={m.identity_access_api_keys_confirm_delete_named({ name: title })}
 	show={deletingAgentAuthScope}
 	onsuccess={onDelete}
 	oncancel={() => (deletingAgentAuthScope = false)}

@@ -4,12 +4,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -45,6 +47,13 @@ var (
 		"../../gateway/server/router.go",
 		"../../gateway/server/llmproxy_legacy.go",
 	}
+
+	// handlerFiles are the handlers that may register their routes with the handle function their RegisterRoutes
+	// method is given, as the admin API of agents does.
+	handlerFiles = "../handlers/*.go"
+
+	// routeRegistration matches a route registered with a mux's HandleFunc, or with such a handle function.
+	routeRegistration = regexp.MustCompile(`(?:HandleFunc|\bhandle)\("([A-Z]+) +(/api/[^"]*)"`)
 )
 
 type routerRoute struct {
@@ -57,8 +66,19 @@ type routerRoute struct {
 func routerRoutes(t *testing.T) []routerRoute {
 	t.Helper()
 
+	handlers, err := filepath.Glob(handlerFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := slices.Clone(routerFiles)
+	for _, file := range handlers {
+		if !strings.HasSuffix(file, "_test.go") && !slices.Contains(files, file) {
+			files = append(files, file)
+		}
+	}
+
 	var src []byte
-	for _, file := range routerFiles {
+	for _, file := range files {
 		content, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("failed to read router %s: %v", file, err)
@@ -70,7 +90,7 @@ func routerRoutes(t *testing.T) []routerRoute {
 		routes   []routerRoute
 		wildcard = regexp.MustCompile(`\{[^}]+\}`)
 	)
-	for _, match := range regexp.MustCompile(`HandleFunc\("([A-Z]+) +(/api/[^"]*)"`).FindAllStringSubmatch(string(src), -1) {
+	for _, match := range routeRegistration.FindAllStringSubmatch(string(src), -1) {
 		path := strings.TrimSuffix(match[2], "{$}")
 		path = wildcard.ReplaceAllStringFunc(path, func(w string) string {
 			if strings.HasSuffix(w, "...}") {
@@ -103,7 +123,7 @@ func TestAdminReadonlyRulesAreReads(t *testing.T) {
 func TestAdminReadonlyRulesCoverAdminReads(t *testing.T) {
 	admin := rulesFromStatic(map[string][]string{types.GroupAdmin: adminAndOwnerRules})[0].mux
 	authorizer := newVMCPTestAuthorizer()
-	readonly := &user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()}
+	readonly := principaltest.AsUser(&user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()})
 
 	for _, route := range routerRoutes(t) {
 		if route.method != http.MethodGet {
@@ -166,7 +186,8 @@ func TestAdminReadonlyPrefixGrantsCoverOnlyReviewedReads(t *testing.T) {
 
 // TestAdminReadonlyCannotMutate checks that the admin read-only role may make no change that a basic user may not.
 func TestAdminReadonlyCannotMutate(t *testing.T) {
-	authorizer := newVMCPTestAuthorizer()
+	// The resource checks of some routes, such as a user's own agent delegation, read the gateway database.
+	authorizer, _, _ := newGatewayTestAuthorizer(t)
 	pairs := []struct {
 		name     string
 		readonly types.Role
@@ -186,8 +207,8 @@ func TestAdminReadonlyCannotMutate(t *testing.T) {
 
 	for _, pair := range pairs {
 		t.Run(pair.name, func(t *testing.T) {
-			readonly := &user.DefaultInfo{Name: "readonly", UID: "1", Groups: pair.readonly.Groups()}
-			baseline := &user.DefaultInfo{Name: "baseline", UID: "1", Groups: pair.baseline.Groups()}
+			readonly := principaltest.AsUser(&user.DefaultInfo{Name: "readonly", UID: "1", Groups: pair.readonly.Groups()})
+			baseline := principaltest.AsUser(&user.DefaultInfo{Name: "baseline", UID: "1", Groups: pair.baseline.Groups()})
 			for _, route := range routerRoutes(t) {
 				if route.method == http.MethodGet {
 					continue
@@ -317,7 +338,7 @@ func TestAdminReadonlyConnectionReadsFollowUserAccess(t *testing.T) {
 		Spec:       v1.VMCPSpec{UserID: "owner"},
 	}
 	authorizer := newVMCPTestAuthorizer(sharedWith("vmcp-shared-mine", "1"), sharedWith("vmcp-shared-other", "2"), personal)
-	readonly := &user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()}
+	readonly := principaltest.AsUser(&user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()})
 
 	tests := []struct {
 		name    string

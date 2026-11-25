@@ -45,6 +45,7 @@ func New() *cobra.Command {
 	}
 	return cmd.Command(root,
 		&Server{},
+		&Agents{root: root},
 		&Login{root: root},
 		&Logout{root: root},
 		&MCP{root: root},

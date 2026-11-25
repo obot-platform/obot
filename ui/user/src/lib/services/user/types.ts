@@ -24,7 +24,7 @@ export interface AccessControlRuleResource {
 	id: string;
 }
 export interface AccessControlRuleSubject {
-	type: 'user' | 'group' | 'obotGroup' | 'selector';
+	type: 'user' | 'group' | 'obotGroup' | 'selector' | 'agent';
 	id: string;
 }
 export interface AccessControlRuleManifest {
@@ -110,7 +110,7 @@ export interface AppPreferences {
 
 export type AuditLogEventType = 'mcp_call' | 'local_agent_tool_call';
 export type AuditLogTimestampSource = 'server' | 'client_reported';
-export type AuditLogActorType = 'user' | 'device' | 'credential' | 'unknown';
+export type AuditLogActorType = 'user' | 'agent' | 'device' | 'credential' | 'unknown';
 export type AuditLogTargetType =
 	| 'mcp_server'
 	| 'mcp_tool'
@@ -120,6 +120,10 @@ export type AuditLogTargetType =
 export type AuditLogOutcomeStatus = 'success' | 'failure' | 'denied' | 'timeout' | 'unknown';
 
 export type AuditLogAPIKeyFilterOption = {
+	// agentID and agentDisplayName are set instead of userID for the key of an agent, and are those of
+	// the agent's record even after it is deleted.
+	agentID?: string;
+	agentDisplayName?: string;
 	maskedKey: string;
 	name: string;
 	revoked: boolean;
@@ -212,7 +216,11 @@ export interface AuditLogEvent {
 	actor: {
 		actorType: AuditLogActorType;
 		id?: string;
-		/** Redacted authentication credential identifier when the actor is a known user. */
+		/** The agent's name when the actor is an agent, also after the agent is deleted. */
+		displayName?: string;
+		/** The user an agent acted for, when the actor is an agent that acted for one. The agent is still the actor. */
+		onBehalfOf?: { kind: 'user' | 'agent'; id: string };
+		/** Redacted authentication credential identifier when the actor is a known user or agent. */
 		credentialID?: string;
 		/** Current lifecycle state of the API key represented by credentialID, or by id for credential actors. */
 		apiKeyRevoked?: boolean;
@@ -275,7 +283,12 @@ export type AuditLogURLFilters = {
 
 	// Unified, source-agnostic filters used by the audit log UI. These map to the correct
 	// underlying column per source in the backend and can be combined across sources.
-	actor?: string | null; // matches an Obot user id or an enrolled device id
+	actor?: string | null; // matches an Obot user id, "agent:<id>" for an agent, or an enrolled device id
+	actor_kind?: string | null; // "user" or "agent"
+	// With an actor that is a user, also lists the calls agents made on the user's behalf.
+	include_on_behalf_of?: string | null;
+	// Lists only the calls agents made on behalf of these users, which every other filter narrows.
+	on_behalf_of?: string | null;
 	operation?: string | null; // MCP call type; local-agent tool calls are implicitly tools/call
 	mcp_server?: string | null; // MCP server (id/display name) or a local-agent row's MCP parent
 	tool?: string | null; // MCP call identifier or local-agent action name
@@ -333,6 +346,8 @@ export type McpAuditLogUsageFilters = {
 	mcp_server_catalog_entry_names?: string;
 	mcp_server_display_names?: string;
 	user_ids?: string;
+	// Counts only the calls agents made on behalf of these users.
+	on_behalf_of?: string;
 	start_time?: string | null;
 	end_time?: string | null;
 };
@@ -343,6 +358,8 @@ export type McpServerOrInstanceAuditLogStatsFilters = {
 export type UsageStatsFilters = {
 	mcp_id?: string;
 	user_ids?: string;
+	// Counts only the calls agents made on behalf of these users.
+	on_behalf_of?: string;
 	mcp_server_display_names?: string;
 	mcp_server_catalog_entry_names?: string;
 	start_time?: string | null;
@@ -690,6 +707,8 @@ export interface VMCPComponent {
 }
 
 export interface VMCPProfile {
+	// Server-assigned and immutable. Send it back to keep the profile; omit it only for a new profile.
+	id?: string;
 	name: string;
 	subjects: AccessControlRuleSubject[];
 	vmcpPermissions?: VMCPProfilePermissions;
@@ -717,6 +736,47 @@ export interface VMCPManifest {
 export interface VMCPStatus {
 	components?: VMCPComponentStatus[];
 	ready?: boolean;
+}
+
+// The OAuth an administrator preconfigured for one remote component of a shared vMCP
+// (apiclient/types/vmcp.go). Everyone who reaches the component through the vMCP, users and agents
+// alike, connects upstream as the one account it was authorized with, and users are not asked to
+// authorize the component themselves while it is set. It describes the grant, never its tokens.
+export const VMCPPreconfiguredOAuthStates = {
+	/**
+	 * No grant, and the component is not known to need OAuth. Obot's background probe may not have
+	 * found that it does yet, so it can still be authorized.
+	 */
+	NotRequired: 'not_required',
+	/** No grant, and the component is known to need OAuth. */
+	NeedsAuthorization: 'needs_authorization',
+	Authorized: 'authorized',
+	/** The provider refused to refresh the grant, or the upstream URL changed: authorize it again. */
+	Invalid: 'invalid'
+} as const;
+
+export type VMCPPreconfiguredOAuthState =
+	(typeof VMCPPreconfiguredOAuthStates)[keyof typeof VMCPPreconfiguredOAuthStates];
+
+export interface VMCPPreconfiguredOAuth {
+	vmcpID: string;
+	componentID: string;
+	state: VMCPPreconfiguredOAuthState;
+	/** The user ID of the administrator who authorized the grant. */
+	authorizedBy?: string;
+	authorizedAt?: string;
+	/** The upstream URL, only when the catalog entry fixes it. */
+	target?: string;
+	/** Only the hostname of a URL that comes from the vMCP's fixed configuration. It is not a URL. */
+	targetHostname?: string;
+	scopes?: string[];
+	invalidReason?: string;
+}
+
+export interface VMCPPreconfiguredOAuthAuthorization {
+	authURL: string;
+	/** authURL is Obot's local login URL, to run with `obot mcp login` on the administrator's own machine. */
+	localhostCallback?: boolean;
 }
 
 export interface VMCPComponentStatus {

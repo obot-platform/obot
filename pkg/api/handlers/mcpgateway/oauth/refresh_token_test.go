@@ -317,7 +317,10 @@ func TestRefreshTokenRecoveryAuthenticatesStoredState(t *testing.T) {
 }
 
 func TestRefreshTokenRejectsMalformedTokens(t *testing.T) {
-	for _, token := range []string{"v2.id.secret", "v1...", "v1." + strings.Repeat("z", 64) + "." + strings.Repeat("a", 43), "v1." + strings.Repeat("a", 64) + ".short", "v1." + strings.Repeat("a", 64) + "." + strings.Repeat("!", 43)} {
+	// A JWT, such as one with which an agent acts on behalf of a user ({"sub":"7","act":{"sub":"agent:5"}}), is never a
+	// refresh token.
+	delegatedJWT := "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3IiwiYWN0Ijp7InN1YiI6ImFnZW50OjUifX0.c2lnbmF0dXJl"
+	for _, token := range []string{"v2.id.secret", "v1...", "v1." + strings.Repeat("z", 64) + "." + strings.Repeat("a", 43), "v1." + strings.Repeat("a", 64) + ".short", "v1." + strings.Repeat("a", 64) + "." + strings.Repeat("!", 43), delegatedJWT} {
 		_, err := refreshTokenName(token)
 		require.Error(t, err)
 	}

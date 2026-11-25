@@ -42,6 +42,22 @@ func compositeAuthorizationResponse(manager *mcp.SessionManager) func(http.Respo
 }
 
 func upstreamOAuthResponse(req api.Context, cfg mcp.ServerConfig, manager *mcp.SessionManager, challenges []*component.AuthorizationError) (*mcpResponse, error) {
+	if len(challenges) == 0 {
+		return nil, fmt.Errorf("invalid upstream challenge count")
+	}
+
+	// An agent, or a composite loopback acting for one, cannot authorize interactively. It is told which components
+	// need OAuth, and no challenge is retained for it.
+	if headlessCaller(req) {
+		return agentOAuthRequiredResponse(req, cfg, challenges)
+	}
+
+	// A component that uses the vMCP's preconfigured OAuth is not the user's to authorize: the user is told that an
+	// administrator must authorize it again, and is never challenged for it.
+	if response, err := userPreconfiguredOAuthResponse(cfg, challenges); err != nil || response != nil {
+		return response, err
+	}
+
 	connectionID := req.PathValue("mcp_id")
 	if slices.Contains(req.User.GetGroups(), types.GroupCompositeMCP) {
 		// The original connection comes only from Obot's signed loopback token.
@@ -49,10 +65,6 @@ func upstreamOAuthResponse(req api.Context, cfg mcp.ServerConfig, manager *mcp.S
 		if connectionID == "" {
 			return nil, fmt.Errorf("missing original vMCP connection")
 		}
-	}
-
-	if len(challenges) == 0 {
-		return nil, fmt.Errorf("invalid upstream challenge count")
 	}
 
 	batch := gatewaytypes.MCPOAuthChallenge{
@@ -147,6 +159,12 @@ func rewriteUpstreamOAuthResponse(req api.Context, resp *http.Response) error {
 	challenges := component.AuthorizationChallenges(resp)
 
 	if len(challenges) == 0 {
+		return nil
+	}
+
+	if headlessCaller(req) {
+		rewriteHeadlessAuthorizationResponse(req, resp)
+
 		return nil
 	}
 

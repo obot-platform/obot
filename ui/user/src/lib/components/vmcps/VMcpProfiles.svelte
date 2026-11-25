@@ -26,7 +26,10 @@
 		users: AccessControlRuleSubject[];
 		resources: ProfileResource[];
 	};
-	type Profile = ProfileManifest & { id: string };
+	// id is the profile's name, which identifies it in the URL while editing. profileID is the
+	// server-assigned ID, which must be sent back on save: a profile saved without one is a new
+	// profile, with a new ID in the audit records that name it.
+	type Profile = ProfileManifest & { id: string; profileID?: string };
 </script>
 
 <script lang="ts">
@@ -35,19 +38,23 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type OrgUser, type VMCP, type VMCPComponent } from '$lib/services';
+	import AgentIdentitiesService, { type AgentIdentity } from '$lib/services/agent-identities';
 	import { compositeEffectiveToolNames, duplicateToolNames } from '$lib/services/user/mcp';
 	import { vmcpManifest } from '$lib/services/vmcps/utils';
 	import { notifications } from '$lib/stores';
 	import {
-		OBOT_ADMIN_PICKER_ID,
+		agentLookupWith,
+		convertSubjectsToTableData,
+		hasNamedAgent,
 		resolveSubjects,
-		resolveSubjectFromGroup,
-		resolveSubjectPickerById
+		resolveSubjectPickerById,
+		subjectPickerOptions
 	} from '$lib/subjectResolver';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
-	import { getUserRoleLabel, isDisabledUser } from '$lib/utils';
+	import { getUserRoleLabel } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import {
@@ -69,6 +76,7 @@
 		vmcp?: VMCP;
 		toolFlow: VMcpToolFlow;
 		onUpdated?: (vmcp: VMCP) => void;
+		// The profiles' manifest (name, identities, permissions) cannot be changed, as for a catalog-synced vMCP.
 		readonly?: boolean;
 	}
 
@@ -80,17 +88,20 @@
 		if (!profileParam) {
 			return undefined;
 		}
-		const profileById = profiles.find((profile) => profile.id === profileParam);
-		if (profileById) {
-			return profileById.id;
-		}
-		return undefined;
+		return profiles.find((profile) => profile.id === profileParam)?.id;
 	});
 	let loadedProfileId = $state<string>();
 	let saving = $state(false);
 	let error = $state('');
 	let directoryUsers = $state<OrgUser[]>([]);
 	let directoryGroups = $state<OrgGroup[]>([]);
+	let directoryAgents = $state<AgentIdentity[]>([]);
+	// Agent subjects are named from the admin-only agent list, which also holds deleted agents, and
+	// from the agents offered to pick. Anyone else sees the IDs.
+	const loadedAgents = createAgentLookup(() =>
+		hasNamedAgent([...profiles.flatMap((profile) => profile.users), ...(draft?.users ?? [])])
+	);
+	const agentLookup = $derived(agentLookupWith(loadedAgents.current, directoryAgents));
 	let resolvedGroups = $state<OrgGroup[]>([]);
 	let subjectQuery = $state('');
 	let subjectSelection = $state<string | number>();
@@ -99,11 +110,6 @@
 	let confirmDeleteProfile = $state<{ id: string; name: string }>();
 	let confirmDisableGrant = $state<{ id: string; name: string }>();
 
-	const EVERYONE_GROUP: OrgGroup = { id: '*', name: m.core_all_obot_users() };
-	const ADMIN_GROUP: OrgGroup = {
-		id: OBOT_ADMIN_PICKER_ID,
-		name: m.identity_access_users_obot_admin()
-	};
 	const GROUP_PAGE_SIZE = 50;
 
 	// Validation messages double as error identity, so each is resolved once and compared by reference.
@@ -118,39 +124,29 @@
 	const groupsById = $derived(
 		new Map([...resolvedGroups, ...directoryGroups].map((group) => [group.id, group]))
 	);
-	const subjectOptions = $derived.by(() => {
-		const query = subjectQuery.trim().toLowerCase();
-		const everyoneMatches = !query || EVERYONE_GROUP.name.toLowerCase().includes(query);
-		const adminMatches = !query || ADMIN_GROUP.name.toLowerCase().includes(query);
-		// Disabled users cannot sign in, so they are not offered.
-		const selectable = directoryUsers.filter((user) => !isDisabledUser(user));
-		const users = query
-			? selectable.filter(
-					(user) =>
-						(user.displayName ?? '').toLowerCase().includes(query) ||
-						(user.email ?? '').toLowerCase().includes(query) ||
-						(user.username ?? '').toLowerCase().includes(query)
-				)
-			: selectable;
-		const groups = [
-			...(everyoneMatches ? [EVERYONE_GROUP] : []),
-			...(adminMatches ? [ADMIN_GROUP] : []),
-			...directoryGroups
-		];
-		return [...groups, ...users]
-			.filter((entry) => !assignedSubjectIds.has(entry.id))
-			.map((entry) => ({
-				id: entry.id,
-				label: directoryName(entry),
-				subject: toSubject(entry)
-			}));
-	});
+	// The rows the inline picker offers, as the picker dialog builds them. Profiles accept agents.
+	const subjectOptions = $derived(
+		subjectPickerOptions({
+			users: directoryUsers,
+			groups: directoryGroups,
+			agents: directoryAgents,
+			query: subjectQuery,
+			offerAgents: true,
+			offerObotAdmin: true,
+			existingPickerIds: assignedSubjectIds
+		}).map((option) => ({
+			id: option.key,
+			label: option.agent ? `${option.label} (${option.kind})` : option.label,
+			subject: option.subject
+		}))
+	);
 
 	let groupsRequest: AbortController | undefined;
 
 	$effect(() => {
 		if (!draft) return;
 		void loadUsers();
+		void loadAgents();
 	});
 
 	$effect(() => {
@@ -248,6 +244,7 @@
 		return {
 			allowAllComponents: permissions?.allowAllComponents ?? false,
 			id: manifest.name,
+			profileID: manifest.id,
 			name: manifest.name,
 			users: (manifest.subjects ?? []).map((subject) => ({ ...subject })),
 			resources: componentServers
@@ -298,6 +295,7 @@
 		if (profile.allowAllComponents) vmcpPermissions.allowAllComponents = true;
 		else vmcpPermissions.allowedComponents = allowedComponents;
 		return {
+			id: profile.profileID,
 			name: profile.name,
 			subjects: profile.users.map((subject) => ({ ...subject })),
 			vmcpPermissions
@@ -532,7 +530,8 @@
 
 		const profile: Profile = {
 			...cloneProfile({ ...draft, name }),
-			id: name
+			id: name,
+			profileID: profiles.find((candidate) => candidate.id === editingId)?.profileID
 		};
 		const next = editingId
 			? profiles.map((candidate) => (candidate.id === editingId ? profile : candidate))
@@ -589,7 +588,12 @@
 				components: componentsWithLocalToolOverrides(latest.components ?? []),
 				profiles: next.map(profileToManifest)
 			});
-			profiles = next;
+			// Profiles added by this save get their IDs from the server.
+			profiles = next.map((profile) => ({
+				...profile,
+				profileID:
+					profile.profileID ?? updated.profiles?.find((saved) => saved.name === profile.name)?.id
+			}));
 			notifications.add(message, 'success');
 			onUpdated?.(updated);
 			return true;
@@ -598,21 +602,6 @@
 		} finally {
 			saving = false;
 		}
-	}
-
-	function isDirectoryGroup(entry: OrgUser | OrgGroup): entry is OrgGroup {
-		return 'name' in entry;
-	}
-
-	function directoryName(entry: OrgUser | OrgGroup) {
-		return isDirectoryGroup(entry)
-			? entry.name
-			: (entry.displayName ?? entry.email ?? entry.username ?? entry.id);
-	}
-
-	function toSubject(entry: OrgUser | OrgGroup): AccessControlRuleSubject {
-		if (!isDirectoryGroup(entry)) return { type: 'user', id: entry.id };
-		return resolveSubjectFromGroup(entry);
 	}
 
 	function rememberResolvedGroups(groups: OrgGroup[]) {
@@ -629,36 +618,21 @@
 	}
 
 	function subjectDisplay(subject: AccessControlRuleSubject) {
-		if (subject.type === 'obotGroup') {
-			return {
-				name: `Obot ${subject.id.charAt(0).toUpperCase()}${subject.id.slice(1)}`,
-				group: true,
-				iconURL: undefined,
-				role: undefined,
-				disabled: false
-			};
-		}
-		if (subject.type === 'selector') {
-			const name = subject.id === EVERYONE_GROUP.id ? EVERYONE_GROUP.name : subject.id;
-			return { name, group: true, iconURL: undefined, role: undefined, disabled: false };
-		}
-		if (subject.type === 'group') {
-			const group = groupsById.get(subject.id);
-			return {
-				name: group?.name || subject.id,
-				group: true,
-				iconURL: undefined,
-				role: undefined,
-				disabled: false
-			};
-		}
-		const user = directoryUsers.find((candidate) => candidate.id === subject.id);
+		const [row] = convertSubjectsToTableData([subject], directoryUsers, [...groupsById.values()], {
+			agents: agentLookup
+		});
+		const user =
+			subject.type === 'user'
+				? directoryUsers.find((candidate) => candidate.id === subject.id)
+				: undefined;
 		return {
-			name: user ? directoryName(user) : subject.id,
-			group: false,
+			name: row.displayName,
+			// All Obot Users and groups are shown as groups, and agents and users as themselves.
+			group: !row.agent && subject.type !== 'user',
+			agent: Boolean(row.agent),
 			iconURL: user?.iconURL,
 			role: user?.effectiveRole,
-			disabled: isDisabledUser(user)
+			disabled: Boolean(row.disabled)
 		};
 	}
 
@@ -702,6 +676,15 @@
 			directoryUsers = await UserService.listUsers();
 		} catch (err) {
 			console.error('Failed to load users:', err);
+		}
+	}
+
+	async function loadAgents() {
+		if (directoryAgents.length > 0) return;
+		try {
+			directoryAgents = await AgentIdentitiesService.listAgents();
+		} catch (err) {
+			console.error('Failed to load agents:', err);
 		}
 	}
 
@@ -1250,7 +1233,7 @@
 					bind:selected={subjectSelection}
 					searchInDropdown
 					placeholder={m.vmcps_add_identities()}
-					searchPlaceholder={m.vmcps_search_users_or_groups()}
+					searchPlaceholder={m.core_search_users_groups_agents()}
 					class="bg-base-200 shadow-inner!"
 					classes={{ root: 'w-full' }}
 					invalid={subjectsError}
@@ -1295,13 +1278,16 @@
 											class="text-sm font-light"
 											name={display.name}
 											disabled={display.disabled}
+											agent={display.agent}
 										/>
 										<span class="text-muted-content text-xs">
 											{display.group
 												? m.core_col_group()
-												: display.role
-													? getUserRoleLabel(display.role)
-													: m.core_col_user()}
+												: display.agent
+													? m.core_col_agent()
+													: display.role
+														? getUserRoleLabel(display.role)
+														: m.core_col_user()}
 										</span>
 									</div>
 								</div>

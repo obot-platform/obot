@@ -6,6 +6,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -67,7 +68,7 @@ func (*ModelAccessPolicyHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := writeNewGroupSubjects(req, manifest.Subjects, nil, func() error {
+	if err := writeNewSubjects(req, manifest.Subjects, nil, func() error {
 		if err := req.Create(&policy); err != nil {
 			return fmt.Errorf("failed to create model access policy: %w", err)
 		}
@@ -76,6 +77,7 @@ func (*ModelAccessPolicyHandler) Create(req api.Context) error {
 		return err
 	}
 
+	recordSubjectChange(req, gtypes.AdminAuditActionModelAccessPolicySubjectsUpdate, gtypes.AdminAuditResourceModelAccessPolicy, policy.Name, "", subjectChangeCreate, nil, manifest.Subjects)
 	return req.Write(convertModelAccessPolicy(policy))
 }
 
@@ -93,7 +95,8 @@ func (*ModelAccessPolicyHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to get model access policy: %v", err)
 	}
 
-	if err := writeNewGroupSubjects(req, manifest.Subjects, existing.Spec.Manifest.Subjects, func() error {
+	previousSubjects := slices.Clone(existing.Spec.Manifest.Subjects)
+	if err := writeNewSubjects(req, manifest.Subjects, existing.Spec.Manifest.Subjects, func() error {
 		existing.Spec.Manifest = manifest
 		if err := req.Update(&existing); err != nil {
 			return fmt.Errorf("failed to update model access policy: %w", err)
@@ -103,6 +106,7 @@ func (*ModelAccessPolicyHandler) Update(req api.Context) error {
 		return err
 	}
 
+	recordSubjectChange(req, gtypes.AdminAuditActionModelAccessPolicySubjectsUpdate, gtypes.AdminAuditResourceModelAccessPolicy, existing.Name, "", subjectChangeUpdate, previousSubjects, manifest.Subjects)
 	return req.Write(convertModelAccessPolicy(existing))
 }
 
@@ -126,7 +130,11 @@ func (*ModelAccessPolicyHandler) Delete(req api.Context) error {
 			return err
 		}
 	}
-	return req.Delete(&policy)
+	if err := req.Delete(&policy); err != nil {
+		return err
+	}
+	recordSubjectChange(req, gtypes.AdminAuditActionModelAccessPolicySubjectsUpdate, gtypes.AdminAuditResourceModelAccessPolicy, policy.Name, "", subjectChangeDelete, policy.Spec.Manifest.Subjects, nil)
+	return nil
 }
 
 // requireProfile checks that a budget's or guardrail policy's gateway profile exists and isn't

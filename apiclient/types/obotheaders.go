@@ -14,6 +14,14 @@ const (
 	ObotHeaderUserEmail  ObotHeader = "X-Obot-User-Email"
 	ObotHeaderIDPUserID  ObotHeader = "X-Obot-IDP-User-Id"
 	ObotHeaderIDPGroups  ObotHeader = "X-Obot-IDP-Groups"
+
+	// ObotHeaderOnBehalfOfUserID, ObotHeaderOnBehalfOfUserName and ObotHeaderOnBehalfOfUserEmail carry the user an
+	// agent acts for, beside the agent itself in ObotHeaderUserID, ObotHeaderUserName and ObotHeaderUserEmail. They are
+	// not selected on their own: a backend that selects one of those three gets its on-behalf-of counterpart with it
+	// (OnBehalfOfObotHeader), whenever the caller is an agent acting on behalf of a user.
+	ObotHeaderOnBehalfOfUserID    ObotHeader = "X-Obot-On-Behalf-Of-User-Id"
+	ObotHeaderOnBehalfOfUserName  ObotHeader = "X-Obot-On-Behalf-Of-User-Name"
+	ObotHeaderOnBehalfOfUserEmail ObotHeader = "X-Obot-On-Behalf-Of-User-Email"
 )
 
 // ObotHeader is an optional, gateway-derived attribution header sent to an MCP backend.
@@ -24,12 +32,43 @@ func ObotHeaders() []ObotHeader {
 	return []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderAPIKeyID, ObotHeaderUserID, ObotHeaderUserName, ObotHeaderUserEmail, ObotHeaderIDPUserID, ObotHeaderIDPGroups}
 }
 
+// OnBehalfOfObotHeader returns the header that carries the on-behalf-of counterpart of the selectable header, and
+// false for a header that has none.
+func OnBehalfOfObotHeader(header ObotHeader) (ObotHeader, bool) {
+	switch header {
+	case ObotHeaderUserID:
+		return ObotHeaderOnBehalfOfUserID, true
+	case ObotHeaderUserName:
+		return ObotHeaderOnBehalfOfUserName, true
+	case ObotHeaderUserEmail:
+		return ObotHeaderOnBehalfOfUserEmail, true
+	}
+	return "", false
+}
+
+// ReservedObotHeaders returns every attribution header Obot derives: the selectable ones (ObotHeaders), then their
+// on-behalf-of counterparts. A client never supplies any of them, and no configured header may use their names.
+func ReservedObotHeaders() []ObotHeader {
+	return append(ObotHeaders(), ObotHeaderOnBehalfOfUserID, ObotHeaderOnBehalfOfUserName, ObotHeaderOnBehalfOfUserEmail)
+}
+
+// ReservedObotHeader recognizes every reserved attribution header name (ReservedObotHeaders), in canonical case.
+func ReservedObotHeader(name string) (ObotHeader, bool) {
+	for _, header := range ReservedObotHeaders() {
+		if strings.EqualFold(name, string(header)) {
+			return header, true
+		}
+	}
+	return "", false
+}
+
 // SupportsObotHeaders reports whether a runtime supports HTTP caller attribution.
 func SupportsObotHeaders(runtime Runtime) bool {
 	return runtime == RuntimeRemote || runtime == RuntimeContainerized
 }
 
-// CanonicalObotHeader recognizes only the reserved attribution header names.
+// CanonicalObotHeader recognizes only the selectable attribution header names (ObotHeaders). ReservedObotHeader also
+// recognizes their on-behalf-of counterparts.
 func CanonicalObotHeader(name string) (ObotHeader, bool) {
 	for _, header := range ObotHeaders() {
 		if strings.EqualFold(name, string(header)) {

@@ -4,6 +4,7 @@
 	"skills_access_policies_all_skills": "모든 스킬",
 	"skills_access_policies_no_skills_added": "추가된 스킬이 없습니다.",
 	"skills_access_policies_remove_skill": "스킬 제거",
+	"skills_access_policies_subjects_description": "이 규칙이 적용되는 사용자, 그룹 및 에이전트입니다.",
 	"skills_access_policies_tab": "액세스 정책",
 	"skills_access_policy_fallback_title": "스킬 액세스 정책",
 	"skills_add": "추가",

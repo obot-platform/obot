@@ -53,6 +53,8 @@
 
 	const supportedFilters: SupportedStateFilter[] = [
 		'user_ids',
+		// The users agents acted for: with an agent as the user, the calls that agent made for them.
+		'on_behalf_of',
 		'mcp_id',
 		'mcp_server_display_names',
 		'mcp_server_catalog_entry_names',
@@ -62,6 +64,7 @@
 
 	const proxy = new Map<SupportedStateFilter, keyof AuditLogURLFilters>([
 		['user_ids', 'user_id'],
+		['on_behalf_of', 'on_behalf_of'],
 		['mcp_id', 'mcp_id'],
 		['mcp_server_display_names', 'mcp_server_display_name'],
 		['mcp_server_catalog_entry_names', 'mcp_server_catalog_entry_name'],
@@ -509,6 +512,7 @@
 		if (_key === 'start_time') return m.audit_usage_audit_logs_filter_start_time();
 		if (_key === 'end_time') return m.audit_usage_audit_logs_filter_end_time();
 		if (_key === 'user_ids') return m.core_col_user();
+		if (_key === 'on_behalf_of') return m.identity_access_on_behalf_of();
 
 		return key.replace(/_(\w)/g, ' $1');
 	}
@@ -527,7 +531,7 @@
 			});
 		}
 
-		if (label === 'user_ids') {
+		if (label === 'user_ids' || label === 'on_behalf_of') {
 			const hasConflict = (display?: string) => {
 				const isConflicted = usersAsArray.some(
 					(user) =>

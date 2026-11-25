@@ -31,24 +31,8 @@ type SkillResourceType string
 type SkillAccessRuleList List[SkillAccessRule]
 
 func (s SkillAccessRuleManifest) Validate() error {
-	if len(s.Subjects) == 0 {
-		return fmt.Errorf("at least one subject is required")
-	}
-
-	subjects := make(map[Subject]struct{}, len(s.Subjects))
-	for _, subject := range s.Subjects {
-		if err := subject.Validate(); err != nil {
-			return fmt.Errorf("invalid subject: %w", err)
-		}
-
-		if subject.ID == "*" && len(s.Subjects) > 1 {
-			return fmt.Errorf("wildcard subject (*) must be the only subject")
-		}
-
-		if _, ok := subjects[subject]; ok {
-			return fmt.Errorf("duplicate subject: %s/%s", subject.Type, subject.ID)
-		}
-		subjects[subject] = struct{}{}
+	if err := validatePolicySubjects(PolicySystemSkillAccess, s.Subjects); err != nil {
+		return err
 	}
 
 	if len(s.Resources) == 0 {

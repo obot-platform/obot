@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -202,11 +203,25 @@ func (s *Server) revokeAPIKey(apiContext api.Context) error {
 
 // Admin endpoints for managing any user's API keys
 
-// listAllAPIKeys lists all API keys in the system (admin/owner only).
+// listAllAPIKeys lists all API keys in the system (admin/owner only). The optional kind query parameter, user or
+// agent, limits the list to the keys of that kind of owner.
 func (s *Server) listAllAPIKeys(apiContext api.Context) error {
-	showRevoked, _ := strconv.ParseBool(apiContext.Request.URL.Query().Get("show_revoked"))
+	query := apiContext.URL.Query()
+	showRevoked, _ := strconv.ParseBool(query.Get("show_revoked"))
+
+	var ownerKind principal.Kind
+	if query.Has("kind") {
+		switch kind := principal.Kind(query.Get("kind")); kind {
+		case principal.KindUser, principal.KindAgent:
+			ownerKind = kind
+		default:
+			return types2.NewErrBadRequest("invalid kind %q: must be %q or %q", kind, principal.KindUser, principal.KindAgent)
+		}
+	}
+
 	keys, err := apiContext.GatewayClient.ListAllAPIKeys(apiContext.Context(), client.APIKeyListOptions{
 		ShowRevoked: showRevoked,
+		OwnerKind:   ownerKind,
 	})
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to list API keys: %v", err))
@@ -241,13 +256,18 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("invalid key ID")
 	}
 
-	if err := apiContext.GatewayClient.RevokeAPIKeyByID(apiContext.Context(), uint(keyID)); err != nil {
+	// The administrator is recorded as the actor if the key is an agent's (the admin change audit).
+	if err := apiContext.GatewayClient.RevokeAPIKeyByID(client.WithAdminUser(apiContext.Context(), apiContext.User), uint(keyID)); err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to revoke API key: %v", err))
 	}
 
 	return apiContext.Write(map[string]any{"deleted": true})
 }
 
+// authenticateAPIKey answers the API key authentication webhook, which the nanobot shim and the CLI call with a key
+// to validate. Its subject is the key owner's storage encoding: a user's decimal ID, or "agent:<id>" for an agent's
+// key, whether or not the server authenticates callers. An agent has no username or email, so neither is reported
+// for one, and its display name is only a name: display names need not be unique.
 func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// Extract API key from header
 	authHeader := apiContext.Request.Header.Get("Authorization")
@@ -259,8 +279,12 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		})
 	}
 
+	// The prefix names the kind of the key's owner, and ValidateAPIKey looks the key up as a key of that kind of
+	// owner only, so the key it returns is one of that kind of owner: a key is never answered for as an owner of
+	// another kind, such as the user with its agent's numeric ID.
 	bearer, ok := strings.CutPrefix(authHeader, "Bearer ")
-	if !ok || !strings.HasPrefix(bearer, system.APIKeyPrefix+"-") {
+	ownerKind, _, _, _, err := client.ParseAPIKey(bearer)
+	if !ok || err != nil {
 		slog.Info("Denied API key auth request", "reason", "invalid_api_key_format")
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
@@ -287,29 +311,63 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 			Reason:  "invalid or expired API key",
 		})
 	}
+	owner := apiKey.Owner()
 
-	// Get user info
-	user, err := apiContext.GatewayClient.UserByID(apiContext.Context(), strconv.FormatUint(uint64(apiKey.UserID), 10))
-	if err != nil {
-		slog.Info("Denied API key auth request", "reason", "user_not_found", "keyUserID", apiKey.UserID, "mcpID", req.MCPID)
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  "user not found",
-		})
-	}
-	if status := user.Status(); status != types2.UserStatusActive {
-		slog.Info("Denied API key auth request", "reason", "user_not_active", "keyUserID", apiKey.UserID, "status", status, "mcpID", req.MCPID)
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  "user is not active",
-		})
+	var response apiKeyAuthResponse
+	switch ownerKind {
+	case principal.KindUser:
+		userID, _ := owner.UserID()
+		user, err := apiContext.GatewayClient.UserByID(apiContext.Context(), strconv.FormatUint(uint64(userID), 10))
+		if err != nil {
+			slog.Info("Denied API key auth request", "reason", "user_not_found", "keyOwner", owner.String(), "mcpID", req.MCPID)
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  "user not found",
+			})
+		}
+		if status := user.Status(); status != types2.UserStatusActive {
+			slog.Info("Denied API key auth request", "reason", "user_not_active", "keyOwner", owner.String(), "status", status, "mcpID", req.MCPID)
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  "user is not active",
+			})
+		}
+		response = apiKeyAuthResponse{
+			Name:              user.DisplayName,
+			PreferredUsername: user.Username,
+			Email:             user.Email,
+			Scopes:            apiKey.APIKeyScopes,
+		}
+	case principal.KindAgent:
+		agentID, _ := owner.AgentID()
+		// ValidateAPIKey does not refuse the key of an owner that is not active, so the agent's access is checked here.
+		agent, err := apiContext.GatewayClient.ActiveAgent(apiContext.Context(), agentID)
+		if denied, isDenied := errors.AsType[*client.AgentAccessDeniedError](err); isDenied {
+			slog.Info("Denied API key auth request", "reason", "agent_not_active", "keyOwner", owner.String(), "status", denied.Status, "mcpID", req.MCPID)
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  "agent is not active",
+			})
+		} else if err != nil {
+			// The agent could not be read, so its access is unknown: the caller is told so rather than that the agent
+			// does not exist.
+			slog.Error("Failed to read the agent of an API key", "keyOwner", owner.String(), "mcpID", req.MCPID, "error", err)
+			return types2.NewErrHTTP(http.StatusInternalServerError, "failed to read the API key's agent")
+		}
+		response = apiKeyAuthResponse{
+			Name: agent.DisplayName,
+			// The scopes the authenticator honors for an agent's key, which never include API or device scan access.
+			Scopes: agentKeyScopes(apiKey.APIKeyScopes),
+		}
 	}
 
 	hasWildcard := slices.Contains(apiKey.MCPServerIDs, "*")
 	if !req.ValidateOnly && !system.IsWebhookSystemMCPServerID(req.MCPID) {
-		hasAccess, err := authz.MCPIDIsAuthorized(apiContext.Context(), apiContext.Storage, apiKey.MCPServerIDs, strconv.FormatUint(uint64(apiKey.UserID), 10), req.MCPID)
+		// The owner's storage encoding finds the owner's own vMCP instance, so a user and an agent with the same
+		// numeric ID never resolve each other's.
+		hasAccess, err := authz.MCPIDIsAuthorized(apiContext.Context(), apiContext.Storage, apiKey.MCPServerIDs, owner.String(), req.MCPID)
 		if !hasAccess || err != nil {
-			slog.Info("Denied API key auth request", "reason", "api_key_scope_mismatch", "keyUserID", apiKey.UserID, "mcpID", req.MCPID)
+			slog.Info("Denied API key auth request", "reason", "api_key_scope_mismatch", "keyOwner", owner.String(), "mcpID", req.MCPID)
 			return apiContext.Write(apiKeyAuthResponse{
 				Allowed: false,
 				Reason:  "API key does not have access to this MCP server",
@@ -317,19 +375,14 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		}
 	}
 
-	slog.Debug("Authorized API key request", "keyUserID", apiKey.UserID, "mcpID", req.MCPID, "wildcardScope", hasWildcard, "validateOnly", req.ValidateOnly)
+	slog.Debug("Authorized API key request", "keyOwner", owner.String(), "mcpID", req.MCPID, "wildcardScope", hasWildcard, "validateOnly", req.ValidateOnly)
 
 	// Update key's last used time
 	if keyErr := apiContext.GatewayClient.UpdateAPIKeyLastUsed(apiContext.Context(), apiKey); keyErr != nil {
 		slog.Error("failed to update API key last used time", "error", keyErr)
 	}
 
-	return apiContext.Write(apiKeyAuthResponse{
-		Allowed:           true,
-		Scopes:            apiKey.APIKeyScopes,
-		Subject:           fmt.Sprintf("%d", apiKey.UserID),
-		Name:              user.DisplayName,
-		PreferredUsername: user.Username,
-		Email:             user.Email,
-	})
+	response.Allowed = true
+	response.Subject = owner.String()
+	return apiContext.Write(response)
 }

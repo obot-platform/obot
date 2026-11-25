@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/agentdelegation"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -18,14 +19,20 @@ import (
 )
 
 type UserCleanup struct {
-	gatewayClient *gclient.Client
-	acrHelper     *accesscontrolrule.Helper
+	gatewayClient     *gclient.Client
+	acrHelper         *accesscontrolrule.Helper
+	delegationCleanup agentdelegation.Cleanup
 }
 
-func NewUserCleanup(gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper) *UserCleanup {
+// NewUserCleanup returns the cleanup of deleted users. delegationCleanup removes what a user set up through agents.
+func NewUserCleanup(gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, delegationCleanup agentdelegation.Cleanup) *UserCleanup {
+	if delegationCleanup == nil {
+		delegationCleanup = agentdelegation.NoCleanup{}
+	}
 	return &UserCleanup{
-		gatewayClient: gatewayClient,
-		acrHelper:     acrHelper,
+		gatewayClient:     gatewayClient,
+		acrHelper:         acrHelper,
+		delegationCleanup: delegationCleanup,
 	}
 }
 
@@ -74,6 +81,17 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		}
 	}
 	slog.Info("Revoked API keys during user cleanup", "userID", userID, "keys", len(apiKeys))
+
+	// The agents the user let act on their behalf: what the user set up through them first, so that a retry still
+	// finds the user's delegations to delete if removing the setup fails.
+	if err := u.delegationCleanup.CleanupDelegations(req.Ctx, agentdelegation.Scope{UserID: userDelete.Spec.UserID}); err != nil {
+		return fmt.Errorf("failed to remove what user %d set up through agents: %w", userDelete.Spec.UserID, err)
+	}
+	delegations, err := u.gatewayClient.DeleteAgentDelegationsOfUser(req.Ctx, userDelete.Spec.UserID)
+	if err != nil {
+		return err
+	}
+	slog.Info("Deleted agent delegations during user cleanup", "userID", userID, "delegations", delegations)
 
 	// Delete vMCPs
 	var vmcps v1.VMCPList

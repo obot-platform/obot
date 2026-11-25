@@ -11,6 +11,7 @@ import (
 
 	"github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -198,7 +199,7 @@ func TestRestrictComponentTools(t *testing.T) {
 func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	const (
 		vmcpID = "vmcp1shared"
-		userID = "user-1"
+		userID = "1"
 	)
 	instanceID := "vmcpi1-shared-instance"
 	otherInstanceID := "vmcpi1-other-user-instance"
@@ -327,7 +328,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		baseURL:        "https://obot.example.test",
 	}
 
-	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
+	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 	if err != nil {
 		t.Fatalf("ServerConfigForVMCP() error = %v", err)
 	}
@@ -559,7 +560,7 @@ func TestServerConfigForVMCPPersonalOwnership(t *testing.T) {
 				httpListenPort: vmcpTestListenPort,
 			}
 
-			serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: tt.userID})
+			serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, principaltest.AsUser(&kuser.DefaultInfo{UID: tt.userID}))
 			if err != nil {
 				t.Fatalf("ServerConfigForVMCP() error = %v", err)
 			}
@@ -601,7 +602,7 @@ func TestServerConfigForVMCPOmitsDisabledComponents(t *testing.T) {
 	}, vmcp, instance)
 	manager := &SessionManager{storageClient: newVMCPTestStorage(vmcp, instance, enabled, disabled, connection)}
 
-	cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: userID})
+	cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -618,7 +619,7 @@ func TestServerConfigForVMCPRejectsEmptyBeforeCreatingInstance(t *testing.T) {
 	}
 	storage := newVMCPTestStorage(vmcp)
 	manager := &SessionManager{storageClient: storage}
-	if _, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: "user"}); err == nil || !strings.Contains(err.Error(), "without components") {
+	if _, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "user"})); err == nil || !strings.Contains(err.Error(), "without components") {
 		t.Fatalf("expected empty VMCP connection error, got %v", err)
 	}
 	var instances v1.VMCPInstanceList
@@ -660,7 +661,7 @@ func TestServerConfigForVMCPChecksStaticOAuthStatusBeforeCreatingInstance(t *tes
 	}
 	storage := newVMCPTestStorage(vmcp)
 	manager := &SessionManager{storageClient: storage}
-	_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: "user"})
+	_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "user"}))
 	if err == nil || !strings.Contains(err.Error(), "Salesforce requires administrator static OAuth configuration") {
 		t.Fatalf("expected static OAuth setup error, got %v", err)
 	}
@@ -703,7 +704,7 @@ func TestServerConfigForVMCPChecksStaticOAuthStatusBeforeCreatingInstance(t *tes
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	if _, err := manager.ServerConfigForVMCP(ctx, vmcp.Name, &kuser.DefaultInfo{UID: "user"}); err != nil {
+	if _, err := manager.ServerConfigForVMCP(ctx, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "user"})); err != nil {
 		t.Fatalf("configured static OAuth credential was rejected with stale component status: %v", err)
 	}
 }
@@ -711,7 +712,7 @@ func TestServerConfigForVMCPChecksStaticOAuthStatusBeforeCreatingInstance(t *tes
 func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 	const (
 		vmcpID = "vmcp1personal"
-		userID = "user-without-instance"
+		userID = "9"
 	)
 	vmcp := &v1.VMCP{
 		Name:      vmcpID,
@@ -758,7 +759,7 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 		httpListenPort: vmcpTestListenPort,
 	}
 
-	first, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
+	first, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 	if err != nil {
 		t.Fatalf("first ServerConfigForVMCP() error = %v", err)
 	}
@@ -768,7 +769,7 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 	if first.ConfigHash != wantConfigHash {
 		t.Fatalf("configuration hash = %q, want controller revision %q", first.ConfigHash, wantConfigHash)
 	}
-	second, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
+	second, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 	if err != nil {
 		t.Fatalf("second ServerConfigForVMCP() error = %v", err)
 	}
@@ -804,7 +805,7 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 	const (
 		vmcpID = "vmcp1notready"
-		userID = "user-1"
+		userID = "1"
 	)
 	instanceID := "vmcpi1-not-ready-instance"
 	vmcp := &v1.VMCP{
@@ -870,7 +871,7 @@ func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 	}()
 	manager := &SessionManager{storageClient: signalingStorage}
 
-	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, &kuser.DefaultInfo{UID: userID})
+	serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 	if err != nil {
 		t.Fatalf("ServerConfigForVMCP() error = %v", err)
 	}
@@ -1015,7 +1016,7 @@ func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
 		}, vmcp, &v1.VMCPInstance{})); err != nil {
 			t.Fatal(err)
 		}
-		cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: userID})
+		cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1095,7 +1096,7 @@ func TestValidateSecretBindingsVMCP(t *testing.T) {
 // performs for an instance, using its saved configuration annotation if any. Call
 // it after the vMCP's components and profiles are final.
 func syncedVMCPInstance(instance *v1.VMCPInstance, vmcp *v1.VMCP) *v1.VMCPInstance {
-	return syncedVMCPInstanceForUser(instance, vmcp, &kuser.DefaultInfo{UID: instance.Spec.UserID})
+	return syncedVMCPInstanceForUser(instance, vmcp, principaltest.AsUser(&kuser.DefaultInfo{UID: instance.Spec.UserID}))
 }
 
 // syncedVMCPInstanceForUser is syncedVMCPInstance for profiles that match on more
@@ -1167,7 +1168,7 @@ func TestServerConfigForVMCPWaitsForDedicatedComponentConfiguration(t *testing.T
 
 	result := make(chan vmcpServerConfigResult, 1)
 	go func() {
-		config, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: userID})
+		config, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 		result <- vmcpServerConfigResult{config: config, err: err}
 	}()
 
@@ -1216,7 +1217,7 @@ func TestServerConfigForVMCPWaitsForNewInstanceWithoutConfiguration(t *testing.T
 
 	result := make(chan vmcpServerConfigResult, 1)
 	go func() {
-		config, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: userID})
+		config, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 		result <- vmcpServerConfigResult{config: config, err: err}
 	}()
 
@@ -1260,7 +1261,7 @@ func TestServerConfigForVMCPWaitsForSharedConnectionConfiguration(t *testing.T) 
 
 	result := make(chan vmcpServerConfigResult, 1)
 	go func() {
-		config, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, &kuser.DefaultInfo{UID: userID})
+		config, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: userID}))
 		result <- vmcpServerConfigResult{config: config, err: err}
 	}()
 

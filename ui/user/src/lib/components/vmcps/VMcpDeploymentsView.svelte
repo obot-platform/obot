@@ -4,9 +4,12 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { hasAgentOwner, instanceOwner } from '$lib/instanceOwners';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		UserService,
@@ -30,7 +33,7 @@
 		setSortUrlParams,
 		setUrlParamAndUpdateUrl
 	} from '$lib/url';
-	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import { openUrl } from '$lib/utils';
 	import VMcpActions from './VMcpActions.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { Captions, Ellipsis, Layers, ServerCog, Trash2 } from '@lucide/svelte';
@@ -86,20 +89,28 @@
 	type DeploymentRow = VMCPInstance & {
 		displayName: string;
 		userName: string;
+		// The instance is an agent's, which is shown with a badge.
+		ownerIsAgent: boolean;
 		vmcp?: VMCP;
 	};
 
 	let loading = $state(false);
 	let allVMCPInstances = $state<VMCPInstance[]>([]);
+	// An instance is owned by a user, or by an agent ("agent:<id>"), which is named from the agents and never as a user.
+	const agentLookup = createAgentLookup(() =>
+		hasAgentOwner(allVMCPInstances.map((instance) => instance.userID))
+	);
 	let tableData = $derived.by((): DeploymentRow[] => {
 		const rows = allVMCPInstances
 			.filter((instance) => !instance.deleted)
 			.map((instance) => {
 				const vmcp = vmcpsMap.get(instance.vmcpID);
+				const owner = instanceOwner(instance.userID, usersMap, agentLookup.current);
 				return {
 					...instance,
 					displayName: vmcp?.displayName || instance.vmcpID,
-					userName: getUserDisplayName(usersMap, instance.userID),
+					userName: owner.name,
+					ownerIsAgent: owner.agent,
 					vmcp,
 					updateStatus: vmcpInstanceNeedsUserConfiguration(instance)
 						? m.core_mcp_value_not_configured()
@@ -236,6 +247,8 @@
 							/>
 							<p class="flex flex-col">{d.displayName}</p>
 						</div>
+					{:else if property === 'userName'}
+						<SubjectName name={d.userName} agent={d.ownerIsAgent} />
 					{:else if property === 'created'}
 						{formatTimeAgo(d.created).relativeTime}
 					{:else}

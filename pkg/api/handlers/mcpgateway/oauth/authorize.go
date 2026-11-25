@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -591,6 +592,17 @@ func (h *handler) oauthCallback(req api.Context) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to get pending state: %w", err)
+	}
+
+	// An administrator's authorization of a vMCP's preconfigured OAuth grant is completed for the vMCP, never for whoever
+	// holds the state, and only by its administrator.
+	if principal.IsPreconfiguredOAuthOwner(pending.UserID) {
+		return h.oauthChecker.completePreconfiguredOAuthCallback(req, pending)
+	}
+	// A user's upstream account through an agent is stored for the pair of the agent and the user, never for whoever
+	// holds the state, and only by that user.
+	if principal.IsDelegatedOwner(pending.UserID) {
+		return h.oauthChecker.completeDelegatedSetupCallback(req, pending)
 	}
 
 	if err := h.oauthChecker.validateCapturedCallback(req, pending); err != nil {

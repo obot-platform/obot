@@ -582,7 +582,7 @@ func (c *Client) EnforceSCIMConnection(ctx context.Context, id string, opts Enfo
 	}
 
 	if len(result.DisabledUserIDs) > 0 {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 	return result, nil
 }

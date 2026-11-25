@@ -3,6 +3,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -14,11 +15,20 @@
 		type MCPGuardrailProvider,
 		type MCPGuardrailFilterAction,
 		type MCPGuardrailFilterDirection,
+		type MCPGuardrailFilterSubject,
 		type OrgGroup,
+		type AccessControlRuleSubject,
 		type OrgUser
 	} from '$lib/services';
+	import { type AgentIdentity } from '$lib/services/agent-identities';
 	import { guardrailTypeLabel } from '$lib/services/llm-gateway/guardrail-text';
-	import { convertSubjectsToTableData, resolveSubjects } from '$lib/subjectResolver';
+	import {
+		convertSubjectsToTableData,
+		hasNamedAgent,
+		resolveSubjectPickerById,
+		resolveSubjects,
+		subjectsFromPicker
+	} from '$lib/subjectResolver';
 	import { resolve } from '$lib/url';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
@@ -107,17 +117,20 @@
 		})
 	);
 
-	// The "everyone" subject is shown as the "All Obot Users" selector, as in access policies.
-	type Subject = { type: 'user' | 'group' | 'selector'; id: string };
+	// The picker and the table speak in policy subjects, where everyone is the "All Obot Users" selector.
+	// A filter's subjects name it "everyone" instead, so it is mapped here and back in the saved manifest.
+	type Subject = AccessControlRuleSubject;
 	let subjects = $state<Subject[]>(
 		untrack(() =>
-			(initialFilter?.guardrail?.subjects ?? []).map((s) =>
-				s.type === 'everyone'
-					? { type: 'selector' as const, id: '*' }
-					: { type: s.type, id: s.id ?? '' }
-			)
+			(initialFilter?.guardrail?.subjects ?? []).map((s): Subject => {
+				if (s.type === 'everyone') return { type: 'selector', id: '*' };
+				return { type: s.type, id: s.id ?? '' };
+			})
 		)
 	);
+	// Agent subjects are named from the admin-only agent list, which also holds deleted agents, and from
+	// the agents just picked. Anyone else sees the IDs.
+	const agentLookup = createAgentLookup(() => hasNamedAgent(subjects));
 	let resolved = $state<{ users: OrgUser[]; groups: OrgGroup[] }>({ users: [], groups: [] });
 	let searchUsersDialog = $state<ReturnType<typeof SearchUsers>>();
 
@@ -188,7 +201,11 @@
 				)
 			: []
 	);
-	let subjectRows = $derived(convertSubjectsToTableData(subjects, resolved.users, resolved.groups));
+	let subjectRows = $derived(
+		convertSubjectsToTableData(subjects, resolved.users, resolved.groups, {
+			agents: agentLookup.current
+		})
+	);
 
 	let nameError = $derived(showValidation && !filter.name.trim());
 	let guardrailsError = $derived(showValidation && filter.guardrailIDs.length === 0);
@@ -229,9 +246,12 @@
 				direction: filter.direction,
 				failClosed: filter.failClosed,
 				samplingRate: Number(filter.samplingRate),
-				subjects: subjects.map((s) =>
-					s.type === 'selector' ? { type: 'everyone' as const } : { type: s.type, id: s.id }
-				),
+				subjects: subjects.flatMap((s): MCPGuardrailFilterSubject[] => {
+					if (s.type === 'selector') return [{ type: 'everyone' }];
+					// A filter has no Obot groups, and the picker does not offer them.
+					if (s.type === 'obotGroup') return [];
+					return [{ type: s.type, id: s.id }];
+				}),
 				...(condition ? { condition } : {}),
 				...(blockMessage ? { blockMessage } : {})
 			}
@@ -521,7 +541,7 @@
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex md:flex-row flex-col md:items-center items-start gap-4 justify-between">
 				<div class="flex flex-col gap-1">
-					<h2 class="text-lg font-semibold">{m.core_users_and_groups()}</h2>
+					<h2 class="text-lg font-semibold">{m.core_users_groups_and_agents()}</h2>
 					<p class="text-muted-content text-sm">
 						{m.guardrails_filter_subjects_description()}
 					</p>
@@ -547,7 +567,8 @@
 						<IconButton
 							variant="danger"
 							tooltip={{ text: m.guardrails_filter_remove_subject() }}
-							onclick={() => (subjects = subjects.filter((s) => s.id !== row.id))}
+							onclick={() =>
+								(subjects = subjects.filter((s) => resolveSubjectPickerById(s) !== row.id))}
 						>
 							<Trash2 class="size-4" />
 						</IconButton>
@@ -657,16 +678,14 @@
 <SearchUsers
 	bind:this={searchUsersDialog}
 	offerObotAdmin={false}
-	filterIds={subjects.map((s) => s.id)}
-	onAdd={(users: OrgUser[], groups: OrgGroup[]) => {
-		const have = new Set(subjects.map((s) => s.id));
+	offerAgents
+	filterIds={subjects.map(resolveSubjectPickerById)}
+	onAdd={(users: OrgUser[], groups: OrgGroup[], agents: AgentIdentity[]) => {
 		subjects = [
 			...subjects,
-			...users.filter((u) => !have.has(u.id)).map((u) => ({ type: 'user' as const, id: u.id })),
-			...groups
-				.filter((g) => !have.has(g.id))
-				.map((g) => ({ type: g.id === '*' ? ('selector' as const) : ('group' as const), id: g.id }))
+			...subjectsFromPicker(subjects.map(resolveSubjectPickerById), users, groups, agents)
 		];
+		agentLookup.add(agents);
 		resolved = { users: [...resolved.users, ...users], groups: [...resolved.groups, ...groups] };
 	}}
 />

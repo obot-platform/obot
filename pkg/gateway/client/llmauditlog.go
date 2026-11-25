@@ -37,15 +37,25 @@ type LLMAuditLogOptions struct {
 	WithSensitiveFields bool
 	HideModelsRequests  bool
 	APIKeyID            []uint
-	UserID              []string
-	ModelProvider       []string
-	TargetModel         []string
-	ServedProvider      []string
-	RequestPath         []string
-	ResponseStatus      []int
-	Outcome             []string
-	UserAgent           []string
-	ClientSessionID     []string
+	// UserID matches the user or the agent that made the request. A value is a user's ID, or "agent:<id>" for an
+	// agent.
+	UserID []string
+	// IncludeOnBehalfOf makes the users in UserID also match the requests agents made on their behalf.
+	IncludeOnBehalfOf bool
+	// OnBehalfOf matches the requests that agents made on behalf of any of these users, by ID. Like every other
+	// filter, it narrows the others: with an agent in UserID, it selects that agent's requests for these users.
+	OnBehalfOf []string
+	// ActorKind matches the kind of principal that made the request, "user" or "agent". Rows of a deleted agent still
+	// match.
+	ActorKind       []string
+	ModelProvider   []string
+	TargetModel     []string
+	ServedProvider  []string
+	RequestPath     []string
+	ResponseStatus  []int
+	Outcome         []string
+	UserAgent       []string
+	ClientSessionID []string
 	// MessagePolicyTriggered filters on the message policy flag of rows recorded before
 	// message policies became guardrails. Only scheduled exports that set it use it.
 	MessagePolicyTriggered []bool
@@ -141,6 +151,9 @@ func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) (
 	if err := c.enrichLLMAuditLogAPIKeyRevocation(ctx, logs); err != nil {
 		return nil, 0, err
 	}
+	if err := c.enrichLLMAuditLogAgentNames(ctx, logs); err != nil {
+		return nil, 0, err
+	}
 	for i := range logs {
 		if err := c.prepareLLMAuditLog(ctx, &logs[i], opts.WithSensitiveFields); err != nil {
 			return nil, 0, err
@@ -163,6 +176,9 @@ func (c *Client) GetLLMAuditLog(ctx context.Context, id string, withSensitiveFie
 	if err := c.enrichLLMAuditLogAPIKeyRevocation(ctx, logs); err != nil {
 		return nil, err
 	}
+	if err := c.enrichLLMAuditLogAgentNames(ctx, logs); err != nil {
+		return nil, err
+	}
 	log = logs[0]
 	if err := c.prepareLLMAuditLog(ctx, &log, withSensitiveFields); err != nil {
 		return nil, err
@@ -171,18 +187,27 @@ func (c *Client) GetLLMAuditLog(ctx context.Context, id string, withSensitiveFie
 }
 
 func (c *Client) GetLLMAuditLogFilterOptions(ctx context.Context, option string, opts LLMAuditLogOptions, exclude ...any) ([]string, error) {
-	db := c.db.WithContext(ctx).Model(&types.LLMAuditLog{}).Distinct(option)
+	// actor_kind is the public name of the principal kind column. An agent's requests have no user_id, so the user_id
+	// options are the principals in their storage encoding, which the user_id filter takes.
+	column := option
+	switch option {
+	case "actor_kind":
+		column = "principal_kind"
+	case "user_id":
+		column = ownerExpr
+	}
+	db := c.db.WithContext(ctx).Model(&types.LLMAuditLog{}).Distinct(column)
 	db = applyLLMAuditLogOptions(db, opts)
 
 	if len(exclude) > 0 {
-		db = db.Where(option+" NOT IN ?", exclude)
+		db = db.Where(column+" NOT IN ?", exclude)
 	}
 	if opts.Limit > 0 {
-		db = db.Order(option).Limit(opts.Limit)
+		db = db.Order(column).Limit(opts.Limit)
 	}
 
 	var result []string
-	return result, db.Select(option).Scan(&result).Error
+	return result, db.Select(column).Scan(&result).Error
 }
 
 func (c *Client) prepareLLMAuditLog(ctx context.Context, log *types.LLMAuditLog, withSensitiveFields bool) error {
@@ -248,7 +273,7 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 		if db.Name() == "postgres" {
 			like = "ILIKE"
 		}
-		query := `user_id %[1]s ? OR model_provider %[1]s ? OR model_id %[1]s ? OR target_model %[1]s ? OR served_provider %[1]s ? OR served_model %[1]s ? OR provider_key %[1]s ? OR request_path %[1]s ? OR response_id %[1]s ? OR outcome %[1]s ? OR error %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR client_session_id %[1]s ? OR client_ip %[1]s ?`
+		query := `user_id %[1]s ? OR (principal_kind = 'agent' AND principal_id %[1]s ?) OR ` + agentDisplayNameCondition("%[1]s") + ` OR model_provider %[1]s ? OR model_id %[1]s ? OR target_model %[1]s ? OR served_provider %[1]s ? OR served_model %[1]s ? OR provider_key %[1]s ? OR request_path %[1]s ? OR response_id %[1]s ? OR outcome %[1]s ? OR error %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR client_session_id %[1]s ? OR client_ip %[1]s ?`
 		args := make([]any, strings.Count(query, "%[1]s ?"))
 		for i := range args {
 			args[i] = searchTerm
@@ -259,9 +284,9 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 		}
 		db = db.Where(fmt.Sprintf(query, like), args...)
 	}
-	if len(opts.UserID) > 0 {
-		db = db.Where("user_id IN (?)", opts.UserID)
-	}
+	db = applyOwnerFilter(db, opts.UserID, opts.IncludeOnBehalfOf)
+	db = applyOnBehalfOfFilter(db, opts.OnBehalfOf)
+	db = applyActorFilters(db, opts.ActorKind)
 	if len(opts.APIKeyID) > 0 {
 		db = db.Where("api_key_id IN (?)", opts.APIKeyID)
 	}

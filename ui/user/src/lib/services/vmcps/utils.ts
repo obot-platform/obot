@@ -377,6 +377,15 @@ export function vmcpComponentId(component: VMCPComponent) {
 	return component.id || component.mcpServerCatalogEntryID || '';
 }
 
+// vmcpComponentName names a component of a vMCP by its ID, as the vMCP editor shows it. A component
+// the vMCP does not have, or a vMCP not known, leaves the ID.
+export function vmcpComponentName(vmcp: VMCP | undefined, componentID: string): string {
+	const component = vmcp?.components?.find(
+		(candidate) => vmcpComponentId(candidate) === componentID
+	);
+	return component?.name || component?.catalogEntry?.manifest?.name || componentID;
+}
+
 export function vmcpInstancePath(vmcpID: string, instanceID: string) {
 	return `/vmcps/${vmcpID}/instance/${instanceID}`;
 }

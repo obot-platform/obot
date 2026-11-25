@@ -52,14 +52,8 @@
 			{entity}
 			entityId={id}
 			server={entry}
-			connectedUsers={configuredInstances.map((instance) => {
-				const user = usersMap.get(instance.userID)!;
-				return {
-					...user,
-					mcpInstanceId: instance.id,
-					mcpInstanceConfigured: instance.configured
-				};
-			})}
+			instances={configuredInstances}
+			users={usersMap}
 			k8sOverrides={{
 				title: m.core_details(),
 				classes: {

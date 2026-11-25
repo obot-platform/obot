@@ -5,16 +5,25 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+)
+
+var (
+	// delegatedSetupInstanceRoutes are the routes that name one vMCP instance (refusesDelegatedSetupInstance).
+	delegatedSetupInstanceRoutes = newPathMatcher(
+		"/api/vmcp-instances/{vmcp_instance_id}",
+		"/api/vmcp-instances/{vmcp_instance_id}/{rest...}",
+	)
 )
 
 // CheckVMCPComponentAccess restricts personal vMCP components to accessible entries.
@@ -25,11 +34,15 @@ func CheckVMCPComponentAccess(ctx context.Context, u kuser.Info, ownerID string,
 	if ownerID != u.GetUID() {
 		// Administrators can manage another user's personal vMCP, but its catalog
 		// access must follow the owner, not the administrator performing the edit.
-		id, err := strconv.ParseUint(ownerID, 10, 64)
+		owner, err := principal.Parse(ownerID)
 		if err != nil {
 			return fmt.Errorf("invalid VMCP owner ID %q: %w", ownerID, err)
 		}
-		u, err = userInfo(ctx, uint(id))
+		userID, ok := owner.UserID()
+		if !ok {
+			return fmt.Errorf("invalid VMCP owner ID %q: personal VMCPs are owned by users", ownerID)
+		}
+		u, err = userInfo(ctx, userID)
 		if err != nil {
 			return fmt.Errorf("get VMCP owner %q: %w", ownerID, err)
 		}
@@ -56,7 +69,7 @@ func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection map[string
 	if vmcp.Spec.UserID != "" && vmcp.Spec.UserID == u.GetUID() {
 		return nil
 	}
-	grant := vmcpaccess.AllowedTools(u, vmcp.Spec.Manifest.Profiles, nil)
+	grant := vmcpaccess.AllowedTools(u, *vmcp, nil)
 	for _, tool := range types.ComponentToolReferences(selection) {
 		if vmcp.Spec.UserID != "" || !vmcpaccess.ToolGranted(grant, tool) {
 			return types.NewErrBadRequest("tool %q on component %q is not granted by the VMCP profiles", tool.Name, tool.ComponentID)
@@ -66,13 +79,16 @@ func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection map[string
 }
 
 // UserCanReadVMCP applies the VMCP visibility model. A personal VMCP is only
-// visible to its owner. A shared VMCP is visible to users matching at least
-// one profile; catalog access is intentionally irrelevant.
+// visible to its owner, who is always a user: an agent never owns or reads one.
+// A shared VMCP is visible to users and agents matching at least one profile;
+// catalog access is intentionally irrelevant. An agent acting on behalf of a user
+// sees it as the agent does: when at least one profile names the agent
+// (vmcpaccess.CallerProfiles).
 func UserCanReadVMCP(u kuser.Info, vmcp *v1.VMCP) bool {
 	if vmcp.Spec.UserID != "" {
-		return vmcp.Spec.UserID == u.GetUID()
+		return !principal.ClaimsAgent(u) && vmcp.Spec.UserID == u.GetUID()
 	}
-	return userMatchesVMCPProfile(u, vmcp.Spec.Manifest.Profiles)
+	return len(vmcpaccess.CallerProfiles(u, *vmcp)) > 0
 }
 
 func UserCanConnectVMCP(u kuser.Info, vmcp *v1.VMCP) bool {
@@ -83,12 +99,13 @@ func UserCanManageVMCP(u kuser.Info, vmcp *v1.VMCP) bool {
 	return IsVMCPAdministrator(u) || (vmcp.Spec.UserID != "" && vmcp.Spec.UserID == u.GetUID())
 }
 
+// UserCanReadVMCPInstance reports whether u may read instance, an instance of vmcp. Nobody reads the instance of what a
+// user set up through an agent this way, an administrator included: only that user, through the setup routes.
 func UserCanReadVMCPInstance(u kuser.Info, instance *v1.VMCPInstance, vmcp *v1.VMCP) bool {
+	if principal.IsDelegatedOwner(instance.Spec.UserID) {
+		return false
+	}
 	return IsVMCPAdministrator(u) || (instance.Spec.UserID == u.GetUID() && UserCanReadVMCP(u, vmcp))
-}
-
-func userMatchesVMCPProfile(u kuser.Info, profiles []types.VMCPProfile) bool {
-	return len(vmcpaccess.MatchingProfiles(u, profiles)) > 0
 }
 
 func (a *Authorizer) checkVMCP(req *http.Request, resources *Resources, u User) (bool, error) {
@@ -116,6 +133,26 @@ func (a *Authorizer) checkVMCP(req *http.Request, resources *Resources, u User) 
 		return true, nil
 	}
 	return false, nil
+}
+
+// refusesDelegatedSetupInstance reports whether req names, on a vMCP instance route, the instance of what a user set up
+// through an agent (principal.DelegatedOwner), which no instance route reaches, for anyone. Only that user reaches it,
+// through the setup routes of the agent's request or delegation, which never return a value or a token. This is
+// checked ahead of every rule, because the administrators' rules grant every instance route without looking at the
+// instance, so that no administrator reads, configures, reveals or deletes it. A request whose instance cannot be read
+// is refused.
+func (a *Authorizer) refusesDelegatedSetupInstance(req *http.Request) bool {
+	vars, ok := delegatedSetupInstanceRoutes.Match(req)
+	if !ok {
+		return false
+	}
+	var instance v1.VMCPInstance
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, vars("vmcp_instance_id")), &instance); apierrors.IsNotFound(err) {
+		return false
+	} else if err != nil {
+		return true
+	}
+	return principal.IsDelegatedOwner(instance.Spec.UserID)
 }
 
 // isVMCPComponentOAuthPath reports whether path is the per-user OAuth reset
@@ -177,6 +214,12 @@ func (a *Authorizer) checkVMCPComponent(req *http.Request, resources *Resources,
 	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.VMCPComponentMCPID), &component); err != nil {
 		return false, err
 	}
+	// Component servers are owned by the encoded principal of their instance's owner, so compare encodings on both
+	// sides: an agent never matches a user's server with its numeric ID, or the other way around.
+	owner, err := principal.CallerOwner(u)
+	if err != nil {
+		return false, nil
+	}
 	return slices.ContainsFunc(vmcpaccess.ComponentsForInstance(*vmcp, *instance), func(candidate types.VMCPComponent) bool {
 		if candidate.ID != component.Spec.VMCPComponentID {
 			return false
@@ -184,6 +227,6 @@ func (a *Authorizer) checkVMCPComponent(req *http.Request, resources *Resources,
 		if vmcpaccess.IsMultiUser(candidate) {
 			return component.Spec.VMCPID == vmcp.Name && component.Spec.VMCPInstanceID == ""
 		}
-		return component.Spec.VMCPInstanceID == instance.Name && component.Spec.UserID == u.GetUID()
+		return component.Spec.VMCPInstanceID == instance.Name && component.Spec.UserID == owner
 	}), nil
 }

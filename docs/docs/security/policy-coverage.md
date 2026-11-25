@@ -12,6 +12,7 @@ Roles determine platform capabilities. Resource policies and profiles determine 
 | [Model policies](../functionality/model-access-policies.md) | Accessible models | A configured provider alone does not grant model access |
 | [Skill policies](../registries/publish-skills.md) | Skill discovery and installation | Administrators bypass these grants; downloaded copies remain |
 | [Authorization scopes](../functionality/agent-auth-scopes.md) | Programmatic credential capabilities | Cannot exceed the owning user's access |
+| [Agent identities](./agent-identities.md) | Non-human principals with their own keys | Have no roles or groups; access comes only from vMCP profiles, model policies and skill policies that name them |
 | [Sentry allowlists](../device-management/enforcement.md) | Supported local client tool calls | Experimental; runs on the user's device; [limitations](../device-management/enforcement.md#limitations) and fail-closed behavior apply |
 
 

@@ -2,15 +2,18 @@ package controller
 
 import (
 	"fmt"
+	"maps"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/controller/handlers/catalogmigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/compositemigration"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -526,8 +529,8 @@ func TestMigrateVMCPEverythingAdminGroupsWorkspace(t *testing.T) {
 				require.NoError(t, client.Update(t.Context(), target))
 			}
 			before := target.DeepCopy()
-			providerMember := &kuser.DefaultInfo{UID: "2", Extra: map[string][]string{"auth_provider_groups": {types.GroupAdmin}}}
-			obotAdmin := &kuser.DefaultInfo{UID: "3", Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
+			providerMember := testUserInfo("2", nil, map[string][]string{"auth_provider_groups": {types.GroupAdmin}})
+			obotAdmin := testUserInfo("3", nil, map[string][]string{"obot_groups": {types.GroupAdmin}})
 			require.True(t, authz.UserCanConnectVMCP(providerMember, target))
 			require.False(t, authz.UserCanConnectVMCP(obotAdmin, target))
 
@@ -690,8 +693,8 @@ func TestMigrateVMCPEverythingAdminGroupsCompositeScope(t *testing.T) {
 				require.True(t, apierrors.IsNotFound(err))
 			}
 			before := target.DeepCopy()
-			providerMember := &kuser.DefaultInfo{UID: "2", Extra: map[string][]string{"auth_provider_groups": {types.GroupAdmin}}}
-			obotAdmin := &kuser.DefaultInfo{UID: "3", Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
+			providerMember := testUserInfo("2", nil, map[string][]string{"auth_provider_groups": {types.GroupAdmin}})
+			obotAdmin := testUserInfo("3", nil, map[string][]string{"obot_groups": {types.GroupAdmin}})
 			require.True(t, authz.UserCanConnectVMCP(providerMember, target))
 			require.False(t, authz.UserCanConnectVMCP(obotAdmin, target))
 
@@ -894,12 +897,12 @@ func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
 			require.NoError(t, client.List(ctx, &instances))
 			require.Len(t, vmcps.Items, 1)
 			require.Len(t, instances.Items, 1)
-			require.Equal(t, expectedProfiles, vmcps.Items[0].Spec.Manifest.Profiles)
-			admin := &kuser.DefaultInfo{
-				UID:    "1",
-				Groups: []string{types.GroupAdmin},
-				Extra:  map[string][]string{"obot_groups": {types.GroupAdmin}},
+			// The migration gives the profiles it creates IDs derived from the vMCP and profile names.
+			for i := range expectedProfiles {
+				expectedProfiles[i].ID = vmcp.DerivedProfileID(vmcps.Items[0].Name, expectedProfiles[i].Name)
 			}
+			require.Equal(t, expectedProfiles, vmcps.Items[0].Spec.Manifest.Profiles)
+			admin := testUserInfo("1", []string{types.GroupAdmin}, map[string][]string{"obot_groups": {types.GroupAdmin}})
 			require.Equal(t, !tc.alreadyMigrated, authz.UserCanConnectVMCP(admin, &vmcps.Items[0]))
 			require.NoError(t, client.Get(ctx, kclient.ObjectKeyFromObject(rule), rule))
 			require.Equal(t, types.SubjectTypeObotGroup, rule.Spec.Manifest.Subjects[0].Type)
@@ -983,4 +986,15 @@ func TestDeleteToolReferenceOwnedModels(t *testing.T) {
 		Namespace: system.DefaultNamespace,
 		Name:      "unowned",
 	}, &model))
+}
+
+// testUserInfo returns the principal of the user with uid, with its kind recorded as an authenticator records it, so
+// that policy matchers read it as that user.
+func testUserInfo(uid string, groups []string, extra map[string][]string) *kuser.DefaultInfo {
+	extra = maps.Clone(extra)
+	if extra == nil {
+		extra = map[string][]string{}
+	}
+	principal.RecordKind(extra, principal.KindUser)
+	return &kuser.DefaultInfo{UID: uid, Groups: groups, Extra: extra}
 }

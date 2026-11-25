@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
+	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -347,6 +349,13 @@ func TestExportPathAt(t *testing.T) {
 
 func newExportTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	t.Helper()
+	c, _ := newExportTestGatewayClientWithDB(t)
+	return c
+}
+
+// newExportTestGatewayClientWithDB also returns the database, for tests that insert rows the client has no writer for.
+func newExportTestGatewayClientWithDB(t *testing.T) (*gatewayclient.Client, *gorm.DB) {
+	t.Helper()
 
 	storageServices, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
 	if err != nil {
@@ -364,7 +373,7 @@ func newExportTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	// Use a short persistence interval so LogMCPAuditEntry rows flush to the DB quickly.
 	c := gatewayclient.New(t.Context(), db, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
 	t.Cleanup(func() { _ = c.Close() })
-	return c
+	return c, storageServices.DB.DB
 }
 
 func exportWithFilters(filters types.AuditLogExportFilters, withPayload bool) *v1.AuditLogExport {
@@ -717,5 +726,286 @@ func TestScheduledExportRetryAndCompletionPersistence(t *testing.T) {
 				t.Fatal("durably completed export uploaded again")
 			}
 		})
+	}
+}
+
+// TestExportIncludesAgentAttribution exports the calls of an agent and of the user with its numeric ID, filtered by
+// the agent, after the agent is deleted: the export names the agent, with its display name, and not the user.
+func TestExportIncludesAgentAttribution(t *testing.T) {
+	c := newExportTestGatewayClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	agent, err := c.CreateAgent(ctx, gatewaytypes.Agent{DisplayName: "Nightly builder", CreatorUserID: 1})
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	id := strconv.FormatUint(uint64(agent.ID), 10)
+	if err := c.DeleteAgent(ctx, agent.ID); err != nil {
+		t.Fatalf("delete agent: %v", err)
+	}
+
+	for _, actor := range []gatewaytypes.Actor{
+		{PrincipalKind: "agent", PrincipalID: id},
+		{PrincipalKind: "user", UserID: id},
+	} {
+		if err := c.InsertLLMAuditLog(ctx, &gatewaytypes.LLMAuditLog{
+			ID: actor.PrincipalKind, CreatedAt: now, UserID: actor.UserID, PrincipalKind: actor.PrincipalKind, PrincipalID: actor.PrincipalID,
+		}); err != nil {
+			t.Fatalf("insert LLM audit log: %v", err)
+		}
+	}
+	c.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
+		CreatedAt: now, SourceType: types.AuditLogSourceTypeMCP, PrincipalKind: "agent", PrincipalID: id,
+		MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: "agent-tool"},
+	})
+	c.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
+		CreatedAt: now, SourceType: types.AuditLogSourceTypeMCP, UserID: id, PrincipalKind: "user",
+		MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: "user-tool"},
+	})
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, total, err := c.GetMCPAuditLogs(ctx, gatewayclient.MCPAuditLogOptions{}); err == nil && total == 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("MCP audit logs were not persisted")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	mcpExport := exportWithFilters(types.AuditLogExportFilters{
+		SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+		UserIDs:     []string{"agent:" + id},
+	}, false)
+	logs, _, err := c.GetMCPAuditLogs(ctx, mcpAuditLogOptionsFromExport(mcpExport, 100, 0))
+	if err != nil {
+		t.Fatalf("get MCP audit logs: %v", err)
+	}
+	data, err := formatPresentedAuditLogs(logs, auditlog.PresentOptions{IncludeDetails: true})
+	if err != nil {
+		t.Fatalf("format MCP logs: %v", err)
+	}
+	lines := splitNonEmptyLines(string(data))
+	if len(lines) != 1 {
+		t.Fatalf("MCP export of the agent has %d rows, want 1: %s", len(lines), data)
+	}
+	var event types.AuditLogEvent
+	if err := json.Unmarshal([]byte(lines[0]), &event); err != nil {
+		t.Fatalf("unmarshal exported event: %v", err)
+	}
+	if event.Actor.ActorType != types.AuditLogActorTypeAgent || event.Actor.ID != id || event.Actor.DisplayName != "Nightly builder" || event.Action.Name != "agent-tool" {
+		t.Errorf("exported MCP actor = %+v, action %+v", event.Actor, event.Action)
+	}
+
+	llmExport := &v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:       types.AuditLogTypeLLM,
+		StartTime:  metav1.NewTime(now.Add(-time.Hour)),
+		EndTime:    metav1.NewTime(now.Add(time.Hour)),
+		LLMFilters: &types.LLMAuditLogExportFilters{ActorKinds: []string{"agent"}, UserIDs: []string{"agent:" + id}},
+	}}
+	llmLogs, err := (&Handler{gatewayClient: c}).llmAuditLogFetcher()(ctx, llmExport, 100, 0)
+	if err != nil {
+		t.Fatalf("get LLM audit logs: %v", err)
+	}
+	llmData, err := formatLogs(llmLogs, gatewaytypes.ConvertLLMAuditLog)
+	if err != nil {
+		t.Fatalf("format LLM logs: %v", err)
+	}
+	var llmEvent types.LLMAuditLog
+	if lines := splitNonEmptyLines(string(llmData)); len(lines) != 1 || json.Unmarshal([]byte(lines[0]), &llmEvent) != nil {
+		t.Fatalf("LLM export of the agent = %s", llmData)
+	}
+	if llmEvent.ID != "agent" || llmEvent.UserID != "" || llmEvent.AgentDisplayName != "Nightly builder" ||
+		llmEvent.Principal != (types.PrincipalRef{Kind: types.PrincipalKindAgent, ID: id}) {
+		t.Errorf("exported LLM event = %+v", llmEvent)
+	}
+}
+
+func TestExportOptionsMapActorFilters(t *testing.T) {
+	mcp := mcpAuditLogOptionsFromExport(exportWithFilters(types.AuditLogExportFilters{
+		SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+		UserIDs:     []string{"agent:7"},
+		ActorKinds:  []string{"agent"},
+	}, false), 100, 0)
+	if !reflect.DeepEqual(mcp.ActorKind, []string{"agent"}) || !reflect.DeepEqual(mcp.UserID, []string{"agent:7"}) {
+		t.Errorf("MCP actor filters were not mapped: %#v", mcp)
+	}
+	llm := llmAuditLogOptionsFromExport(&v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:       types.AuditLogTypeLLM,
+		LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"7"}},
+	}}, 100, 0)
+	if mcp.IncludeOnBehalfOf || llm.IncludeOnBehalfOf {
+		t.Error("an export that does not ask for it includes what agents did on users' behalf")
+	}
+
+	mcp = mcpAuditLogOptionsFromExport(exportWithFilters(types.AuditLogExportFilters{
+		SourceTypes:       []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+		UserIDs:           []string{"7"},
+		IncludeOnBehalfOf: true,
+	}, false), 100, 0)
+	if !mcp.IncludeOnBehalfOf {
+		t.Error("MCP includeOnBehalfOf was not mapped")
+	}
+	llm = llmAuditLogOptionsFromExport(&v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:       types.AuditLogTypeLLM,
+		LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"7"}, IncludeOnBehalfOf: true},
+	}}, 100, 0)
+	if !llm.IncludeOnBehalfOf {
+		t.Error("LLM includeOnBehalfOf was not mapped")
+	}
+}
+
+// TestExportFiltersOnBehalfOf exports what one agent did on behalf of one user: neither what the agent did for itself
+// or for another user, nor what another agent did for the user, nor what the user did.
+func TestExportFiltersOnBehalfOf(t *testing.T) {
+	c := newExportTestGatewayClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	rows := []gatewaytypes.Actor{
+		{PrincipalKind: "agent", PrincipalID: "7", OnBehalfOf: "12"},
+		{PrincipalKind: "agent", PrincipalID: "8", OnBehalfOf: "12"},
+		{PrincipalKind: "agent", PrincipalID: "7", OnBehalfOf: "13"},
+		{PrincipalKind: "agent", PrincipalID: "7"},
+		{PrincipalKind: "user", UserID: "12"},
+	}
+	name := func(actor gatewaytypes.Actor) string {
+		return actor.PrincipalKind + "-" + actor.PrincipalID + actor.UserID + "-for-" + actor.OnBehalfOf
+	}
+	for _, actor := range rows {
+		if err := c.InsertLLMAuditLog(ctx, &gatewaytypes.LLMAuditLog{
+			ID: name(actor), CreatedAt: now, UserID: actor.UserID, PrincipalKind: actor.PrincipalKind, PrincipalID: actor.PrincipalID, OnBehalfOf: actor.OnBehalfOf,
+		}); err != nil {
+			t.Fatalf("insert LLM audit log: %v", err)
+		}
+		c.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
+			CreatedAt: now, SourceType: types.AuditLogSourceTypeMCP,
+			UserID: actor.UserID, PrincipalKind: actor.PrincipalKind, PrincipalID: actor.PrincipalID, OnBehalfOf: actor.OnBehalfOf,
+			MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: name(actor)},
+		})
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, total, err := c.GetMCPAuditLogs(ctx, gatewayclient.MCPAuditLogOptions{}); err == nil && total == int64(len(rows)) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("MCP audit logs were not persisted")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	want := name(rows[0])
+
+	for _, filters := range []types.AuditLogExportFilters{
+		{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}, UserIDs: []string{"agent:7"}, OnBehalfOf: []string{"12"}},
+		{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall}, Actors: []string{"agent:7"}, OnBehalfOf: []string{"12"}},
+	} {
+		logs, _, err := c.GetMCPAuditLogs(ctx, mcpAuditLogOptionsFromExport(exportWithFilters(filters, false), 100, 0))
+		if err != nil {
+			t.Fatalf("get MCP audit logs: %v", err)
+		}
+		if len(logs) != 1 || logs[0].MCP().CallIdentifier != want {
+			var got []string
+			for _, log := range logs {
+				got = append(got, log.MCP().CallIdentifier)
+			}
+			t.Errorf("MCP export of %d sources = %v, want %s", len(filters.SourceTypes), got, want)
+		}
+	}
+
+	llmLogs, err := (&Handler{gatewayClient: c}).llmAuditLogFetcher()(ctx, &v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:       types.AuditLogTypeLLM,
+		StartTime:  metav1.NewTime(now.Add(-time.Hour)),
+		EndTime:    metav1.NewTime(now.Add(time.Hour)),
+		LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"agent:7"}, OnBehalfOf: []string{"12"}},
+	}}, 100, 0)
+	if err != nil {
+		t.Fatalf("get LLM audit logs: %v", err)
+	}
+	if len(llmLogs) != 1 || llmLogs[0].ID != want {
+		t.Errorf("LLM export = %+v, want %s", llmLogs, want)
+	}
+}
+
+// TestAdminAuditExport checks the export of the admin change audit: its filters and window, its oldest-first paging, and
+// that a row is exported as the API shows it, without the display name of its actor.
+func TestAdminAuditExport(t *testing.T) {
+	c, db := newExportTestGatewayClientWithDB(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	// Events are recorded as they happen, so the window is built from rows with chosen times.
+	for i, event := range []gatewaytypes.AdminAuditEvent{
+		{ActorUserID: "1", Action: "agent.create", ResourceKind: "agent", ResourceID: "7", Details: []byte(`{"changedFields":["description"]}`)},
+		{ActorUserID: "1", Action: "agent.key.create", ResourceKind: "apiKey", ResourceID: "9", ParentID: "7"},
+		{ActorUserID: gatewaytypes.AdminAuditActorSystem, Action: "vmcp.profile.oauth.invalidate", ResourceKind: "vmcpProfile", ResourceID: "vp1", ParentID: "vmcp1"},
+		{ActorUserID: "2", Action: "agent.delete", ResourceKind: "agent", ResourceID: "7"},
+	} {
+		event.CreatedAt = now.Add(time.Duration(i-10) * time.Minute)
+		if err := db.WithContext(ctx).Create(&event).Error; err != nil {
+			t.Fatalf("insert admin audit event: %v", err)
+		}
+	}
+	handler := &Handler{gatewayClient: c}
+	export := func(filters *types.AdminAuditEventExportFilters, start, end time.Time) *v1.AuditLogExport {
+		return &v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+			Type:         types.AuditLogTypeAdmin,
+			StartTime:    metav1.NewTime(start),
+			EndTime:      metav1.NewTime(end),
+			AdminFilters: filters,
+		}}
+	}
+	actions := func(e *v1.AuditLogExport, limit, offset int) []string {
+		t.Helper()
+		events, err := handler.fetchAdminAuditEvents(ctx, e, limit, offset)
+		if err != nil {
+			t.Fatalf("fetch admin audit events: %v", err)
+		}
+		var result []string
+		for _, event := range events {
+			result = append(result, event.Action)
+		}
+		return result
+	}
+	window := func(filters *types.AdminAuditEventExportFilters) *v1.AuditLogExport {
+		return export(filters, now.Add(-time.Hour), now)
+	}
+
+	if got, want := actions(window(nil), 100, 0), []string{"agent.create", "agent.key.create", "vmcp.profile.oauth.invalidate", "agent.delete"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("unfiltered = %v, want %v, oldest first", got, want)
+	}
+	if got, want := actions(window(nil), 2, 2), []string{"vmcp.profile.oauth.invalidate", "agent.delete"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("second page = %v, want %v", got, want)
+	}
+	if got, want := actions(window(&types.AdminAuditEventExportFilters{ResourceKinds: []string{"agent"}, ResourceIDs: []string{"7"}}), 100, 0), []string{"agent.create", "agent.delete"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("kind and ID = %v, want %v", got, want)
+	}
+	if got, want := actions(window(&types.AdminAuditEventExportFilters{Actors: []string{"system", "2"}}), 100, 0), []string{"vmcp.profile.oauth.invalidate", "agent.delete"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("actors = %v, want %v", got, want)
+	}
+	if got, want := actions(window(&types.AdminAuditEventExportFilters{Actions: []string{"agent.key.create"}}), 100, 0), []string{"agent.key.create"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("actions = %v, want %v", got, want)
+	}
+	if got := actions(export(nil, now.Add(-time.Hour), now.Add(-8*time.Minute)), 100, 0); len(got) != 2 {
+		t.Errorf("a window that ends after two events = %v, want two", got)
+	}
+
+	events, err := handler.fetchAdminAuditEvents(ctx, window(&types.AdminAuditEventExportFilters{ResourceKinds: []string{"agent"}}), 1, 0)
+	if err != nil {
+		t.Fatalf("fetch admin audit events: %v", err)
+	}
+	data, err := formatLogs(events, func(event gatewaytypes.AdminAuditEvent) types.AdminAuditEvent {
+		return gatewaytypes.ConvertAdminAuditEvent(event, "")
+	})
+	if err != nil {
+		t.Fatalf("format admin audit events: %v", err)
+	}
+	var exported types.AdminAuditEvent
+	if lines := splitNonEmptyLines(string(data)); len(lines) != 1 || json.Unmarshal([]byte(lines[0]), &exported) != nil {
+		t.Fatalf("admin export = %s", data)
+	}
+	if exported.Action != "agent.create" || exported.Actor != (types.AuditLogActor{ActorType: types.AuditLogActorTypeUser, ID: "1"}) ||
+		exported.ResourceKind != "agent" || exported.ResourceID != "7" || string(exported.Details) != `{"changedFields":["description"]}` {
+		t.Errorf("exported event = %+v", exported)
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -77,7 +78,7 @@ func TestVMCPHandlerRejectsProhibitedRequiredConfiguration(t *testing.T) {
 				Request:       request,
 				Storage:       storage,
 				GatewayClient: newHandlerTestGateway(t),
-				User:          &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+				User:          principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}),
 			}
 			handler := NewVMCPHandler(nil, "", "")
 			switch operation {
@@ -121,7 +122,7 @@ func TestVMCPOwnerCanChangeComponentForceSingleUser(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)
 	handler := vmcpHandlerForTest(t, storage)
-	owner := &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}}
+	owner := principaltest.AsUser(&user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}})
 	manifest := testVMCPManifest()
 	manifest.Components[0].ForceSingleUser = true
 	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, owner)
@@ -182,7 +183,7 @@ func TestMigratedVMCPAllowsAdminToDisableComponentForceSingleUser(t *testing.T) 
 		GatewayClient:  newHandlerTestGateway(t),
 		Request:        request,
 		Storage:        storage,
-		User:           &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+		User:           principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}),
 	})
 	if err != nil {
 		t.Fatalf("administrator could not disable forceSingleUser: %v", err)
@@ -235,7 +236,7 @@ func TestVMCPHandlerUpdateRejectsCatalogSyncedVMCP(t *testing.T) {
 				GatewayClient:  newHandlerTestGateway(t),
 				Request:        request,
 				Storage:        storage,
-				User:           &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+				User:           principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}),
 			})
 			var httpErr *types.ErrHTTP
 			if !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest || !strings.Contains(httpErr.Message, "catalog synced vMCP vmcp1synced cannot be updated via API") {
@@ -254,7 +255,7 @@ func TestVMCPHandlerUpdateMissingVMCPReturnsGetError(t *testing.T) {
 		GatewayClient:  newHandlerTestGateway(t),
 		Request:        request,
 		Storage:        storage,
-		User:           &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+		User:           principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}),
 	})
 	if err == nil || !strings.Contains(err.Error(), "failed to get VMCP") {
 		t.Fatalf("expected get error before reading the manifest, got %v", err)
@@ -269,9 +270,9 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	manifest.Profiles = nil
 	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{Key: "TOKEN"}}
 
-	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, &user.DefaultInfo{
+	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, principaltest.AsUser(&user.DefaultInfo{
 		Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI},
-	})
+	}))
 	if created.UserID != "user-1" {
 		t.Fatalf("personal VMCP userID = %q, want user-1", created.UserID)
 	}
@@ -282,9 +283,9 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 		t.Fatalf("default configuration policy = %q, want prohibited", got)
 	}
 
-	shared := callVMCPCreate(t, storage, gatewayClient, handler, manifest, &user.DefaultInfo{
+	shared := callVMCPCreate(t, storage, gatewayClient, handler, manifest, principaltest.AsUser(&user.DefaultInfo{
 		Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin},
-	})
+	}))
 	if shared.UserID != "" {
 		t.Fatalf("administrator-created VMCP userID = %q, want shared VMCP", shared.UserID)
 	}
@@ -295,9 +296,9 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 		t.Fatalf("unexpected shared default profile subjects: %#v", shared.Profiles[0].Subjects)
 	}
 
-	personal := callVMCPCreate(t, storage, gatewayClient, handler, testVMCPManifest(), &user.DefaultInfo{
+	personal := callVMCPCreate(t, storage, gatewayClient, handler, testVMCPManifest(), principaltest.AsUser(&user.DefaultInfo{
 		Name: "admin", UID: "user-1", Groups: []string{types.GroupAdmin},
-	}, "?scope=personal")
+	}), "?scope=personal")
 	if personal.UserID != "user-1" {
 		t.Fatalf("administrator-created personal VMCP userID = %q, want user-1", personal.UserID)
 	}
@@ -382,9 +383,9 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 		{Key: "USER_HEADER", Policy: types.VMCPConfigurationPolicyUserAllowed},
 	}
 
-	created := callVMCPCreate(t, storage, gatewayClient, NewVMCPHandler(nil, "", ""), manifest, &user.DefaultInfo{
+	created := callVMCPCreate(t, storage, gatewayClient, NewVMCPHandler(nil, "", ""), manifest, principaltest.AsUser(&user.DefaultInfo{
 		Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin},
-	})
+	}))
 	if !published {
 		t.Fatal("static configuration hash was not published")
 	}
@@ -460,7 +461,7 @@ func TestVMCPHandlerUpdatePreservesStaticConfiguration(t *testing.T) {
 			storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 			gatewayClient := newHandlerTestGateway(t)
 			handler := NewVMCPHandler(nil, "", "")
-			admin := &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}
+			admin := principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}})
 			manifest := testVMCPManifest()
 			manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
 				{
@@ -714,11 +715,11 @@ func TestVMCPHandlerUpdateDefaultsFromStoredPersonalScope(t *testing.T) {
 		Request:        request,
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
-		User: &user.DefaultInfo{
+		User: principaltest.AsUser(&user.DefaultInfo{
 			Name:   "admin",
 			UID:    "admin",
 			Groups: []string{types.GroupAdmin},
-		},
+		}),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -756,7 +757,7 @@ func TestVMCPHandlerCreateDefersCleanupWhenPublishingStaticConfigurationFails(t 
 		Request:       httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
 		Storage:       storage,
 		GatewayClient: gatewayClient,
-		User:          &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+		User:          principaltest.AsUser(&user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}),
 	})
 	if err == nil || !strings.Contains(err.Error(), "failed to publish VMCP static configuration") {
 		t.Fatalf("Create() error = %v, want static configuration publication error", err)
@@ -868,13 +869,13 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 		Name:      "vmcp-visible",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
-			CreatorUserID: "admin",
+			CreatorUserID: "101",
 			Manifest: types.VMCPManifest{
 				Profiles: []types.VMCPProfile{{
 					Name: "administrator",
 					Subjects: []types.Subject{{
 						Type: types.SubjectTypeUser,
-						ID:   "admin",
+						ID:   "101",
 					}},
 				}},
 			},
@@ -889,7 +890,7 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 					Name: "other-user",
 					Subjects: []types.Subject{{
 						Type: types.SubjectTypeUser,
-						ID:   "other",
+						ID:   "102",
 					}},
 				}},
 			},
@@ -899,7 +900,7 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 		Name:      "vmcp-hidden-personal",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
-			UserID: "owner",
+			UserID: "103",
 		},
 	}
 	storage := newVMCPTestStorage(visible, hiddenShared, hiddenPersonal)
@@ -908,11 +909,11 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 		ResponseWriter: recorder,
 		Request:        httptest.NewRequest(http.MethodGet, "/api/vmcps", nil),
 		Storage:        storage,
-		User: &user.DefaultInfo{
-			Name:   "admin",
-			UID:    "admin",
+		User: principaltest.AsUser(&user.DefaultInfo{
+			Name:   "101",
+			UID:    "101",
 			Groups: types.RoleAdmin.Groups(),
-		},
+		}),
 	})
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
@@ -1015,11 +1016,11 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 	}{
 		{
 			name: "non-admin sees only their components and profiles",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				UID:    "1",
 				Groups: []string{types.GroupAPI},
 				Extra:  map[string][]string{"obot_groups": {"team"}},
-			},
+			}),
 			wantComponents: []string{"gmail", "drive", "calendar", "tasks"},
 			wantProfiles:   []string{"user", "team"},
 			wantStatuses:   []string{"Gmail", "Drive"},
@@ -1056,10 +1057,10 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 		},
 		{
 			name: "administrator sees the full definition",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				UID:    "1",
 				Groups: types.RoleAdmin.Groups(),
-			},
+			}),
 			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
 			wantProfiles:   []string{"user", "team", "other"},
 			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
@@ -1068,10 +1069,10 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 		},
 		{
 			name: "auditor sees the full definition",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				UID:    "3",
 				Groups: []string{types.GroupAPI, types.GroupAuditor},
-			},
+			}),
 			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
 			wantProfiles:   []string{"user", "team", "other"},
 			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
@@ -1080,10 +1081,10 @@ func TestVMCPHandlerLimitsSharedVMCPToUserProfiles(t *testing.T) {
 		},
 		{
 			name: "read-only administrator sees the full definition",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				UID:    "3",
 				Groups: []string{types.GroupAPI, types.GroupAdminReadonly},
-			},
+			}),
 			wantComponents: []string{"gmail", "outlook", "drive", "calendar", "tasks"},
 			wantProfiles:   []string{"user", "team", "other"},
 			wantStatuses:   []string{"Gmail", "Outlook", "Drive"},
@@ -1178,7 +1179,7 @@ func TestVMCPInstanceSelectionValidation(t *testing.T) {
 					ResponseWriter: httptest.NewRecorder(),
 					Request:        req,
 					Storage:        storage,
-					User:           &user.DefaultInfo{UID: "1", Extra: map[string][]string{"auth_provider_groups": {"team"}}},
+					User:           principaltest.AsUser(&user.DefaultInfo{UID: "1", Extra: map[string][]string{"auth_provider_groups": {"team"}}}),
 				}
 				if method == http.MethodPost {
 					err = NewVMCPInstanceHandler().Create(ctx)
@@ -1206,7 +1207,7 @@ func TestVMCPInstanceCreateIsIdempotentPerUserAndVMCP(t *testing.T) {
 	}
 	storage := newVMCPTestStorage(vmcp)
 	handler := NewVMCPInstanceHandler()
-	u := &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}}
+	u := principaltest.AsUser(&user.DefaultInfo{Name: "1", UID: "1", Groups: []string{types.GroupAPI}})
 	manifest := types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{"tool-a"}}}}
 
 	first := callVMCPInstanceCreate(t, storage, handler, manifest, u)
@@ -1254,7 +1255,7 @@ func TestVMCPInstanceListHidesInstanceAfterProfileAccessLoss(t *testing.T) {
 		ResponseWriter: recorder,
 		Request:        request,
 		Storage:        storage,
-		User:           &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}},
+		User:           principaltest.AsUser(&user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}}),
 	})
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
@@ -1311,7 +1312,7 @@ func TestVMCPInstanceConfigureStoresOnlyUserAllowedConfiguration(t *testing.T) {
 		Request:        request,
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
-		User:           &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}},
+		User:           principaltest.AsUser(&user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}}),
 	})
 	if err != nil {
 		t.Fatalf("Configure() error = %v", err)
@@ -1361,7 +1362,7 @@ func TestVMCPInstanceConfigureRejectsFixedConfiguration(t *testing.T) {
 		Request:        request,
 		Storage:        newVMCPTestStorage(vmcp, instance),
 		GatewayClient:  newHandlerTestGateway(t),
-		User:           &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}},
+		User:           principaltest.AsUser(&user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}}),
 	})
 	if err == nil {
 		t.Fatal("Configure() accepted fixed configuration")
@@ -1494,7 +1495,7 @@ func TestLoadComponentSnapshotsRejectsNewServerWithoutStaticOAuth(t *testing.T) 
 			err := vmcpHandlerForTest(t, storage).loadComponentSnapshots(api.Context{
 				Request: httptest.NewRequest(http.MethodPost, "/api/vmcps", nil),
 				Storage: storage,
-				User:    &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}},
+				User:    principaltest.AsUser(&user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}}),
 			}, &manifest, "", existing, tt.rejectUnconfigured)
 			if tt.wantError {
 				require.ErrorContains(t, err, `MCP server "Stored entry" requires administrator OAuth configuration before it can be added to a vMCP`)
@@ -1517,7 +1518,7 @@ func TestVMCPCreateRejectsUnconfiguredStaticOAuthServer(t *testing.T) {
 		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
 		ResponseWriter: httptest.NewRecorder(),
 		Storage:        storage,
-		User:           &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}},
+		User:           principaltest.AsUser(&user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}}),
 	})
 	require.ErrorContains(t, err, "requires administrator OAuth configuration")
 	var vmcps v1.VMCPList
@@ -1556,7 +1557,7 @@ func TestVMCPComponentSnapshots(t *testing.T) {
 	storage := newVMCPTestStorage(entry)
 	handler := vmcpHandlerForTest(t, storage)
 	gatewayClient := newHandlerTestGateway(t)
-	u := &user.DefaultInfo{UID: "user-1"}
+	u := principaltest.AsUser(&user.DefaultInfo{UID: "user-1"})
 	manifest := testVMCPManifest()
 	manifest.Components[0].MCPCatalogID = "forged-catalog"
 	manifest.Components[0].CatalogEntry.Manifest.Name = "forged-snapshot"
@@ -1719,7 +1720,7 @@ func TestVMCPSnapshotLoadingPrunesDisallowedProfileTools(t *testing.T) {
 			if err := vmcpHandlerForTest(t, storage).loadComponentSnapshots(api.Context{
 				Request: httptest.NewRequest(http.MethodPost, "/api/vmcps", nil),
 				Storage: storage,
-				User:    &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}},
+				User:    principaltest.AsUser(&user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}}),
 			}, &manifest, "", nil, true); err != nil {
 				t.Fatal(err)
 			}
@@ -1746,7 +1747,7 @@ func TestVMCPRemovalPrunesProfileComponents(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	handler := vmcpHandlerForTest(t, storage)
 	gatewayClient := newHandlerTestGateway(t)
-	u := &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}}
+	u := principaltest.AsUser(&user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}})
 	manifest := testVMCPManifest()
 	second := manifest.Components[0]
 	second.Name = "second"
@@ -1772,11 +1773,15 @@ func TestVMCPRemovalPrunesProfileComponents(t *testing.T) {
 	if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &stored); err != nil {
 		t.Fatal(err)
 	}
+	require.Len(t, stored.Spec.Manifest.Profiles, len(manifest.Profiles))
 	for i := range manifest.Profiles {
 		delete(manifest.Profiles[i].Permissions.AllowedComponents, removedID)
 		if len(manifest.Profiles[i].Permissions.AllowedComponents) == 0 {
 			manifest.Profiles[i].Permissions.AllowedComponents = nil // Empty grants are omitted in storage JSON.
 		}
+		// Profiles sent without IDs are new, so the update assigns them.
+		require.NotEmpty(t, stored.Spec.Manifest.Profiles[i].ID)
+		manifest.Profiles[i].ID = stored.Spec.Manifest.Profiles[i].ID
 	}
 	if !reflect.DeepEqual(stored.Spec.Manifest.Profiles, manifest.Profiles) {
 		t.Fatalf("profiles = %#v, want %#v", stored.Spec.Manifest.Profiles, manifest.Profiles)
@@ -1791,7 +1796,7 @@ func TestVMCPTriggerUpdateValidatesAllComponentsBeforeSaving(t *testing.T) {
 			second.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"}
 			storage := newVMCPTestStorage(first, second)
 			handler := vmcpHandlerForTest(t, storage)
-			u := &user.DefaultInfo{UID: "user-1"}
+			u := principaltest.AsUser(&user.DefaultInfo{UID: "user-1"})
 			manifest := testVMCPManifest()
 			manifest.Components = append(manifest.Components, types.VMCPComponent{Name: "second", MCPServerCatalogEntryID: second.Name})
 			created := callVMCPCreate(t, storage, newHandlerTestGateway(t), handler, manifest, u)
@@ -1890,7 +1895,7 @@ func TestVMCPComponentAccess(t *testing.T) {
 					MCPServerCatalogEntryID: second.Name,
 					MCPCatalogID:            "catalog", // Must not grant access to an entry in a different scope.
 				})
-				u := &user.DefaultInfo{UID: "user-1"}
+				u := principaltest.AsUser(&user.DefaultInfo{UID: "user-1"})
 				if !tc.personal {
 					u.Groups = []string{types.GroupAdmin}
 				}
@@ -1975,7 +1980,7 @@ func TestVMCPHandlerCreateRefusesProfilesForMissingSCIMGroups(t *testing.T) {
 		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
-		User:           &user.DefaultInfo{Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin}},
+		User:           principaltest.AsUser(&user.DefaultInfo{Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin}}),
 	})
 	if err == nil || !strings.Contains(err.Error(), "okta/00g-missing") || !strings.Contains(err.Error(), "push the group") {
 		t.Fatalf("Create() error = %v, want a refusal of the missing group", err)
@@ -1994,7 +1999,7 @@ func TestVMCPTriggerUpdateReleasesOutdatedConnectionSnapshots(t *testing.T) {
 	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/v2"}
 	storage := newVMCPTestStorage(entry)
 	handler := vmcpHandlerForTest(t, storage)
-	u := &user.DefaultInfo{UID: "user-1"}
+	u := principaltest.AsUser(&user.DefaultInfo{UID: "user-1"})
 	created := callVMCPCreate(t, storage, newHandlerTestGateway(t), handler, testVMCPManifest(), u)
 	var parent v1.VMCP
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &parent))
@@ -2057,7 +2062,7 @@ func TestVMCPTriggerUpdatePublishesBeforeReleasingConnectionSnapshots(t *testing
 	second.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"}
 	storage := newVMCPTestStorage(entry, second)
 	handler := vmcpHandlerForTest(t, storage)
-	u := &user.DefaultInfo{UID: "user-1"}
+	u := principaltest.AsUser(&user.DefaultInfo{UID: "user-1"})
 	manifest := testVMCPManifest()
 	manifest.Components = append(manifest.Components, types.VMCPComponent{Name: "second", MCPServerCatalogEntryID: second.Name})
 	created := callVMCPCreate(t, storage, newHandlerTestGateway(t), handler, manifest, u)
@@ -2158,7 +2163,7 @@ func TestVMCPCallbackPathsUseRequestingUsersEffectiveSnapshots(t *testing.T) {
 	legacy.CatalogEntry.Manifest.RemoteConfig.LocalhostCallbackPath = "/retained"
 	instance := &v1.VMCPInstance{Name: "vmcpi1paths", Namespace: system.DefaultNamespace}
 	instance.Spec.Manifest.VMCPID = vmcp.Name
-	instance.Spec.UserID = "owner"
+	instance.Spec.UserID = "301"
 	instance.Spec.LegacyComponents = []types.VMCPComponent{legacy}
 	for _, tc := range []struct {
 		name     string
@@ -2168,17 +2173,17 @@ func TestVMCPCallbackPathsUseRequestingUsersEffectiveSnapshots(t *testing.T) {
 	}{
 		{
 			name:   "retained callback",
-			userID: "owner",
+			userID: "301",
 			want:   []string{"/retained"},
 		},
 		{
 			name:   "other users do not inherit snapshots",
-			userID: "other",
+			userID: "302",
 			want:   []string{"/current"},
 		},
 		{
 			name:     "disabled components require no callbacks",
-			userID:   "owner",
+			userID:   "301",
 			disabled: true,
 			want:     []string{},
 		},
@@ -2191,7 +2196,7 @@ func TestVMCPCallbackPathsUseRequestingUsersEffectiveSnapshots(t *testing.T) {
 			req := api.Context{
 				Request: httptest.NewRequest(http.MethodGet, "/api/vmcps/"+vmcp.Name, nil),
 				Storage: newVMCPTestStorage(vmcp, connection),
-				User:    &user.DefaultInfo{UID: tc.userID},
+				User:    principaltest.AsUser(&user.DefaultInfo{UID: tc.userID}),
 			}
 			resolved, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 			if err != nil {
@@ -2256,16 +2261,16 @@ func TestVMCPHandlerListMinimal(t *testing.T) {
 	hidden.Spec.UserID = "other"
 	storage := newVMCPTestStorage(vmcp, hidden)
 
-	owner := &user.DefaultInfo{
+	owner := principaltest.AsUser(&user.DefaultInfo{
 		Name:   "owner",
 		UID:    "owner",
 		Groups: []string{types.GroupAPI},
-	}
-	admin := &user.DefaultInfo{
+	})
+	admin := principaltest.AsUser(&user.DefaultInfo{
 		Name:   "admin",
 		UID:    "admin",
 		Groups: types.RoleAdmin.Groups(),
-	}
+	})
 
 	for _, tc := range []struct {
 		name    string

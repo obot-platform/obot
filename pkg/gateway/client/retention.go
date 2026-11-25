@@ -94,6 +94,11 @@ func (c *Client) cleanupRetainedData(ctx context.Context, now time.Time, mcpAudi
 	if err := c.deleteOldRevokedAPIKeys(ctx, now, apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays)); err != nil {
 		return errors.Join(expiredKeyErr, fmt.Errorf("delete old revoked API keys: %w", err))
 	}
+	// Admin changes outlive audit logs of calls, as revoked keys do: they are kept for as long as the longer of the
+	// two retentions, and for ever if either is disabled.
+	if err := c.deleteOldAdminAuditEvents(ctx, now, apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays)); err != nil {
+		return errors.Join(expiredKeyErr, fmt.Errorf("delete old admin audit events: %w", err))
+	}
 	if err := c.deleteOldLLMGatewayBudgetUsage(ctx, now); err != nil {
 		return errors.Join(expiredKeyErr, fmt.Errorf("delete old LLM gateway budget usage: %w", err))
 	}

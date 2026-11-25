@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
@@ -34,8 +35,7 @@ func resolveMCPConnection(ctx context.Context, client kclient.Client, id, userID
 // composite caller explicitly scoped to mcpID. It does not replace resource access
 // or component membership checks.
 func IsCompositeMCPRequest(caller kuser.Info, mcpID string) bool {
-	return caller != nil && slices.Contains(caller.GetGroups(), types.GroupCompositeMCP) &&
-		slices.Contains(caller.GetExtra()["authorized_mcp_ids"], mcpID)
+	return principal.IsComponentHop(caller) && slices.Contains(caller.GetExtra()["authorized_mcp_ids"], mcpID)
 }
 
 func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user User) (bool, error) {
@@ -104,6 +104,9 @@ func userCanConnectToResolvedMCP(ctx context.Context, client kclient.Client, acr
 		return false, err
 	}
 
+	// An empty authorized_mcp_ids restricts nothing, as for a browser session, which carries none. An agent's
+	// credential always names what it may connect to, and authorizeAgent refuses an agent with an empty one before it
+	// gets here.
 	if authorizedMCPIDs := user.GetExtra()["authorized_mcp_ids"]; len(authorizedMCPIDs) > 0 {
 		return mcpIDIsAuthorized(ctx, client, authorizedMCPIDs, user.GetUID(), connection, resources)
 	}
@@ -121,6 +124,10 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 
 func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, connection *mcpConnection, resources *Resources) (bool, error) {
 	mcpID := connection.id
+	// Agents connect only to shared vMCPs that a profile grants them, and reach a vMCP's component servers and
+	// connections only through its signed composite loopback. Access control rules and catalog entries grant agents
+	// nothing, and no agent owns a server outside a vMCP, so every other MCP resource is refused to them.
+	agent := principal.ClaimsAgent(user)
 	if vmcp, instance := connection.vmcp, connection.instance; vmcp != nil {
 		if !UserCanConnectVMCP(user, vmcp) {
 			return false, nil
@@ -146,7 +153,9 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			return false, err
 		}
 
-		if mcpServerInstance.Spec.UserID != user.GetUID() {
+		// A connection is the caller's own, or, for an agent acting on behalf of a user, what the user set up through the
+		// agent (principal.OwnedByCaller).
+		if !principal.OwnedByCaller(user, mcpServerInstance.Spec.UserID) {
 			return false, nil
 		}
 		var server v1.MCPServer
@@ -166,7 +175,7 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			}
 			return UserCanConnectVMCP(user, &vmcp), nil
 		}
-		return server.Spec.VMCPID == "" && server.Spec.VMCPInstanceID == "", nil
+		return !agent && server.Spec.VMCPID == "" && server.Spec.VMCPInstanceID == "", nil
 
 	case system.IsMCPServerID(mcpID):
 		var mcpServer v1.MCPServer
@@ -191,7 +200,7 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			if err := client.Get(ctx, router.Key(mcpServer.Namespace, mcpServer.Spec.VMCPInstanceID), &instance); err != nil {
 				return false, err
 			}
-			if instance.Spec.UserID != user.GetUID() || mcpServer.Spec.UserID != user.GetUID() {
+			if instance.Spec.UserID != mcpServer.Spec.UserID || !principal.OwnedByCaller(user, mcpServer.Spec.UserID) {
 				return false, nil
 			}
 			vmcpID = instance.Spec.Manifest.VMCPID
@@ -205,6 +214,9 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 				return component.ID == mcpServer.Spec.VMCPComponentID
 			}), nil
 		}
+		if agent {
+			return false, nil
+		}
 		if mcpServer.Spec.IsCatalogServer() {
 			return acrHelper.UserHasAccessToMCPServerInCatalog(user, mcpID, mcpServer.Spec.MCPCatalogID)
 		} else if mcpServer.Spec.IsPowerUserWorkspaceServer() {
@@ -214,6 +226,9 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 		return mcpServer.Spec.IsOwnedBy(user.GetUID()), nil
 
 	case system.IsSystemMCPServerID(mcpID):
+		if agent {
+			return false, nil
+		}
 		var systemMCPServer v1.SystemMCPServer
 		if err := client.Get(ctx, router.Key(system.DefaultNamespace, mcpID), &systemMCPServer); err != nil {
 			return false, err

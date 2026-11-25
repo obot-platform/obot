@@ -9,7 +9,7 @@ For new connections, use a [vMCP](./server-types.md), even when it exposes only 
 ### Connect to a vMCP {#virtual-mcps-connect-to-a-vmcp}
 
 
-Paste the vMCP's connection URL into the AI client's MCP server settings. On first connection, sign in to Obot, supply any requested configuration, and authorize any remote services that require OAuth. Obot saves this setup for your user account.
+Paste the vMCP's connection URL into the AI client's MCP server settings. On first connection, sign in to Obot, supply any requested configuration, and authorize any remote services that require OAuth. Obot saves this setup for your user account. You aren't asked to authorize a service whose OAuth an administrator [preconfigured](./server-types.md#preconfigured-oauth) for everyone: your requests to it use the account the administrator authorized.
 
 To set up a connection in the UI:
 
@@ -34,6 +34,8 @@ To test the connection inside Obot before setting up an AI client, follow the ve
 ## Clients using API keys
 
 Create an [agent authorization scope](../functionality/agent-auth-scopes.md) with only the MCP capabilities the integration needs. Configure the client's HTTP transport with the copied connection URL and an `Authorization: Bearer <key>` header. The scope cannot exceed its owner's access.
+
+For automation that should have its own identity rather than act as a user, use an [agent identity](../security/agent-identities.md#connect) key instead. Its vMCP must be [set up for agents](./agent-setup.md).
 
 The authorization-scope guide includes [VS Code](../functionality/agent-auth-scopes.md#vs-code), [Agno](../functionality/agent-auth-scopes.md#agno), and [LangChain](../functionality/agent-auth-scopes.md#langchain) examples. Keep keys in client-supported secret storage rather than source control.
 

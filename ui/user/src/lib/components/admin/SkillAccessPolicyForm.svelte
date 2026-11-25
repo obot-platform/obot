@@ -2,6 +2,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		type OrgUser,
@@ -11,13 +12,15 @@
 		type SkillRepository,
 		type Skill
 	} from '$lib/services';
+	import { type AgentIdentity } from '$lib/services/agent-identities';
 	import { notifications } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import {
 		convertSubjectsToTableData,
+		hasNamedAgent,
 		resolveSubjects,
-		resolveSubjectFromGroup,
-		resolveSubjectPickerById
+		resolveSubjectPickerById,
+		subjectsFromPicker
 	} from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -58,6 +61,9 @@
 
 	let saving = $state<boolean | undefined>();
 	let usersAndGroups = $state<{ users: OrgUser[]; groups: OrgGroup[] }>();
+	// Agent subjects are named from the admin-only agent list, which also holds deleted agents, and from
+	// the agents just picked. Anyone else sees the IDs.
+	const agentLookup = createAgentLookup(() => hasNamedAgent(skillAccessPolicy.subjects));
 	let loadingUsersAndGroups = $state(false);
 	let loadingSkills = $state(true);
 	let skills = $state<Skill[]>([]);
@@ -179,7 +185,8 @@
 		convertSubjectsToTableData(
 			skillAccessPolicy.subjects ?? [],
 			usersAndGroups?.users ?? [],
-			usersAndGroups?.groups ?? []
+			usersAndGroups?.groups ?? [],
+			{ agents: agentLookup.current }
 		)
 	);
 	const resourceTableData = $derived(
@@ -236,7 +243,12 @@
 
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.core_users_and_groups()}</h2>
+				<div class="flex flex-col gap-1">
+					<h2 class="text-lg font-semibold">{m.core_users_groups_and_agents()}</h2>
+					<p class="text-muted-content text-sm font-light">
+						{m.skills_access_policies_subjects_description()}
+					</p>
+				</div>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
@@ -270,11 +282,11 @@
 						{ property: 'displayName', title: m.core_name() },
 						{ property: 'type', title: m.core_type() }
 					]}
-					noDataMessage={m.core_no_users_or_groups_added()}
+					noDataMessage={m.core_no_subjects_added()}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'displayName'}
-							<SubjectName name={d.displayName} disabled={d.disabled} />
+							<SubjectName name={d.displayName} disabled={d.disabled} agent={d.agent} />
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
@@ -436,23 +448,20 @@
 
 <SearchUsers
 	bind:this={addUserGroupDialog}
+	offerAgents
+	wildcardMustBeAlone
 	filterIds={skillAccessPolicy.subjects?.map(resolveSubjectPickerById) ?? []}
-	onAdd={async (users: OrgUser[], groups: OrgGroup[]) => {
-		const existingSubjectIds = new Set(
-			skillAccessPolicy.subjects?.map(resolveSubjectPickerById) ?? []
-		);
-		const newSubjects = [
-			...users
-				.filter((user: OrgUser) => !existingSubjectIds.has(user.id))
-				.map((user: OrgUser) => ({
-					type: 'user' as const,
-					id: user.id
-				})),
-			...groups
-				.filter((group: OrgGroup) => !existingSubjectIds.has(group.id))
-				.map((group: OrgGroup) => resolveSubjectFromGroup(group))
+	onAdd={async (users: OrgUser[], groups: OrgGroup[], agents: AgentIdentity[]) => {
+		agentLookup.add(agents);
+		skillAccessPolicy.subjects = [
+			...(skillAccessPolicy.subjects ?? []),
+			...subjectsFromPicker(
+				skillAccessPolicy.subjects?.map(resolveSubjectPickerById) ?? [],
+				users,
+				groups,
+				agents
+			)
 		];
-		skillAccessPolicy.subjects = [...(skillAccessPolicy.subjects ?? []), ...newSubjects];
 	}}
 />
 

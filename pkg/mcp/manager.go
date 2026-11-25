@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
@@ -111,6 +112,11 @@ type SessionManager struct {
 	tunnelManager             *tunnel.Manager
 
 	webhookHelper *WebhookHelper
+
+	// preconfiguredOAuth holds the preconfigured OAuth grants of vMCPs, which agents' connections to vMCP components use,
+	// and which decide, with the configuration the vMCP fixes, whether an agent can connect to a vMCP
+	// (vmcpaccess.AgentReadiness). Without it, agents use no OAuth token at all, and cannot connect to a vMCP.
+	preconfiguredOAuth *vmcpaccess.PreconfiguredOAuthStore
 }
 
 type RemoteMCPURLValidationConfig struct {
@@ -219,6 +225,12 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 	go sm.runToolPreviewSweeper(ctx)
 
 	return sm, nil
+}
+
+// SetPreconfiguredOAuth sets the store of vMCPs' preconfigured OAuth grants, which agents' connections to vMCP
+// components use, and which agent readiness reads. Set it before the session manager serves connections.
+func (sm *SessionManager) SetPreconfiguredOAuth(grants *vmcpaccess.PreconfiguredOAuthStore) {
+	sm.preconfiguredOAuth = grants
 }
 
 func (sm *SessionManager) MCPRuntimeBackend() string {
@@ -511,6 +523,8 @@ func serverID(server ServerConfig) string {
 	server.PassthroughHeaderValues = nil
 	// The Webhooks are handled dynamically and are not part of the server ID.
 	server.Webhooks = nil
+	// Nor is the OAuth grant a connection uses, which is per caller.
+	server.OAuthGrant = nil
 	// Attribution selection is applied by the gateway, without changing the deployment.
 	server.InjectObotHeaders = nil
 

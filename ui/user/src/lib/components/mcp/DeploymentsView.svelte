@@ -2,12 +2,15 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { hasAgentOwner, instanceOwner } from '$lib/instanceOwners';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		UserService,
@@ -156,6 +159,9 @@
 		});
 	});
 
+	// A server is owned by a user, or by an agent ("agent:<id>"), which is named from the agents and never as a user.
+	const agentLookup = createAgentLookup(() => hasAgentOwner(serversData.map((s) => s.userID)));
+
 	let instancesMap = $derived(
 		new Map(
 			mcpServersAndEntries.current.userInstances.map((instance) => [instance.mcpServerID, instance])
@@ -203,6 +209,7 @@
 						? deployment.userID
 						: undefined;
 
+				const owner = instanceOwner(deployment.userID, usersMap, agentLookup.current);
 				const instance = instancesMap.get(deployment.id);
 				const tunnelDisconnected = isMcpTunnelDisconnected(
 					deployment,
@@ -221,7 +228,8 @@
 				return {
 					...deployment,
 					displayName: getMCPDisplayName(deployment),
-					userName: getUserDisplayName(usersMap, deployment.userID),
+					userName: owner.name,
+					ownerIsAgent: owner.agent,
 					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
 					type: getServerTypeLabel(deployment),
 					powerUserWorkspaceID,
@@ -612,6 +620,8 @@
 								</div>
 							{/if}
 						</div>
+					{:else if property === 'userName'}
+						<SubjectName name={d.userName} agent={d.ownerIsAgent} />
 					{:else if property === 'created'}
 						{formatTimeAgo(d.created).relativeTime}
 					{:else if property === 'updatesAvailable'}

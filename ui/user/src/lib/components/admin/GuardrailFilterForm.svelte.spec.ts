@@ -265,3 +265,85 @@ describe('GuardrailFilterForm.svelte', () => {
 		expect(reveal).not.toHaveBeenCalled();
 	});
 });
+
+describe('GuardrailFilterForm.svelte: agent subjects', () => {
+	const agents = [
+		{ id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 },
+		{ id: '9', displayName: 'Retired bot', status: 'deleted', activeAPIKeyCount: 0 }
+	];
+
+	// Creates a filter with the given picker choices and returns the subjects that were sent.
+	async function createWith(choices: RegExp[]) {
+		let body: MCPFilterManifest | undefined;
+		worker.use(
+			http.get('/api/agents', () => HttpResponse.json({ items: agents })),
+			http.post('/api/mcp-webhook-validations', async ({ request }) => {
+				body = (await request.json()) as MCPFilterManifest;
+				return HttpResponse.json(createGuardrailFilter({ name: body.name }));
+			})
+		);
+		const onCreate = vi.fn();
+		await render(GuardrailFilterForm, { onCreate });
+
+		await page.getByLabelText('Name').fill('Filter');
+		await page.getByRole('checkbox', { name: /Secrets scanner/ }).click();
+		await page.getByRole('button', { name: 'Add User/Group' }).click();
+		await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeVisible();
+		for (const choice of choices) {
+			await page.getByRole('button', { name: choice }).click();
+		}
+		await page.getByRole('button', { name: 'Confirm' }).click();
+		await save();
+		await vi.waitFor(() => expect(onCreate).toHaveBeenCalled());
+		return body?.guardrail?.subjects;
+	}
+
+	// Everyone restricts every user and no agent: an agent is restricted only by a filter that names it.
+	it('does not say that a filter for everyone applies to agents', async () => {
+		await render(GuardrailFilterForm, {});
+
+		await expect
+			.element(page.getByText('Not limited to anyone. The filter applies to everyone.'))
+			.toBeVisible();
+		await expect.element(page.getByText(/applies to agents/)).not.toBeInTheDocument();
+		await expect.element(page.getByText(/including agents/)).not.toBeInTheDocument();
+	});
+
+	it('saves All Obot Users as the everyone subject, not as a selector', async () => {
+		expect(await createWith([/All Obot Users/])).toEqual([{ type: 'everyone' }]);
+	});
+
+	it('saves a selected agent with its bare ID', async () => {
+		expect(await createWith([/Build bot/])).toEqual([{ type: 'agent', id: '5' }]);
+	});
+
+	it('round-trips existing subjects and shows a deleted agent as such', async () => {
+		worker.use(http.get('/api/agents', () => HttpResponse.json({ items: agents })));
+		let body: MCPFilterManifest | undefined;
+		worker.use(
+			http.put('/api/mcp-webhook-validations/:id', async ({ request }) => {
+				body = (await request.json()) as MCPFilterManifest;
+				return HttpResponse.json(createGuardrailFilter());
+			})
+		);
+		const filter = createGuardrailFilter();
+		filter.guardrail!.subjects = [
+			{ type: 'everyone' },
+			{ type: 'agent', id: '9' },
+			{ type: 'group', id: 'g1' }
+		];
+		const onUpdate = vi.fn();
+		await render(GuardrailFilterForm, { filter, onUpdate });
+
+		await expect.element(page.getByText('Retired bot (Deleted)')).toBeVisible();
+		await page.getByLabelText('Name').fill('Renamed');
+		await save();
+
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+		expect(body?.guardrail?.subjects).toEqual([
+			{ type: 'everyone' },
+			{ type: 'agent', id: '9' },
+			{ type: 'group', id: 'g1' }
+		]);
+	});
+});

@@ -7,6 +7,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -27,7 +28,7 @@ func TestVMCPAPIKeyScopes(t *testing.T) {
 	storage := newMCPIDIsAuthorizedTestStorage(vmcp, instance, shared, dedicated)
 	for _, id := range []string{vmcp.Name, shared.Name, dedicated.Name} {
 		for _, scope := range []string{vmcp.Name, "*", "vmcp1other"} {
-			u := &user.DefaultInfo{UID: "7", Extra: map[string][]string{"authorized_mcp_ids": {scope}}}
+			u := principaltest.AsUser(&user.DefaultInfo{UID: "7", Extra: map[string][]string{"authorized_mcp_ids": {scope}}})
 			authorizer := &Authorizer{cache: storage, uncached: storage}
 			ok, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+id, nil), &Resources{MCPID: id}, newUser(u))
 			if err != nil || ok != (id == vmcp.Name && scope != "vmcp1other") {
@@ -44,7 +45,7 @@ func TestVMCPAPIKeyScopes(t *testing.T) {
 	}
 	authorizer := &Authorizer{cache: storage, uncached: storage}
 	for _, id := range []string{vmcp.Name, shared.Name, dedicated.Name} {
-		ok, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+id, nil), &Resources{MCPID: id}, newUser(&user.DefaultInfo{UID: "7", Extra: map[string][]string{"authorized_mcp_ids": {vmcp.Name}}}))
+		ok, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+id, nil), &Resources{MCPID: id}, newUser(principaltest.AsUser(&user.DefaultInfo{UID: "7", Extra: map[string][]string{"authorized_mcp_ids": {vmcp.Name}}})))
 		if err != nil || ok {
 			t.Fatalf("revoked profile still authorized for %s: %v, %v", id, ok, err)
 		}
@@ -66,7 +67,7 @@ func TestVMCPComponentsRequireInternalForwarding(t *testing.T) {
 		if err := storage.Create(t.Context(), alias); err != nil {
 			t.Fatal(err)
 		}
-		allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+alias.Name, nil), &Resources{MCPID: alias.Name}, newUser(&user.DefaultInfo{UID: "7"}))
+		allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+alias.Name, nil), &Resources{MCPID: alias.Name}, newUser(principaltest.AsUser(&user.DefaultInfo{UID: "7"})))
 		if err != nil || allowed {
 			t.Fatalf("legacy instance bypassed aggregate: allowed=%v error=%v", allowed, err)
 		}
@@ -104,7 +105,7 @@ func TestVMCPComponentsRequireInternalForwarding(t *testing.T) {
 			},
 		} {
 			t.Run(server.Name+"/"+tc.name, func(t *testing.T) {
-				u := &user.DefaultInfo{UID: "7", Groups: tc.groups, Extra: map[string][]string{"authorized_mcp_ids": tc.scopes}}
+				u := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: tc.groups, Extra: map[string][]string{"authorized_mcp_ids": tc.scopes}})
 				allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+server.Name, nil), &Resources{MCPID: server.Name}, newUser(u))
 				if err != nil || allowed != tc.allowed {
 					t.Fatalf("allowed=%v error=%v", allowed, err)
@@ -296,7 +297,7 @@ func TestCheckMCPIDChecksVMCPAccess(t *testing.T) {
 						Subjects: []types.Subject{
 							{
 								Type: types.SubjectTypeUser,
-								ID:   "allowed-user",
+								ID:   "111",
 							},
 						},
 					},
@@ -308,7 +309,7 @@ func TestCheckMCPIDChecksVMCPAccess(t *testing.T) {
 		Name:      "vmcp1personal",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
-			UserID:   "owner-user",
+			UserID:   "104",
 			Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{ID: "component"}}},
 		},
 	}
@@ -327,34 +328,34 @@ func TestCheckMCPIDChecksVMCPAccess(t *testing.T) {
 		{
 			name:    "shared profile user is allowed",
 			mcpID:   shared.Name,
-			userID:  "allowed-user",
+			userID:  "111",
 			allowed: true,
 		},
 		{
 			name:   "shared unrelated user is denied",
 			mcpID:  shared.Name,
-			userID: "other-user",
+			userID: "113",
 		},
 		{
 			name:    "personal owner is allowed",
 			mcpID:   personal.Name,
-			userID:  "owner-user",
+			userID:  "104",
 			allowed: true,
 		},
 		{
 			name:   "personal non-owner is denied",
 			mcpID:  personal.Name,
-			userID: "other-user",
+			userID: "113",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/mcp-connect/"+tt.mcpID, nil)
-			ok, err := authorizer.checkMCPID(req, &Resources{MCPID: tt.mcpID}, newUser(&user.DefaultInfo{
+			ok, err := authorizer.checkMCPID(req, &Resources{MCPID: tt.mcpID}, newUser(principaltest.AsUser(&user.DefaultInfo{
 				Name: tt.userID,
 				UID:  tt.userID,
-			}))
+			})))
 			if err != nil {
 				t.Fatalf("checkMCPID() error = %v", err)
 			}

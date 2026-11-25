@@ -2,12 +2,15 @@
 	import SubjectName from '$lib/components/admin/SubjectName.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { m } from '$lib/i18n';
+	import { instanceOwner, type InstanceOwner } from '$lib/instanceOwners';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import type { MCPCatalogEntry, OrgUser, VMCP, VMCPInstance } from '$lib/services';
+	import { parseAgentActor } from '$lib/services/agent-identities';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { vmcpComponentId, vmcpInstanceAuditLogsPath } from '$lib/services/vmcps/utils';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { resolve } from '$lib/url';
-	import { getUserDisplayName, isDisabledUser, openUrl } from '$lib/utils';
+	import { openUrl } from '$lib/utils';
 	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import { ChevronRight, CircleAlert, Server } from '@lucide/svelte';
 
@@ -24,8 +27,14 @@
 		new Map(mcpServersAndEntries.current.entries.map((entry) => [entry.id, entry] as const))
 	);
 	let entriesReady = $derived(mcpServersAndEntries.current.isInitialized);
-	let associatedUser = $derived(usersMap.get(instance.userID));
-	let associatedUsers = $derived(associatedUser ? [associatedUser] : []);
+	// The owner is a user, or an agent ("agent:<id>"), which is named from the agents and never looked up as a user.
+	const ownedByAgent = $derived(Boolean(parseAgentActor(instance.userID)));
+	const agentLookup = createAgentLookup(() => ownedByAgent);
+	let associatedUsers = $derived(
+		ownedByAgent || usersMap.has(instance.userID)
+			? [instanceOwner(instance.userID, usersMap, agentLookup.current)]
+			: ([] as InstanceOwner[])
+	);
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? false);
 
 	function liveEntry(catalogEntryID: string): MCPCatalogEntry | undefined {
@@ -156,9 +165,9 @@
 			fields={['name']}
 			headers={[{ property: 'name', title: m.core_name() }]}
 		>
-			{#snippet onRenderColumn(property: string, d: OrgUser)}
+			{#snippet onRenderColumn(property: string, d: InstanceOwner)}
 				{#if property === 'name'}
-					<SubjectName name={getUserDisplayName(usersMap, d.id)} disabled={isDisabledUser(d)} />
+					<SubjectName name={d.name} disabled={d.disabled} agent={d.agent} />
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}

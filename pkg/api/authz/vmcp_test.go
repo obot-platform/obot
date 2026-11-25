@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -43,7 +44,7 @@ func TestEmptyVMCPIsReadableButNotConnectable(t *testing.T) {
 }
 
 func TestValidateComponentWildcardSelection(t *testing.T) {
-	u := &user.DefaultInfo{UID: "1"}
+	u := principaltest.AsUser(&user.DefaultInfo{UID: "1"})
 	vmcp := &v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{
 			{ID: "gmail", ToolOverrides: []types.ToolOverride{{Name: "read", Enabled: true}, {Name: "delete", Enabled: false}}},
@@ -91,7 +92,7 @@ func TestValidateComponentWildcardSelection(t *testing.T) {
 }
 
 func TestValidateVMCPToolSelectionAllowsOwner(t *testing.T) {
-	u := &user.DefaultInfo{UID: "1"}
+	u := principaltest.AsUser(&user.DefaultInfo{UID: "1"})
 	vmcp := &v1.VMCP{Spec: v1.VMCPSpec{
 		UserID: u.UID,
 		Manifest: types.VMCPManifest{
@@ -114,7 +115,7 @@ func TestVMCPAuthorization(t *testing.T) {
 	personal := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest("vmcp-personal"),
 		Spec: v1.VMCPSpec{
-			UserID: "owner",
+			UserID: "104",
 			Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{{
 				Name:     "ignored-wildcard",
 				Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
@@ -135,7 +136,7 @@ func TestVMCPAuthorization(t *testing.T) {
 			name:    "administrator upgrades shared",
 			method:  http.MethodPost,
 			path:    "/api/vmcps/vmcp-shared/trigger-update",
-			userID:  "admin",
+			userID:  "101",
 			groups:  []string{types.GroupAdmin},
 			allowed: true,
 		},
@@ -143,21 +144,21 @@ func TestVMCPAuthorization(t *testing.T) {
 			name:   "profile cannot upgrade shared",
 			method: http.MethodPost,
 			path:   "/api/vmcps/vmcp-shared/trigger-update",
-			userID: "member",
+			userID: "102",
 			groups: []string{"team-a", types.GroupPowerUserPlus},
 		},
 		{
 			name:    "owner upgrades personal",
 			method:  http.MethodPost,
 			path:    "/api/vmcps/vmcp-personal/trigger-update",
-			userID:  "owner",
+			userID:  "104",
 			allowed: true,
 		},
 		{
 			name:    "matching group reads shared",
 			method:  http.MethodGet,
 			path:    "/api/vmcps/vmcp-shared",
-			userID:  "member",
+			userID:  "102",
 			groups:  []string{"team-a"},
 			allowed: true,
 		},
@@ -165,7 +166,7 @@ func TestVMCPAuthorization(t *testing.T) {
 			name:    "profile does not grant shared update",
 			method:  http.MethodPut,
 			path:    "/api/vmcps/vmcp-shared",
-			userID:  "member",
+			userID:  "102",
 			groups:  []string{"team-a"},
 			allowed: false,
 		},
@@ -173,28 +174,28 @@ func TestVMCPAuthorization(t *testing.T) {
 			name:    "nonmatching user cannot read shared",
 			method:  http.MethodGet,
 			path:    "/api/vmcps/vmcp-shared",
-			userID:  "outsider",
+			userID:  "103",
 			allowed: false,
 		},
 		{
 			name:    "owner manages personal",
 			method:  http.MethodPut,
 			path:    "/api/vmcps/vmcp-personal",
-			userID:  "owner",
+			userID:  "104",
 			allowed: true,
 		},
 		{
 			name:    "personal wildcard cannot grant another user",
 			method:  http.MethodGet,
 			path:    "/api/vmcps/vmcp-personal",
-			userID:  "outsider",
+			userID:  "103",
 			allowed: false,
 		},
 		{
 			name:    "administrator manages shared",
 			method:  http.MethodDelete,
 			path:    "/api/vmcps/vmcp-shared",
-			userID:  "admin",
+			userID:  "101",
 			groups:  []string{types.GroupAdmin},
 			allowed: true,
 		},
@@ -204,10 +205,10 @@ func TestVMCPAuthorization(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			groups := append([]string{types.GroupAPI}, tt.groups...)
 			req := httptest.NewRequest(tt.method, tt.path, nil)
-			got := authorizer.Authorize(req, &user.DefaultInfo{
+			got := authorizer.Authorize(req, principaltest.AsUser(&user.DefaultInfo{
 				Name: tt.userID, UID: tt.userID, Groups: groups,
 				Extra: map[string][]string{"auth_provider_groups": tt.groups},
-			})
+			}))
 			if got != tt.allowed {
 				t.Fatalf("Authorize() = %v, want %v", got, tt.allowed)
 			}
@@ -224,7 +225,7 @@ func TestUserCanReadVMCP(t *testing.T) {
 					Name: "direct",
 					Subjects: []types.Subject{{
 						Type: types.SubjectTypeUser,
-						ID:   "admin",
+						ID:   "101",
 					}},
 				}},
 			},
@@ -260,7 +261,7 @@ func TestUserCanReadVMCP(t *testing.T) {
 	}
 	personal := &v1.VMCP{
 		Spec: v1.VMCPSpec{
-			UserID: "personal-owner",
+			UserID: "107",
 			Manifest: types.VMCPManifest{
 				Profiles: []types.VMCPProfile{{
 					Name: "ignored-wildcard",
@@ -281,93 +282,93 @@ func TestUserCanReadVMCP(t *testing.T) {
 	}{
 		{
 			name: "administrator cannot read shared VMCP without profile",
-			user: &user.DefaultInfo{
-				UID:    "admin",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "101",
 				Groups: []string{types.GroupAdmin},
-			},
+			}),
 			vmcp: sharedWithoutProfiles,
 			want: false,
 		},
 		{
 			name: "owner cannot read shared VMCP without profile",
-			user: &user.DefaultInfo{
-				UID:    "owner-role",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "106",
 				Groups: []string{types.GroupOwner},
-			},
+			}),
 			vmcp: sharedWithoutProfiles,
 			want: false,
 		},
 		{
 			name: "direct profile grants shared VMCP",
-			user: &user.DefaultInfo{
-				UID:    "admin",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "101",
 				Groups: []string{types.GroupAdmin},
-			},
+			}),
 			vmcp: sharedWithDirectProfile,
 			want: true,
 		},
 		{
 			name: "generic groups do not grant shared VMCP",
-			user: &user.DefaultInfo{
-				UID:    "owner-role",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "106",
 				Groups: []string{types.GroupOwner, "team-a"},
-			},
+			}),
 			vmcp: sharedWithGroupProfile,
 			want: false,
 		},
 		{
 			name: "Obot group extra grants shared VMCP",
-			user: &user.DefaultInfo{
-				UID: "obot-group-user",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID: "105",
 				Extra: map[string][]string{
 					"obot_groups": {"team-a"},
 				},
-			},
+			}),
 			vmcp: sharedWithObotGroupProfile,
 			want: true,
 		},
 		{
 			name: "auth provider group extra grants shared VMCP",
-			user: &user.DefaultInfo{
-				UID: "provider-group-user",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID: "108",
 				Extra: map[string][]string{
 					"auth_provider_groups": {"team-a"},
 				},
-			},
+			}),
 			vmcp: sharedWithGroupProfile,
 			want: true,
 		},
 		{
 			name: "wildcard profile grants shared VMCP",
-			user: &user.DefaultInfo{
-				UID: "wildcard-user",
-			},
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID: "109",
+			}),
 			vmcp: sharedWithWildcardProfile,
 			want: true,
 		},
 		{
 			name: "personal VMCP owner can read",
-			user: &user.DefaultInfo{
-				UID: "personal-owner",
-			},
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID: "107",
+			}),
 			vmcp: personal,
 			want: true,
 		},
 		{
 			name: "administrator cannot read another user's personal VMCP",
-			user: &user.DefaultInfo{
-				UID:    "admin",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "101",
 				Groups: []string{types.GroupAdmin},
-			},
+			}),
 			vmcp: personal,
 			want: false,
 		},
 		{
 			name: "owner cannot read another user's personal VMCP",
-			user: &user.DefaultInfo{
-				UID:    "owner-role",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "106",
 				Groups: []string{types.GroupOwner},
-			},
+			}),
 			vmcp: personal,
 			want: false,
 		},
@@ -387,20 +388,20 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 		ObjectMeta: objectMetaForAuthzTest("vmcp-shared"),
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{{
 			Name:     "allowed-user",
-			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "allowed"}},
+			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "111"}},
 		}}}},
 	}
 	allowedInstance := &v1.VMCPInstance{
 		ObjectMeta: objectMetaForAuthzTest("vmcpi-allowed"),
 		Spec: v1.VMCPInstanceSpec{
-			UserID:   "allowed",
+			UserID:   "111",
 			Manifest: types.VMCPInstanceManifest{VMCPID: shared.Name},
 		},
 	}
 	revokedInstance := &v1.VMCPInstance{
 		ObjectMeta: objectMetaForAuthzTest("vmcpi-revoked"),
 		Spec: v1.VMCPInstanceSpec{
-			UserID:   "revoked",
+			UserID:   "112",
 			Manifest: types.VMCPInstanceManifest{VMCPID: shared.Name},
 		},
 	}
@@ -418,7 +419,7 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 			name:       "owner with current profile access",
 			method:     http.MethodGet,
 			instanceID: allowedInstance.Name,
-			userID:     "allowed",
+			userID:     "111",
 			allowed:    true,
 		},
 		{
@@ -426,7 +427,7 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 			method:     http.MethodPost,
 			suffix:     "/configure",
 			instanceID: allowedInstance.Name,
-			userID:     "allowed",
+			userID:     "111",
 			allowed:    true,
 		},
 		{
@@ -434,7 +435,7 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 			method:     http.MethodPost,
 			suffix:     "/reveal",
 			instanceID: allowedInstance.Name,
-			userID:     "allowed",
+			userID:     "111",
 			allowed:    true,
 		},
 		{
@@ -442,28 +443,28 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 			method:     http.MethodPost,
 			suffix:     "/deconfigure",
 			instanceID: allowedInstance.Name,
-			userID:     "allowed",
+			userID:     "111",
 			allowed:    true,
 		},
 		{
 			name:       "owner whose profile access was removed",
 			method:     http.MethodGet,
 			instanceID: revokedInstance.Name,
-			userID:     "revoked",
+			userID:     "112",
 			allowed:    false,
 		},
 		{
 			name:       "different user",
 			method:     http.MethodGet,
 			instanceID: allowedInstance.Name,
-			userID:     "other",
+			userID:     "113",
 			allowed:    false,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			path := "/api/vmcp-instances/" + tt.instanceID + tt.suffix
 			req := httptest.NewRequest(tt.method, path, nil)
-			got := authorizer.Authorize(req, &user.DefaultInfo{Name: tt.userID, UID: tt.userID, Groups: []string{types.GroupAPI}})
+			got := authorizer.Authorize(req, principaltest.AsUser(&user.DefaultInfo{Name: tt.userID, UID: tt.userID, Groups: []string{types.GroupAPI}}))
 			if got != tt.allowed {
 				t.Fatalf("Authorize() = %v, want %v", got, tt.allowed)
 			}
@@ -476,12 +477,12 @@ func TestVMCPActionRouteAuthorization(t *testing.T) {
 		ObjectMeta: objectMetaForAuthzTest(system.VMCPPrefix + "shared-route"),
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{{
 			Name:     "allowed-user",
-			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "allowed"}},
+			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "111"}},
 		}}}},
 	}
 	personal := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest(system.VMCPPrefix + "personal-route"),
-		Spec:       v1.VMCPSpec{UserID: "owner"},
+		Spec:       v1.VMCPSpec{UserID: "104"},
 	}
 	authorizer := newVMCPTestAuthorizer(shared, personal)
 
@@ -496,117 +497,117 @@ func TestVMCPActionRouteAuthorization(t *testing.T) {
 			name:    "profile-matched shared VMCP is readable through VMCP route",
 			method:  http.MethodGet,
 			path:    "/api/vmcps/" + shared.Name,
-			userID:  "allowed",
+			userID:  "111",
 			allowed: true,
 		},
 		{
 			name:   "profile-unmatched shared VMCP is denied through VMCP route",
 			method: http.MethodGet,
 			path:   "/api/vmcps/" + shared.Name,
-			userID: "other",
+			userID: "113",
 		},
 		{
 			name:    "profile-matched shared VMCP can launch through VMCP route",
 			method:  http.MethodPost,
 			path:    "/api/vmcps/" + shared.Name + "/launch",
-			userID:  "allowed",
+			userID:  "111",
 			allowed: true,
 		},
 		{
 			name:   "profile-unmatched shared VMCP cannot launch through VMCP route",
 			method: http.MethodPost,
 			path:   "/api/vmcps/" + shared.Name + "/launch",
-			userID: "other",
+			userID: "113",
 		},
 		{
 			name:    "profile-matched shared VMCP can check OAuth through VMCP route",
 			method:  http.MethodPost,
 			path:    "/api/vmcps/" + shared.Name + "/check-oauth",
-			userID:  "allowed",
+			userID:  "111",
 			allowed: true,
 		},
 		{
 			name:   "profile-unmatched shared VMCP cannot check OAuth through VMCP route",
 			method: http.MethodPost,
 			path:   "/api/vmcps/" + shared.Name + "/check-oauth",
-			userID: "other",
+			userID: "113",
 		},
 		{
 			name:    "profile-matched shared VMCP can delete OAuth through VMCP route",
 			method:  http.MethodDelete,
 			path:    "/api/vmcps/" + shared.Name + "/oauth",
-			userID:  "allowed",
+			userID:  "111",
 			allowed: true,
 		},
 		{
 			name:   "profile-unmatched shared VMCP cannot delete OAuth through VMCP route",
 			method: http.MethodDelete,
 			path:   "/api/vmcps/" + shared.Name + "/oauth",
-			userID: "other",
+			userID: "113",
 		},
 		{
 			name:    "profile-matched shared VMCP can delete one component's OAuth",
 			method:  http.MethodDelete,
 			path:    "/api/vmcps/" + shared.Name + "/components/component-a/oauth",
-			userID:  "allowed",
+			userID:  "111",
 			allowed: true,
 		},
 		{
 			name:   "profile-unmatched shared VMCP cannot delete one component's OAuth",
 			method: http.MethodDelete,
 			path:   "/api/vmcps/" + shared.Name + "/components/component-a/oauth",
-			userID: "other",
+			userID: "113",
 		},
 		{
 			name:    "profile-matched shared VMCP can read its OAuth status",
 			method:  http.MethodGet,
 			path:    "/api/vmcps/" + shared.Name + "/oauth-status",
-			userID:  "allowed",
+			userID:  "111",
 			allowed: true,
 		},
 		{
 			name:   "profile-unmatched shared VMCP cannot read its OAuth status",
 			method: http.MethodGet,
 			path:   "/api/vmcps/" + shared.Name + "/oauth-status",
-			userID: "other",
+			userID: "113",
 		},
 		{
 			name:    "personal VMCP owner is readable through VMCP route",
 			method:  http.MethodGet,
 			path:    "/api/vmcps/" + personal.Name,
-			userID:  "owner",
+			userID:  "104",
 			allowed: true,
 		},
 		{
 			name:    "personal VMCP owner can reveal configuration",
 			method:  http.MethodPost,
 			path:    "/api/vmcps/" + personal.Name + "/reveal",
-			userID:  "owner",
+			userID:  "104",
 			allowed: true,
 		},
 		{
 			name:    "personal VMCP owner can deconfigure",
 			method:  http.MethodPost,
 			path:    "/api/vmcps/" + personal.Name + "/deconfigure",
-			userID:  "owner",
+			userID:  "104",
 			allowed: true,
 		},
 		{
 			name:   "personal VMCP non-owner is denied through VMCP route",
 			method: http.MethodGet,
 			path:   "/api/vmcps/" + personal.Name,
-			userID: "other",
+			userID: "113",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
-			if got := authorizer.Authorize(req, &user.DefaultInfo{
+			if got := authorizer.Authorize(req, principaltest.AsUser(&user.DefaultInfo{
 				Name:   tt.userID,
 				UID:    tt.userID,
 				Groups: []string{types.GroupAPI},
-			}); got != tt.allowed {
+			})); got != tt.allowed {
 				t.Fatalf("Authorize() = %v, want %v", got, tt.allowed)
 			}
 		})
@@ -614,11 +615,11 @@ func TestVMCPActionRouteAuthorization(t *testing.T) {
 
 	for _, suffix := range []string{"/reveal", "/deconfigure"} {
 		req := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+shared.Name+suffix, nil)
-		if !authorizer.Authorize(req, &user.DefaultInfo{
-			Name:   "admin",
-			UID:    "admin",
+		if !authorizer.Authorize(req, principaltest.AsUser(&user.DefaultInfo{
+			Name:   "101",
+			UID:    "101",
 			Groups: []string{types.GroupAPI, types.GroupAdmin},
-		}) {
+		})) {
 			t.Fatalf("administrator cannot access %s", suffix)
 		}
 	}
@@ -705,12 +706,12 @@ func TestVMCPActionsDoNotUseMCPServerRoutes(t *testing.T) {
 	vmcp := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest("vmcp1actions"),
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{{
-			Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "consumer"}},
+			Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "110"}},
 			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 		}}}},
 	}
 	authorizer := newVMCPTestAuthorizer(vmcp)
-	u := &user.DefaultInfo{UID: "consumer", Groups: []string{types.GroupAPI}}
+	u := principaltest.AsUser(&user.DefaultInfo{UID: "110", Groups: []string{types.GroupAPI}})
 	for _, tc := range []struct {
 		method string
 		suffix string
@@ -775,7 +776,7 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 			Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 				Components: []types.VMCPComponent{{ID: "component", ForceSingleUser: singleUser}},
 				Profiles: []types.VMCPProfile{{
-					Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "consumer"}},
+					Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "110"}},
 					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 				}},
 			}},
@@ -783,7 +784,7 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 		instance := &v1.VMCPInstance{
 			ObjectMeta: objectMetaForAuthzTest("vmcpi1oauth"),
 			Spec: v1.VMCPInstanceSpec{
-				UserID: "consumer",
+				UserID: "110",
 				Manifest: types.VMCPInstanceManifest{
 					VMCPID: vmcp.Name,
 				},
@@ -797,7 +798,7 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 			},
 		}
 		if singleUser {
-			component.Spec.UserID = "consumer"
+			component.Spec.UserID = "110"
 			component.Spec.VMCPID = ""
 			component.Spec.VMCPInstanceID = instance.Name
 		}
@@ -805,11 +806,11 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 	}
 	authorized := func(authorizer *Authorizer, parentID, componentID string) bool {
 		path := "/api/oauth/vmcp/" + parentID + "/components/" + componentID
-		return authorizer.Authorize(httptest.NewRequest(http.MethodGet, path, nil), &user.DefaultInfo{
-			Name:   "consumer",
-			UID:    "consumer",
+		return authorizer.Authorize(httptest.NewRequest(http.MethodGet, path, nil), principaltest.AsUser(&user.DefaultInfo{
+			Name:   "110",
+			UID:    "110",
 			Groups: []string{types.GroupAPI},
-		})
+		}))
 	}
 
 	for _, singleUser := range []bool{false, true} {

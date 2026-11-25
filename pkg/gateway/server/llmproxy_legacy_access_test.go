@@ -14,6 +14,7 @@ import (
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -60,13 +61,13 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 		Namespace: system.DefaultNamespace,
 		Name:      "explicit",
 		Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
-			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "explicit-user"}},
+			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
 			Models:   []types.ModelResource{{ID: target.Name}},
 		}},
 	}
 	wildcard := explicit.DeepCopy()
 	wildcard.Name = "wildcard"
-	wildcard.Spec.Manifest.Subjects[0].ID = "wildcard-user"
+	wildcard.Spec.Manifest.Subjects[0].ID = "2"
 	wildcard.Spec.Manifest.Models[0].ID = "claude-*"
 	// Use configured gateway grants directly so route compatibility does not depend on migration.
 	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(source, target, denied, dma, binding, explicit, wildcard).Build()
@@ -89,51 +90,51 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 	}{
 		{
 			name:      "explicit grant with native name",
-			principal: "explicit-user",
+			principal: "1",
 			reference: "claude-sonnet-4-5",
 			allowed:   true,
 		},
 		{
 			name:      "explicit grant with qualified name",
-			principal: "explicit-user",
+			principal: "1",
 			reference: target.Spec.Manifest.TargetModel,
 			allowed:   true,
 		},
 		{
 			name:      "configured default",
-			principal: "explicit-user",
+			principal: "1",
 			reference: "llm",
 			allowed:   true,
 		},
 		{
 			name:      "native wildcard retains its meaning",
-			principal: "wildcard-user",
+			principal: "2",
 			reference: "claude-sonnet-4-5",
 			allowed:   true,
 		},
 		{
 			name:      "other user denied",
-			principal: "other-user",
+			principal: "3",
 			reference: "claude-sonnet-4-5",
 		},
 		{
 			name:      "ungranted model denied",
-			principal: "explicit-user",
+			principal: "1",
 			reference: "gpt-5",
 		},
 		{
 			name:      "wildcard does not grant GPT",
-			principal: "wildcard-user",
+			principal: "2",
 			reference: "gpt-5",
 		},
 		{
 			name:      "no old ID mapping",
-			principal: "explicit-user",
+			principal: "1",
 			reference: source.Name,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			req := api.Context{Storage: c, User: &user.DefaultInfo{UID: tc.principal}, Request: httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil)}
+			req := api.Context{Storage: c, User: principaltest.AsUser(&user.DefaultInfo{UID: tc.principal}), Request: httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil)}
 			model, err := backend.authorizeModel(proxy, req, tc.reference, "model")
 			if tc.allowed {
 				require.NoError(t, err)
@@ -146,7 +147,7 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 	// A newer version is discoverable, but explicit-user is granted only the older version.
 	require.NoError(t, c.Create(t.Context(), newerDenied))
 	require.NoError(t, access.informers["Model"].GetIndexer().Add(newerDenied))
-	legacyReq := api.Context{Storage: c, User: &user.DefaultInfo{UID: "explicit-user"}, Request: httptest.NewRequest(http.MethodPost, "/api/llm-proxy/anthropic/v1/messages", nil)}
+	legacyReq := api.Context{Storage: c, User: principaltest.AsUser(&user.DefaultInfo{UID: "1"}), Request: httptest.NewRequest(http.MethodPost, "/api/llm-proxy/anthropic/v1/messages", nil)}
 	for _, reference := range []string{"claude-sonnet-4-5", "anthropic/claude-sonnet-4-5", target.Spec.Manifest.TargetModel, "llm"} {
 		model, err := resolveLegacyModel(proxy, legacyReq, reference, "anthropic")
 		require.NoError(t, err)
@@ -161,7 +162,7 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 	require.False(t, hasAccess)
 	_, err = resolveLegacyModel(proxy, legacyReq, denied.Spec.Manifest.TargetModel, "anthropic")
 	require.Error(t, err)
-	allowed, _, err := helper.GetUserAllowedModels(&user.DefaultInfo{UID: "wildcard-user"})
+	allowed, _, err := helper.GetUserAllowedModels(principaltest.AsUser(&user.DefaultInfo{UID: "2"}))
 	require.NoError(t, err)
 	require.True(t, allowed[target.Name])
 }
@@ -213,7 +214,7 @@ func TestLegacyModelListsDoNotUseOtherProvidersGrants(t *testing.T) {
 						Request:    req,
 						Body:       io.NopCloser(strings.NewReader(fmt.Sprintf(`{"data":[{"id":%q},{"id":%q}]}`, shared, local))),
 					}
-					writer := &llmResponseWriter{user: &user.DefaultInfo{UID: "7"}, modelProvider: system.LLMGatewayModelProvider, routeDialect: dialect, mapHelper: helper}
+					writer := &llmResponseWriter{user: principaltest.AsUser(&user.DefaultInfo{UID: "7"}), modelProvider: system.LLMGatewayModelProvider, routeDialect: dialect, mapHelper: helper}
 					require.NoError(t, writer.prepareUnary(resp))
 					body, err := io.ReadAll(resp.Body)
 					require.NoError(t, err)

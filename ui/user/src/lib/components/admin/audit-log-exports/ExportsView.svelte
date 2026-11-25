@@ -6,7 +6,7 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
-	import type { AuditLogExport } from '$lib/services/admin/types';
+	import type { AuditLogExport, AuditLogType } from '$lib/services/admin/types';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { FileArchive, CircleAlert } from '@lucide/svelte';
@@ -14,7 +14,7 @@
 
 	interface Props {
 		query?: string;
-		logType?: 'mcp' | 'llm';
+		logType?: AuditLogType;
 		readonly?: boolean;
 	}
 
@@ -127,11 +127,7 @@
 	}
 
 	function handleRowClick(exportItem: AuditLogExport) {
-		goto(
-			logType === 'llm'
-				? `/audit-logs/llm/exports/${exportItem.id}/view`
-				: `/audit-logs/mcp/exports/${exportItem.id}/view`
-		);
+		goto(`/audit-logs/${logType}/exports/${exportItem.id}/view`);
 	}
 </script>
 

@@ -26,9 +26,9 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/openapi"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/version"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1040,6 +1040,9 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 				// We don't need to check multi-user servers nor servers associated to vMCPs.
 				continue
 			}
+			if skipAgentOwner("MCPServer", server.Name, server.Spec.UserID) {
+				continue
+			}
 
 			user := usersCache[server.Spec.UserID]
 			if user == nil {
@@ -1086,39 +1089,15 @@ func storedRulesGrantCatalogEntry(req router.Request, user kuser.Info, entryName
 	}); err != nil {
 		return false, err
 	}
-	// Subjects match as they do in accesscontrolrule.Helper: groups against the auth
-	// provider's groups, Obot groups against Obot's.
-	groups, obotGroups := subjectgroups.Sets(user)
-	for _, rule := range rules.Items {
-		if !rule.DeletionTimestamp.IsZero() || rule.Spec.MCPCatalogID != catalogID {
-			continue
-		}
-		coversEntry := slices.ContainsFunc(rule.Spec.Manifest.Resources, func(r types.Resource) bool {
-			return r.Type == types.ResourceTypeSelector && r.ID == "*" ||
-				r.Type == types.ResourceTypeMCPServerCatalogEntry && r.ID == entryName
-		})
-		if !coversEntry {
-			continue
-		}
-		if slices.ContainsFunc(rule.Spec.Manifest.Subjects, func(s types.Subject) bool {
-			switch s.Type {
-			case types.SubjectTypeUser:
-				return s.ID == user.GetUID()
-			case types.SubjectTypeGroup:
-				_, ok := groups[s.ID]
-				return ok
-			case types.SubjectTypeObotGroup:
-				_, ok := obotGroups[s.ID]
-				return ok
-			case types.SubjectTypeSelector:
-				return s.ID == "*"
-			}
-			return false
-		}) {
-			return true, nil
-		}
-	}
-	return false, nil
+	covering := slices.DeleteFunc(rules.Items, func(rule v1.AccessControlRule) bool {
+		return !rule.DeletionTimestamp.IsZero() || rule.Spec.MCPCatalogID != catalogID ||
+			!slices.ContainsFunc(rule.Spec.Manifest.Resources, func(r types.Resource) bool {
+				return r.Type == types.ResourceTypeSelector && r.ID == "*" ||
+					r.Type == types.ResourceTypeMCPServerCatalogEntry && r.ID == entryName
+			})
+	})
+	// Subjects match as they do in accesscontrolrule.Helper, which agents never match.
+	return accesscontrolrule.UserMatchesRules(user, covering), nil
 }
 
 // DeleteUnauthorizedMCPServersForWorkspace is a handler that deletes MCP servers that are no longer authorized to exist
@@ -1156,6 +1135,9 @@ func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _
 		for _, server := range mcpServers.Items {
 			if !server.DeletionTimestamp.IsZero() || server.Spec.VMCPComponentID != "" {
 				// We don't need to check access for servers that are being deleted or have a VMCP component ID.
+				continue
+			}
+			if skipAgentOwner("MCPServer", server.Name, server.Spec.UserID) {
 				continue
 			}
 
@@ -1237,6 +1219,9 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Requ
 				// associated to a vMCP.
 				continue
 			}
+			if skipAgentOwner("MCPServerInstance", instance.Name, instance.Spec.UserID) {
+				continue
+			}
 
 			user := userCache[instance.Spec.UserID]
 			if user == nil {
@@ -1304,6 +1289,9 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Re
 				// nor instances associated to a vMCP.
 				continue
 			}
+			if skipAgentOwner("MCPServerInstance", instance.Name, instance.Spec.UserID) {
+				continue
+			}
 
 			user := userCache[instance.Spec.UserID]
 			if user == nil {
@@ -1332,6 +1320,19 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Re
 	return nil
 }
 
+// skipAgentOwner reports whether an MCP server or connection is owned by an agent, and logs that it was skipped.
+// Agents own only the component servers and connections of their vMCP instances, which always carry a
+// VMCPComponentID and are skipped before this, and access control rules grant agents nothing. So an agent owner here
+// breaks that invariant; it is skipped rather than looked up as a user, which would fail on every retry and leave the
+// rest of the loop unchecked.
+func skipAgentOwner(kind, name, owner string) bool {
+	if _, ok := principal.ParseAgent(owner); !ok {
+		return false
+	}
+	slog.Warn("Skipping access check of agent-owned MCP resource outside a vMCP", "kind", kind, "name", name, "owner", owner)
+	return true
+}
+
 // getUserInfoForAccessControl gets user info needed for access control checks
 func (h *Handler) getUserInfoForAccessControl(ctx context.Context, userID string) (*userInfo, error) {
 	gatewayUser, err := h.gatewayClient.UserByID(ctx, userID)
@@ -1349,16 +1350,21 @@ func (h *Handler) getUserInfoForAccessControl(ctx context.Context, userID string
 		return nil, fmt.Errorf("failed to resolve effective user role: %w", err)
 	}
 
+	extra := map[string][]string{
+		// Omit the auth provider namespace and name since groupIDs may include groups from multiple auth providers.
+		"auth_provider_groups": groupIDs,
+		"obot_groups":          effectiveRole.Groups(),
+	}
+	// Record the kind, as the authenticators of users do, so that this principal is read as the user it is
+	// (principal.FromUserInfo) wherever it is evaluated, rather than as no one.
+	principal.RecordKind(extra, principal.KindUser)
+
 	return &userInfo{
 		Info: &kuser.DefaultInfo{
 			Name:   gatewayUser.Username,
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
 			Groups: effectiveRole.Groups(),
-			Extra: map[string][]string{
-				// Omit the auth provider namespace and name since groupIDs may include groups from multiple auth providers.
-				"auth_provider_groups": groupIDs,
-				"obot_groups":          effectiveRole.Groups(),
-			},
+			Extra:  extra,
 		},
 		role: effectiveRole,
 	}, nil

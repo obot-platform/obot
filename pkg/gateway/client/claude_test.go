@@ -10,6 +10,7 @@ import (
 
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -29,7 +30,7 @@ func TestClaudeLLMCredential(t *testing.T) {
 	require.NotEqual(t, mcp.Secrets["keyID"], llm.Secrets["keyID"], "the session's keys are separate")
 	key, err := c.ValidateAPIKey(ctx, llm.Secrets["key"])
 	require.NoError(t, err)
-	require.Equal(t, user.ID, key.UserID)
+	require.Equal(t, principal.User(user.ID), key.Owner())
 	require.Equal(t, types.APIKeyScopes{CanAccessLLMProxy: true}, key.APIKeyScopes)
 	require.True(t, key.ClaudeEnvironment)
 

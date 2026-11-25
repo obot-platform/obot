@@ -89,4 +89,12 @@ describe('local login page', () => {
 		await expect.element(page.getByLabelText('Email')).toBeVisible();
 		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 	});
+
+	it("pre-fills the email with an agent approval link's login hint", async () => {
+		setQuery('?rd=%2Fagents%2Fapprove%2Fadr1req&login_hint=' + encodeURIComponent(email));
+
+		render(LoginPage);
+
+		await expect.element(page.getByLabelText('Email')).toHaveValue(email);
+	});
 });

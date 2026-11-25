@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatAuditLogCredentialLabel } from '$lib/auditlogs';
+	import AgentForUser from '$lib/components/agent-identities/AgentForUser.svelte';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { m } from '$lib/i18n';
 	import type { AuditLogEvent } from '$lib/services';
@@ -15,9 +16,16 @@
 		onSelectRow?: (auditLog: AuditLogEvent) => void;
 		emptyContent?: Snippet;
 		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
+		getAgentDisplayName: (agentId: string, name?: string) => string;
 	}
 
-	let { data = [], onSelectRow, emptyContent, getUserDisplayName }: Props = $props();
+	let {
+		data = [],
+		onSelectRow,
+		emptyContent,
+		getUserDisplayName,
+		getAgentDisplayName
+	}: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
@@ -55,6 +63,10 @@
 
 	function actorLabel(actor: (typeof data)[number]['actor']) {
 		if (actor.actorType === 'user' && actor.id) return getUserDisplayName(actor.id);
+		// An agent's ID is not a user's, so it is named by the agent's own record or the row's name.
+		if (actor.actorType === 'agent' && actor.id) {
+			return getAgentDisplayName(actor.id, actor.displayName);
+		}
 		return actor.id || (actor.actorType === 'unknown' ? m.core_unknown() : actor.actorType);
 	}
 
@@ -200,13 +212,31 @@
 	</td>
 {/snippet}
 
-{#snippet twoLine(primary: string | number | undefined, secondary?: string | number)}
+{#snippet twoLine(
+	primary: string | number | undefined,
+	secondary?: string | number,
+	agent?: boolean,
+	forUser?: { agentId: string; agentName: string; userName: string }
+)}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
 			<div class="flex min-w-0 flex-1 flex-col justify-center py-2 leading-tight">
-				<div class="truncate">{primary ?? '—'}</div>
+				<div class="truncate">
+					{#if forUser}
+						<AgentForUser {...forUser} />
+					{:else}
+						{primary ?? '—'}
+					{/if}
+				</div>
 				{#if secondary !== undefined && secondary !== ''}
-					<div class="text-muted-content mt-1 truncate text-xs">{secondary}</div>
+					<div class="text-muted-content mt-1 flex items-center gap-1 text-xs">
+						<span class="truncate">{secondary}</span>
+						{#if agent}
+							<span class="badge badge-ghost badge-xs whitespace-nowrap"
+								>{m.audit_usage_agent()}</span
+							>
+						{/if}
+					</div>
 				{/if}
 			</div>
 			{@render tdResizeHandler()}
@@ -290,10 +320,25 @@
 					>
 						{@render td(formatAuditLogTableTimestamp(d.timestamp.occurredAt))}
 						{@render td(eventTypeLabel(d.eventType))}
-						{@render twoLine(
-							credentialLabel || actor,
-							d.actor.credentialID ? actor : d.actor.actorType
-						)}
+						{#if d.actor.actorType === 'agent' && d.actor.id && d.actor.onBehalfOf?.kind === 'user' && d.actor.onBehalfOf.id}
+							<!-- An agent that acted for a user reads "<agent> for <user>". -->
+							{@render twoLine(undefined, credentialLabel || m.audit_usage_agent(), false, {
+								agentId: d.actor.id,
+								agentName: actor,
+								userName: getUserDisplayName(d.actor.onBehalfOf.id)
+							})}
+						{:else if d.actor.actorType === 'agent'}
+							{@render twoLine(
+								credentialLabel || actor,
+								d.actor.credentialID ? actor : m.audit_usage_agent(),
+								Boolean(d.actor.credentialID)
+							)}
+						{:else}
+							{@render twoLine(
+								credentialLabel || actor,
+								d.actor.credentialID ? actor : d.actor.actorType
+							)}
+						{/if}
 						{@render td(d.action.operation)}
 						{@render twoLine(identifier.primary, identifier.secondary)}
 						{@render outcomeCell(d.outcome)}

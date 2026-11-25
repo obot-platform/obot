@@ -28,12 +28,12 @@ func profile(name string, subjects ...types2.Subject) *v1.ModelAccessPolicy {
 func TestUserProfileIDs(t *testing.T) {
 	h := newModelHelper(t, nil,
 		profile("everyone", types2.Subject{Type: types2.SubjectTypeSelector, ID: "*"}),
-		profile("alice", types2.Subject{Type: types2.SubjectTypeUser, ID: "alice"}),
+		profile("alice", types2.Subject{Type: types2.SubjectTypeUser, ID: "11"}),
 		profile("sales", types2.Subject{Type: types2.SubjectTypeGroup, ID: "okta/sales"}),
 		profile("admins", types2.Subject{Type: types2.SubjectTypeObotGroup, ID: types2.GroupAdmin}),
 		// Named twice, through the user and a group: still listed once.
 		profile("both",
-			types2.Subject{Type: types2.SubjectTypeUser, ID: "alice"},
+			types2.Subject{Type: types2.SubjectTypeUser, ID: "11"},
 			types2.Subject{Type: types2.SubjectTypeGroup, ID: "okta/sales"}),
 	)
 
@@ -44,17 +44,17 @@ func TestUserProfileIDs(t *testing.T) {
 	}{
 		{
 			name: "a user named directly and through an auth provider group",
-			user: &kuser.DefaultInfo{UID: "alice", Extra: map[string][]string{"auth_provider_groups": {"okta/sales"}}},
+			user: testUser("11", map[string][]string{"auth_provider_groups": {"okta/sales"}}),
 			want: []string{"alice", "both", "everyone", "sales"},
 		},
 		{
 			name: "an Obot group",
-			user: &kuser.DefaultInfo{UID: "bob", Extra: map[string][]string{"obot_groups": {types2.GroupAdmin}}},
+			user: testUser("12", map[string][]string{"obot_groups": {types2.GroupAdmin}}),
 			want: []string{"admins", "everyone"},
 		},
 		{
 			name: "an auth provider group with an Obot group's name isn't the Obot group",
-			user: &kuser.DefaultInfo{UID: "carol", Extra: map[string][]string{"auth_provider_groups": {types2.GroupAdmin}}},
+			user: testUser("13", map[string][]string{"auth_provider_groups": {types2.GroupAdmin}}),
 			want: []string{"everyone"},
 		},
 	}
@@ -193,7 +193,7 @@ func TestUserProfileIDsForModel(t *testing.T) {
 		newModel(modelB, "llm-gateway-model-provider", "gpt-b", true),
 	}
 	everyone := types2.Subject{Type: types2.SubjectTypeSelector, ID: "*"}
-	alice := types2.Subject{Type: types2.SubjectTypeUser, ID: "alice"}
+	alice := types2.Subject{Type: types2.SubjectTypeUser, ID: "11"}
 	h := newModelHelper(t, models,
 		profileGranting("everyone", everyone, modelA),
 		profileGranting("power", alice, modelA, modelB),
@@ -210,31 +210,31 @@ func TestUserProfileIDsForModel(t *testing.T) {
 	}{
 		{
 			name:  "a model only one profile grants",
-			user:  &kuser.DefaultInfo{UID: "alice"},
+			user:  testUser("11", nil),
 			model: modelB,
 			want:  []string{"power"},
 		},
 		{
 			name:  "a model several profiles grant",
-			user:  &kuser.DefaultInfo{UID: "alice"},
+			user:  testUser("11", nil),
 			model: modelA,
 			want:  []string{"everyone", "power"},
 		},
 		{
 			name:  "a model none of the user's profiles grants",
-			user:  &kuser.DefaultInfo{UID: "bob"},
+			user:  testUser("12", nil),
 			model: modelB,
 			want:  nil,
 		},
 		{
 			name:  "a wildcard profile grants every model",
-			user:  &kuser.DefaultInfo{UID: "carol", Extra: map[string][]string{"auth_provider_groups": {"okta/all"}}},
+			user:  testUser("13", map[string][]string{"auth_provider_groups": {"okta/all"}}),
 			model: modelB,
 			want:  []string{"all"},
 		},
 		{
 			name:  "a model that doesn't exist",
-			user:  &kuser.DefaultInfo{UID: "carol", Extra: map[string][]string{"auth_provider_groups": {"okta/all"}}},
+			user:  testUser("13", map[string][]string{"auth_provider_groups": {"okta/all"}}),
 			model: "m1-missing",
 			want:  nil,
 		},
@@ -281,6 +281,65 @@ func TestPolicyAllowedModels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, h.PolicyAllowedModels(tt.policy))
+		})
+	}
+}
+
+// TestUserProfileIDsForAgents checks which gateway profiles apply to agents and users with the same numeric ID.
+// Agents match only their own ID, never every user (*); users never match agent subjects.
+func TestUserProfileIDsForAgents(t *testing.T) {
+	h := newModelHelper(t, nil,
+		profile("everyone", types2.Subject{Type: types2.SubjectTypeSelector, ID: "*"}),
+		// Neither names anyone: no principal has the ID "*". Validation refuses the agent one.
+		profile("users", types2.Subject{Type: types2.SubjectTypeUser, ID: "*"}),
+		profile("agents", types2.Subject{Type: types2.SubjectTypeAgent, ID: "*"}),
+		profile("user-5", types2.Subject{Type: types2.SubjectTypeUser, ID: "5"}),
+		profile("agent-5", types2.Subject{Type: types2.SubjectTypeAgent, ID: "5"}),
+		profile("agent-6", types2.Subject{Type: types2.SubjectTypeAgent, ID: "6"}),
+		profile("sales", types2.Subject{Type: types2.SubjectTypeGroup, ID: "okta/sales"}),
+		profile("admins", types2.Subject{Type: types2.SubjectTypeObotGroup, ID: types2.GroupAdmin}),
+		// A user subject that names an agent's storage encoding names no one: user subjects never match agents.
+		profile("user-agent-5", types2.Subject{Type: types2.SubjectTypeUser, ID: "agent:5"}),
+	)
+	groups := map[string][]string{"auth_provider_groups": {"okta/sales"}, "obot_groups": {types2.GroupAdmin}}
+
+	tests := []struct {
+		name string
+		user kuser.Info
+		want []string
+	}{
+		{
+			name: "user 5 in groups",
+			user: testUser("5", groups),
+			want: []string{"admins", "everyone", "sales", "user-5"},
+		},
+		{
+			// A policy for every user grants an agent nothing; only the one that names it does.
+			name: "agent 5 with groups on its user info",
+			user: testAgent(5, groups),
+			want: []string{"agent-5"},
+		},
+		{
+			name: "agent 7, named by no policy",
+			user: testAgent(7, nil),
+			want: nil,
+		},
+		{
+			name: "a principal without a recorded kind",
+			user: &kuser.DefaultInfo{UID: "5", Extra: groups},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := h.UserProfileIDs(tt.user)
+			require.NoError(t, err)
+			slices.Sort(got)
+			if tt.want == nil {
+				assert.Empty(t, got)
+				return
+			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

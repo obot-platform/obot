@@ -248,3 +248,21 @@ func TestNewTokenTrustsTheAdmittedPrincipal(t *testing.T) {
 	_, isDenied := errors.AsType[*client.UserAccessDeniedError](err)
 	require.True(t, isDenied, "error = %v, want a denial", err)
 }
+
+// TestAuthenticateRequestRecordsTheKindOfAMissingUser checks that a token that outlived its user still authenticates
+// as that user, so that the admission check's denial names the user. A user's token that authenticates is covered with
+// the other kinds (TestAuthenticateRequestNeverReadsATokenAsAnotherKind).
+func TestAuthenticateRequestRecordsTheKindOfAMissingUser(t *testing.T) {
+	tokenService, _ := newLifecycleTestTokenService(t)
+	req, _ := authenticateToken(t, tokenService, TokenContext{
+		UserID:     "4242",
+		UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
+	})
+
+	response, ok, err := tokenService.AuthenticateRequest(req)
+	require.NoError(t, err)
+	require.True(t, ok)
+	got, ok := principal.FromUserInfo(response.User)
+	require.True(t, ok)
+	assert.Equal(t, principal.User(4242), got)
+}

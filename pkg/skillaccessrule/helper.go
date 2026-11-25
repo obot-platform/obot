@@ -5,7 +5,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/subjectgroups"
+	"github.com/obot-platform/obot/pkg/subjects"
 	"github.com/obot-platform/obot/pkg/system"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
@@ -15,10 +15,6 @@ const (
 	SkillIDIndex          = "skill-ids"
 	RepositoryIDIndex     = "repository-ids"
 	ResourceSelectorIndex = "selectors"
-	UserIDIndex           = "user-ids"
-	GroupIDIndex          = "group-ids"
-	ObotGroupIDIndex      = "obot-group-ids"
-	SubjectSelectorIndex  = "subject-selectors"
 )
 
 type Helper struct {
@@ -29,6 +25,30 @@ func NewHelper(sarIndexer gocache.Indexer) *Helper {
 	return &Helper{
 		sarIndexer: sarIndexer,
 	}
+}
+
+// Indexers returns the indexes of skill access rules that Helper looks rules up in, for the informer whose indexer
+// it is given: by resource, and by subject (subjects.Indexers).
+func Indexers() gocache.Indexers {
+	resourceIndex := func(resourceType types.SkillResourceType) gocache.IndexFunc {
+		return func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, resource := range rule.Spec.Manifest.Resources {
+				if resource.Type == resourceType {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		}
+	}
+	indexers := subjects.Indexers(func(obj any) ([]types.Subject, bool) {
+		return obj.(*v1.SkillAccessRule).Spec.Manifest.Subjects, true
+	})
+	indexers[SkillIDIndex] = resourceIndex(types.SkillResourceTypeSkill)
+	indexers[RepositoryIDIndex] = resourceIndex(types.SkillResourceTypeSkillRepository)
+	indexers[ResourceSelectorIndex] = resourceIndex(types.SkillResourceTypeSelector)
+	return indexers
 }
 
 func (h *Helper) GetSkillAccessRulesForSkill(namespace, skillID string) ([]v1.SkillAccessRule, error) {
@@ -43,16 +63,8 @@ func (h *Helper) GetSkillAccessRulesForSelector(namespace, selector string) ([]v
 	return h.getIndexedRules(namespace, ResourceSelectorIndex, selector, "selector")
 }
 
-func (h *Helper) GetSkillAccessRulesForUser(namespace, userID string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, UserIDIndex, userID, "user")
-}
-
 func (h *Helper) GetSkillAccessRulesForGroup(namespace, groupID string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, GroupIDIndex, groupID, "group")
-}
-
-func (h *Helper) GetSkillAccessRulesForSubjectSelector(namespace, selector string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, SubjectSelectorIndex, selector, "subject selector")
+	return h.getIndexedRules(namespace, subjects.GroupIndex, groupID, "group")
 }
 
 func (h *Helper) UserHasAccessToSkill(user kuser.Info, skill *v1.Skill) (bool, error) {
@@ -63,22 +75,24 @@ func (h *Helper) UserHasAccessToSkill(user kuser.Info, skill *v1.Skill) (bool, e
 	return h.UserHasAccessToSkillID(user, skill.Name, skill.Spec.RepoID)
 }
 
+// UserHasAccessToSkillID reports whether a rule that covers the skill, its repository, or every skill names the
+// caller among its subjects (subjects.Caller.Best). Users match through their ID, every user (*), and their groups;
+// agents only through their ID. A caller that is not a well-formed user or agent principal has access to no skill.
 func (h *Helper) UserHasAccessToSkillID(user kuser.Info, skillID, repoID string) (bool, error) {
 	if skillID == "" && repoID == "" {
 		return false, nil
 	}
 
-	var userID string
-	groups, obotGroups := subjectgroups.Sets(user)
-	if user != nil {
-		userID = user.GetUID()
+	caller, ok := subjects.CallerFromUserInfo(user)
+	if !ok {
+		return false, nil
 	}
 
 	selectorRules, err := h.GetSkillAccessRulesForSelector(system.DefaultNamespace, "*")
 	if err != nil {
 		return false, err
 	}
-	if hasMatchingSubject(selectorRules, userID, groups, obotGroups) {
+	if hasMatchingSubject(selectorRules, caller) {
 		return true, nil
 	}
 
@@ -87,7 +101,7 @@ func (h *Helper) UserHasAccessToSkillID(user kuser.Info, skillID, repoID string)
 		if err != nil {
 			return false, err
 		}
-		if hasMatchingSubject(repoRules, userID, groups, obotGroups) {
+		if hasMatchingSubject(repoRules, caller) {
 			return true, nil
 		}
 	}
@@ -97,7 +111,7 @@ func (h *Helper) UserHasAccessToSkillID(user kuser.Info, skillID, repoID string)
 		if err != nil {
 			return false, err
 		}
-		if hasMatchingSubject(skillRules, userID, groups, obotGroups) {
+		if hasMatchingSubject(skillRules, caller) {
 			return true, nil
 		}
 	}
@@ -136,10 +150,16 @@ func (h *Helper) GetUserSkillAccessScope(user kuser.Info) (bool, map[string]stru
 	return false, repoIDs, skillIDs, nil
 }
 
+// getRulesForUser returns the rules whose subjects name the caller, each once, as UserHasAccessToSkillID matches
+// them. A caller that is not a well-formed user or agent principal gets none.
 func (h *Helper) getRulesForUser(namespace string, user kuser.Info) ([]v1.SkillAccessRule, error) {
 	result := make([]v1.SkillAccessRule, 0)
-	seen := map[string]struct{}{}
+	caller, ok := subjects.CallerFromUserInfo(user)
+	if !ok {
+		return result, nil
+	}
 
+	seen := map[string]struct{}{}
 	addRules := func(rules []v1.SkillAccessRule) {
 		for _, rule := range rules {
 			if _, ok := seen[rule.Name]; ok {
@@ -150,35 +170,15 @@ func (h *Helper) getRulesForUser(namespace string, user kuser.Info) ([]v1.SkillA
 		}
 	}
 
-	selectorRules, err := h.GetSkillAccessRulesForSubjectSelector(namespace, "*")
-	if err != nil {
+	if err := subjects.LookupIndexes(caller, func(index, key string) error {
+		rules, err := h.getIndexedRules(namespace, index, key, index+" "+key)
+		if err != nil {
+			return err
+		}
+		addRules(rules)
+		return nil
+	}); err != nil {
 		return nil, err
-	}
-	addRules(selectorRules)
-
-	if user != nil && user.GetUID() != "" {
-		userRules, err := h.GetSkillAccessRulesForUser(namespace, user.GetUID())
-		if err != nil {
-			return nil, err
-		}
-		addRules(userRules)
-	}
-
-	groups, obotGroups := subjectgroups.Sets(user)
-	for groupID := range groups {
-		groupRules, err := h.GetSkillAccessRulesForGroup(namespace, groupID)
-		if err != nil {
-			return nil, err
-		}
-		addRules(groupRules)
-	}
-
-	for groupID := range obotGroups {
-		groupRules, err := h.getIndexedRules(namespace, ObotGroupIDIndex, groupID, "obot group")
-		if err != nil {
-			return nil, err
-		}
-		addRules(groupRules)
 	}
 
 	return result, nil
@@ -201,29 +201,12 @@ func (h *Helper) getIndexedRules(namespace, indexName, key, target string) ([]v1
 	return result, nil
 }
 
-func hasMatchingSubject(rules []v1.SkillAccessRule, userID string, groups, obotGroups map[string]struct{}) bool {
+// hasMatchingSubject reports whether any of rules has a subject that names caller.
+func hasMatchingSubject(rules []v1.SkillAccessRule, caller subjects.Caller) bool {
 	for _, rule := range rules {
-		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true
-				}
-			case types.SubjectTypeObotGroup:
-				if _, ok := obotGroups[subject.ID]; ok {
-					return true
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true
-				}
-			}
+		if caller.Matches(rule.Spec.Manifest.Subjects) {
+			return true
 		}
 	}
-
 	return false
 }

@@ -83,3 +83,112 @@ components:
 	require.NoError(t, err)
 	require.True(t, manifest.ToolSearch)
 }
+
+// TestDecodeVMCPManifestAgentSubjects checks the agent subjects of catalog vMCPs: a profile may name an agent by its
+// decimal ID, which decoding keeps as it is, since agent IDs belong to one deployment and cannot be checked against a
+// catalog; manifest validation, which every caller runs, checks only the ID's form, and refuses the agent wildcard.
+func TestDecodeVMCPManifestAgentSubjects(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		subject string
+		wantErr string
+	}{
+		{
+			name:    "one agent",
+			subject: `{type: agent, id: "7"}`,
+		},
+		{
+			name:    "an agent no deployment has yet",
+			subject: `{type: agent, id: "999999"}`,
+		},
+		{
+			name:    "every user",
+			subject: `{type: selector, id: "*"}`,
+		},
+		{
+			name:    "the agent wildcard",
+			subject: `{type: agent, id: "*"}`,
+			wantErr: "agents must be named by ID",
+		},
+		{
+			name:    "an agent's storage encoding",
+			subject: `{type: agent, id: "agent:7"}`,
+			wantErr: "agent subject ID must be the decimal ID of an agent",
+		},
+		{
+			name:    "an agent ID with a leading zero",
+			subject: `{type: agent, id: "07"}`,
+			wantErr: "agent subject ID must be the decimal ID of an agent",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest, err := DecodeVMCPManifest([]byte(`type: vmcp
+displayName: Agents
+components:
+- id: files
+  name: Files
+  mcpServerCatalogEntryKey: files
+profiles:
+- name: agents
+  subjects:
+  - ` + tt.subject + `
+`))
+			require.NoError(t, err)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, manifest.Validate(), tt.wantErr)
+			} else {
+				require.NoError(t, manifest.Validate())
+			}
+		})
+	}
+}
+
+func TestDecodeVMCPManifestProfileIDs(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		id        string
+		wantError bool
+	}{
+		{
+			name: "no ID",
+		},
+		{
+			name: "explicit ID",
+			id:   "engineering-agents",
+		},
+		{
+			name:      "uppercase ID",
+			id:        "Engineering",
+			wantError: true,
+		},
+		{
+			name:      "ID with a slash",
+			id:        "a/b",
+			wantError: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			id := ""
+			if tt.id != "" {
+				id = "\n  id: " + tt.id
+			}
+			manifest, err := DecodeVMCPManifest([]byte(`type: vmcp
+displayName: Profiles
+components:
+- id: files
+  name: Files
+  mcpServerCatalogEntryKey: files
+profiles:
+- name: engineering` + id + `
+  subjects:
+  - {type: group, id: engineering}
+`))
+			// Decoding keeps the ID, and manifest validation, which every caller runs, checks it.
+			require.NoError(t, err)
+			require.Equal(t, tt.id, manifest.Profiles[0].ID)
+			if tt.wantError {
+				require.ErrorContains(t, manifest.Validate(), "invalid profile ID")
+			}
+		})
+	}
+}

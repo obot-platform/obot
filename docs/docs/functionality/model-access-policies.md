@@ -34,9 +34,12 @@ A profile can grant access to:
 
 - **Individual users** — Select specific people by name
 - **Groups** — Select authentication provider groups (such as "engineering" or "marketing")
+- **Individual agents** — Select specific [agent identities](../security/agent-identities.md) by name
 - **Everyone** — Use the "All Obot Users" option to grant access to all authenticated users
 
 Using "All Obot Users" is convenient for making certain models universally available while using separate profiles to grant additional models to specific teams.
+
+"All Obot Users" and groups never match agents, so a profile grants an agent models only if it names that agent. To include agents in a grant for every user, add them next to "All Obot Users". Agents are the only subjects that can be added next to it. The [Default Policy](#fresh-installations), which grants All Obot Users, grants agents nothing. Agents get the models, budgets and applied guardrails of every profile that names them, as users do. Budgets that exempt administrators never exempt an agent, and users' personal daily token limits don't apply to agents. See [Budgets](../reference/agent-identities.md#budgets).
 
 ### Models
 
@@ -114,7 +117,7 @@ A profile is edited in one form, with a section for each part: **Name**, **Users
 
 1. Click **Add Profile**
 2. Enter a descriptive name
-3. Add subjects (users, groups, or All Obot Users)
+3. Add subjects (users, groups, agents, or All Obot Users)
 4. Select which models to include, if any
 5. Optionally, click **Add Budget** to add budgets and **Add Guardrail** to apply guardrails
 6. Click **Save**

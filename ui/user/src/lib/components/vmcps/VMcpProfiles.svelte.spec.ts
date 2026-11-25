@@ -882,7 +882,7 @@ describe('VMcpProfiles.svelte', () => {
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 		await page.getByRole('combobox', { name: 'Add identities...' }).click();
-		await page.getByPlaceholder('Search users or groups...').fill('Platform');
+		await page.getByPlaceholder('Search by user, group or agent name...').fill('Platform');
 		await expect.element(page.getByRole('button', { name: 'Platform Engineering' })).toBeVisible();
 		await page.getByRole('button', { name: 'Platform Engineering' }).click();
 
@@ -1039,5 +1039,178 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(toolSwitch()).not.toBeChecked();
 		await expect.element(toolSwitch()).toBeDisabled();
 		await expect.element(page.getByText('Disabled on this vMCP.')).toBeVisible();
+	});
+
+	describe('agent identities', () => {
+		const agents = [
+			{ id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 },
+			{ id: '6', displayName: 'Paused bot', status: 'disabled', activeAPIKeyCount: 0 },
+			{ id: '9', displayName: 'Retired bot', status: 'deleted', activeAPIKeyCount: 0 }
+		];
+
+		function vmcpWithProfiles(id: string, profiles: VMCP['profiles']) {
+			const vmcp = createVMcp(id);
+			vmcp.profiles = profiles;
+			return vmcp;
+		}
+
+		function profile(name: string, subjects: NonNullable<VMCP['profiles']>[number]['subjects']) {
+			return { name, subjects, vmcpPermissions: { allowAllComponents: true } };
+		}
+
+		async function startNewProfile(vmcp: VMCP, name = 'New') {
+			worker.use(http.get('/api/agents', () => HttpResponse.json({ items: agents })));
+			const saved = mockVMcpSave(vmcp);
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+			await page.getByLabelText('Name').fill(name);
+			return saved;
+		}
+
+		async function pick(name: string | RegExp) {
+			await page.getByRole('combobox', { name: 'Add identities...' }).click();
+			await page.getByRole('button', { name }).click();
+		}
+
+		it('offers active agents and All Obot Users, and saves the right subject shapes', async () => {
+			const saved = await startNewProfile(vmcpWithProfiles('vmcp-agents', []));
+
+			await page.getByRole('combobox', { name: 'Add identities...' }).click();
+			await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: /Paused bot/ }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: /Retired bot/ }))
+				.not.toBeInTheDocument();
+			// The one wildcard is All Obot Users, which never includes an agent.
+			await expect
+				.element(page.getByRole('button', { name: 'All Obot Users', exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: /All Agents/ }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: /All Users/ })).not.toBeInTheDocument();
+			await page.getByRole('button', { name: /Build bot/ }).click();
+			await pick('All Obot Users');
+			await expect.element(page.getByText('Build bot', { exact: true })).toBeVisible();
+			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+
+			await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+			expect(savedProfiles(saved)[0].subjects).toEqual([
+				{ type: 'agent', id: '5' },
+				{ type: 'selector', id: '*' }
+			]);
+		});
+
+		it('shows an agent with a badge and marks a deleted agent', async () => {
+			worker.use(http.get('/api/agents', () => HttpResponse.json({ items: agents })));
+			const vmcp = vmcpWithProfiles('vmcp-deleted-agent', [
+				profile('Bots', [
+					{ type: 'agent', id: '5' },
+					{ type: 'agent', id: '9' }
+				])
+			]);
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+			await page.getByRole('button', { name: 'Edit Bots' }).click();
+			await expect.element(page.getByText('Retired bot (Deleted)')).toBeVisible();
+			await expect.element(page.getByText('Build bot', { exact: true })).toBeVisible();
+			await expect.element(page.getByText('Agent', { exact: true }).first()).toBeVisible();
+		});
+
+		it('allows All Obot Users in more than one profile', async () => {
+			const saved = await startNewProfile(
+				vmcpWithProfiles('vmcp-two-everyone', [profile('Main', [{ type: 'selector', id: '*' }])])
+			);
+
+			await pick('All Obot Users');
+			await expect.element(page.getByText('All Obot Users', { exact: true })).toBeVisible();
+			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+
+			await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+			expect(savedProfiles(saved)[1].subjects).toEqual([{ type: 'selector', id: '*' }]);
+		});
+
+		// An agent may be in several profiles of a vMCP, and gets the union of what they grant, as a user does.
+		it('allows an agent that another profile already names', async () => {
+			const saved = await startNewProfile(
+				vmcpWithProfiles('vmcp-agent-twice', [profile('Builders', [{ type: 'agent', id: '5' }])])
+			);
+
+			await pick(/Build bot/);
+
+			await expect.element(page.getByText('Build bot', { exact: true })).toBeVisible();
+			await expect.element(page.getByText(/already in profile/)).not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+
+			await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+			expect(savedProfiles(saved).map((profile) => profile.subjects)).toEqual([
+				[{ type: 'agent', id: '5' }],
+				[{ type: 'agent', id: '5' }]
+			]);
+		});
+
+		it('sends the profile id back when a profile with agents is saved', async () => {
+			worker.use(http.get('/api/agents', () => HttpResponse.json({ items: agents })));
+			const vmcp = vmcpWithProfiles('vmcp-profile-id', [
+				{ ...profile('Bots', [{ type: 'agent', id: '5' }]), id: 'vp1stable' }
+			]);
+			const saved = mockVMcpSave(vmcp);
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+			await page.getByRole('button', { name: 'Edit Bots' }).click();
+			await page.getByLabelText('Name').fill('Renamed bots');
+			await page.getByRole('button', { name: 'Save changes' }).click();
+
+			await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+			expect(savedProfiles(saved)[0]).toMatchObject({
+				id: 'vp1stable',
+				name: 'Renamed bots',
+				subjects: [{ type: 'agent', id: '5' }]
+			});
+		});
+	});
+
+	// Preconfigured OAuth belongs to a component of the vMCP, in its settings in the vMCP editor, and
+	// serves everyone who uses the vMCP: a profile, even one that names an agent, holds none.
+	describe('preconfigured OAuth', () => {
+		const buildBot = { id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 };
+
+		function agentProfileVMcp() {
+			const vmcp = createVMcp('vmcp-setup');
+			vmcp.profiles = [
+				{
+					id: 'vp1stable',
+					name: 'Bots',
+					subjects: [{ type: 'agent', id: '5' }],
+					vmcpPermissions: { allowAllComponents: true }
+				}
+			];
+			return vmcp;
+		}
+
+		it('shows no OAuth to authorize in the editor of a profile that names an agent', async () => {
+			const oauthRead = vi.fn();
+			worker.use(
+				http.get('/api/agents', () => HttpResponse.json({ items: [buildBot] })),
+				http.get('/api/vmcps/vmcp-setup/components/:componentID/preconfigured-oauth', () => {
+					oauthRead();
+					return HttpResponse.json({});
+				})
+			);
+			render(VMcpProfiles, { vmcp: agentProfileVMcp(), toolFlow: toolFlowStub() });
+
+			await page.getByRole('button', { name: 'Edit Bots' }).click();
+			await expect.element(page.getByLabelText('Name')).toHaveValue('Bots');
+			await expect.element(page.getByText('Build bot', { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Preconfigured OAuth' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Authorize', exact: true }))
+				.not.toBeInTheDocument();
+			expect(oauthRead).not.toHaveBeenCalled();
+		});
 	});
 });

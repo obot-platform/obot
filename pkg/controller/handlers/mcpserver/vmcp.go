@@ -75,7 +75,7 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 		return fmt.Errorf("reveal static configuration for VMCP %q: %w", vmcp.Name, err)
 	}
 	var userConfiguration map[string]string
-	if !shared {
+	if !shared && vmcpconfig.InstanceTakesUserConfiguration(instance) {
 		userConfiguration, err = h.revealVMCPConfiguration(
 			req,
 			vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
@@ -86,7 +86,7 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 		}
 	}
 
-	configuration := mcpServerConfiguration(*component, staticConfiguration, userConfiguration)
+	configuration := vmcpconfig.ComponentServerConfiguration(*component, staticConfiguration, userConfiguration)
 	if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{
 		Context: server.CredentialContext(server.Spec.UserID),
 		Name:    server.Name,
@@ -196,26 +196,6 @@ func vmcpComponent(manifest types.VMCPManifest, componentID string) (*types.VMCP
 		}
 	}
 	return nil, false
-}
-
-func mcpServerConfiguration(component types.VMCPComponent, staticConfiguration, userConfiguration map[string]string) map[string]string {
-	configuration := make(map[string]string)
-	for _, policy := range component.Configuration {
-		var source map[string]string
-		switch policy.Policy {
-		case types.VMCPConfigurationPolicyFixed:
-			source = staticConfiguration
-		case types.VMCPConfigurationPolicyUserAllowed:
-			source = userConfiguration
-		default:
-			continue
-		}
-
-		if value, ok := source[vmcpconfig.ConfigurationKey(component.ID, policy.Key)]; ok {
-			configuration[policy.Key] = value
-		}
-	}
-	return configuration
 }
 
 func (h *Handler) syncVMCPOAuthCredentialStatus(req router.Request, server *v1.MCPServer) error {

@@ -12,8 +12,11 @@ import (
 	"sync"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/subjects"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -28,8 +31,20 @@ var (
 
 // Identity is who a request is made for.
 type Identity struct {
+	// UserID is the storage encoding of the caller (principal.Principal.String): a user's decimal ID, or
+	// "agent:<id>" for an agent. It is what budgets count usage against and what CEL conditions see as user.id.
 	UserID string
+	// Principal is the caller's kind and ID, as its authenticator recorded them (principal.FromUserInfo). It is the
+	// zero Principal for a caller without a recorded kind, which MCP guardrail filter subjects other than everyone
+	// never match. Subjects are matched against it, never against UserID, so that a user and an agent that share a
+	// numeric ID never match each other's subjects.
+	Principal principal.Principal
+	// Groups are the caller's auth provider groups. An agent has none.
 	Groups []string
+	// OnBehalfOf is the user an agent acts for, with the user's current groups (agentprofile.Delegation), and the zero
+	// Caller for any other caller. They are never the caller's own: an MCP guardrail filter applies when its subjects
+	// name the caller or this user, so that a user's guardrails are not avoided by going through an agent.
+	OnBehalfOf subjects.Caller
 	// ProfileIDs are the gateway profiles that apply to the caller. LLM policies apply through
 	// them.
 	ProfileIDs []string
@@ -272,20 +287,29 @@ func appliesTo(policy types.GuardrailPolicy, identity Identity) bool {
 	return subjectsMatch(policy.Subjects, identity)
 }
 
-func subjectsMatch(subjects []types.GuardrailPolicySubject, identity Identity) bool {
-	if len(subjects) == 0 {
-		return true
+// subjectsMatch reports whether an MCP guardrail filter's subjects include the caller. Empty subjects are everyone.
+//
+// Subjects are policy subjects, as filterSubjects converts them, and mean what they mean in vMCP profiles
+// (pkg/subjects): the selector wildcard (everyone) is every user, a user or agent subject the one with that ID and
+// kind, and a group subject the users in that auth provider group. Everyone never includes an agent, so a filter
+// applies to an agent only when it names the agent. Filters restrict rather than grant, so a caller without a recorded
+// kind still matches everyone, though nothing else (subjects.EvaluateRestriction): unlike a grant, a filter must not
+// be escaped by a caller it cannot identify.
+//
+// Filters accumulate for an agent acting on behalf of a user: one applies when its subjects name the agent, or the
+// user, by ID, group, Obot group or everyone, matched as the user's own requests would be.
+func subjectsMatch(policySubjects []types2.Subject, identity Identity) bool {
+	if len(policySubjects) == 0 {
+		policySubjects = []types2.Subject{{Type: types2.SubjectTypeSelector, ID: types2.SubjectWildcardID}}
 	}
-	return slices.ContainsFunc(subjects, func(s types.GuardrailPolicySubject) bool {
-		switch s.Type {
-		case types.LLMGatewayBudgetSubjectEveryone, "selector":
-			return true
-		case types.LLMGatewayBudgetSubjectUser:
-			return s.ID == identity.UserID
-		case types.LLMGatewayBudgetSubjectGroup:
-			return slices.Contains(identity.Groups, s.ID)
-		}
-		return false
+	groups := subjects.Groups{AuthProvider: make(map[string]struct{}, len(identity.Groups))}
+	for _, g := range identity.Groups {
+		groups.AuthProvider[g] = struct{}{}
+	}
+	onBehalfOf := identity.OnBehalfOf.Principal.Kind == principal.KindUser && identity.OnBehalfOf.Principal.ID != ""
+	return slices.ContainsFunc(policySubjects, func(s types2.Subject) bool {
+		return subjects.EvaluateRestriction(s, identity.Principal, groups) ||
+			onBehalfOf && identity.OnBehalfOf.Evaluate(s)
 	})
 }
 

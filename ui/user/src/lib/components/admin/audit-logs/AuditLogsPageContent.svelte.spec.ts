@@ -45,6 +45,8 @@ async function filterOptionsParams(requests: { filterOptions: string[] }) {
 }
 
 afterEach(() => {
+	(appPage.url as URL).searchParams.delete('actor');
+	(appPage.url as URL).searchParams.delete('include_on_behalf_of');
 	(appPage.url as URL).searchParams.delete('mcp_id');
 	(appPage.url as URL).searchParams.delete('mcp_server_display_name');
 	(appPage.url as URL).searchParams.delete('mcp_server');
@@ -129,5 +131,42 @@ describe('AuditLogsPageContent default filters', () => {
 		await expect
 			.element(page.getByCSS('.filter-primary').filter({ hasText: 'Operation' }))
 			.not.toBeInTheDocument();
+	});
+});
+
+describe('AuditLogsPageContent on behalf of a user', () => {
+	const toggle = () =>
+		page.getByRole('checkbox', { name: 'Include actions on behalf of this user' });
+
+	it('asks for the calls made on behalf of the user when the toggle is on', async () => {
+		(appPage.url as URL).searchParams.set('actor', '3');
+		(appPage.url as URL).searchParams.set('include_on_behalf_of', 'true');
+
+		const requests = await renderAuditLogs();
+
+		await expect.element(toggle()).toBeChecked();
+		const params = await auditLogParams(requests);
+		expect(params.get('actor')).toBe('3');
+		expect(params.get('include_on_behalf_of')).toBe('true');
+	});
+
+	it('leaves the parameter out when the toggle is off', async () => {
+		(appPage.url as URL).searchParams.set('actor', '3');
+
+		const requests = await renderAuditLogs();
+
+		await expect.element(toggle()).not.toBeChecked();
+		expect((await auditLogParams(requests)).has('include_on_behalf_of')).toBe(false);
+	});
+
+	it('offers no toggle without a filter on a user, or with one on an agent', async () => {
+		(appPage.url as URL).searchParams.set('actor', 'agent:7');
+		(appPage.url as URL).searchParams.set('include_on_behalf_of', 'true');
+
+		const requests = await renderAuditLogs();
+
+		await expect.element(toggle()).not.toBeInTheDocument();
+		// An agent has no one to act for, so the parameter is not sent either.
+		expect((await auditLogParams(requests)).has('include_on_behalf_of')).toBe(false);
 	});
 });

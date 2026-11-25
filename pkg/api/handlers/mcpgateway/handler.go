@@ -38,6 +38,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/version"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -278,6 +279,19 @@ func (h *Handler) Proxy(req api.Context) error {
 		if errors.Is(err, errMCPServerRequiresConfiguration) {
 			return nil
 		}
+		// An agent that is not set up for the vMCP learns why, before any MCP exchange, instead of being challenged.
+		if notReady, ok := errors.AsType[*vmcpaccess.AgentNotReadyError](err); ok {
+			agentReadinessResponse(notReady.Failure()).write(req.ResponseWriter, nil)
+
+			return nil
+		}
+		// The preconfigured OAuth the vMCP holds for this component no longer works for an agent. The agent is refused
+		// the component, never connected without the grant.
+		if grantErr, ok := errors.AsType[*mcp.PreconfiguredOAuthError](err); ok {
+			preconfiguredOAuthInvalidResponse(req, grantErr.ComponentID).write(req.ResponseWriter, nil)
+
+			return nil
+		}
 
 		err = deploymentError(err)
 		if response := mcpJSONRPCErrorResponse(req.Request, err); response != nil {
@@ -320,7 +334,14 @@ func (h *Handler) Proxy(req api.Context) error {
 		token       string
 		tokenSource oauth2.TokenSource
 		now         = time.Now()
+		// pairCall is the call of a request that authorizes with the upstream account a user connected through an agent
+		// (usesPairToken), so that it can be answered with a tool error when the account no longer works.
+		pairCall  *mcpCall
+		pairToken = !isCompositeRequest && serverConfig.Runtime != types.RuntimeVMCP && usesPairToken(serverConfig)
 	)
+	if pairToken {
+		pairCall = peekMCPCall(req.Request)
+	}
 	if !isCompositeRequest {
 		// For aggregate runtimes, the /mcp-connect/{mcp_id} path only handles audit logs and hooks.
 		// The URL is changed to /mcp-connect-composite/{mcp_id} which comes back here and handles
@@ -336,8 +357,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			}
 
 			// In order for the loopback to work, we need to authenticate as a composite MCP server.
-			tokenContext := compositeLoopbackTokenContext(req.User, compositeAudienceURL, serverConfig.MCPServerName, authorizedMCPIDs, req.PathValue("mcp_id"), now)
-			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, tokenContext, now)
+			token, err = compositeLoopbackToken(req.Context(), h.tokenService, req.User, compositeAudienceURL, serverConfig.MCPServerName, authorizedMCPIDs, req.PathValue("mcp_id"), now)
 			if err != nil {
 				return err
 			}
@@ -350,9 +370,43 @@ func (h *Handler) Proxy(req api.Context) error {
 				return fmt.Errorf("failed to get HTTP client for token refresh: %w", err)
 			}
 
-			tokenSource, err = h.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL).TokenSource(context.WithValue(h.ctx, oauth2.HTTPClient, refreshClient))
-			if err != nil {
-				return fmt.Errorf("failed to get token source: %w", err)
+			// A connection to a component that the vMCP preconfigures OAuth for uses the vMCP's grant, which the session
+			// manager selected for it, whoever's connection it is. Otherwise a user's uses the user's own token, and an
+			// agent's none (ServerConfig.OAuthTokenKey).
+			if tokenOwner, tokenMCPID, ok := serverConfig.OAuthTokenKey(); ok {
+				tokenStore := h.globalTokenStore.ForUserAndMCP(tokenOwner, tokenMCPID, serverConfig.URL)
+				tokenSource, err = tokenStore.TokenSource(context.WithValue(h.ctx, oauth2.HTTPClient, refreshClient))
+				if err == nil && (serverConfig.OAuthGrant != nil || pairToken) && tokenSource != nil {
+					// Many users and agents share a vMCP's grant, so it is refreshed, if it must be, before the request
+					// is proxied: a refresh the provider refuses fails the component for everyone who uses the grant,
+					// with no one asked to authorize it but an administrator, and one that fails for a reason that may
+					// pass is a 503, not a proxy error. The account a user connected through an agent is refreshed first
+					// as well, so that the agent acting for them learns that it must ask the user to connect it again.
+					_, err = tokenSource.Token()
+				}
+				if pairToken && err != nil {
+					if mcp.RefusedRefresh(err) {
+						forgetRefusedPairToken(req, tokenStore, tokenOwner, tokenMCPID)
+						vmcpID, componentID := pairComponent(req, serverConfig)
+						delegatedSetupBrokenResponse(req, pairCall, vmcpID, componentID).write(req.ResponseWriter, nil)
+						return nil
+					}
+					slog.WarnContext(req.Context(), "Failed to refresh an upstream account connected through an agent", "mcpID", tokenMCPID, "error", refreshFailure(err))
+					http.Error(req.ResponseWriter, "the upstream account could not be refreshed; retry later", http.StatusServiceUnavailable)
+					return nil
+				}
+				if grant := serverConfig.OAuthGrant; grant != nil && err != nil {
+					if errors.Is(err, mcp.ErrOAuthGrantInvalid) {
+						preconfiguredOAuthInvalidResponse(req, grant.ComponentID).write(req.ResponseWriter, nil)
+						return nil
+					}
+					slog.WarnContext(req.Context(), "Failed to get the token of a vMCP preconfigured OAuth grant", "mcpID", grant.MCPID, "error", err)
+					http.Error(req.ResponseWriter, "the upstream OAuth grant could not be refreshed; retry later", http.StatusServiceUnavailable)
+					return nil
+				}
+				if err != nil {
+					return fmt.Errorf("failed to get token source: %w", err)
+				}
 			}
 		}
 
@@ -397,13 +451,14 @@ func (h *Handler) Proxy(req api.Context) error {
 		}
 		sessionSpec := v1.MCPClientSessionSpec{
 			ConnectionID: connectionID,
-			UserID:       req.User.GetUID(),
+			UserID:       callerSessionOwner(req.User, req.User.GetUID()),
 			MCPServerID:  cmp.Or(serverConfig.AuditLogMetadata["mcpID"], serverConfig.MCPServerName),
 		}
 		audit, err := newProxyAudit(req.Request, serverConfig.AuditLogMetadata, h.auditLogCollector)
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request audit log: %w", err)
 		}
+		audit.setCaller(req.User)
 
 		// Initialization starts a new session, even if the client retained a stale ID.
 		if audit != nil && audit.initialize {
@@ -469,6 +524,7 @@ func (h *Handler) Proxy(req api.Context) error {
 
 			if resolvedCall != nil && audit != nil {
 				audit.entry.CallIdentifier = resolvedCall.name
+				audit.setComponent(serverConfig, resolvedCall.componentURL)
 			}
 		}
 
@@ -529,6 +585,13 @@ func (h *Handler) Proxy(req api.Context) error {
 					}
 				}
 
+				// An upstream that refuses the account a user connected through an agent answers the agent's tool call
+				// with a tool error, so that its session goes on and it asks the user to connect the account again.
+				if pairToken && pairCall != nil && pairCall.method == mcpToolsCallMethod && len(component.AuthorizationChallenges(resp)) > 0 {
+					vmcpID, componentID := pairComponent(req, serverConfig)
+					replaceMCPAuthResponse(resp, delegatedSetupBrokenResponse(req, pairCall, vmcpID, componentID))
+				}
+
 				if err := rewriteUpstreamOAuthResponse(req, resp); err != nil {
 					return err
 				}
@@ -563,10 +626,29 @@ func (h *Handler) Proxy(req api.Context) error {
 	ctx := context.WithValue(req.Context(), compositeAPIContextKey{}, req)
 	ctx = context.WithValue(ctx, upstreamCaptureConfigKey{}, serverConfig)
 	ctx = mmmcp.ContextWithConfig(ctx, cfg)
-	ctx = mmmcp.ContextWithConfigID(ctx, fmt.Sprintf("%s++%s", serverConfig.MCPServerName, serverConfig.UserID))
+	ctx = mmmcp.ContextWithConfigID(ctx, compositeConfigID(serverConfig, req.User))
 	h.composite.HTTPHandler().ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
 
 	return nil
+}
+
+// compositeConfigID identifies a composite's configuration to mmmcp, which keeps component sessions and discovered
+// catalogs per configuration. The connection name is the caller's own vMCP instance, and UserID is the caller's encoded
+// principal, so neither two callers nor a user and an agent with the same numeric ID ever share one. An agent acting on
+// behalf of a user uses the agent's instance, but has a configuration of its own for each user
+// (callerSessionOwner), so that what it does for one user is never done in another user's sessions.
+func compositeConfigID(serverConfig mcp.ServerConfig, caller user.Info) string {
+	return fmt.Sprintf("%s++%s", serverConfig.MCPServerName, callerSessionOwner(caller, serverConfig.UserID))
+}
+
+// callerSessionOwner returns whom the MCP sessions and composite configuration of caller belong to: owner, its encoded
+// principal, or for an agent acting on behalf of a user, the pair of the agent and the user (principal.DelegatedOwner),
+// so that the agent's sessions for one user are never used for another user, or for the agent acting for itself.
+func callerSessionOwner(caller user.Info, owner string) string {
+	if delegated, ok := principal.DelegatedOwnerOf(caller); ok {
+		return delegated.String()
+	}
+	return owner
 }
 
 // isLoopbackHost reports whether a Host header value, with or without a port,
@@ -667,7 +749,13 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		return mcp.ServerConfig{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 	if len(missingConfig) > 0 {
-		mcpAuthRequiredResponse(req, true).write(req.ResponseWriter, nil)
+		if headlessCaller(req) {
+			// An agent reaches a server only as a vMCP component, through the composite loopback, and cannot enter
+			// configuration, so it is told what is missing rather than challenged.
+			agentConfigurationRequiredResponse(req, mcpServer.Spec.VMCPComponentID, missingConfig).write(req.ResponseWriter, nil)
+		} else {
+			mcpAuthRequiredResponse(req, true).write(req.ResponseWriter, nil)
+		}
 		return mcp.ServerConfig{}, errMCPServerRequiresConfiguration
 	}
 
@@ -704,13 +792,18 @@ func replaceMCPAuthResponse(resp *http.Response, response *mcpResponse) {
 	resp.Trailer = nil
 }
 
+// mcpAuthRequiredResponse is the 401 that starts the MCP authorization flow. A headless caller, an agent or a request
+// with an agent's credential, gets a plain 401 without a challenge: it only gets here when its credential is refused,
+// and it cannot log in.
 func mcpAuthRequiredResponse(req api.Context, requiresConfig bool) *mcpResponse {
 	message := "MCP server requires authentication"
 	if requiresConfig {
 		message = "MCP server requires configuration"
 	}
 	response := mcpTextResponse(http.StatusUnauthorized, message)
-	response.headers.Set("WWW-Authenticate", mcpAuthChallenge(req))
+	if !headlessCaller(req) {
+		response.headers.Set("WWW-Authenticate", mcpAuthChallenge(req))
+	}
 	return response
 }
 
@@ -731,6 +824,11 @@ func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName str
 		AuthorizedMCPIDs:      authorizedMCPIDs,
 		AuthProviderName:      cmp.Or(caller.GetExtra()["auth_provider_name"]...),
 		AuthProviderNamespace: cmp.Or(caller.GetExtra()["auth_provider_namespace"]...),
+	}
+	// The subject is the caller's encoded ID, "agent:<id>" for an agent, and the token records its kind as well, so
+	// that the loopback authenticates as the same principal. NewToken refuses a kind that disagrees with the subject.
+	if p, ok := principal.FromUserInfo(caller); ok {
+		tokenContext.PrincipalKind = string(p.Kind)
 	}
 	if key, ok := principal.APIKeyAttributionFromUser(caller); ok {
 		tokenContext.APIKeyID = fmt.Sprint(key.ID)

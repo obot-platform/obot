@@ -87,6 +87,16 @@ type Client struct {
 	lockGates sync.Map
 	// startOnce keeps StartCleanups from starting the cleanups more than once.
 	startOnce sync.Once
+	// mcpOAuthRefreshLocks serialize, within the process, the refreshes of each shared MCP OAuth grant, and
+	// mcpOAuthRefreshHoldersSlot bounds how many hold a database connection at once (WithMCPOAuthRefreshLock).
+	mcpOAuthRefreshLocks       keyedLocks
+	mcpOAuthRefreshHoldersOnce sync.Once
+	mcpOAuthRefreshHoldersSlot chan struct{}
+
+	// agentDelegationCache holds the delegations DelegationValid found valid, until the time each maps to.
+	agentDelegationCacheLock sync.Mutex
+	agentDelegationCache     map[agentDelegationValidation]time.Time
+	agentDelegationCacheTTL  time.Duration
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
@@ -119,11 +129,13 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		deviceScanRetentionDays:   deviceScanRetentionDays,
 		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
 		kickLifecycleDelivery:     make(chan struct{}, 1),
+		agentDelegationCache:      map[agentDelegationValidation]time.Time{},
+		agentDelegationCacheTTL:   agentDelegationValidationCacheTTL,
 	}
 
 	c.startAuditLoops(ctx, auditLogPersistenceInterval)
 	go c.runAPIKeyCacheCleanup(ctx)
-	go c.runUserLifecycleEventDelivery(ctx)
+	go c.runLifecycleEventDelivery(ctx)
 	return c
 }
 
@@ -139,6 +151,7 @@ func (c *Client) StartCleanups(ctx context.Context, entitlements EntitlementProv
 		go c.runEgressAuditCleanup(ctx, egressAuditLogRetentionDays)
 		go c.runLocalAuthSessionCleanup(ctx)
 		go c.runSCIMGroupDeletionMarkExpiry(ctx)
+		go c.runAgentDelegationRequestCleanup(ctx)
 	})
 }
 

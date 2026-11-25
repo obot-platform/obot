@@ -374,3 +374,63 @@ describe('Profile form', () => {
 			.toBeVisible();
 	});
 });
+
+describe('Profile form: agent subjects', () => {
+	const agents = [
+		{ id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 },
+		{ id: '9', displayName: 'Retired bot', status: 'deleted', activeAPIKeyCount: 0 }
+	];
+
+	function mockAgents() {
+		worker.use(http.get('/api/agents', () => HttpResponse.json({ items: agents })));
+	}
+
+	async function openPicker() {
+		await page.getByRole('button', { name: 'Add User/Group' }).click();
+		await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeVisible();
+	}
+
+	it('saves a selected agent as an agent subject', async () => {
+		const { calls } = mockGateway();
+		mockAgents();
+		render(ProfileForm, {});
+
+		await page.getByLabelText('Name', { exact: true }).fill('Bots');
+		await openPicker();
+		await page.getByRole('button', { name: /Build bot/ }).click();
+		await page.getByRole('button', { name: 'Confirm' }).click();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
+		);
+		expect(calls.mock.calls[0][2]).toMatchObject({
+			displayName: 'Bots',
+			subjects: [{ type: 'agent', id: '5' }]
+		});
+	});
+
+	it('offers agents, but no other subject, next to All Obot Users', async () => {
+		mockGateway();
+		mockAgents();
+		render(ProfileForm, {});
+
+		await openPicker();
+		await page.getByRole('button', { name: /All Obot Users/ }).click();
+
+		// All Obot Users doesn't include agents, so a policy for every user names its agents next to it.
+		await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeEnabled();
+	});
+
+	it('shows a deleted agent as such', async () => {
+		mockGateway();
+		mockAgents();
+		render(ProfileForm, {
+			modelAccessPolicy: { ...existing, subjects: [{ type: 'agent', id: '9' }] }
+		});
+
+		await expect.element(page.getByText('Retired bot (Deleted)')).toBeVisible();
+		// The badge and the type column both say Agent.
+		await expect.element(page.getByText('Agent', { exact: true }).first()).toBeVisible();
+	});
+});

@@ -8,6 +8,7 @@ import type { APIKey } from '$lib/services/api-keys/types';
 import { notifications } from '$lib/stores';
 import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
+import { createAgent } from '../../tests/mocks/agentIdentities';
 import {
 	getProfileResponse,
 	initiateTempLoginResponse,
@@ -183,7 +184,8 @@ async function renderIdentityAccessPage({
 	users = [],
 	currentAuthProvider,
 	groupRoleAssignments = [],
-	orgGroups = []
+	orgGroups = [],
+	agents = []
 }: {
 	authProviders?: AuthProvider[];
 	authEnabled?: boolean;
@@ -196,6 +198,7 @@ async function renderIdentityAccessPage({
 	currentAuthProvider?: string;
 	groupRoleAssignments?: PageData['groupRoleAssignments'];
 	orgGroups?: PageData['groups'];
+	agents?: PageData['agents'];
 } = {}) {
 	const profile = createMockProfile(groups);
 	profile.currentAuthProvider = currentAuthProvider;
@@ -219,6 +222,7 @@ async function renderIdentityAccessPage({
 		authProviders,
 		authEnabled,
 		apiKeys,
+		agents,
 		profile
 	});
 
@@ -536,9 +540,9 @@ describe('Identity & Access Page', () => {
 			createdAt: '2026-01-01T00:00:00.000Z'
 		};
 
-		it('non-admin users only see the Agents tab and can create a scope', async () => {
+		it('non-admin users only see the API Keys tab and can create a scope', async () => {
 			await renderIdentityAccessPage({
-				view: 'agents',
+				view: 'api-keys',
 				groups: [Group.USER],
 				apiKeys: [apiKey]
 			});
@@ -556,21 +560,50 @@ describe('Identity & Access Page', () => {
 				.element(page.getByRole('button', { name: 'Auth Providers', exact: true }))
 				.not.toBeInTheDocument();
 			await expect
-				.element(page.getByRole('button', { name: 'Create Agent Identity', exact: true }))
+				.element(page.getByRole('button', { name: 'Create API Key', exact: true }))
 				.toBeVisible();
 			await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
 		});
 
-		it('allows readonly admins to create personal agent identities', async () => {
+		it('allows readonly admins to create personal API keys', async () => {
 			await renderIdentityAccessPage({
-				view: 'agents',
+				view: 'api-keys',
 				groups: [Group.ADMIN_READONLY],
 				apiKeys: [apiKey]
 			});
 
 			await expect
-				.element(page.getByRole('button', { name: 'Create Agent Identity', exact: true }))
+				.element(page.getByRole('button', { name: 'Create API Key', exact: true }))
 				.toBeVisible();
+		});
+
+		// Agents authenticate with their own keys whether or not authentication is on, so admins
+		// manage them either way.
+		it.each([
+			{ authEnabled: true, state: 'on' },
+			{ authEnabled: false, state: 'off' }
+		])('shows admins the Agents tab when authentication is $state', async ({ authEnabled }) => {
+			await renderIdentityAccessPage({ authEnabled, groups: [Group.OWNER, Group.ADMIN] });
+
+			await expect.element(page.getByRole('button', { name: 'Agents', exact: true })).toBeVisible();
+		});
+
+		// Read-only admins and auditors see the agents, but only admins create them.
+		it.each([
+			{ name: 'admins', groups: [Group.ADMIN_READONLY, Group.ADMIN], creates: true },
+			{ name: 'read-only admins', groups: [Group.USER, Group.ADMIN_READONLY], creates: false },
+			{ name: 'auditors', groups: [Group.USER, Group.AUDITOR], creates: false }
+		])('shows $name the agents, with Create Agent: $creates', async ({ groups, creates }) => {
+			await renderIdentityAccessPage({
+				view: 'agent-identities',
+				groups,
+				agents: [createAgent()]
+			});
+
+			await expect.element(page.getByText('Build Bot', { exact: true })).toBeVisible();
+			const create = page.getByRole('button', { name: 'Create Agent', exact: true });
+			if (creates) await expect.element(create).toBeVisible();
+			else await expect.element(create).not.toBeInTheDocument();
 		});
 	});
 

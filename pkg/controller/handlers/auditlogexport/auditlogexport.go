@@ -76,6 +76,11 @@ func (h *Handler) ExportAuditLogs(req router.Request, resp router.Response) erro
 		})
 	case types.AuditLogTypeLLM:
 		err = performExport(req.Ctx, h.credProvider, export, "llm-audit-logs", h.llmAuditLogFetcher(), gatewaytypes.ConvertLLMAuditLog)
+	case types.AuditLogTypeAdmin:
+		err = performExport(req.Ctx, h.credProvider, export, "admin-audit-events", h.fetchAdminAuditEvents, func(event gatewaytypes.AdminAuditEvent) types.AdminAuditEvent {
+			// No display name is looked up: an export is the record, and names change.
+			return gatewaytypes.ConvertAdminAuditEvent(event, "")
+		})
 	default:
 		err = fmt.Errorf("unsupported audit log export type %q", export.Spec.Type)
 	}
@@ -135,6 +140,29 @@ func (h *Handler) llmAuditLogFetcher() func(context.Context, *v1.AuditLogExport,
 	}
 }
 
+func (h *Handler) fetchAdminAuditEvents(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.AdminAuditEvent, error) {
+	events, _, err := h.gatewayClient.ListAdminAuditEvents(ctx, adminAuditEventOptionsFromExport(export, limit, offset))
+	return events, err
+}
+
+func adminAuditEventOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.AdminAuditEventOptions {
+	filters := export.Spec.AdminFilters
+	if filters == nil {
+		filters = &types.AdminAuditEventExportFilters{}
+	}
+	return client.AdminAuditEventOptions{
+		ResourceKinds: filters.ResourceKinds,
+		ResourceIDs:   filters.ResourceIDs,
+		Actors:        filters.Actors,
+		Actions:       filters.Actions,
+		Since:         export.Spec.StartTime.Time,
+		Until:         export.Spec.EndTime.Time,
+		Limit:         limit,
+		Offset:        offset,
+		Oldest:        true,
+	}
+}
+
 func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.MCPAuditLogOptions {
 	filters := export.Spec.Filters
 	if filters == nil {
@@ -152,6 +180,9 @@ func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 		Client:                    filters.Clients,
 		APIKeyID:                  filters.APIKeyIDs,
 		UserID:                    filters.UserIDs,
+		IncludeOnBehalfOf:         filters.IncludeOnBehalfOf,
+		OnBehalfOf:                filters.OnBehalfOf,
+		ActorKind:                 filters.ActorKinds,
 		MCPID:                     filters.MCPIDs,
 		MCPServerDisplayName:      filters.MCPServerDisplayNames,
 		MCPServerCatalogEntryName: filters.MCPServerCatalogEntryNames,
@@ -180,17 +211,20 @@ func llmAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 		filters = &types.LLMAuditLogExportFilters{}
 	}
 	return client.LLMAuditLogOptions{
-		StartTime:       export.Spec.StartTime.Time,
-		EndTime:         export.Spec.EndTime.Time,
-		APIKeyID:        filters.APIKeyIDs,
-		UserID:          filters.UserIDs,
-		ModelProvider:   filters.ModelProviders,
-		TargetModel:     filters.TargetModels,
-		RequestPath:     filters.RequestPaths,
-		ResponseStatus:  filters.ResponseStatuses,
-		Outcome:         filters.Outcomes,
-		UserAgent:       filters.UserAgents,
-		ClientSessionID: filters.ClientSessionIDs,
+		StartTime:         export.Spec.StartTime.Time,
+		EndTime:           export.Spec.EndTime.Time,
+		APIKeyID:          filters.APIKeyIDs,
+		UserID:            filters.UserIDs,
+		IncludeOnBehalfOf: filters.IncludeOnBehalfOf,
+		OnBehalfOf:        filters.OnBehalfOf,
+		ActorKind:         filters.ActorKinds,
+		ModelProvider:     filters.ModelProviders,
+		TargetModel:       filters.TargetModels,
+		RequestPath:       filters.RequestPaths,
+		ResponseStatus:    filters.ResponseStatuses,
+		Outcome:           filters.Outcomes,
+		UserAgent:         filters.UserAgents,
+		ClientSessionID:   filters.ClientSessionIDs,
 		// Exports scheduled before message policies became guardrails keep their filter.
 		MessagePolicyTriggered: filters.MessagePolicyTriggered,
 		Query:                  filters.Query,

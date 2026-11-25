@@ -26,8 +26,19 @@ type MCPAuditLog struct {
 	// UpdatedAt tracks server writes for incremental exports; CreatedAt remains the event timestamp.
 	UpdatedAt  time.Time                 `json:"-" gorm:"index"`
 	SourceType types2.AuditLogSourceType `json:"sourceType" gorm:"index;default:mcp;index:idx_mcp_audit_tool_calls_daily,priority:1"`
-	UserID     string                    `json:"userID" gorm:"index"`
-	APIKeyID   *uint                     `json:"apiKeyID,omitempty" gorm:"index:idx_mcp_audit_api_key_created,priority:1"`
+	// UserID is the user's ID. It is empty for an agent's call, which is attributed through PrincipalKind and
+	// PrincipalID instead; see Actor. PrincipalKind and PrincipalID are named so as not to be mistaken for the
+	// ActorType and ActorID of a local-agent tool call, which describe who the call was reported for.
+	UserID        string `json:"userID" gorm:"index"`
+	PrincipalKind string `json:"principalKind,omitempty" gorm:"type:text;not null;default:user;index:idx_mcp_audit_principal,priority:1"`
+	PrincipalID   string `json:"principalID,omitempty" gorm:"type:text;index:idx_mcp_audit_principal,priority:2"`
+	// OnBehalfOf is the ID of the user an agent made the call for, and empty for any other call; see Actor. Rows from
+	// before agents acted for users have none.
+	OnBehalfOf string `json:"onBehalfOf,omitempty" gorm:"type:text;index"`
+	// AgentDisplayName is the current display name of the agent, populated when audit logs are read, from the agent
+	// row even when the agent has been deleted. It is not part of the historical event.
+	AgentDisplayName string `json:"-" gorm:"-"`
+	APIKeyID         *uint  `json:"apiKeyID,omitempty" gorm:"index:idx_mcp_audit_api_key_created,priority:1"`
 	// APIKeyRevoked is current lifecycle metadata populated when audit logs are read.
 	// It is not persisted as part of the historical event snapshot.
 	APIKeyRevoked bool `json:"apiKeyRevoked,omitempty" gorm:"-"`
@@ -108,6 +119,13 @@ type MCPAuditLogFields struct {
 	UserAgent       string          `json:"userAgent,omitempty"`
 	RequestHeaders  json.RawMessage `json:"requestHeaders,omitempty"`
 	ResponseHeaders json.RawMessage `json:"responseHeaders,omitempty"`
+
+	// VMCPID is the vMCP a call was made through, VMCPComponentID the component the call reached when the gateway
+	// resolved it to one, and ProfileIDs the IDs of the vMCP profiles that granted the caller its permissions: every
+	// profile that names it, for an agent as for a user. They are empty for calls that are not made through a vMCP.
+	VMCPID          string                      `json:"vmcpID,omitempty"`
+	VMCPComponentID string                      `json:"vmcpComponentID,omitempty"`
+	ProfileIDs      datatypes.JSONSlice[string] `json:"profileIDs,omitempty"`
 }
 
 type LocalAgentToolCallAuditLogFields struct {
@@ -211,6 +229,9 @@ type MCPToolCallStatsItem struct {
 	ToolName         string    `json:"toolName"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UserID           string    `json:"userID"`
+	PrincipalKind    string    `json:"principalKind"`
+	PrincipalID      string    `json:"principalID"`
+	OnBehalfOf       string    `json:"onBehalfOf"`
 	ProcessingTimeMs int64     `json:"processingTimeMs"`
 	ResponseStatus   int       `json:"responseStatus"`
 	Error            string    `json:"error"`
@@ -485,6 +506,8 @@ func ConvertMCPUsageStats(s MCPUsageStatItem) types2.MCPUsageStatItem {
 			items[j] = types2.MCPToolCallStatsItem{
 				CreatedAt:        *types2.NewTime(item.CreatedAt),
 				UserID:           item.UserID,
+				Principal:        Actor{PrincipalKind: item.PrincipalKind, PrincipalID: item.PrincipalID, UserID: item.UserID}.Ref(),
+				OnBehalfOf:       Actor{OnBehalfOf: item.OnBehalfOf}.OnBehalfOfRef(),
 				ProcessingTimeMs: item.ProcessingTimeMs,
 				ResponseStatus:   item.ResponseStatus,
 				Error:            item.Error,

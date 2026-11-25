@@ -1,7 +1,9 @@
 import { mcpServersAndEntries } from '$lib/stores';
 import { openUrl } from '$lib/utils';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
+import { worker } from '../../../tests/mocks/worker';
 import VMcpInstanceInfo from './VMcpInstanceInfo.svelte';
+import { http, HttpResponse } from 'msw';
 import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -58,3 +60,36 @@ it.each([
 		expect(openUrl).toHaveBeenCalledWith(path, false);
 	}
 );
+
+it.each([
+	{ owner: 'agent:7', name: 'Build Bot' },
+	{ owner: 'agent:9', name: 'Old Bot (Deleted)' }
+])('names the agent that owns the instance: $name', async ({ owner, name }) => {
+	worker.use(
+		http.get('/api/agents', () =>
+			HttpResponse.json({
+				items: [
+					{ id: '7', displayName: 'Build Bot', status: 'active', activeAPIKeyCount: 1 },
+					{ id: '9', displayName: 'Old Bot', status: 'deleted', activeAPIKeyCount: 0 }
+				]
+			})
+		)
+	);
+	const entry = createMCPCatalogEntry({ id: 'github', name: 'GitHub' });
+	const vmcp = createVMCP({ id: 'vmcp1-test' }, [entry]);
+
+	render(VMcpInstanceInfo, {
+		vmcp,
+		instance: {
+			id: 'vmcpi1-test',
+			vmcpID: vmcp.id,
+			userID: owner,
+			created: '2026-01-01T00:00:00Z',
+			status: {}
+		}
+	});
+
+	await expect.element(page.getByText(name, { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Agent', { exact: true })).toBeVisible();
+	await expect.element(page.getByText(owner)).not.toBeInTheDocument();
+});

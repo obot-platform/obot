@@ -1,0 +1,39 @@
+<script lang="ts">
+	import Layout from '$lib/components/Layout.svelte';
+	import AgentAuthScopeDetails from '$lib/components/agent-auth-scope/AgentAuthScopeDetails.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { m } from '$lib/i18n';
+	import { ApiKeysService } from '$lib/services';
+	import { apiKeyMask } from '$lib/services/api-keys/types';
+	import { profile } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { fly } from 'svelte/transition';
+
+	let { data } = $props();
+	const { apiKey, isAdmin } = $derived(data);
+	let title = $derived(apiKey?.name || m.identity_access_api_keys_agent_identity());
+	const duration = PAGE_TRANSITION_DURATION;
+</script>
+
+<Layout {title} showBackButton>
+	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
+		{#if apiKey}
+			<AgentAuthScopeDetails
+				{isAdmin}
+				agentAuthScope={{ ...apiKey, prefix: apiKeyMask(apiKey) }}
+				onDelete={async () => {
+					await (
+						profile.current.isAdmin?.()
+							? ApiKeysService.deleteAnyApiKey
+							: ApiKeysService.deleteApiKey
+					)(apiKey.id.toString());
+					goto('/identity-access?view=api-keys', { replaceState: true });
+				}}
+			/>
+		{/if}
+	</div>
+</Layout>
+
+<svelte:head>
+	<title>Obot | {title}</title>
+</svelte:head>

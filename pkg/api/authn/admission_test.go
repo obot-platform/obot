@@ -52,6 +52,7 @@ func TestAdmissionCheck(t *testing.T) {
 			name: "active user",
 			resp: principalWith("7", []string{types2.GroupBasic, types2.GroupAuthenticated}, map[string][]string{
 				principal.UserStatusExtra: {string(types2.UserStatusActive)},
+				principal.KindExtra:       {string(principal.KindUser)},
 			}),
 			wantAdmit: true,
 		},
@@ -59,6 +60,7 @@ func TestAdmissionCheck(t *testing.T) {
 			name: "disabled user",
 			resp: principalWith("7", []string{types2.GroupBasic, types2.GroupAuthenticated}, map[string][]string{
 				principal.UserStatusExtra: {string(types2.UserStatusDisabled)},
+				principal.KindExtra:       {string(principal.KindUser)},
 			}),
 			wantDenied: types2.UserStatusDisabled,
 		},
@@ -66,6 +68,7 @@ func TestAdmissionCheck(t *testing.T) {
 			name: "deleted or missing user",
 			resp: principalWith("7", []string{types2.GroupAPI, types2.GroupAuthenticated}, map[string][]string{
 				principal.UserStatusExtra: {string(types2.UserStatusDeleted)},
+				principal.KindExtra:       {string(principal.KindUser)},
 			}),
 			wantDenied: types2.UserStatusDeleted,
 		},
@@ -245,6 +248,15 @@ func TestAdmissionCheckRestriction(t *testing.T) {
 			restriction: restriction(true),
 		},
 		{
+			name: "an agent while restricted",
+			resp: principalWith("agent:7", []string{types2.GroupMCP, types2.GroupAuthenticated}, map[string][]string{
+				principal.UserStatusExtra: {string(types2.UserStatusActive)},
+				principal.KindExtra:       {string(principal.KindAgent)},
+			}),
+			restriction: restriction(true),
+			wantRefused: true,
+		},
+		{
 			name:        "anonymous while restricted",
 			resp:        principalWith("anonymous", []string{authz.UnauthenticatedGroup}, nil),
 			restriction: restriction(true),
@@ -267,6 +279,97 @@ func TestAdmissionCheckRestriction(t *testing.T) {
 	}
 }
 
+// TestAdmissionCheckAdmitsAgentsByTheirStatus checks that an agent principal is admitted only while its recorded
+// status is active, and that a denial names the agent, never the user with the same numeric ID or user 0.
+func TestAdmissionCheckAdmitsAgentsByTheirStatus(t *testing.T) {
+	agentExtra := func(status types2.UserStatus, extra map[string][]string) map[string][]string {
+		if extra == nil {
+			extra = map[string][]string{}
+		}
+		principal.RecordKind(extra, principal.KindAgent)
+		if status != "" {
+			principal.RecordUserStatus(extra, status)
+		}
+		return extra
+	}
+
+	for _, tt := range []struct {
+		name        string
+		resp        *authenticator.Response
+		restriction Restriction
+		wantAdmit   bool
+		wantDenied  types2.UserStatus
+		wantLookup  bool
+	}{
+		{
+			name:      "active agent",
+			resp:      principalWith("agent:7", []string{types2.GroupMCP, types2.GroupAuthenticated}, agentExtra(types2.UserStatusActive, nil)),
+			wantAdmit: true,
+		},
+		{
+			name:       "disabled agent",
+			resp:       principalWith("agent:7", []string{types2.GroupMCP, types2.GroupAuthenticated}, agentExtra(types2.UserStatusDisabled, nil)),
+			wantDenied: types2.UserStatusDisabled,
+		},
+		{
+			name:       "deleted agent",
+			resp:       principalWith("agent:7", []string{types2.GroupLLM, types2.GroupAuthenticated}, agentExtra(types2.UserStatusDeleted, nil)),
+			wantDenied: types2.UserStatusDeleted,
+		},
+		{
+			name:       "agent whose authenticator reported no status",
+			resp:       principalWith("agent:7", []string{types2.GroupMCP, types2.GroupAuthenticated}, agentExtra("", nil)),
+			wantLookup: true,
+		},
+		{
+			// Groups that mark a principal that acts for Obot itself or for a device never admit an agent without a
+			// status.
+			name: "agent with the groups of a non-user principal",
+			resp: principalWith("agent:7", []string{types2.GroupDeviceScans, types2.GroupTunnel, authz.UnauthenticatedGroup}, agentExtra("", map[string][]string{
+				"device_id": {"device-1"},
+			})),
+			wantLookup: true,
+		},
+		{
+			// A restriction that can't be read refuses the agent as unverifiable, naming the agent.
+			name:        "active agent whose environment's restriction can't be read",
+			resp:        principalWith("agent:7", []string{types2.GroupMCP, types2.GroupAuthenticated}, agentExtra(types2.UserStatusActive, nil)),
+			restriction: failingRestriction{},
+			wantLookup:  true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, ok, err := NewAdmissionCheck(stubAuthenticator{
+				resp: tt.resp,
+				ok:   true,
+			}, tt.restriction).AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/mcp-connect/vmcp1", nil))
+
+			if _, isUser := errors.AsType[*gclient.UserAccessDeniedError](err); isUser {
+				t.Fatalf("got %v; an agent's denial must not be reported as a user's", err)
+			}
+			if _, isUser := errors.AsType[*gclient.UserAccessLookupError](err); isUser {
+				t.Fatalf("got %v; an agent's refusal must not be reported as a user's", err)
+			}
+			switch {
+			case tt.wantAdmit:
+				if err != nil || !ok || resp != tt.resp {
+					t.Fatalf("got %v, %v, %v; want the agent admitted", resp, ok, err)
+				}
+			case tt.wantDenied != "":
+				denied, isDenied := errors.AsType[*gclient.AgentAccessDeniedError](err)
+				if !isDenied || denied.Status != tt.wantDenied || denied.AgentID != 7 || ok || resp != nil {
+					t.Fatalf("got %v, %v, %v; want agent 7 denied as %s", resp, ok, err, tt.wantDenied)
+				}
+			case tt.wantLookup:
+				lookup, isLookup := errors.AsType[*gclient.AgentAccessLookupError](err)
+				if !isLookup || lookup.AgentID != 7 || ok || resp != nil {
+					t.Fatalf("got %v, %v, %v; want agent 7 refused as unverifiable", resp, ok, err)
+				}
+			}
+		})
+	}
+}
+
 func (failingRestriction) Restricted(context.Context) (bool, error) {
 	return false, errors.New("storage unavailable")
 }
@@ -275,6 +378,7 @@ func TestAdmissionCheckRefusesAsUnavailableWhenRestrictionCantBeRead(t *testing.
 	check := NewAdmissionCheck(stubAuthenticator{
 		resp: principalWith("7", []string{types2.GroupBasic, types2.GroupAuthenticated}, map[string][]string{
 			principal.UserStatusExtra: {string(types2.UserStatusActive)},
+			principal.KindExtra:       {string(principal.KindUser)},
 		}),
 		ok: true,
 	}, failingRestriction{})
@@ -282,5 +386,126 @@ func TestAdmissionCheckRefusesAsUnavailableWhenRestrictionCantBeRead(t *testing.
 	_, ok, err := check.AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/api/me", nil))
 	if lookup, isLookup := errors.AsType[*gclient.UserAccessLookupError](err); ok || !isLookup || lookup.UserID != 7 {
 		t.Fatalf("AuthenticateRequest() = %v, %v; want a lookup error for user 7", ok, err)
+	}
+}
+
+// TestAdmissionCheckRefusesOwnersThatAreNotCallers checks that no caller is ever admitted as the owner of a vMCP's
+// preconfigured OAuth grants, or as the owner of a user's setup through an agent, whatever kind, status or groups its
+// authenticator recorded: such an owner stands for what it owns, and must never be able to read or use it as its own.
+func TestAdmissionCheckRefusesOwnersThatAreNotCallers(t *testing.T) {
+	for _, owner := range []struct {
+		name      string
+		uid       string
+		malformed string
+		wantErr   error
+	}{
+		{
+			name:      "preconfigured OAuth owner",
+			uid:       principal.PreconfiguredOAuthOwner("vmcp1abc"),
+			malformed: "vmcp-oauth:anything/else",
+			wantErr:   errPreconfiguredOAuthCaller,
+		},
+		{
+			name:      "delegated owner",
+			uid:       principal.DelegatedOwner{AgentID: 5, UserID: 7}.String(),
+			malformed: "agent:5/anything",
+			wantErr:   errDelegatedOwnerCaller,
+		},
+	} {
+		for _, tt := range []struct {
+			name string
+			resp *authenticator.Response
+		}{
+			{
+				name: "marked as an active user",
+				resp: principalWith(owner.uid, []string{types2.GroupAdmin, types2.GroupAuthenticated}, map[string][]string{
+					principal.UserStatusExtra: {string(types2.UserStatusActive)},
+					principal.KindExtra:       {string(principal.KindUser)},
+				}),
+			},
+			{
+				name: "marked as an active agent",
+				resp: principalWith(owner.uid, []string{types2.GroupMCP, types2.GroupAuthenticated}, map[string][]string{
+					principal.UserStatusExtra: {string(types2.UserStatusActive)},
+					principal.KindExtra:       {string(principal.KindAgent)},
+				}),
+			},
+			{
+				name: "with the groups of a non-user principal",
+				resp: principalWith(owner.uid, []string{types2.GroupTunnel}, nil),
+			},
+			{
+				name: "malformed",
+				resp: principalWith(owner.malformed, []string{types2.GroupTunnel}, nil),
+			},
+		} {
+			t.Run(owner.name+" "+tt.name, func(t *testing.T) {
+				resp, ok, err := NewAdmissionCheck(stubAuthenticator{
+					resp: tt.resp,
+					ok:   true,
+				}, nil).AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/api/me", nil))
+				if !errors.Is(err, owner.wantErr) || ok || resp != nil {
+					t.Fatalf("got %v, %v, %v; want the caller refused", resp, ok, err)
+				}
+			})
+		}
+	}
+}
+
+// TestAdmissionCheckOnBehalfOf checks that only an agent is admitted acting for a user: a user, a non-user principal
+// or an agent with a malformed on-behalf-of user is refused, rather than admitted as itself or as the user it names.
+func TestAdmissionCheckOnBehalfOf(t *testing.T) {
+	active := func(kind principal.Kind, onBehalfOf ...string) map[string][]string {
+		extra := map[string][]string{}
+		principal.RecordPrincipal(extra, kind, types2.UserStatusActive)
+		extra[principal.OnBehalfOfExtra] = onBehalfOf
+		return extra
+	}
+	for _, tt := range []struct {
+		name      string
+		resp      *authenticator.Response
+		wantAdmit bool
+	}{
+		{
+			name:      "agent acting for a user",
+			resp:      principalWith("agent:5", []string{types2.GroupMCP, types2.GroupAuthenticated}, active(principal.KindAgent, "7")),
+			wantAdmit: true,
+		},
+		{
+			name: "user acting for another user",
+			resp: principalWith("8", []string{types2.GroupAuthenticated}, active(principal.KindUser, "7")),
+		},
+		{
+			name: "user acting for no one in particular",
+			resp: principalWith("8", []string{types2.GroupAuthenticated}, active(principal.KindUser)),
+		},
+		{
+			name: "agent acting for another agent",
+			resp: principalWith("agent:5", []string{types2.GroupMCP, types2.GroupAuthenticated}, active(principal.KindAgent, "agent:6")),
+		},
+		{
+			name: "agent acting for two users",
+			resp: principalWith("agent:5", []string{types2.GroupMCP, types2.GroupAuthenticated}, active(principal.KindAgent, "7", "8")),
+		},
+		{
+			name: "non-user principal acting for a user",
+			resp: principalWith("tunnel", []string{types2.GroupTunnel}, map[string][]string{principal.OnBehalfOfExtra: {"7"}}),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, ok, err := NewAdmissionCheck(stubAuthenticator{
+				resp: tt.resp,
+				ok:   true,
+			}, nil).AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/api/me", nil))
+			if tt.wantAdmit {
+				if err != nil || !ok || resp == nil {
+					t.Fatalf("got %v, %v, %v; want the caller admitted", resp, ok, err)
+				}
+				return
+			}
+			if !errors.Is(err, errInvalidOnBehalfOf) || ok || resp != nil {
+				t.Fatalf("got %v, %v, %v; want the caller refused", resp, ok, err)
+			}
+		})
 	}
 }

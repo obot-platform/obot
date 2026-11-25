@@ -7,6 +7,8 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	vmcphandler "github.com/obot-platform/obot/pkg/controller/handlers/vmcp"
+	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
@@ -53,9 +55,9 @@ func TestSharedComponentConnectionLifecycle(t *testing.T) {
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPID} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID} }).
 		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }), first.Spec.UserID).Build()
-	handler := &Handler{userInfo: func(_ context.Context, id uint) (kuser.Info, error) {
-		require.Equal(t, uint(7), id)
-		return &kuser.DefaultInfo{UID: "7"}, nil
+	handler := &Handler{userInfo: func(_ context.Context, owner principal.Principal) (kuser.Info, error) {
+		require.Equal(t, principal.User(7), owner)
+		return principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}), nil
 	}}
 	reconcile := func() {
 		t.Helper()

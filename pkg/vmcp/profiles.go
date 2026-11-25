@@ -5,7 +5,9 @@ import (
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjects"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -22,34 +24,69 @@ func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *typ
 	}
 }
 
-// MatchingProfiles uses both Obot and authentication-provider groups.
+// MatchingProfiles returns the profiles whose subjects name u, in order (subjects.Evaluate). Users match their user
+// ID, subjects:*, and their auth provider and Obot groups; agents match only the profiles that name their agent ID.
+// A caller named by several profiles is granted the union of what they grant (AllowedTools, EnabledComponents), an
+// agent as a user. A caller that is not a well-formed user or agent principal matches no profile.
+//
+// An agent acting on behalf of a user matches none here: it is granted only through the profiles of a shared vMCP that
+// name the agent, which CallerProfiles returns for it.
 func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
-	obotGroups := u.GetExtra()["obot_groups"]
-	idpGroups := u.GetExtra()["auth_provider_groups"]
+	if _, ok := principal.OnBehalfOf(u); ok {
+		return nil
+	}
+	caller, ok := subjects.CallerFromUserInfo(u)
+	if !ok {
+		return nil
+	}
 	var matching []types.VMCPProfile
 	for _, profile := range profiles {
-		for _, subject := range profile.Subjects {
-			if (subject.Type == types.SubjectTypeSelector && subject.ID == "*") ||
-				(subject.Type == types.SubjectTypeUser && subject.ID == u.GetUID()) ||
-				(subject.Type == types.SubjectTypeObotGroup && slices.Contains(obotGroups, subject.ID)) ||
-				(subject.Type == types.SubjectTypeGroup && slices.Contains(idpGroups, subject.ID)) {
-				matching = append(matching, profile)
-				break
-			}
+		if caller.Matches(profile.Subjects) {
+			matching = append(matching, profile)
 		}
 	}
 	return matching
 }
 
+// CallerProfiles returns the profiles of vmcp that grant u its permissions on it, in order. They are those whose
+// subjects name u (MatchingProfiles), except for an agent acting on behalf of a user: for it, they are the agent's own
+// (DelegatedProfiles). Access, components, tools, readiness and audit all start here.
+func CallerProfiles(u kuser.Info, vmcp v1.VMCP) []types.VMCPProfile {
+	delegated, ok := principal.DelegatedOwnerOf(u)
+	if !ok {
+		return MatchingProfiles(u, vmcp.Spec.Manifest.Profiles)
+	}
+	return DelegatedProfiles(delegated.AgentID, vmcp)
+}
+
+// DelegatedProfiles returns the profiles of vmcp that grant the agent with agentID its permissions on it when it acts
+// on behalf of a user: those that name the agent, as for the agent acting for itself, and none of a personal vMCP.
+// CallerProfiles uses it for an agent acting on behalf of a user, and the setup a user does through the agent uses it,
+// so that both agree.
+func DelegatedProfiles(agentID uint, vmcp v1.VMCP) []types.VMCPProfile {
+	if vmcp.Spec.UserID != "" {
+		return nil
+	}
+	agent := subjects.Caller{Principal: principal.Agent(agentID)}
+	var granted []types.VMCPProfile
+	for _, profile := range vmcp.Spec.Manifest.Profiles {
+		if agent.Matches(profile.Subjects) {
+			granted = append(granted, profile)
+		}
+	}
+	return granted
+}
+
 // AllowedTools returns component-scoped original names. Nil means unrestricted, while an
 // empty non-nil slice grants no tools. Instance selections can only narrow grants.
-// A name of "*" grants all tools enabled on that component.
-func AllowedTools(u kuser.Info, profiles []types.VMCPProfile, selection map[string]types.VMCPComponentSet) []types.VMCPToolReference {
+// A name of "*" grants all tools enabled on that component. The grant is the union of the
+// profiles of vmcp that apply to u (CallerProfiles).
+func AllowedTools(u kuser.Info, vmcp v1.VMCP, selection map[string]types.VMCPComponentSet) []types.VMCPToolReference {
 	var (
 		tools []types.VMCPToolReference
 		all   bool
 	)
-	for _, profile := range MatchingProfiles(u, profiles) {
+	for _, profile := range CallerProfiles(u, vmcp) {
 		all = all || profile.Permissions.AllowAllComponents
 		tools = append(tools, types.ComponentToolReferences(profile.Permissions.AllowedComponents)...)
 	}
@@ -96,33 +133,39 @@ func ToolGranted(grant []types.VMCPToolReference, tool types.VMCPToolReference) 
 func InstanceGrant(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPToolReference {
 	switch vmcp.Spec.UserID {
 	case "":
-		return AllowedTools(u, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.ComponentSet)
+		return AllowedTools(u, vmcp, instance.Spec.Manifest.ComponentSet)
 	case instance.Spec.UserID:
 		return types.ComponentToolReferences(instance.Spec.Manifest.ComponentSet)
 	}
 	return []types.VMCPToolReference{}
 }
 
+// ProfileGrantsComponent reports whether profile grants the component with componentID: it allows all components, or
+// has an entry for the component in AllowedComponents, even one that grants no tools. A caller reaches, and uses the
+// vMCP's preconfigured OAuth for, only the components its profiles grant.
+func ProfileGrantsComponent(profile types.VMCPProfile, componentID string) bool {
+	if profile.Permissions.AllowAllComponents {
+		return true
+	}
+	_, ok := profile.Permissions.AllowedComponents[componentID]
+	return ok
+}
+
 // EnabledComponents removes the components that no matching profile enables.
-// A component is enabled by a profile that allows all components or that has an
-// entry for it in AllowedComponents. Disabled components need no connection,
-// configuration, or OAuth. Profiles do not apply to personal VMCPs.
+// A component is enabled by a profile that grants it (ProfileGrantsComponent).
+// Disabled components need no connection, configuration, or OAuth. Profiles do
+// not apply to personal VMCPs.
 func EnabledComponents(u kuser.Info, vmcp v1.VMCP, components []types.VMCPComponent) []types.VMCPComponent {
 	if vmcp.Spec.UserID != "" {
 		return components
 	}
-	enabled := make(map[string]struct{}, len(components))
-	for _, profile := range MatchingProfiles(u, vmcp.Spec.Manifest.Profiles) {
-		if profile.Permissions.AllowAllComponents {
-			return components
-		}
-		for componentID := range profile.Permissions.AllowedComponents {
-			enabled[componentID] = struct{}{}
-		}
-	}
+	return ProfilesGrantedComponents(CallerProfiles(u, vmcp), components)
+}
+
+// ProfilesGrantedComponents removes from components those that none of profiles grants (ProfileGrantsComponent).
+func ProfilesGrantedComponents(profiles []types.VMCPProfile, components []types.VMCPComponent) []types.VMCPComponent {
 	return slices.DeleteFunc(components, func(component types.VMCPComponent) bool {
-		_, ok := enabled[component.ID]
-		return !ok
+		return !slices.ContainsFunc(profiles, func(profile types.VMCPProfile) bool { return ProfileGrantsComponent(profile, component.ID) })
 	})
 }
 

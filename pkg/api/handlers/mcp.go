@@ -63,6 +63,9 @@ type vmcpComponentOAuthTarget struct {
 	serverName  string
 	connectID   string
 	url         string
+	// preconfigured reports that the vMCP preconfigures OAuth for the component, which the user's connection uses in
+	// place of the user's own token for it (mcp.ServerConfig.OAuthGrant).
+	preconfigured bool
 }
 
 type urlTemplateConfigurationError struct {
@@ -501,6 +504,11 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 }
 
 func (m *MCPHandler) serverNeedsOAuth(ctx context.Context, server *v1.MCPServer, serverConfig mcp.ServerConfig) (bool, error) {
+	if serverConfig.OAuthGrant != nil {
+		// The vMCP preconfigures OAuth for this component, which the caller's connection uses: the caller never
+		// authorizes it. One that no longer works is an administrator's to authorize again.
+		return false, nil
+	}
 	if mcp.RequiresStaticOAuth(*server) {
 		return true, nil
 	}
@@ -1363,7 +1371,9 @@ func (m *MCPHandler) GetVMCPOAuthStatus(req api.Context) error {
 
 	status := vmcpOAuthStatus{AuthenticatedComponents: []string{}}
 	for _, target := range targets {
-		if target.url == "" {
+		// A user's own token for a component the vMCP preconfigures OAuth for is not used, so the component is not one
+		// the user has authenticated, or can reauthenticate.
+		if target.url == "" || target.preconfigured {
 			continue
 		}
 		if _, err := req.GatewayClient.GetMCPOAuthToken(req.Context(), req.User.GetUID(), target.connectID, target.url); err != nil {
@@ -1411,6 +1421,7 @@ func (m *MCPHandler) vmcpComponentOAuthTargets(req api.Context, vmcpID, catalogI
 			if componentConfig.Runtime == types.RuntimeRemote {
 				target.serverName = componentServer.Name
 				target.url = cmp.Or(componentConfig.URL, component.Spec.Manifest.RemoteConfig.URL)
+				target.preconfigured = componentConfig.OAuthGrant != nil
 			}
 		}
 		targets = append(targets, target)

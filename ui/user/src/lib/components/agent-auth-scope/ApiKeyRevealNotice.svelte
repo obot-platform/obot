@@ -18,16 +18,16 @@
 		<div class="flex items-start gap-3">
 			<TriangleAlert class="size-5 shrink-0" />
 			<div class="flex flex-col gap-1">
-				<p class="text-sm font-medium">{m.identity_access_agents_save_this_key_now()}</p>
+				<p class="text-sm font-medium">{m.identity_access_api_keys_save_this_key_now()}</p>
 				<p class="text-xs font-light">
-					{m.identity_access_agents_api_key_only_time()}
+					{m.identity_access_api_keys_api_key_only_time()}
 				</p>
 			</div>
 		</div>
 	</div>
 
 	<label class="flex flex-col gap-2" for={id}>
-		<span class="text-sm font-medium">{m.identity_access_agents_your_api_key()}</span>
+		<span class="text-sm font-medium">{m.identity_access_api_keys_your_api_key()}</span>
 		<CopyField value={keyValue} {id}>
 			{#snippet preContent()}
 				<KeyRound class="text-muted-content size-4 shrink-0" />

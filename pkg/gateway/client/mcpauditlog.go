@@ -14,6 +14,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auditlog"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -81,11 +82,17 @@ var (
 	// auditLogUnifiedFilterOptionExpr maps a source-agnostic UI filter key to the SQL expression that
 	// yields its per-row value, so distinct options can be gathered across both sources in one query.
 	auditLogUnifiedFilterOptionExpr = map[string]string{
-		"actor":      "CASE WHEN COALESCE(device_id, '') <> '' THEN device_id ELSE user_id END",
+		// An agent's rows have no user_id, so its option is its storage encoding.
+		"actor": "CASE WHEN COALESCE(device_id, '') <> '' THEN device_id ELSE " + ownerExpr + " END",
+		// The actor_kind options are those of the principals the rows are attributed to.
+		"actor_kind": "principal_kind",
 		"operation":  "CASE WHEN source_type = 'local_agent_tool_call' THEN 'tools/call' ELSE call_type END",
 		"mcp_server": "CASE WHEN source_type = 'local_agent_tool_call' THEN target_parent_name ELSE mcp_server_display_name END",
 		"tool":       "CASE WHEN source_type = 'local_agent_tool_call' THEN action_name ELSE call_identifier END",
 		"client":     "CASE WHEN source_type = 'local_agent_tool_call' THEN agent_provider ELSE client_name END",
+
+		// The users agents acted for. Every other row has none, and the empty value is never an option.
+		"on_behalf_of": "on_behalf_of",
 	}
 
 	localAgentFilterOptionColumns = map[string]string{
@@ -110,8 +117,17 @@ type MCPAuditLogOptions struct {
 	PowerUserWorkspaceID []string
 	OwnServerMCPIDs      []string
 	// APIKeyID, UserID, SessionID, and ClientIP are common filters shared by both sources.
-	APIKeyID  []uint
-	UserID    []string
+	APIKeyID []uint
+	// UserID matches the user or the agent that made the call. A value is a user's ID, or "agent:<id>" for an agent.
+	UserID []string
+	// IncludeOnBehalfOf makes the users in UserID and Actor also match the calls agents made on their behalf.
+	IncludeOnBehalfOf bool
+	// OnBehalfOf matches the calls that agents made on behalf of any of these users, by ID. Like every other filter,
+	// it narrows the others: with an agent in UserID or Actor, it selects that agent's calls for these users.
+	OnBehalfOf []string
+	// ActorKind matches the kind of principal that made the call, "user" or "agent". Rows of a deleted agent still
+	// match.
+	ActorKind []string
 	SessionID []string
 	ClientIP  []string
 	// ProcessingTimeMin and ProcessingTimeMax filter the normalized duration field, using MCP
@@ -139,7 +155,7 @@ type MCPAuditLogOptions struct {
 
 	// Unified, source-agnostic filters used by the audit log UI.
 	//
-	//   Actor     matches user_id OR device_id (users and enrolled devices).
+	//   Actor     matches user_id, device_id OR an agent as "agent:<id>" (users, enrolled devices and agents).
 	//   Operation matches MCP call_type; local-agent rows have the implicit operation tools/call.
 	//   MCPServer matches MCP mcp_id/mcp_server_display_name, or a local-agent row's MCP parent.
 	//   Tool      matches MCP call_identifier or a local-agent action_name.
@@ -177,6 +193,10 @@ type MCPUsageStatsOptions struct {
 	MCPServerCatalogEntryNames []string
 	StartTime                  time.Time
 	EndTime                    time.Time
+	// IncludeOnBehalfOf makes the users in UserIDs also match the calls agents made on their behalf.
+	IncludeOnBehalfOf bool
+	// OnBehalfOf counts only the calls that agents made on behalf of any of these users, by ID.
+	OnBehalfOf []string
 }
 
 func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
@@ -236,8 +256,14 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 			// Find and lock the pending request from the same proxied HTTP exchange.
 			// Legacy cross-request responses do not have an exchange ID, so they
 			// continue to use protocol session metadata as a fallback.
-			query := tx.Where("request_id = ? AND mcp_id = ? AND user_id = ? AND response_received = ? AND source_type = ?",
-				responseMCP.RequestID, responseMCP.MCPID, responseLog.UserID, false, types2.AuditLogSourceTypeMCP)
+			query := tx.Where("request_id = ? AND mcp_id = ? AND response_received = ? AND source_type = ?",
+				responseMCP.RequestID, responseMCP.MCPID, false, types2.AuditLogSourceTypeMCP)
+			if principal.IsAgentKind(responseLog.PrincipalKind) {
+				// An agent's rows have no user ID to tell them apart.
+				query = query.Where("principal_kind = ? AND principal_id = ?", responseLog.PrincipalKind, responseLog.PrincipalID)
+			} else {
+				query = query.Where("user_id = ?", responseLog.UserID)
+			}
 			if responseMCP.ProxyExchangeID != "" {
 				query = query.Where("proxy_exchange_id = ?", responseMCP.ProxyExchangeID)
 			} else if responseMCP.SessionID == "" {
@@ -284,7 +310,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				if len(responseMCP.WebhookStatuses) > 0 {
 					updates["webhook_statuses"] = append(existingMCP.WebhookStatuses, responseMCP.WebhookStatuses...)
 				}
-				if existingLog.UserID == "" {
+				if existingLog.UserID == "" && !principal.IsAgentKind(existingLog.PrincipalKind) {
 					updates["user_id"] = responseLog.UserID
 				}
 				if existingLog.ClientIP == "" {
@@ -421,6 +447,9 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	if err := c.enrichMCPAuditLogAPIKeyRevocation(ctx, logs); err != nil {
 		return nil, 0, err
 	}
+	if err := c.enrichMCPAuditLogAgentNames(ctx, logs); err != nil {
+		return nil, 0, err
+	}
 	if err := c.prepareAuditLogPayloads(ctx, logs, opts.WithRequestAndResponse); err != nil {
 		return nil, 0, err
 	}
@@ -514,9 +543,9 @@ func applySharedAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
 	if len(opts.APIKeyID) > 0 {
 		db = db.Where("api_key_id IN ?", opts.APIKeyID)
 	}
-	if len(opts.UserID) > 0 {
-		db = db.Where("user_id IN ?", opts.UserID)
-	}
+	db = applyOwnerFilter(db, opts.UserID, opts.IncludeOnBehalfOf)
+	db = applyOnBehalfOfFilter(db, opts.OnBehalfOf)
+	db = applyActorFilters(db, opts.ActorKind)
 	if len(opts.SessionID) > 0 {
 		db = db.Where("session_id IN ?", opts.SessionID)
 	}
@@ -574,9 +603,11 @@ func applyLocalAgentAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.
 // for MCP rows and for local-agent rows, making the filters safe on mixed-source queries. These are
 // additive to the source-specific filters; the export path uses the source-specific fields instead.
 func applyUnifiedAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
-	// Actor: an Obot user (user_id, both sources) or an enrolled device (device_id, local-agent).
+	// Actor: an Obot user (user_id, both sources), an agent ("agent:<id>") or an enrolled device (device_id, local-agent).
 	if len(opts.Actor) > 0 {
-		db = db.Where("(user_id IN ? OR device_id IN ?)", opts.Actor, opts.Actor)
+		if condition, args, ok := ownerFilter(opts.Actor, opts.IncludeOnBehalfOf); ok {
+			db = db.Where("("+condition+" OR device_id IN ?)", append(args, opts.Actor)...)
+		}
 	}
 	// Operation: MCP call_type; local-agent tool calls have the implicit operation "tools/call".
 	if len(opts.Operation) > 0 {
@@ -681,8 +712,8 @@ func (c *Client) applyAuditLogSearch(ctx context.Context, db *gorm.DB, queryValu
 		"action_kind", "target_name", "target_parent_name", "tool_use_id", "turn_id", "device_id", "os", "architecture",
 		"model", "model_id", "permission_mode", "git_commit",
 	}
-	parts := []string{"user_id IN ?"}
-	args := []any{userIDs}
+	parts := []string{"user_id IN ?", agentDisplayNameCondition(like)}
+	args := []any{userIDs, "%" + queryValue + "%"}
 	for _, column := range columns {
 		parts = append(parts, column+" "+like+" ?")
 		args = append(args, "%"+queryValue+"%")
@@ -803,6 +834,9 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	}
 	logs := []types.MCPAuditLog{log}
 	if err := c.enrichMCPAuditLogAPIKeyRevocation(ctx, logs); err != nil {
+		return nil, err
+	}
+	if err := c.enrichMCPAuditLogAgentNames(ctx, logs); err != nil {
 		return nil, err
 	}
 	log = logs[0]
@@ -1044,7 +1078,12 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 	// Get basic stats for each server
 	if err := c.db.WithContext(ctx).Transaction(func(base *gorm.DB) error {
 		base = base.Model(&types.MCPAuditLog{}).Where("source_type = ?", types2.AuditLogSourceTypeMCP).Session(&gorm.Session{})
-		tx := base.Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime)
+		// The principals asked for, and the users agents acted for, narrow the totals and each server's breakdown
+		// alike, so that a server's tool calls are those of the principals the stats are for.
+		principals := func(db *gorm.DB) *gorm.DB {
+			return applyOnBehalfOfFilter(applyOwnerFilter(db, opts.UserIDs, opts.IncludeOnBehalfOf), opts.OnBehalfOf)
+		}
+		tx := principals(base.Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime))
 
 		if opts.MCPID != "" {
 			tx = tx.Where("mcp_id = ?", opts.MCPID)
@@ -1065,9 +1104,6 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			tx = tx.Where(strings.Join(conditions, " OR "), args...)
 		}
-		if len(opts.UserIDs) > 0 {
-			tx = tx.Where("user_id IN (?)", opts.UserIDs)
-		}
 		if len(opts.MCPServerDisplayNames) > 0 {
 			tx = tx.Where("mcp_server_display_name IN (?)", opts.MCPServerDisplayNames)
 		}
@@ -1081,7 +1117,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 			MCPServerCatalogEntryName string
 		}
 
-		if err := tx.Select("COUNT(*) AS total_calls, COUNT(DISTINCT user_id) AS unique_users").Scan(&callsAndUsers).Error; err != nil {
+		if err := tx.Select("COUNT(*) AS total_calls, COUNT(DISTINCT " + ownerExpr + ") AS unique_users").Scan(&callsAndUsers).Error; err != nil {
 			return err
 		}
 
@@ -1104,8 +1140,8 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			// Get tool call items and build stats from them
 			var toolItems []types.MCPToolCallStatsItem
-			if err := base.
-				Select("call_identifier as tool_name, created_at, user_id, processing_time_ms, response_status, error").
+			if err := principals(base).
+				Select("call_identifier as tool_name, created_at, user_id, principal_kind, principal_id, on_behalf_of, processing_time_ms, response_status, error").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "tools/call", opts.StartTime, opts.EndTime).
 				Where("call_identifier != ''").
@@ -1131,7 +1167,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			// Get resource read breakdown for this server
 			var resourceStats []types.MCPResourceReadStats
-			if err := base.
+			if err := principals(base).
 				Select("call_identifier as resource_uri, COUNT(*) as read_count").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "resources/read", opts.StartTime, opts.EndTime).
@@ -1143,7 +1179,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			// Get prompt read breakdown for this server
 			var promptStats []types.MCPPromptReadStats
-			if err := base.
+			if err := principals(base).
 				Select("call_identifier as prompt_name, COUNT(*) as read_count").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "prompts/get", opts.StartTime, opts.EndTime).

@@ -91,6 +91,9 @@ func TestMMMCPConfigTreatsVMCPAsAggregate(t *testing.T) {
 		"X-Obot-User-Email",
 		"X-Obot-IDP-User-Id",
 		"X-Obot-IDP-Groups",
+		"X-Obot-On-Behalf-Of-User-Id",
+		"X-Obot-On-Behalf-Of-User-Name",
+		"X-Obot-On-Behalf-Of-User-Email",
 	}
 	if !slices.Equal(server.PassthroughHeaders, wantPassthrough) {
 		t.Fatalf("vMCP passthrough headers = %#v, want configured and trusted attribution headers", server.PassthroughHeaders)

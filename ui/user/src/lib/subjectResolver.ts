@@ -7,10 +7,22 @@ import {
 	type OrgUser,
 	type Profile
 } from '$lib/services';
-import { getUserDisplayName, isDisabledUser } from '$lib/utils';
+import {
+	agentActorValue,
+	agentDisplayName,
+	type AgentIdentity,
+	type AgentLookup
+} from '$lib/services/agent-identities';
+import { getUserDisplayName, getUserRoleLabel, isDisabledUser } from '$lib/utils';
 
 const EVERYONE_SUBJECT_ID = '*';
 export const OBOT_ADMIN_PICKER_ID = 'obot-admin';
+
+// agentPickerId keeps an agent apart from a user: both have decimal IDs, so "5" can be either. It is
+// the same "agent:<id>" the audit and usage APIs use.
+function agentPickerId(agentId: string): string {
+	return agentActorValue(agentId);
+}
 
 export function resolveSubjectFromGroup(group: OrgGroup): AccessControlRuleSubject {
 	if (group.id === EVERYONE_SUBJECT_ID) {
@@ -28,7 +40,126 @@ export function resolveSubjectPickerById(
 	if (subject.type === 'obotGroup' && subject.id === Group.ADMIN) {
 		return OBOT_ADMIN_PICKER_ID;
 	}
+	if (subject.type === 'agent') {
+		return agentPickerId(subject.id);
+	}
 	return subject.id;
+}
+
+// subjectsFromPicker turns what the picker returned into subjects, leaving out those already added.
+export function subjectsFromPicker(
+	existingPickerIds: Iterable<string>,
+	users: OrgUser[],
+	groups: OrgGroup[],
+	agents: AgentIdentity[] = []
+): AccessControlRuleSubject[] {
+	const existing = new Set(existingPickerIds);
+	return [
+		...users
+			.filter((user) => !existing.has(user.id))
+			.map((user): AccessControlRuleSubject => ({ type: 'user', id: user.id })),
+		...groups.filter((group) => !existing.has(group.id)).map(resolveSubjectFromGroup),
+		...agents
+			.filter((agent) => !existing.has(agentPickerId(agent.id)))
+			.map((agent): AccessControlRuleSubject => ({ type: 'agent', id: agent.id }))
+	];
+}
+
+// hasNamedAgent is true when a subject names an agent, which then needs a name to be shown.
+export function hasNamedAgent(subjects: AccessControlRuleSubject[] | undefined): boolean {
+	return subjects?.some((s) => s.type === 'agent') ?? false;
+}
+
+// agentLookupWith adds agents, such as those just picked, to a lookup of agent names.
+export function agentLookupWith(
+	lookup: Map<string, AgentLookup> | undefined,
+	agents: AgentIdentity[]
+): Map<string, AgentLookup> {
+	return new Map([...(lookup ?? []), ...agents.map((a): [string, AgentLookup] => [a.id, a])]);
+}
+
+// isEveryonePickerId is true for the picker ID of "All Obot Users" ({selector, "*"}).
+export function isEveryonePickerId(pickerId: string): boolean {
+	return pickerId === EVERYONE_SUBJECT_ID;
+}
+
+// isAgentPickerId is true for the picker ID of an agent (agentPickerId).
+export function isAgentPickerId(pickerId: string): boolean {
+	return pickerId.startsWith(agentPickerId(''));
+}
+
+// One row of a subject picker. key is the picker ID (see resolveSubjectPickerById), unique across
+// kinds: a user and an agent can share a decimal ID.
+export interface SubjectPickerOption {
+	key: string;
+	label: string;
+	// The kind of row: a user's role, Group or Agent.
+	kind: string;
+	subject: AccessControlRuleSubject;
+	user?: OrgUser;
+	group?: OrgGroup;
+	agent?: AgentIdentity;
+}
+
+// subjectPickerOptions builds the rows a subject picker offers for a query: All Obot Users, the Obot
+// Admin group, the groups (searched by the caller, as the directory pages them), and the active agents
+// and enabled users that match. Those already added are left out.
+export function subjectPickerOptions(opts: {
+	users: OrgUser[];
+	groups: OrgGroup[];
+	agents?: AgentIdentity[];
+	query: string;
+	// offerAgents offers the active agents, one by one, since All Obot Users never includes an agent.
+	offerAgents: boolean;
+	offerObotAdmin: boolean;
+	existingPickerIds: Iterable<string>;
+}): SubjectPickerOption[] {
+	const query = opts.query.trim().toLowerCase();
+	const matches = (...values: (string | undefined)[]) =>
+		!query || values.some((value) => (value ?? '').toLowerCase().includes(query));
+	const specialGroups: OrgGroup[] = [
+		{ id: EVERYONE_SUBJECT_ID, name: m.core_all_obot_users() },
+		...(opts.offerObotAdmin
+			? [{ id: OBOT_ADMIN_PICKER_ID, name: m.identity_access_users_obot_admin() }]
+			: [])
+	].filter((group) => matches(group.name));
+	// Disabled users cannot sign in and disabled agents cannot connect, so neither is offered.
+	const users = opts.users.filter(
+		(user) => !isDisabledUser(user) && matches(user.displayName, user.email, user.username)
+	);
+	const agents = opts.offerAgents
+		? (opts.agents ?? []).filter((agent) => agent.status === 'active' && matches(agent.displayName))
+		: [];
+	const existing = new Set(opts.existingPickerIds);
+	return [
+		...[...specialGroups, ...opts.groups].map(
+			(group): SubjectPickerOption => ({
+				key: group.id,
+				label: group.name,
+				kind: m.core_col_group(),
+				subject: resolveSubjectFromGroup(group),
+				group
+			})
+		),
+		...agents.map(
+			(agent): SubjectPickerOption => ({
+				key: agentPickerId(agent.id),
+				label: agent.displayName,
+				kind: m.core_col_agent(),
+				subject: { type: 'agent', id: agent.id },
+				agent
+			})
+		),
+		...users.map(
+			(user): SubjectPickerOption => ({
+				key: user.id,
+				label: user.displayName ?? user.email ?? user.username ?? user.id,
+				kind: user.effectiveRole ? getUserRoleLabel(user.effectiveRole) : m.core_col_user(),
+				subject: { type: 'user', id: user.id },
+				user
+			})
+		)
+	].filter((option) => !existing.has(option.key));
 }
 
 export function obotGroupDisplayName(id: string): string {
@@ -41,6 +172,8 @@ export interface SubjectTableRow {
 	type: string;
 	/** Set for a user who is disabled. */
 	disabled?: boolean;
+	/** Set for an agent, which is shown with a badge. */
+	agent?: boolean;
 }
 
 export interface ResolvedSubjects {
@@ -103,10 +236,16 @@ export async function resolveSubjects(
 	return resolved;
 }
 
+export interface SubjectTableOptions {
+	/** Agents by ID, to name agent subjects. */
+	agents?: Map<string, AgentLookup>;
+}
+
 export function convertSubjectsToTableData(
 	subjects: AccessControlRuleSubject[],
 	users: OrgUser[],
-	groups: OrgGroup[]
+	groups: OrgGroup[],
+	options: SubjectTableOptions = {}
 ): SubjectTableRow[] {
 	const userMap = new Map(users?.map((user) => [user.id, user]));
 	const groupMap = new Map(groups?.map((group) => [group.id, group]));
@@ -114,6 +253,17 @@ export function convertSubjectsToTableData(
 	return (
 		subjects
 			.map((subject): SubjectTableRow | undefined => {
+				// A deleted agent keeps its subjects in policies but matches nobody, so it is marked; an
+				// agent that is not known (the lookup is admin-only) shows its ID.
+				if (subject.type === 'agent') {
+					return {
+						id: resolveSubjectPickerById(subject),
+						displayName: agentDisplayName(options.agents, subject.id),
+						type: m.core_col_agent(),
+						agent: true
+					};
+				}
+
 				if (subject.type === 'user') {
 					return {
 						id: subject.id,

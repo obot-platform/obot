@@ -6,6 +6,7 @@ import (
 	"uuid"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 )
@@ -61,6 +62,16 @@ func StaticConfigurationCredentialContext(vmcpID string) string {
 // InstanceConfigurationCredentialContext scopes user configuration to a VMCP instance.
 func InstanceConfigurationCredentialContext(instanceID string) string {
 	return "vmcp-instance/" + instanceID
+}
+
+// InstanceTakesUserConfiguration reports whether the configuration credential of instance
+// (InstanceConfigurationCredentialContext) is read for its component servers and connections: a user's holds the
+// values the user entered, and the instance of a user's setup through an agent (PairOwner) the values the user entered
+// through the agent. An agent never enters configuration and is given only values fixed for everyone, by the vMCP or
+// the catalog entry, so an agent's own is never read, whatever is stored there.
+func InstanceTakesUserConfiguration(instance v1.VMCPInstance) bool {
+	_, agent := principal.ParseAgent(instance.Spec.UserID)
+	return !agent
 }
 
 // ConfigurationKey qualifies a configuration key with its VMCP component ID.
@@ -193,4 +204,28 @@ func ValidateAndEncodeUserConfiguration(manifest types.VMCPManifest, configurati
 		}
 	}
 	return result, nil
+}
+
+// ComponentServerConfiguration returns the configuration a component's server is given, by plain key: the vMCP's
+// fixed values (staticConfiguration, keyed by ConfigurationKey) for its fixed keys, and the connection's own values
+// (userConfiguration, likewise keyed) for its user-allowed keys, which an agent's connection never has: nothing enters
+// configuration for an agent.
+func ComponentServerConfiguration(component types.VMCPComponent, staticConfiguration, userConfiguration map[string]string) map[string]string {
+	configuration := make(map[string]string)
+	for _, policy := range component.Configuration {
+		var source map[string]string
+		switch policy.Policy {
+		case types.VMCPConfigurationPolicyFixed:
+			source = staticConfiguration
+		case types.VMCPConfigurationPolicyUserAllowed:
+			source = userConfiguration
+		default:
+			continue
+		}
+
+		if value, ok := source[ConfigurationKey(component.ID, policy.Key)]; ok {
+			configuration[policy.Key] = value
+		}
+	}
+	return configuration
 }

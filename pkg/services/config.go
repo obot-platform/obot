@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/agentdelegation"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -69,6 +70,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/upgrade"
+	"github.com/obot-platform/obot/pkg/vmcp"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -211,6 +213,16 @@ type Services struct {
 	DefaultSkillRepoRef         string
 	// EgressAuditLogRetentionDays is how long egress audit logs are kept. 0 keeps them forever.
 	EgressAuditLogRetentionDays int
+
+	// VMCPPreconfiguredOAuth stores the OAuth grants that administrators preconfigure for the remote components of
+	// shared vMCPs, one per component, outside the manifest, which every user and agent of the vMCP uses for the
+	// component. The vMCP controller deletes a component's grant when the component is removed, and every grant of a
+	// vMCP being deleted.
+	VMCPPreconfiguredOAuth *vmcp.PreconfiguredOAuthStore
+
+	// AgentDelegationCleanup removes what users set up through agents when a delegation is revoked, and when an agent
+	// or a user is deleted.
+	AgentDelegationCleanup agentdelegation.Cleanup
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -679,6 +691,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		postgresDSN = config.DSN
 	}
 
+	// The token service issues and authenticates tokens for agents as for users.
 	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
@@ -789,6 +802,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
+	vmcpPreconfiguredOAuth := vmcp.NewPreconfiguredOAuthStore(gatewayClient)
+	mcpSessionManager.SetPreconfiguredOAuth(vmcpPreconfiguredOAuth)
+	// Grants of components whose URL comes from the vMCP's fixed configuration are bound to the URL it resolves to.
+	vmcpPreconfiguredOAuth.SetComponentTargets(mcpSessionManager)
+	// Grants the vMCP controller deletes with a removed component or vMCP are audited as the system's.
+	vmcpPreconfiguredOAuth.SetGrantRemovalRecorder(func(ctx context.Context, vmcpID, componentID, reason string) {
+		gatewayClient.RecordAdminAuditEvent(ctx, client.AdminAuditEventInput{
+			Actor:        types.AdminAuditActorSystem,
+			Action:       types.AdminAuditActionVMCPPreconfiguredOAuthDelete,
+			ResourceKind: types.AdminAuditResourceVMCP,
+			ResourceID:   vmcpID,
+			Details:      map[string]any{"componentID": componentID, "reason": reason},
+		})
+	})
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
 	if err != nil {
@@ -857,78 +884,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	if err = skillAccessRuleInformer.AddIndexers(map[string]gocache.IndexFunc{
-		skillaccessrule.SkillIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.SkillResourceTypeSkill {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.RepositoryIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.SkillResourceTypeSkillRepository {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.ResourceSelectorIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.SkillResourceTypeSelector {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.UserIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == apiclienttypes.SubjectTypeUser {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.GroupIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == apiclienttypes.SubjectTypeGroup {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.ObotGroupIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == apiclienttypes.SubjectTypeObotGroup {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.SubjectSelectorIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == apiclienttypes.SubjectTypeSelector {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-	}); err != nil {
+	if err = skillAccessRuleInformer.AddIndexers(skillaccessrule.Indexers()); err != nil {
 		return nil, err
 	}
 
@@ -1025,8 +981,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayOpts := gserver.Options(config.GatewayConfig)
-	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
+	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -1079,6 +1034,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// non-user principals, so they must come after the UserDecorator.
 		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
 		authenticators = union.New(authenticators, gserver.NewDeviceAuthenticator(gatewayClient))
+		// Tokens with which an agent acts on behalf of a user, on the routes that accept them only. It runs ahead of
+		// the token service, which refuses those tokens everywhere.
+		authenticators = union.New(authenticators, gserver.NewDelegatedTokenAuthenticator(gatewayClient, persistentTokenServer))
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add bootstrap auth
@@ -1112,13 +1070,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			}
 		}
 	} else {
-		// "Authentication Disabled" flow
+		// "Authentication Disabled" flow. Every request that no credential below authenticates is the "nobody" owner's.
+		// Agents are supported as when authentication is enabled: an agent authenticates with its API key, or with a
+		// token the token service issued it, as its agent and with the agent's restrictions. Users' API keys are not
+		// checked here; a request with one is the "nobody" owner's, as any other request is.
 
 		// Add gateway user info if token auth worked
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient, entitlementProvider)
 
 		// Tunnel authenticator
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
+
+		// Tokens with which an agent acts on behalf of a user, on the routes that accept them only, ahead of the token
+		// service, which refuses them everywhere. A refused one never reaches the "nobody" owner (see WithNoAuth).
+		authenticators = union.New(authenticators, gserver.NewDelegatedTokenAuthenticator(gatewayClient, persistentTokenServer))
 
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
@@ -1128,8 +1093,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
 		authenticators = union.New(authenticators, gserver.NewDeviceAuthenticator(gatewayClient))
 
-		// Add no auth authenticator
-		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
+		// Add no auth authenticator. Agents' credentials fail closed ahead of it: a refused agent API key or token is
+		// never the "nobody" owner's (see WithNoAuth).
+		authenticators = gserver.WithNoAuth(authenticators, gatewayClient, persistentTokenServer)
 	}
 
 	// Bridge requests use a non-user principal and can also carry the remote
@@ -1237,6 +1203,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProviderRegistryPaths:        config.ProviderRegistries,
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
+		VMCPPreconfiguredOAuth:       vmcpPreconfiguredOAuth,
+		AgentDelegationCleanup:       vmcp.NewDelegatedSetupCleanup(storageClient, gatewayClient),
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,

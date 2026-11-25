@@ -125,7 +125,6 @@
 					entityId={filter.id}
 					serverId={filter.id}
 					readonly={profile.current.isAdminReadonly?.()}
-					connectedUsers={[]}
 					k8sOverrides={{
 						title: m.core_details(),
 						classes: {

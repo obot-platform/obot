@@ -2,12 +2,15 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"testing"
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -25,7 +28,7 @@ func TestCreateAPIKeyScopedToVMCP(t *testing.T) {
 			ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodPost, "/api/api-keys", createAPIKeyRequest{
 				Name:         "vMCP key",
 				MCPServerIDs: []string{vmcp.Name},
-			}, &user.DefaultInfo{UID: "7", Extra: map[string][]string{"obot_groups": {"team"}}})
+			}, principaltest.AsUser(&user.DefaultInfo{UID: "7", Extra: map[string][]string{"obot_groups": {"team"}}}))
 			ctx.Storage = fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp).Build()
 			err := s.createAPIKey(ctx)
 			if (err == nil) != allowed {
@@ -45,7 +48,7 @@ func TestDeleteAPIKeyEndpointRevokesAndRetainsTheKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	userInfo := &user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}}
+	userInfo := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}})
 	ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodDelete, "/api/api-keys/"+strconv.FormatUint(uint64(created.ID), 10), nil, userInfo)
 	ctx.SetPathValue("id", strconv.FormatUint(uint64(created.ID), 10))
 	if err := s.revokeAPIKey(ctx); err != nil {
@@ -95,6 +98,84 @@ func TestAdminDeleteAPIKeyEndpointRevokesAndRetainsTheKey(t *testing.T) {
 	}
 }
 
+func TestAdminAPIKeyListFiltersByOwnerKind(t *testing.T) {
+	s, gatewayClient := newTokenRequestTestServer(t)
+	userKey, err := gatewayClient.CreateAPIKey(t.Context(), 7, "user key", "", nil, types.APIKeyScopes{CanAccessAPI: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent, err := gatewayClient.CreateAgent(t.Context(), types.Agent{DisplayName: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentKey, err := gatewayClient.CreateAgentAPIKey(t.Context(), agent.ID, types.AgentAPIKeyCreateRequest{Name: "agent key", MCPServerIDs: []string{"*"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	userInfo := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}})
+	for _, tt := range []struct {
+		name       string
+		path       string
+		wantKeyIDs []uint
+		wantStatus int
+	}{
+		{
+			name:       "no kind lists every key",
+			path:       "/api/admin-api-keys",
+			wantKeyIDs: []uint{userKey.ID, agentKey.ID},
+		},
+		{
+			name:       "user kind",
+			path:       "/api/admin-api-keys?kind=user",
+			wantKeyIDs: []uint{userKey.ID},
+		},
+		{
+			name:       "agent kind",
+			path:       "/api/admin-api-keys?kind=agent",
+			wantKeyIDs: []uint{agentKey.ID},
+		},
+		{
+			name:       "invalid kind",
+			path:       "/api/admin-api-keys?kind=device",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "empty kind",
+			path:       "/api/admin-api-keys?kind=",
+			wantStatus: http.StatusBadRequest,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodGet, tt.path, nil, userInfo)
+			err := s.listAllAPIKeys(ctx)
+			if tt.wantStatus != 0 {
+				var httpErr *clienttypes.ErrHTTP
+				if !errors.As(err, &httpErr) || httpErr.Code != tt.wantStatus {
+					t.Fatalf("err = %v, want HTTP %d", err, tt.wantStatus)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var response struct {
+				Items []types.APIKey `json:"items"`
+			}
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+			var gotKeyIDs []uint
+			for _, key := range response.Items {
+				gotKeyIDs = append(gotKeyIDs, key.ID)
+			}
+			if !slices.Equal(slices.Sorted(slices.Values(gotKeyIDs)), slices.Sorted(slices.Values(tt.wantKeyIDs))) {
+				t.Fatalf("key IDs = %v, want %v", gotKeyIDs, tt.wantKeyIDs)
+			}
+		})
+	}
+}
+
 func TestAPIKeyListEndpointsHideRevokedKeysUnlessRequested(t *testing.T) {
 	s, gatewayClient := newTokenRequestTestServer(t)
 	active, err := gatewayClient.CreateAPIKey(t.Context(), 7, "active", "", nil, types.APIKeyScopes{CanAccessAPI: true})
@@ -109,7 +190,7 @@ func TestAPIKeyListEndpointsHideRevokedKeysUnlessRequested(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	userInfo := &user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}}
+	userInfo := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}})
 	for _, tt := range []struct {
 		name         string
 		path         string

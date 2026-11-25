@@ -1,10 +1,13 @@
 package skillaccessrule
 
 import (
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
@@ -18,10 +21,10 @@ type ruleOpt func(*v1.SkillAccessRule)
 
 func TestGetSkillAccessRulesForSkillFiltersDeletedAndNamespace(t *testing.T) {
 	helper := newTestHelper(t,
-		newRule("match", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
-		newRule("deleted", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}, withDeletedTimestamp()),
-		newRule("other-namespace", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}, withNamespace("other")),
-		newRule("other-skill", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk2"}}),
+		newRule("match", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
+		newRule("deleted", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}, withDeletedTimestamp()),
+		newRule("other-namespace", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}, withNamespace("other")),
+		newRule("other-skill", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk2"}}),
 	)
 
 	rules, err := helper.GetSkillAccessRulesForSkill(system.DefaultNamespace, "sk1")
@@ -46,7 +49,7 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 				newRule("rule1", []types.Subject{
 					{
 						Type: types.SubjectTypeUser,
-						ID:   "user1",
+						ID:   "1",
 					},
 				}, []types.SkillResource{
 					{
@@ -122,7 +125,7 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 				newRule("rule1", []types.Subject{
 					{
 						Type: types.SubjectTypeUser,
-						ID:   "user1",
+						ID:   "1",
 					},
 				}, []types.SkillResource{
 					{
@@ -171,7 +174,7 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 				newRule("rule2", []types.Subject{
 					{
 						Type: types.SubjectTypeUser,
-						ID:   "user1",
+						ID:   "1",
 					},
 				}, []types.SkillResource{
 					{
@@ -204,7 +207,7 @@ func TestUserHasAccessToSkillID(t *testing.T) {
 
 func TestUserHasAccessToSkillUsesSkillObject(t *testing.T) {
 	helper := newTestHelper(t,
-		newRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
+		newRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
 	)
 
 	hasAccess, err := helper.UserHasAccessToSkill(testUser(), &v1.Skill{
@@ -218,7 +221,7 @@ func TestUserHasAccessToSkillUsesSkillObject(t *testing.T) {
 func TestGetUserSkillAccessScopeAggregatesAndDeduplicates(t *testing.T) {
 	helper := newTestHelper(t,
 		newRule("wildcard-subject", []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-global"}}),
-		newRule("user-rule", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk-user"}}),
+		newRule("user-rule", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk-user"}}),
 		newRule("group-rule", []types.Subject{{Type: types.SubjectTypeGroup, ID: "eng"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-group"}}),
 		newRule("duplicate-group-rule", []types.Subject{{Type: types.SubjectTypeGroup, ID: "eng"}}, []types.SkillResource{
 			{Type: types.SkillResourceTypeSkillRepository, ID: "repo-group"},
@@ -243,7 +246,9 @@ func TestObotGroupSubjectGrantsSkillAccess(t *testing.T) {
 	helper := newTestHelper(t,
 		newRule("admin", []types.Subject{{Type: types.SubjectTypeObotGroup, ID: "admin"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
 	)
-	admin := &kuser.DefaultInfo{UID: "user1", Extra: map[string][]string{"obot_groups": {"admin"}}}
+	adminExtra := map[string][]string{"obot_groups": {"admin"}}
+	principal.RecordKind(adminExtra, principal.KindUser)
+	admin := &kuser.DefaultInfo{UID: "1", Extra: adminExtra}
 
 	hasAccess, err := helper.UserHasAccessToSkillID(admin, "sk1", "")
 	require.NoError(t, err)
@@ -273,78 +278,7 @@ func TestGetUserSkillAccessScopeAllowAll(t *testing.T) {
 func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 	t.Helper()
 
-	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
-		SkillIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == types.SkillResourceTypeSkill {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		RepositoryIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == types.SkillResourceTypeSkillRepository {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		ResourceSelectorIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == types.SkillResourceTypeSelector {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		UserIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == types.SubjectTypeUser {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		GroupIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == types.SubjectTypeGroup {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		ObotGroupIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == types.SubjectTypeObotGroup {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		SubjectSelectorIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == types.SubjectTypeSelector {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-	})
+	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, Indexers())
 
 	for _, rule := range rules {
 		require.NoError(t, indexer.Add(rule))
@@ -384,11 +318,98 @@ func withDeletedTimestamp() ruleOpt {
 	}
 }
 
+// testUser returns user 1, in the given auth provider groups, as an authenticator records them.
 func testUser(groups ...string) kuser.Info {
+	extra := map[string][]string{
+		"auth_provider_groups": groups,
+	}
+	principal.RecordKind(extra, principal.KindUser)
 	return &kuser.DefaultInfo{
-		UID: "user1",
-		Extra: map[string][]string{
-			"auth_provider_groups": groups,
+		UID:   "1",
+		Extra: extra,
+	}
+}
+
+// testAgent returns the principal of the agent with id, as its authenticator records it, carrying the given extra
+// values too.
+func testAgent(id uint, extra map[string][]string) kuser.Info {
+	extra = maps.Clone(extra)
+	if extra == nil {
+		extra = map[string][]string{}
+	}
+	principal.RecordKind(extra, principal.KindAgent)
+	uid := principal.Agent(id).String()
+	return &kuser.DefaultInfo{Name: uid, UID: uid, Extra: extra}
+}
+
+// TestAgentSkillAccess checks that agents get skills only through rules that name the agent itself, and never through
+// a rule for every user (*), or user or group subjects, even those of a user with the same numeric ID.
+func TestAgentSkillAccess(t *testing.T) {
+	skill := func(id string) []types.SkillResource {
+		return []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: id}}
+	}
+	helper := newTestHelper(t,
+		newRule("everyone", []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, skill("sk-everyone")),
+		// Neither names anyone: no principal has the ID "*". Validation refuses the agent one.
+		newRule("users", []types.Subject{{Type: types.SubjectTypeUser, ID: "*"}}, skill("sk-users")),
+		newRule("agents", []types.Subject{{Type: types.SubjectTypeAgent, ID: "*"}}, skill("sk-agents")),
+		newRule("user-1", []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, skill("sk-user-1")),
+		newRule("agent-1", []types.Subject{{Type: types.SubjectTypeAgent, ID: "1"}}, skill("sk-agent-1")),
+		newRule("agent-2", []types.Subject{{Type: types.SubjectTypeAgent, ID: "2"}}, skill("sk-agent-2")),
+		newRule("eng", []types.Subject{{Type: types.SubjectTypeGroup, ID: "eng"}}, skill("sk-eng")),
+		newRule("admins", []types.Subject{{Type: types.SubjectTypeObotGroup, ID: "admin"}}, skill("sk-admins")),
+	)
+	groups := map[string][]string{"auth_provider_groups": {"eng"}, "obot_groups": {"admin"}}
+	userExtra := maps.Clone(groups)
+	principal.RecordKind(userExtra, principal.KindUser)
+
+	for _, tt := range []struct {
+		name string
+		user kuser.Info
+		want []string
+	}{
+		{
+			name: "user 1 in groups",
+			user: &kuser.DefaultInfo{UID: "1", Extra: userExtra},
+			want: []string{"sk-admins", "sk-eng", "sk-everyone", "sk-user-1"},
 		},
+		{
+			// A rule for every user grants an agent nothing; only the one that names it does.
+			name: "agent 1 with groups on its user info",
+			user: testAgent(1, groups),
+			want: []string{"sk-agent-1"},
+		},
+		{
+			name: "agent 3, named by no rule",
+			user: testAgent(3, nil),
+		},
+		{
+			name: "a principal without a recorded kind",
+			user: &kuser.DefaultInfo{UID: "1", Extra: groups},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var granted []string
+			for _, id := range []string{"sk-everyone", "sk-users", "sk-agents", "sk-user-1", "sk-agent-1", "sk-agent-2", "sk-eng", "sk-admins"} {
+				ok, err := helper.UserHasAccessToSkillID(tt.user, id, "")
+				require.NoError(t, err)
+				if ok {
+					granted = append(granted, id)
+				}
+			}
+			slices.Sort(granted)
+			assert.Equal(t, tt.want, granted)
+
+			// The scope lists the same rules.
+			allowAll, _, skillIDs, err := helper.GetUserSkillAccessScope(tt.user)
+			require.NoError(t, err)
+			assert.False(t, allowAll)
+			scoped := slices.Sorted(maps.Keys(skillIDs))
+			if len(tt.want) == 0 {
+				assert.Empty(t, scoped)
+			} else {
+				assert.Equal(t, tt.want, scoped)
+			}
+		})
 	}
 }

@@ -144,6 +144,9 @@ type gatewayRequest interface {
 	// cost is what the gateway priced the response at, for the model that served it, if it
 	// priced it.
 	cost() (guardrails.Cost, bool)
+	// budgetOwner is who per-user budgets count the request against: the storage encoding of
+	// the caller's principal (guardrails.Identity.UserID), which admitted its attempts too.
+	budgetOwner() string
 }
 
 type llmProviderProxy struct {
@@ -403,9 +406,11 @@ func (r *llmResponseWriter) recordUsage(usage gatewaytypes.TokenUsage) {
 	r.usage.setTokenUsage(r.model, usage)
 	if r.gateway != nil {
 		_, budgetIDs := r.gateway.served()
-		// Budgets are counted against the owner, like token usage.
-		if err := r.client.RecordLLMGatewayBudgetUsage(context.Background(), budgetIDs, r.user.GetUID(), r.modelID, usage); err != nil {
-			slog.Warn("failed to record LLM gateway budget usage", "userID", r.user.GetUID(), "error", err)
+		// Usage is counted against the principal the budgets admitted the request for, so an
+		// agent and the user with its numeric ID count separately.
+		owner := r.gateway.budgetOwner()
+		if err := r.client.RecordLLMGatewayBudgetUsage(context.Background(), budgetIDs, owner, r.modelID, usage); err != nil {
+			slog.Warn("failed to record LLM gateway budget usage", "userID", owner, "error", err)
 		}
 	}
 }
