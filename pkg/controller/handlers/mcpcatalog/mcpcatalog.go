@@ -30,6 +30,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/version"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -368,6 +369,23 @@ func filterConflictingCatalogEntries(ctx context.Context, c kclient.Client, name
 		if !existing.IsGitManaged() {
 			addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("catalog entry %q conflicts with an Obot-managed entry of the same identity", entry.Spec.Manifest.Name))
 			continue
+		}
+		// Tunnel assignments are operational configuration, not part of the Git source.
+		// Merge them before resolving vMCP snapshots, and revalidate if Git changed the target.
+		if entry.Spec.Manifest.Runtime == types.RuntimeRemote && entry.Spec.Manifest.RemoteConfig != nil &&
+			existing.Spec.Manifest.Runtime == types.RuntimeRemote && existing.Spec.Manifest.RemoteConfig != nil &&
+			existing.Spec.Manifest.RemoteConfig.TunnelName != "" {
+			manifest := entry.Spec.Manifest.DeepCopy()
+			manifest.RemoteConfig.TunnelName = existing.Spec.Manifest.RemoteConfig.TunnelName
+			err := (mcp.RemoteValidator{}).ValidateCatalogConfig(ctx, *manifest)
+			if err == nil {
+				err = tunnel.ValidateCatalogEntryTunnelReferences(ctx, c, *manifest)
+			}
+			if err != nil {
+				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("catalog entry %q: %v", entry.Spec.Manifest.Name, err))
+				continue
+			}
+			entry.Spec.Manifest = *manifest
 		}
 		result = append(result, obj)
 	}
