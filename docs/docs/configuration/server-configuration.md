@@ -264,7 +264,11 @@ The number of days to retain submitted device scans before they are automaticall
 
 ### `OBOT_SERVER_EGRESS_AUDIT_LOG_RETENTION_DAYS` {#obot_server_egress_audit_log_retention_days}
 
-**Experimental.** The number of days to retain [Claude Environments](../claude-environments/overview.md) egress audit records after their last update. Set to `0` to disable automatic cleanup. The admin **Audit Logs** page shows these records on its **Claude Environments** tab, and only members of the auditor group, including administrators, can read request and response bodies and headers.
+**Experimental.** Controls how many days egress audit records are retained after their last update. Set to `0` to disable cleanup. In Helm, set this under `config.OBOT_SERVER_EGRESS_AUDIT_LOG_RETENTION_DAYS`.
+
+The admin Audit Logs page includes a **Claude Environments** tab. Only members of the auditor group can read request/response bodies and headers, including administrators.
+
+See [experimental Claude Environments](../claude-environments/overview.md) for setup, access control, and audit limitations.
 
 **Default:** `90`
 
