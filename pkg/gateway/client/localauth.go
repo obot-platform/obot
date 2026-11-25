@@ -296,13 +296,23 @@ func (c *Client) DeleteLocalAuthUser(ctx context.Context, id uint) error {
 }
 
 // CreateLocalAuthSession records a session for the given user. The ID must be a hash of the
-// token that is handed to the browser, never the token itself.
-func (c *Client) CreateLocalAuthSession(ctx context.Context, id string, userID uint, expiresAt time.Time) error {
-	return c.db.WithContext(ctx).Create(&types.LocalAuthSession{
-		ID:        id,
-		UserID:    userID,
-		ExpiresAt: expiresAt,
-	}).Error
+// token that is handed to the browser, never the token itself. passwordHash is the hash the caller
+// verified the credential against; if the user no longer exists or their password hash has changed
+// since, gorm.ErrRecordNotFound is returned and no session is created.
+func (c *Client) CreateLocalAuthSession(ctx context.Context, id string, userID uint, passwordHash string, expiresAt time.Time) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Lock the row so this cannot interleave with a password reset, password change, or deletion.
+		// Without it a session created from a just-replaced password would survive their session sweep.
+		var user types.LocalAuthUser
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND password_hash = ?", userID, passwordHash).First(&user).Error; err != nil {
+			return err
+		}
+		return tx.Create(&types.LocalAuthSession{
+			ID:        id,
+			UserID:    userID,
+			ExpiresAt: expiresAt,
+		}).Error
+	})
 }
 
 // LocalAuthSession returns the unexpired session with the given ID, along with its user.

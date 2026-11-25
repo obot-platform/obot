@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"gorm.io/gorm"
 )
@@ -156,5 +157,51 @@ func TestOnlyFirstSetupSessionCanCompletePasswordChange(t *testing.T) {
 	}
 	if got.PasswordHash != "first-password-hash" {
 		t.Fatalf("password hash = %q, want first completion's hash", got.PasswordHash)
+	}
+}
+
+// A login reads the password hash, verifies it, and only then creates its session. A reset,
+// password change or deletion that commits in between must leave no usable session behind.
+func TestLocalAuthSessionRequiresTheVerifiedPassword(t *testing.T) {
+	c := newTestClient(t)
+	user, err := c.CreateLocalAuthUser(t.Context(), "user@example.com", "old-password-hash", false)
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+
+	if err := c.SetLocalAuthUserPassword(t.Context(), user.ID, "reset-password-hash", true); err != nil {
+		t.Fatalf("resetting password: %v", err)
+	}
+	afterReset := hash.String("after-reset")
+	if err := c.CreateLocalAuthSession(t.Context(), afterReset, user.ID, "old-password-hash", time.Now().Add(time.Hour)); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("creating session with the replaced password error = %v, want record not found", err)
+	}
+	if _, _, err := c.LocalAuthSession(t.Context(), afterReset); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("session from the replaced password error = %v, want record not found", err)
+	}
+
+	changeSession := hash.String("change-session")
+	if err := c.CreateLocalAuthSession(t.Context(), changeSession, user.ID, "reset-password-hash", time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("creating session with the current password: %v", err)
+	}
+	if err := c.CompleteLocalAuthUserPasswordChange(t.Context(), user.ID, "chosen-password-hash", changeSession); err != nil {
+		t.Fatalf("completing password change: %v", err)
+	}
+	if err := c.CreateLocalAuthSession(t.Context(), hash.String("after-change"), user.ID, "reset-password-hash", time.Now().Add(time.Hour)); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("creating session with the temporary password error = %v, want record not found", err)
+	}
+
+	if err := c.DeleteLocalAuthUser(t.Context(), user.ID); err != nil {
+		t.Fatalf("deleting user: %v", err)
+	}
+	if err := c.CreateLocalAuthSession(t.Context(), hash.String("after-delete"), user.ID, "chosen-password-hash", time.Now().Add(time.Hour)); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("creating session for a deleted user error = %v, want record not found", err)
+	}
+	var count int64
+	if err := c.db.WithContext(t.Context()).Model(new(types.LocalAuthSession)).Where("user_id = ?", user.ID).Count(&count).Error; err != nil {
+		t.Fatalf("counting sessions: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("deleted user has %d sessions, want 0", count)
 	}
 }
