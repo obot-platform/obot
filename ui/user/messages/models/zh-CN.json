@@ -152,6 +152,7 @@
 	"models_providers_optional": "可选",
 	"models_providers_key_weight": "负载均衡权重",
 	"models_providers_key_weight_help": "流量按权重分配到提供商的各个密钥。",
+	"models_providers_key_enable": "启用密钥",
 	"models_providers_desc_openai": "GPT、o 系列、嵌入、图像和音频模型。",
 	"models_providers_desc_anthropic": "Claude 模型。",
 	"models_providers_desc_gemini": "通过 Google AI Studio API 提供的 Gemini 模型。",

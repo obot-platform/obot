@@ -152,6 +152,7 @@
 	"models_providers_optional": "Optional",
 	"models_providers_key_weight": "Load-balancing weight",
 	"models_providers_key_weight_help": "Traffic is split across a provider's keys by weight.",
+	"models_providers_key_enable": "Enable key",
 	"models_providers_desc_openai": "GPT, o-series, embeddings, images and audio models.",
 	"models_providers_desc_anthropic": "Claude models.",
 	"models_providers_desc_gemini": "Gemini models through the Google AI Studio API.",

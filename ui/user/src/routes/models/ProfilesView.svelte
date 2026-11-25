@@ -140,7 +140,7 @@
 </script>
 
 {#if showCreate}
-	<div in:fly|global={{ x: 100, duration }} out:fly|global={{ x: -100, duration }}>
+	<div in:fly|global={{ x: 100, duration }}>
 		<ProfileForm />
 	</div>
 {:else}
