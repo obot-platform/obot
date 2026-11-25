@@ -1218,7 +1218,7 @@ func TestDeliverDisabledEventEndsTheUsersSessions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create local auth user: %v", err)
 	}
-	if err := c.CreateLocalAuthSession(ctx, "session-hash", localUser.ID, time.Now().Add(time.Hour)); err != nil {
+	if err := c.CreateLocalAuthSession(ctx, "session-hash", localUser.ID, localUser.PasswordHash, time.Now().Add(time.Hour)); err != nil {
 		t.Fatalf("failed to create session: %v", err)
 	}
 

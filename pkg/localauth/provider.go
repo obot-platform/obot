@@ -199,8 +199,12 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	p.throttle.succeeded(email)
 
-	token, expiresAt, err := p.StartSession(r.Context(), user.ID)
-	if err != nil {
+	token, expiresAt, err := p.StartSession(r.Context(), user.ID, user.PasswordHash)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// The account was deleted or its password replaced after it was verified.
+		p.loginFailed(w, r, rd, i18n.Text(locale, "local_login_incorrect_credentials"))
+		return
+	} else if err != nil {
 		slog.Error("failed to start local auth session", "error", err)
 		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
 		return
@@ -233,13 +237,15 @@ func (p *Provider) ActivateInitialOwner(ctx context.Context, setupToken string) 
 }
 
 // StartSession creates a session for the local user and returns the token to hand to the browser
-// as its session cookie. Only the token's hash is stored.
-func (p *Provider) StartSession(ctx context.Context, userID uint) (string, time.Time, error) {
+// as its session cookie. Only the token's hash is stored. passwordHash must be the hash the
+// password was verified against: if it has been replaced since, no session is created and the
+// returned error wraps gorm.ErrRecordNotFound.
+func (p *Provider) StartSession(ctx context.Context, userID uint, passwordHash string) (string, time.Time, error) {
 	token, expiresAt, err := newSessionToken()
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	if err := p.gatewayClient.CreateLocalAuthSession(ctx, hash.String(token), userID, expiresAt); err != nil {
+	if err := p.gatewayClient.CreateLocalAuthSession(ctx, hash.String(token), userID, passwordHash, expiresAt); err != nil {
 		return "", time.Time{}, fmt.Errorf("failed to create local auth session: %w", err)
 	}
 	return token, expiresAt, nil

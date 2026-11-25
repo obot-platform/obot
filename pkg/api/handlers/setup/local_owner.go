@@ -89,7 +89,7 @@ func (h *Handler) CreateLocalOwner(req api.Context) error {
 		return err
 	}
 
-	token, expiresAt, err := h.localAuth.StartSession(req.Context(), localUser.ID)
+	token, expiresAt, err := h.localAuth.StartSession(req.Context(), localUser.ID, localUser.PasswordHash)
 	if err != nil {
 		slog.Warn("Failed to start a session for the new local owner; sending them to sign in", "userID", user.ID, "error", err)
 		return h.writeLocalOwnerSignIn(req, localUser.Email)

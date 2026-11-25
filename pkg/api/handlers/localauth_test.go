@@ -316,7 +316,7 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 						}
 					}
 					sessionID := hash.String("target-session")
-					require.NoError(t, f.gateway.CreateLocalAuthSession(t.Context(), sessionID, localUser.ID, time.Now().Add(time.Hour)))
+					require.NoError(t, f.gateway.CreateLocalAuthSession(t.Context(), sessionID, localUser.ID, localUser.PasswordHash, time.Now().Add(time.Hour)))
 
 					request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"password":"replacement-password"}`))
 					request.SetPathValue("id", strconv.FormatUint(uint64(localUser.ID), 10))

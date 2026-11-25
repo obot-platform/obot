@@ -225,7 +225,7 @@ func TestChangePasswordRejectsReusingCurrentPassword(t *testing.T) {
 		t.Fatalf("creating user: %v", err)
 	}
 	sessionID := hash.String("change-password-session")
-	if err := gatewayClient.CreateLocalAuthSession(t.Context(), sessionID, user.ID, time.Now().Add(time.Hour)); err != nil {
+	if err := gatewayClient.CreateLocalAuthSession(t.Context(), sessionID, user.ID, user.PasswordHash, time.Now().Add(time.Hour)); err != nil {
 		t.Fatalf("creating session: %v", err)
 	}
 
@@ -266,7 +266,7 @@ func TestChangePasswordReturnsMalformedHashErrors(t *testing.T) {
 		t.Fatalf("creating user: %v", err)
 	}
 	sessionID := hash.String("change-password-session")
-	if err := gatewayClient.CreateLocalAuthSession(t.Context(), sessionID, user.ID, time.Now().Add(time.Hour)); err != nil {
+	if err := gatewayClient.CreateLocalAuthSession(t.Context(), sessionID, user.ID, user.PasswordHash, time.Now().Add(time.Hour)); err != nil {
 		t.Fatalf("creating session: %v", err)
 	}
 

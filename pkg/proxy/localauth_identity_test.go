@@ -70,7 +70,7 @@ func TestLocalAuthIdentityMatchesSignedInIdentity(t *testing.T) {
 	owner, err := c.EnsureIdentityWithRole(t.Context(), localauth.Identity(localUser.Email), "", apitypes.RoleOwner, gateway.UserLimit{Unlimited: true})
 	require.NoError(t, err)
 
-	token, _, err := provider.StartSession(t.Context(), localUser.ID)
+	token, _, err := provider.StartSession(t.Context(), localUser.ID, localUser.PasswordHash)
 	require.NoError(t, err)
 
 	p, err := newProxy(system.DefaultNamespace, localauth.ProviderName, providerURL.String(), "")
