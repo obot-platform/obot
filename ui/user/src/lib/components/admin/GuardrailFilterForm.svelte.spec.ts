@@ -210,7 +210,11 @@ describe('GuardrailFilterForm.svelte', () => {
 
 		await expect.element(page.getByText('undeclared reference to "foo"')).toBeVisible();
 		expect(requests.at(-1)).toEqual({ target: 'mcp', condition: 'foo == 1' });
-		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await expect
+			.element(page.getByRole('textbox', { name: 'Condition' }))
+			.toHaveAttribute('aria-invalid', 'true');
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect.element(page.getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true');
 	});
 
 	it('warns when redacting with a guardrail that cannot redact', async () => {

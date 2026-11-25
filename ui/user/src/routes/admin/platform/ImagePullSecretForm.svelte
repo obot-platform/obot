@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FieldError from '$lib/components/FieldError.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { m } from '$lib/i18n';
@@ -63,10 +64,16 @@
 	let previewECRPolicyJSON = $derived(ecrPolicyJSON());
 
 	function inputClass(field: string) {
-		return twMerge(
-			'input-text-filled',
-			requiredErrors[field] && 'border-red-500 focus:border-red-500 focus:ring-red-500'
-		);
+		return twMerge('input-text-filled', requiredErrors[field] && 'error');
+	}
+
+	function invalidAttrs(field: string) {
+		const invalid = !!requiredErrors[field];
+		return {
+			'aria-invalid': invalid ? ('true' as const) : undefined,
+			'aria-describedby': invalid ? `image-pull-secret-${field}-error` : undefined,
+			'data-invalid': invalid ? '' : undefined
+		};
 	}
 </script>
 
@@ -198,47 +205,52 @@
 
 {#snippet basicFields()}
 	<div class="flex flex-col gap-4">
-		<label class="flex flex-col gap-1">
+		<label class="flex flex-col gap-1" class:error={!!requiredErrors.server}>
 			<FieldLabel
 				label={m.platform_settings_image_pull_secrets_registry_server()}
 				help={m.platform_settings_image_pull_secrets_registry_server_help()}
+				required
+				invalid={!!requiredErrors.server}
 			/>
 			<input
 				class={inputClass('server')}
+				{...invalidAttrs('server')}
 				bind:value={form.server}
 				disabled={mutationsDisabled}
 				placeholder="registry.example.com"
 				required
 			/>
-			{#if requiredErrors.server}
-				<span class="text-sm font-medium text-red-500">{requiredErrors.server}</span>
-			{/if}
+			<FieldError id="image-pull-secret-server" message={requiredErrors.server} />
 		</label>
-		<label class="flex flex-col gap-1">
+		<label class="flex flex-col gap-1" class:error={!!requiredErrors.username}>
 			<FieldLabel
 				label={m.platform_settings_image_pull_secrets_username()}
 				help={m.platform_settings_image_pull_secrets_username_help()}
+				required
+				invalid={!!requiredErrors.username}
 			/>
 			<input
 				class={inputClass('username')}
+				{...invalidAttrs('username')}
 				bind:value={form.username}
 				disabled={mutationsDisabled}
 				placeholder="robot-account"
 				required
 			/>
-			{#if requiredErrors.username}
-				<span class="text-sm font-medium text-red-500">{requiredErrors.username}</span>
-			{/if}
+			<FieldError id="image-pull-secret-username" message={requiredErrors.username} />
 		</label>
-		<label class="flex flex-col gap-1">
+		<label class="flex flex-col gap-1" class:error={!!requiredErrors.password}>
 			<FieldLabel
 				label={m.common_password()}
 				help={currentSecret?.status?.passwordConfigured
 					? m.platform_settings_image_pull_secrets_password_keep_help()
 					: m.platform_settings_image_pull_secrets_password_help()}
+				required={!currentSecret?.status?.passwordConfigured}
+				invalid={!!requiredErrors.password}
 			/>
 			<input
 				class={inputClass('password')}
+				{...invalidAttrs('password')}
 				type="password"
 				bind:value={form.password}
 				disabled={mutationsDisabled}
@@ -247,9 +259,7 @@
 					? m.platform_settings_image_pull_secrets_password_keep_placeholder()
 					: m.platform_settings_image_pull_secrets_password_placeholder()}
 			/>
-			{#if requiredErrors.password}
-				<span class="text-sm font-medium text-red-500">{requiredErrors.password}</span>
-			{/if}
+			<FieldError id="image-pull-secret-password" message={requiredErrors.password} />
 			{#if currentSecret?.status?.passwordConfigured}
 				<span class="input-description"
 					>{m.platform_settings_image_pull_secrets_password_configured()}</span
@@ -261,37 +271,39 @@
 
 {#snippet ecrFields()}
 	<div class="flex flex-col gap-4">
-		<label class="flex flex-col gap-1">
+		<label class="flex flex-col gap-1" class:error={!!requiredErrors.roleARN}>
 			<FieldLabel
 				label={m.platform_settings_image_pull_secrets_role_arn()}
 				help={m.platform_settings_image_pull_secrets_role_arn_help()}
+				required
+				invalid={!!requiredErrors.roleARN}
 			/>
 			<input
 				class={inputClass('roleARN')}
+				{...invalidAttrs('roleARN')}
 				bind:value={form.roleARN}
 				disabled={mutationsDisabled}
 				placeholder="arn:aws:iam::123456789012:role/obot-ecr-pull"
 				required
 			/>
-			{#if requiredErrors.roleARN}
-				<span class="text-sm font-medium text-red-500">{requiredErrors.roleARN}</span>
-			{/if}
+			<FieldError id="image-pull-secret-roleARN" message={requiredErrors.roleARN} />
 		</label>
-		<label class="flex flex-col gap-1">
+		<label class="flex flex-col gap-1" class:error={!!requiredErrors.region}>
 			<FieldLabel
 				label={m.platform_settings_image_pull_secrets_col_region()}
 				help={m.platform_settings_image_pull_secrets_region_help()}
+				required
+				invalid={!!requiredErrors.region}
 			/>
 			<input
 				class={inputClass('region')}
+				{...invalidAttrs('region')}
 				bind:value={form.region}
 				disabled={mutationsDisabled}
 				placeholder="us-east-1"
 				required
 			/>
-			{#if requiredErrors.region}
-				<span class="text-sm font-medium text-red-500">{requiredErrors.region}</span>
-			{/if}
+			<FieldError id="image-pull-secret-region" message={requiredErrors.region} />
 		</label>
 
 		<div class="flex flex-col gap-4">

@@ -56,6 +56,7 @@
 			<FieldLabel
 				label={m.platform_settings_image_pull_secrets_test_image_ref()}
 				help={m.platform_settings_image_pull_secrets_test_image_ref_help()}
+				required
 			/>
 			<input
 				class="input-text-filled"

@@ -127,7 +127,7 @@
 					bind:checked={data.required}
 					disabled={readonly || isPrebuiltEntry}
 				/>
-				<span class="text-sm">{m.mcps_catalog_field_required()}</span>
+				<span class="text-sm">{m.core_required()}</span>
 			</label>
 		</div>
 	{/if}
@@ -268,7 +268,7 @@
 				<Toggle
 					classes={{ label: 'text-sm text-inherit' }}
 					disabled={readonly || isPrebuiltEntry}
-					label={m.mcps_catalog_field_required()}
+					label={m.core_required()}
 					labelInline
 					checked={!!data.required}
 					onChange={(checked) => {

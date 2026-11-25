@@ -1,10 +1,14 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import FieldError from '$lib/components/FieldError.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
+	import RequiredMark from '$lib/components/RequiredMark.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { FORM_PARENT_ROUTES } from '$lib/constants';
+	import { completeSave, FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -18,6 +22,7 @@
 	} from '$lib/services/llm-gateway/gateway';
 	import { providerLabel } from '$lib/services/llm-gateway/providers';
 	import { notifications } from '$lib/stores';
+	import { goto } from '$lib/url';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -87,16 +92,21 @@
 	// An empty input binds null (or '' before the first edit); either means no timeout.
 	const hasTTFT = (t: TargetRow) => t.ttft !== null && String(t.ttft) !== '';
 	const ttftMs = (t: TargetRow) => Math.round(Number(t.ttft) * 1000);
-	let ttftValid = $derived(
-		targets.every((t) => !hasTTFT(t) || (ttftMs(t) >= 1 && ttftMs(t) <= MAX_TTFT_SECONDS * 1000))
-	);
-	let valid = $derived(
-		name.trim().length > 0 &&
-			cel.trim().length > 0 &&
-			targets.length > 0 &&
-			weightsValid &&
-			ttftValid
-	);
+	const rowTTFTValid = (t: TargetRow) =>
+		!hasTTFT(t) || (ttftMs(t) >= 1 && ttftMs(t) <= MAX_TTFT_SECONDS * 1000);
+	let ttftValid = $derived(targets.every(rowTTFTValid));
+
+	const validation = new FormValidation<string>(() => {
+		const errors: Record<string, string | true> = {};
+		if (!name.trim()) errors.name = m.core_name_required();
+		if (!cel.trim()) errors.cel = m.models_routing_expression_required();
+		if (targets.length === 0) errors.targets = m.models_routing_targets_required();
+		else if (!weightsValid) errors.weights = true;
+		targets.forEach((t, i) => {
+			if (!rowTTFTValid(t)) errors[`ttft.${i}`] = true;
+		});
+		return errors;
+	});
 
 	function apply(source: RoutingRule | undefined, defaultProvider: string) {
 		name = source?.name ?? '';
@@ -150,15 +160,12 @@
 	}
 
 	function close() {
-		if (onCancel) {
-			onCancel();
-			return;
-		}
-		if (rule?.id) onUpdate?.();
-		else onCreate?.();
+		if (onCancel) onCancel();
+		else goto(FORM_PARENT_ROUTES.routing);
 	}
 
 	async function save() {
+		if (!(await validation.check())) return;
 		saving = true;
 		error = '';
 		try {
@@ -179,12 +186,22 @@
 				fallbacks: fallbacks.filter((f) => f.provider && f.model.trim())
 			};
 			const id = rule?.id;
-			const done = id ? onUpdate : onCreate;
 			const saved = id
 				? await updateRoutingRule(id, body, { dontLogErrors: true })
 				: await createRoutingRule(body, { dontLogErrors: true });
-			notifications.add(m.models_routing_saved(), 'success');
-			done?.(saved);
+			validation.reset();
+			if (id) {
+				await completeSave({ created: false, message: m.models_routing_saved() });
+				onUpdate?.(saved);
+			} else if (onCreate) {
+				onCreate(saved);
+			} else {
+				await completeSave({
+					created: true,
+					message: m.models_routing_created(),
+					href: `/models/routing/${encodeURIComponent(saved.id ?? '')}`
+				});
+			}
 		} catch (e) {
 			error = errorMessage(e);
 		} finally {
@@ -197,7 +214,9 @@
 	<Skeleton type="list" count={8} />
 {:else}
 	<form
+		{@attach validation.attach}
 		aria-label={rule?.id ? m.models_routing_edit_title() : m.models_routing_add_title()}
+		novalidate
 		onsubmit={(e) => {
 			e.preventDefault();
 			save();
@@ -226,8 +245,19 @@
 			<div class="paper">
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 					<div class="flex flex-col gap-1 md:col-span-2">
-						<label for="rule-name" class="text-sm font-light">{m.core_name()}</label>
-						<input id="rule-name" class="text-input-filled" bind:value={name} disabled={readonly} />
+						<label for="rule-name" class="text-sm font-light" class:error={validation.has('name')}
+							>{m.core_name()}
+							<RequiredMark invalid={validation.has('name')} /></label
+						>
+						<input
+							class="text-input-filled"
+							class:error={validation.has('name')}
+							{...validation.attrs('name', 'rule-name')}
+							aria-required="true"
+							bind:value={name}
+							disabled={readonly}
+						/>
+						<FieldError id="rule-name" message={validation.message('name')} />
 					</div>
 					<div class="flex flex-col gap-1">
 						<label for="rule-priority" class="text-sm font-light"
@@ -258,13 +288,19 @@
 			</div>
 			<div class="paper">
 				<div class="flex flex-col gap-1 md:col-span-3">
-					<label for="rule-cel" class="text-sm font-light">{m.models_routing_when_cel()}</label>
+					<label for="rule-cel" class="text-sm font-light" class:error={validation.has('cel')}
+						>{m.models_routing_when_cel()}
+						<RequiredMark invalid={validation.has('cel')} /></label
+					>
 					<input
-						id="rule-cel"
 						class="text-input-filled font-mono text-sm"
+						class:error={validation.has('cel')}
+						{...validation.attrs('cel', 'rule-cel')}
+						aria-required="true"
 						bind:value={cel}
 						disabled={readonly}
 					/>
+					<FieldError id="rule-cel" message={validation.message('cel')} />
 					<div class="alert bg-primary/10 border-primary/50 text-xs">
 						<div class="flex flex-col gap-0.5">
 							{#each celVariables as v (v.name)}
@@ -285,8 +321,12 @@
 			</div>
 
 			<div class="paper">
-				<div class="flex flex-col gap-2">
-					<span class="text-sm font-medium">{m.models_routing_route_to()}</span>
+				<div class="flex flex-col gap-2" data-invalid={validation.has('targets') ? '' : undefined}>
+					<span class="text-sm font-medium" class:text-error={validation.has('targets')}
+						>{m.models_routing_route_to()}
+						<RequiredMark invalid={validation.has('targets')} /></span
+					>
+					<FieldError id="rule-targets" message={validation.message('targets')} />
 					<!-- Column headers line up with the row inputs; rows wrap below lg, so they hide there. -->
 					<div class="text-muted-content hidden items-end gap-2 text-xs lg:flex" aria-hidden="true">
 						<span class="w-48">{m.core_col_provider()}</span>
@@ -316,6 +356,7 @@
 								onSelect={(option) => (t.provider = option.id === SAME_PROVIDER ? '' : option.id)}
 							/>
 							<input
+								id={`target-model-${i}`}
 								class="text-input-filled min-w-48 flex-1"
 								placeholder={m.models_routing_target_model_placeholder()}
 								bind:value={t.model}
@@ -328,6 +369,8 @@
 								max="1"
 								step="0.05"
 								class="text-input-filled w-24"
+								class:error={validation.has('weights')}
+								{...validation.attrs('weights', `target-weight-${i}`)}
 								bind:value={t.weight}
 								aria-label={m.models_routing_target_weight()}
 								disabled={readonly}
@@ -338,6 +381,8 @@
 								max={MAX_TTFT_SECONDS}
 								step="any"
 								class="text-input-filled w-36"
+								class:error={validation.has(`ttft.${i}`)}
+								{...validation.attrs(`ttft.${i}`, `target-ttft-${i}`)}
 								placeholder={m.models_routing_ttft_placeholder()}
 								title={m.models_routing_ttft_title()}
 								bind:value={t.ttft}
@@ -463,7 +508,7 @@
 						<button type="button" class="btn btn-secondary text-sm" onclick={close}>
 							{m.common_cancel()}
 						</button>
-						<button type="submit" class="btn btn-primary text-sm" disabled={!valid || saving}>
+						<button type="submit" class="btn btn-primary text-sm" disabled={saving}>
 							{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 						</button>
 					</div>

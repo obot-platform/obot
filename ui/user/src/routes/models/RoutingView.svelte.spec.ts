@@ -176,7 +176,14 @@ describe('Models routing tab', () => {
 		await expect
 			.element(form.getByText('Weights must add up to 1 (currently 0.50)'))
 			.toBeInTheDocument();
-		await expect.element(form.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		const save = form.getByRole('button', { name: 'Save', exact: true });
+		await expect.element(save).toBeEnabled();
+		await save.click();
+		await expect
+			.element(form.getByLabelText('Target weight'))
+			.toHaveAttribute('aria-invalid', 'true');
+		await expect.element(form.getByLabelText('Target weight')).toHaveFocus();
+		expect(appPage.url.pathname).not.toMatch(/^\/models\/routing\//);
 	});
 
 	it('opens a rule from its row', async () => {
@@ -241,7 +248,14 @@ describe('Models routing tab', () => {
 				form.getByText('Time to first token timeouts must be between 0.001 and 300 seconds.')
 			)
 			.toBeInTheDocument();
-		await expect.element(form.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		// Save stays enabled; clicking it flags the timeout instead of saving.
+		const save = form.getByRole('button', { name: 'Save', exact: true });
+		await expect.element(save).toBeEnabled();
+		await save.click();
+		await expect
+			.element(form.getByLabelText('Time to first token timeout'))
+			.toHaveAttribute('aria-invalid', 'true');
+		expect(appPage.url.pathname).not.toMatch(/^\/models\/routing\//);
 	});
 
 	it('shows a time to first token timeout in the target summary', async () => {

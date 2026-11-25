@@ -261,7 +261,7 @@
 						{/if}
 					</label>
 					<span class="text-muted-content bg-base-200 rounded px-2 py-0.5 text-xs"
-						>{baseURLRequired ? m.mcps_catalog_field_required() : m.mcps_openapi_optional()}</span
+						>{baseURLRequired ? m.core_required() : m.mcps_openapi_optional()}</span
 					>
 				</div>
 				<p id="openapi-base-url-hint" class="text-muted-content text-xs">

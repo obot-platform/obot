@@ -1,8 +1,11 @@
 <script lang="ts">
+	import FieldError from '$lib/components/FieldError.svelte';
+	import RequiredMark from '$lib/components/RequiredMark.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import NewGuardrailDialog from '$lib/components/guardrails/NewGuardrailDialog.svelte';
 	import { parseErrorContent } from '$lib/errors';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import { guardrailTypeLabel } from '$lib/services/llm-gateway/guardrail-text';
 	import {
@@ -120,16 +123,23 @@
 			: []
 	);
 
-	let valid = $derived(
-		name.trim().length > 0 &&
-			guardrailIDs.length > 0 &&
-			samplingRate >= 1 &&
-			samplingRate <= 100 &&
-			!conditionError &&
-			!validating
+	const validation = new FormValidation<'name' | 'guardrails' | 'samplingRate' | 'condition'>(
+		() => ({
+			...(!name.trim() && { name: m.core_name_required() }),
+			...(guardrailIDs.length === 0 && { guardrails: m.guardrails_filter_guardrails_required() }),
+			...(!(samplingRate >= 1 && samplingRate <= 100) && {
+				samplingRate: m.guardrails_filter_sampling_rate_invalid()
+			}),
+			...(conditionError && { condition: conditionError })
+		})
 	);
 
-	function save() {
+	async function save() {
+		const deadline = Date.now() + 5000;
+		while (validating && Date.now() < deadline) {
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+		if (!(await validation.check()) || validating) return;
 		onSave(
 			{
 				...(start ?? {}),
@@ -152,7 +162,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-4" {@attach validation.attach}>
 	<p class="text-muted-content text-sm">{m.models_guardrail_policies_details_description()}</p>
 	{#if saved}
 		<div>
@@ -168,8 +178,19 @@
 	{/if}
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 		<div class="flex flex-col gap-1 md:col-span-2">
-			<label for="policy-name" class="text-sm font-light">{m.core_name()}</label>
-			<input id="policy-name" class="text-input-filled" bind:value={name} disabled={readonly} />
+			<label for="policy-name" class="text-sm font-light" class:error={validation.has('name')}
+				>{m.core_name()}
+				<RequiredMark invalid={validation.has('name')} /></label
+			>
+			<input
+				class="text-input-filled"
+				class:error={validation.has('name')}
+				{...validation.attrs('name', 'policy-name')}
+				aria-required="true"
+				bind:value={name}
+				disabled={readonly}
+			/>
+			<FieldError id="policy-name" message={validation.message('name')} />
 		</div>
 		<div class="flex flex-col gap-1 md:col-span-2">
 			<label for="policy-description" class="text-sm font-light">{m.core_description()}</label>
@@ -219,21 +240,29 @@
 			</span>
 		</div>
 		<div class="flex flex-col gap-1">
-			<label for="policy-sampling" class="text-sm font-light"
+			<label
+				for="policy-sampling"
+				class="text-sm font-light"
+				class:error={validation.has('samplingRate')}
 				>{m.models_guardrail_policies_sampling_rate()}</label
 			>
 			<input
-				id="policy-sampling"
 				type="number"
 				min="1"
 				max="100"
 				class="text-input-filled"
+				class:error={validation.has('samplingRate')}
+				{...validation.attrs('samplingRate', 'policy-sampling')}
 				bind:value={samplingRate}
 				disabled={readonly}
 			/>
-			<span class="text-muted-content text-xs">
-				{m.models_guardrail_policies_sampling_rate_description()}
-			</span>
+			{#if validation.has('samplingRate')}
+				<FieldError id="policy-sampling" message={validation.message('samplingRate')} />
+			{:else}
+				<span class="text-muted-content text-xs">
+					{m.models_guardrail_policies_sampling_rate_description()}
+				</span>
+			{/if}
 		</div>
 		{#if applyTo !== 'output'}
 			<div class="flex flex-col gap-1">
@@ -278,8 +307,11 @@
 	{/if}
 
 	<section class="flex flex-col gap-3">
-		<div class="divider my-1 text-sm font-semibold">
-			{m.models_guardrail_policies_guardrails()}
+		<div class="divider my-1 text-sm font-semibold" class:text-error={validation.has('guardrails')}>
+			<span>
+				{m.models_guardrail_policies_guardrails()}
+				<RequiredMark invalid={validation.has('guardrails')} />
+			</span>
 		</div>
 		<div class="flex flex-wrap items-start justify-between gap-2">
 			<p class="text-muted-content max-w-xl text-xs">
@@ -304,7 +336,13 @@
 		{#if loadError}
 			<p class="text-error text-xs">{loadError}</p>
 		{/if}
-		<div class="grid grid-cols-1 gap-1 md:grid-cols-2">
+		<FieldError id="policy-guardrails" message={validation.message('guardrails')} />
+		<div
+			class="grid grid-cols-1 gap-1 rounded-md md:grid-cols-2"
+			class:ring-1={validation.has('guardrails')}
+			class:ring-error={validation.has('guardrails')}
+			data-invalid={validation.has('guardrails') ? '' : undefined}
+		>
 			{#each guardrails as p (p.id)}
 				<label class="flex items-center gap-2 text-sm">
 					<input
@@ -356,12 +394,13 @@
 			id="policy-condition"
 			aria-label={m.models_guardrail_policies_condition()}
 			class="text-input-filled min-h-20 font-mono text-sm"
+			class:error={!!conditionError}
+			aria-invalid={conditionError ? 'true' : undefined}
+			aria-describedby={conditionError ? 'policy-condition-error' : undefined}
 			placeholder={conditionExample}
 			bind:value={condition}
 			disabled={readonly}></textarea>
-		{#if conditionError}
-			<span class="text-error text-xs" role="alert">{conditionError}</span>
-		{/if}
+		<FieldError id="policy-condition" message={conditionError} live />
 		<div class="text-muted-content grid grid-cols-1 gap-x-4 gap-y-1 text-xs md:grid-cols-2">
 			{#each conditionVariables as v (v.name)}
 				<span><code class="text-base-content">{v.name}</code> — {v.description}</span>
@@ -378,7 +417,7 @@
 			<button type="button" class="btn btn-secondary text-sm" onclick={onCancel}
 				>{m.common_cancel()}</button
 			>
-			<button type="button" class="btn btn-primary text-sm" disabled={!valid} onclick={save}>
+			<button type="button" class="btn btn-primary text-sm" onclick={save}>
 				{m.common_apply()}
 			</button>
 		{/if}

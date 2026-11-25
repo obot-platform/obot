@@ -169,7 +169,6 @@
 	"hosted_agents_actor_resources_help": "CPU and memory use Kubernetes quantities, such as 500m and 2Gi. Retention must be positive, or -1 to disable cleanup.",
 	"hosted_agents_sessions": "Sessions",
 	"hosted_agents_account_management": "Account Management",
-	"hosted_agents_required": "Required",
 	"hosted_agents_environment_stats_error": "Unable to load session statistics.",
 	"hosted_agents_environment_stats_loading": "Loading session statistics…",
 	"hosted_agents_environment_stats_all": "All retained sessions · Refreshes every five seconds",

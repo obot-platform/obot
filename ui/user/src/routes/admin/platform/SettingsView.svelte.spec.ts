@@ -284,7 +284,9 @@ describe('Platform settings view', () => {
 			.toBeVisible();
 		await expect.element(save).toBeDisabled();
 		await dialog.getByPlaceholder('registry.example.com', { exact: true }).fill('ghcr.io');
-		await expect.element(dialog.getByRole('button', { name: 'Add', exact: true })).toBeDisabled();
+		await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect.element(dialog.getByText('Username is required')).toBeVisible();
+		await expect.element(dialog.getByPlaceholder('robot-account')).toHaveFocus();
 		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 		await expect
 			.element(page.getByRole('heading', { name: 'Add Basic Secret', exact: true }))

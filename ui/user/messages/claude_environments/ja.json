@@ -169,7 +169,6 @@
 	"hosted_agents_actor_resources_help": "CPU とメモリには、500m や 2Gi などの Kubernetes の数量表記を使用します。保持期間は正の値にするか、-1 を指定して自動削除を無効にしてください。",
 	"hosted_agents_sessions": "セッション",
 	"hosted_agents_account_management": "アカウント管理",
-	"hosted_agents_required": "必須",
 	"hosted_agents_environment_stats_error": "セッション統計を読み込めません。",
 	"hosted_agents_environment_stats_loading": "セッション統計を読み込み中…",
 	"hosted_agents_environment_stats_all": "保持されているすべてのセッション · 5秒ごとに更新",

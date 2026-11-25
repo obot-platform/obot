@@ -1,7 +1,10 @@
 <script lang="ts">
+	import FieldError from '$lib/components/FieldError.svelte';
+	import RequiredMark from '$lib/components/RequiredMark.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type AuthProvider } from '$lib/services';
@@ -14,8 +17,10 @@
 	const DOMAINS_KEY = 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS';
 	const INITIAL_EMAIL_ID = 'initial-user-email';
 	const INITIAL_PASSWORD_ID = 'initial-user-password';
+	const INITIAL_PASSWORD_HINT_ID = 'initial-user-password-hint';
 	const INITIAL_PASSWORD_CONFIRM_ID = 'initial-user-password-confirm';
 	const INITIAL_USER_ERROR_ID = 'local-auth-initial-user-error';
+	const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
 
 	interface Props {
 		provider?: AuthProvider;
@@ -67,6 +72,29 @@
 		return configurePromise;
 	}
 
+	const validation = new FormValidation<'email' | 'password' | 'confirm'>(() => {
+		const email = initialEmail.trim();
+		return {
+			...(!email
+				? { email: m.core_field_required() }
+				: !EMAIL_PATTERN.test(email) && {
+						email: m.identity_access_auth_providers_local_auth_email_invalid()
+					}),
+			...(!initialPassword
+				? { password: m.core_field_required() }
+				: initialPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH && {
+						password: m.identity_access_auth_providers_local_auth_password_min({
+							min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
+						})
+					}),
+			...(!initialPasswordConfirm
+				? { confirm: m.core_field_required() }
+				: initialPassword !== initialPasswordConfirm && {
+						confirm: m.identity_access_auth_providers_local_auth_initial_user_passwords_mismatch()
+					})
+		};
+	});
+
 	function errorMessage(err: unknown, fallback: string) {
 		if (!(err instanceof Error)) return fallback;
 		return parseErrorContent(err).message || fallback;
@@ -80,21 +108,8 @@
 		}
 
 		const email = initialEmail.trim();
-		if (!email || !initialPassword || !initialPasswordConfirm) {
-			initialUserError = m.identity_access_auth_providers_local_auth_fill_email_password();
-			return;
-		}
-		if (initialPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
-			initialUserError = m.identity_access_auth_providers_local_auth_password_min({
-				min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
-			});
-			return;
-		}
-		if (initialPassword !== initialPasswordConfirm) {
-			initialUserError =
-				m.identity_access_auth_providers_local_auth_initial_user_passwords_mismatch();
-			return;
-		}
+		initialUserError = undefined;
+		if (!(await validation.check())) return;
 
 		saving = true;
 		initialUserError = undefined;
@@ -162,7 +177,12 @@
 	</div>
 </div>
 
-<form class="flex flex-col gap-4" onsubmit={handleCreateInitialUser}>
+<form
+	{@attach validation.attach}
+	class="flex flex-col gap-4"
+	novalidate
+	onsubmit={handleCreateInitialUser}
+>
 	{#if configError}
 		<div class="notification-error flex items-center gap-2" role="alert">
 			<CircleAlert class="text-error size-5 shrink-0" />
@@ -170,10 +190,14 @@
 		</div>
 	{/if}
 
-	<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_EMAIL_ID}>
-		{m.common_email()}
+	<div class="flex flex-col gap-1 text-sm font-light">
+		<label class:error={validation.has('email')} for={INITIAL_EMAIL_ID}>
+			{m.common_email()}
+			<RequiredMark invalid={validation.has('email')} />
+		</label>
 		<input
-			id={INITIAL_EMAIL_ID}
+			{...validation.attrs('email', INITIAL_EMAIL_ID)}
+			name="email"
 			class="text-input-filled"
 			type="email"
 			bind:value={
@@ -184,17 +208,28 @@
 				}
 			}
 			autocomplete="email"
+			autocapitalize="none"
+			autocorrect="off"
+			spellcheck="false"
 			required
 			disabled={saving}
-			aria-invalid={initialUserError ? 'true' : undefined}
-			aria-describedby={initialUserError ? INITIAL_USER_ERROR_ID : undefined}
-			class:error={!!initialUserError}
+			class:error={validation.has('email')}
 		/>
-	</label>
+		<FieldError id={INITIAL_EMAIL_ID} message={validation.message('email')} />
+	</div>
 
-	<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_PASSWORD_ID}>
-		{m.common_password()}
+	<div class="flex flex-col gap-1 text-sm font-light">
+		<label class:error={validation.has('password')} for={INITIAL_PASSWORD_ID}>
+			{m.common_password()}
+			<RequiredMark invalid={validation.has('password')} />
+		</label>
 		<SensitiveInput
+			describedby={[
+				INITIAL_PASSWORD_HINT_ID,
+				validation.has('password') && `${INITIAL_PASSWORD_ID}-error`
+			]
+				.filter(Boolean)
+				.join(' ')}
 			name={INITIAL_PASSWORD_ID}
 			bind:value={initialPassword}
 			autocomplete="new-password"
@@ -202,19 +237,26 @@
 			oninput={() => (initialUserError = undefined)}
 			required
 			disabled={saving}
-			error={!!initialUserError}
+			error={validation.has('password')}
 			data1pIgnore={false}
 		/>
-		<span class="text-muted-content min-h-4 pt-0.5 text-xs">
+		<span id={INITIAL_PASSWORD_HINT_ID} class="text-muted-content min-h-4 pt-0.5 text-xs">
 			{m.identity_access_auth_providers_local_auth_initial_user_password_min_required({
 				min: LOCAL_AUTH_MIN_PASSWORD_LENGTH
 			})}
 		</span>
-	</label>
+		<FieldError id={INITIAL_PASSWORD_ID} class="pt-0.5" message={validation.message('password')} />
+	</div>
 
-	<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_PASSWORD_CONFIRM_ID}>
-		{m.identity_access_auth_providers_local_auth_initial_user_confirm_password()}
+	<div class="flex flex-col gap-1 text-sm font-light">
+		<label class:error={validation.has('confirm')} for={INITIAL_PASSWORD_CONFIRM_ID}>
+			{m.identity_access_auth_providers_local_auth_initial_user_confirm_password()}
+			<RequiredMark invalid={validation.has('confirm')} />
+		</label>
 		<SensitiveInput
+			describedby={validation.message('confirm')
+				? `${INITIAL_PASSWORD_CONFIRM_ID}-error`
+				: undefined}
 			name={INITIAL_PASSWORD_CONFIRM_ID}
 			bind:value={initialPasswordConfirm}
 			autocomplete="new-password"
@@ -222,10 +264,11 @@
 			oninput={() => (initialUserError = undefined)}
 			required
 			disabled={saving}
-			error={!!initialUserError}
+			error={validation.has('confirm')}
 			data1pIgnore={false}
 		/>
-	</label>
+		<FieldError id={INITIAL_PASSWORD_CONFIRM_ID} message={validation.message('confirm')} />
+	</div>
 
 	<p
 		id={INITIAL_USER_ERROR_ID}

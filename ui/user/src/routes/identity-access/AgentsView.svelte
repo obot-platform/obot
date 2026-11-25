@@ -2,15 +2,16 @@
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import ApiKeyRevealDialog from '$lib/components/agent-auth-scope/ApiKeyRevealDialog.svelte';
 	import CreateAgentAuthScopeForm from '$lib/components/agent-auth-scope/CreateAgentAuthScopeForm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { completeSave } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import { ApiKeysService, type OrgUser } from '$lib/services';
 	import { AUTH_SCOPE_DESCRIPTION } from '$lib/services/api-keys/constants.js';
 	import { getAPIKeyCapabilityLabels, type APIKey } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
+	import { pendingApiKeyReveal } from '$lib/stores/pendingApiKeyReveal.svelte';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { resolve } from '$lib/url';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
@@ -32,7 +33,6 @@
 	let deletingKey = $state<APIKey>();
 	let loading = $state(false);
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
-	let createdKeyValue = $state<string>();
 	let initSort = $derived(
 		getTableUrlParamsSort({ property: isAdmin ? 'userDisplay' : 'name', order: 'asc' })
 	);
@@ -74,8 +74,12 @@
 
 	async function handleCreate(newKey: APIKey & { key: string }) {
 		apiKeys = [newKey, ...apiKeys];
-		createdKeyValue = newKey.key;
-		hideCreateForm();
+		pendingApiKeyReveal.set(newKey.id, newKey.key);
+		await completeSave({
+			created: true,
+			message: m.identity_access_agents_agent_created(),
+			href: `/identity-access/agents/${newKey.id}`
+		});
 	}
 
 	export function showCreateForm() {
@@ -237,5 +241,3 @@
 	onsuccess={handleDelete}
 	oncancel={() => (deletingKey = undefined)}
 />
-
-<ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />

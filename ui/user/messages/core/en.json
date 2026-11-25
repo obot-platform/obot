@@ -249,5 +249,10 @@
 	"core_users_and_groups": "Users & Groups",
 	"core_view_audit_logs": "View Audit Logs",
 	"core_workspace_not_found": "Workspace not found.",
-	"core_write": "Write"
+	"core_write": "Write",
+	"core_name_required": "Name is required.",
+	"core_users_groups_required": "Add at least one user or group.",
+	"core_field_required": "This field is required.",
+	"core_required": "Required",
+	"core_required_sr": "(required)"
 }

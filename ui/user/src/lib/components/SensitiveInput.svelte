@@ -27,6 +27,7 @@
 		required?: boolean;
 		onkeydown?: (ev: KeyboardEvent) => void;
 		data1pIgnore?: boolean;
+		describedby?: string;
 	}
 
 	let {
@@ -47,7 +48,8 @@
 		minlength,
 		required,
 		onkeydown,
-		data1pIgnore = true
+		data1pIgnore = true,
+		describedby
 	}: Props = $props();
 
 	let showSensitive = $state(false);
@@ -200,6 +202,8 @@
 							{required}
 							spellcheck="false"
 							aria-invalid={error || validationFailed || undefined}
+							aria-describedby={describedby}
+							data-invalid={error || validationFailed ? '' : undefined}
 							onscroll={handleTextareaScroll}
 							oninvalid={handleTextareaInvalid}
 							bind:value={
@@ -264,6 +268,8 @@
 							{required}
 							spellcheck="false"
 							aria-invalid={error || validationFailed || undefined}
+							aria-describedby={describedby}
+							data-invalid={error || validationFailed ? '' : undefined}
 							onscroll={handleTextareaScroll}
 							oninvalid={handleTextareaInvalid}
 							bind:value={
@@ -292,6 +298,9 @@
 				classes?.input,
 				error && 'border-error bg-error/20 text-error ring-error focus:ring-1'
 			)}
+			aria-invalid={error || undefined}
+			aria-describedby={describedby}
+			data-invalid={error ? '' : undefined}
 			{value}
 			type={showSensitive ? 'text' : 'password'}
 			oninput={handleInput}
@@ -316,6 +325,7 @@
 				type="button"
 				class="cursor-pointer transition-colors duration-150"
 				class:text-error={error}
+				aria-pressed={showSensitive}
 				onclick={toggleVisibility}
 			>
 				{#if showSensitive}

@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { focusFirstInvalid } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import {
 		AdminService,
@@ -21,7 +22,7 @@
 	import ImagePullSecretTestDialog from './ImagePullSecretTestDialog.svelte';
 	import ImagePullSecretsList from './ImagePullSecretsList.svelte';
 	import { defaultForm, displayName, formFromSecret, type ImagePullSecretFormState } from './types';
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 
 	const LIST_PATH = '/admin/platform?view=settings';
 	const draftPrefix = 'draft-';
@@ -99,6 +100,7 @@
 	let formLocked = $derived(mutationsDisabled || settingsSaving || requestPending);
 	let requiredErrors = $derived(showRequired ? requiredFieldErrors() : {});
 	let canStage = $derived(Object.keys(requiredFieldErrors()).length === 0);
+	let editorContent = $state<HTMLElement>();
 	let isDirty = $derived(
 		pendingCreates.length > 0 || Object.keys(pendingEdits).length > 0 || pendingDeletes.length > 0
 	);
@@ -248,9 +250,12 @@
 		delete pendingEdits[secret.id];
 	}
 
-	function stageSecret() {
-		if (formLocked || !canStage) {
+	async function stageSecret() {
+		if (formLocked) return;
+		if (!canStage) {
 			showRequired = true;
+			await tick();
+			focusFirstInvalid(editorContent);
 			return;
 		}
 
@@ -543,7 +548,7 @@
 	onClose={closeEditor}
 >
 	{#if mode !== 'closed'}
-		<div class="flex flex-col gap-4 p-4 md:p-0">
+		<div class="flex flex-col gap-4 p-4 md:p-0" bind:this={editorContent}>
 			<ImagePullSecretForm
 				bind:form
 				bind:showECRAdvanced
@@ -572,7 +577,7 @@
 				<button
 					type="button"
 					class="btn btn-primary text-sm"
-					disabled={formLocked || !canStage}
+					disabled={formLocked}
 					onclick={stageSecret}
 				>
 					{mode === 'edit' ? m.core_update() : m.platform_add()}

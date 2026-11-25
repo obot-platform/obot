@@ -83,7 +83,12 @@ describe('Guardrail editor', () => {
 		await expect.element(page.getByLabelText('Sample text')).toBeDisabled();
 
 		const save = page.getByRole('button', { name: 'Save', exact: true });
-		await expect.element(save).toBeDisabled();
+		await save.click();
+		await expect
+			.element(page.getByLabelText(/^Analyzer URL/))
+			.toHaveAttribute('aria-invalid', 'true');
+		await expect.element(page.getByLabelText(/^Analyzer URL/)).toHaveFocus();
+		expect(created).not.toHaveBeenCalled();
 		await page.getByLabelText(/^Analyzer URL/).fill('http://presidio:3000');
 		await page.getByLabelText('Entities').fill('EMAIL_ADDRESS\nUS_SSN\n');
 		await page.getByLabelText('API key').fill('secret');

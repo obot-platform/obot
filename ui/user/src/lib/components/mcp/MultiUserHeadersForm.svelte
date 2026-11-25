@@ -99,7 +99,7 @@
 						<Toggle
 							classes={{ label: 'text-sm text-inherit' }}
 							disabled={readonly}
-							label={m.mcps_catalog_field_required()}
+							label={m.core_required()}
 							labelInline
 							checked={!!header.required}
 							onChange={(checked) => {

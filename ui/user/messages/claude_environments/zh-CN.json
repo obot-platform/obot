@@ -169,7 +169,6 @@
 	"hosted_agents_actor_resources_help": "CPU 和内存使用 Kubernetes 资源数量格式，例如 500m 和 2Gi。保留时间必须为正数，或设置为 -1 以禁用自动清理。",
 	"hosted_agents_sessions": "会话",
 	"hosted_agents_account_management": "账号管理",
-	"hosted_agents_required": "必填",
 	"hosted_agents_environment_stats_error": "无法加载会话统计信息。",
 	"hosted_agents_environment_stats_loading": "正在加载会话统计信息…",
 	"hosted_agents_environment_stats_all": "所有保留的会话 · 每五秒刷新",

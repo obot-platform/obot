@@ -70,14 +70,16 @@ describe('Applied guardrail editor', () => {
 
 		const apply = page.getByRole('button', { name: 'Apply' });
 		await page.getByLabelText('Name', { exact: true }).fill('Block PII');
-		await expect.element(apply).toBeDisabled();
-		// New ones start enabled, so there's no toggle.
+		await apply.click();
+		await expect.element(page.getByText('Select at least one guardrail')).toBeInTheDocument();
+		expect(onSave).not.toHaveBeenCalled();
 		await expect.element(page.getByRole('switch', { name: 'Enabled' })).not.toBeInTheDocument();
 		await page.getByText('Common PII').click();
 		await page.getByLabelText('Condition').fill('model.startsWith("openai/")');
 		await expect.element(apply).toBeEnabled();
 		await apply.click();
 
+		await vi.waitFor(() => expect(onSave).toHaveBeenCalled());
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({
 				name: 'Block PII',
@@ -97,7 +99,8 @@ describe('Applied guardrail editor', () => {
 
 	it('shows condition errors as the condition is typed', async () => {
 		mockGuardrailsAndProviders();
-		render(GuardrailPolicyEditor, { onSave: vi.fn(), onCancel: vi.fn() });
+		const onSave = vi.fn();
+		render(GuardrailPolicyEditor, { onSave, onCancel: vi.fn() });
 
 		await page.getByLabelText('Name', { exact: true }).fill('Bad condition');
 		await page.getByText('Common PII').click();
@@ -106,7 +109,9 @@ describe('Applied guardrail editor', () => {
 		await expect
 			.element(page.getByRole('alert'))
 			.toHaveTextContent("undeclared reference to 'bogus'");
-		await expect.element(page.getByRole('button', { name: 'Apply' })).toBeDisabled();
+		await page.getByRole('button', { name: 'Apply' }).click();
+		await expect.element(page.getByLabelText('Condition')).toHaveFocus();
+		expect(onSave).not.toHaveBeenCalled();
 	});
 
 	it('creates a guardrail in place and selects it', async () => {

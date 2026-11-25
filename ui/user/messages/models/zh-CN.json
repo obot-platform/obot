@@ -521,5 +521,11 @@
 	"models_connect_codex_default": "Codex 默认值",
 	"models_providers_chatgpt_subscriptions_only": "仅 ChatGPT 订阅",
 	"models_connect_codex_model_note": "只有 OpenAI 模型使用您的 ChatGPT 订阅。Codex 默认值保留客户端的默认模型。",
-	"models_providers_chatgpt_extra_headers_help": "启用 ChatGPT 订阅后，此提供商的额外标头也会发送到 chatgpt.com。请仅配置可与 OpenAI 共享的值。"
+	"models_providers_chatgpt_extra_headers_help": "启用 ChatGPT 订阅后，此提供商的额外标头也会发送到 chatgpt.com。请仅配置可与 OpenAI 共享的值。",
+	"models_profile_fix_models": "请移除或替换下方标记的模型。",
+	"models_profile_fix_budgets": "请编辑或移除下方标记的预算。",
+	"models_routing_created": "路由规则已创建。",
+	"models_routing_expression_required": "表达式为必填项。",
+	"models_routing_targets_required": "请至少添加一个目标。",
+	"models_profile_created": "访问配置已创建。"
 }

@@ -62,6 +62,7 @@
 
 	function onTunnelCreated(tunnel: MCPTunnel) {
 		createdTunnel = tunnel;
+		notifications.add(m.mcps_tunnels_tunnel_created(), 'success');
 	}
 
 	function closeCreatedTunnelDialog() {

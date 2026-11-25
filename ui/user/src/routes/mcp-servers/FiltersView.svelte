@@ -8,6 +8,7 @@
 	import GuardrailFilterForm from '$lib/components/admin/GuardrailFilterForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { completeSave } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import { AdminService, type MCPFilter, type SystemMCPServerCatalogEntry } from '$lib/services';
 	import { profile } from '$lib/stores';
@@ -70,9 +71,18 @@
 		loading = false;
 	}
 
-	async function navigateAfterCreated() {
+	function navigateAfterCreated(filter?: MCPFilter) {
+		if (!filter) return;
+		completeSave({
+			created: true,
+			message: m.mcps_filters_filter_created(),
+			href: `/mcp-servers/filters/${filter.id}`
+		});
+	}
+
+	function closeCreateForm() {
 		goto(listUrl(), { replaceState: true });
-		await refresh();
+		refresh();
 	}
 
 	const updateQuery = (value: string) => {
@@ -92,9 +102,9 @@
 </script>
 
 {#if showCreateFilter && createGuardrailFilter}
-	<GuardrailFilterForm onCreate={navigateAfterCreated} />
+	<GuardrailFilterForm onCreate={navigateAfterCreated} onCancel={closeCreateForm} />
 {:else if showCreateFilter}
-	<FilterForm onCreate={navigateAfterCreated} />
+	<FilterForm onCreate={navigateAfterCreated} onCancel={closeCreateForm} />
 {:else if loading}
 	<Skeleton
 		type="table"

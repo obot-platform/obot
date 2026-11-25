@@ -70,7 +70,7 @@
 	class="max-w-3xl"
 	onClose={() => (type = undefined)}
 >
-	<div class="max-h-[75vh] overflow-y-auto pt-4">
+	<div class="max-h-[75vh] overflow-y-auto">
 		{#if type}
 			{#key formKey}
 				<GuardrailForm

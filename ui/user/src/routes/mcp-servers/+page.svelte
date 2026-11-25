@@ -11,6 +11,7 @@
 		MCP_ACCESS_POLICY_FIELD_IDS,
 		MCP_FILTERS_FIELD_IDS
 	} from '$lib/constants';
+	import { completeSave } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -255,7 +256,11 @@
 
 	function handleEntryCreated(id: string, _isMultiUserEntry: boolean, message?: string) {
 		initialOpenAPIImport = undefined;
-		goto(getCreatedEntryUrl(id, newServerType, message), { replaceState: true });
+		completeSave({
+			created: true,
+			message: m.mcps_catalog_form_entry_created(),
+			href: getCreatedEntryUrl(id, newServerType, message)
+		});
 	}
 
 	onDestroy(() => {

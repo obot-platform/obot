@@ -1,8 +1,11 @@
 <script lang="ts">
+	import FieldError from '$lib/components/FieldError.svelte';
+	import RequiredMark from '$lib/components/RequiredMark.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import { UserService, type Model } from '$lib/services';
 	import {
@@ -128,14 +131,14 @@
 		return l.amount !== null && `${l.amount}` !== '' && Number(l.amount) >= 0;
 	}
 
-	let valid = $derived(
-		name.trim().length > 0 &&
-			limits.length > 0 &&
-			limits.every(limitValid) &&
-			(!specificModels || chosenModels.length > 0)
-	);
+	const validation = new FormValidation<'name' | 'limits' | 'models'>(() => ({
+		...(!name.trim() && { name: m.core_name_required() }),
+		...((limits.length === 0 || !limits.every(limitValid)) && { limits: true as const }),
+		...(specificModels && chosenModels.length === 0 && { models: true as const })
+	}));
 
-	function save() {
+	async function save() {
+		if (!(await validation.check())) return;
 		onSave({
 			...(start ?? {}),
 			name: name.trim(),
@@ -179,7 +182,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-4" {@attach validation.attach}>
 	<p class="text-muted-content text-sm">{m.models_budgets_details_description()}</p>
 	{#if saved}
 		<div>
@@ -194,8 +197,19 @@
 		</div>
 	{/if}
 	<div class="flex flex-col gap-1">
-		<label for="budget-name" class="text-sm font-light">{m.core_name()}</label>
-		<input id="budget-name" class="text-input-filled" bind:value={name} disabled={readonly} />
+		<label for="budget-name" class="text-sm font-light" class:error={validation.has('name')}
+			>{m.core_name()}
+			<RequiredMark invalid={validation.has('name')} /></label
+		>
+		<input
+			class="text-input-filled"
+			class:error={validation.has('name')}
+			{...validation.attrs('name', 'budget-name')}
+			aria-required="true"
+			bind:value={name}
+			disabled={readonly}
+		/>
+		<FieldError id="budget-name" message={validation.message('name')} />
 	</div>
 	<div class="flex flex-col gap-1">
 		<label for="budget-description" class="text-sm font-light">{m.core_description()}</label>
@@ -249,8 +263,16 @@
 		/>
 	{/if}
 
-	<section class="flex flex-col gap-3">
-		<div class="divider my-1 text-sm font-semibold">{m.models_budgets_limits()}</div>
+	<section
+		class="flex flex-col gap-3"
+		data-invalid={validation.has('limits') && limits.length === 0 ? '' : undefined}
+	>
+		<div class="divider my-1 text-sm font-semibold" class:text-error={validation.has('limits')}>
+			<span>
+				{m.models_budgets_limits()}
+				<RequiredMark invalid={validation.has('limits')} />
+			</span>
+		</div>
 		<div class="flex flex-wrap items-start justify-between gap-2">
 			<p class="text-muted-content max-w-xl text-xs">{m.models_budgets_limits_description()}</p>
 			{#if !readonly}
@@ -355,7 +377,12 @@
 				</span>
 			{/if}
 		{:else}
-			<span class="text-muted-content text-sm">{m.models_budgets_add_at_least_one_limit()}</span>
+			<span
+				class="text-sm"
+				class:text-muted-content={!validation.has('limits')}
+				class:text-error={validation.has('limits')}
+				>{m.models_budgets_add_at_least_one_limit()}</span
+			>
 		{/each}
 	</section>
 
@@ -403,7 +430,12 @@
 					placeholder={m.models_budgets_search_models()}
 					bind:value={modelSearch}
 				/>
-				<div class="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto md:grid-cols-2">
+				<div
+					class="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto rounded-md md:grid-cols-2"
+					class:ring-1={validation.has('models')}
+					class:ring-error={validation.has('models')}
+					data-invalid={validation.has('models') ? '' : undefined}
+				>
 					{#each visibleModels as model (model.id)}
 						<label class="flex items-center gap-2 text-sm">
 							<input
@@ -424,7 +456,12 @@
 						<span class="text-muted-content text-sm">{m.models_budgets_no_profile_models()}</span>
 					{/each}
 				</div>
-				<span class="text-muted-content text-xs">
+				<span
+					class="text-xs"
+					class:text-muted-content={!validation.has('models')}
+					class:text-error={validation.has('models')}
+					role={validation.has('models') ? 'alert' : undefined}
+				>
 					{chosenModels.length
 						? m.models_budgets_models_selected({ count: chosenModels.length })
 						: m.models_budgets_select_a_model()}
@@ -475,7 +512,7 @@
 			<button type="button" class="btn btn-secondary text-sm" onclick={onCancel}
 				>{m.common_cancel()}</button
 			>
-			<button type="button" class="btn btn-primary text-sm" disabled={!valid} onclick={save}>
+			<button type="button" class="btn btn-primary text-sm" onclick={save}>
 				{m.common_apply()}
 			</button>
 		{/if}

@@ -3,8 +3,7 @@
 	import SkillAccessPolicyForm from '$lib/components/admin/SkillAccessPolicyForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { m } from '$lib/i18n';
-	import { profile } from '$lib/stores/index.js';
-	import { goto } from '$lib/url';
+	import { profile, notifications } from '$lib/stores';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
@@ -19,7 +18,7 @@
 		<SkillAccessPolicyForm
 			{skillAccessPolicy}
 			onUpdate={() => {
-				goto('/skills?view=access-policies');
+				notifications.add(m.skills_access_policy_updated(), 'success');
 			}}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { FORM_PARENT_ROUTES, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -20,6 +21,8 @@
 		resolveSubjectPickerById
 	} from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
+	import FieldError from '../FieldError.svelte';
+	import RequiredMark from '../RequiredMark.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchSkills from './SearchSkills.svelte';
@@ -67,23 +70,6 @@
 	let addSkillDialog = $state<ReturnType<typeof SearchSkills>>();
 
 	let deletingPolicy = $state(false);
-
-	let initialPolicyJson = $derived(
-		initialSkillAccessPolicy
-			? JSON.stringify({
-					subjects: initialSkillAccessPolicy.subjects,
-					resources: initialSkillAccessPolicy.resources
-				})
-			: ''
-	);
-
-	let hasChanges = $derived(
-		!initialPolicyJson ||
-			JSON.stringify({
-				subjects: skillAccessPolicy.subjects,
-				resources: skillAccessPolicy.resources
-			}) !== initialPolicyJson
-	);
 
 	onMount(async () => {
 		try {
@@ -165,14 +151,37 @@
 		);
 	}
 
-	function validate(policy: typeof skillAccessPolicy) {
-		if (!policy) return false;
+	const validation = new FormValidation<'name' | 'subjects' | 'resources'>(() => ({
+		...(!skillAccessPolicy.displayName.trim() && { name: m.core_name_required() }),
+		...(!skillAccessPolicy.subjects?.length && { subjects: m.core_users_groups_required() }),
+		...(!skillAccessPolicy.resources?.length && {
+			resources: m.skills_access_policy_skills_required()
+		})
+	}));
 
-		return (
-			policy.displayName.length > 0 &&
-			(policy.subjects?.length ?? 0) > 0 &&
-			(policy.resources?.length ?? 0) > 0
-		);
+	function cancel() {
+		goto(FORM_PARENT_ROUTES.skillAccessPolicies);
+	}
+
+	async function save() {
+		if (!(await validation.check())) return;
+		saving = true;
+		try {
+			if (skillAccessPolicy.id) {
+				const response = await AdminService.updateSkillAccessPolicy(
+					skillAccessPolicy.id,
+					skillAccessPolicy
+				);
+				skillAccessPolicy = response;
+				onUpdate?.(response);
+			} else {
+				const response = await AdminService.createSkillAccessPolicy(skillAccessPolicy);
+				skillAccessPolicy = response;
+				onCreate?.(response);
+			}
+		} finally {
+			saving = false;
+		}
 	}
 
 	const subjectTableData = $derived(
@@ -188,6 +197,7 @@
 </script>
 
 <div
+	{@attach validation.attach}
 	class="flex h-full w-full flex-col gap-4"
 	out:fly={{ x: 100, duration }}
 	in:fly={{ x: 100, delay: duration }}
@@ -220,23 +230,37 @@
 			>
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
-						<label for="model-access-policy-name" class="flex-1 text-sm font-light capitalize">
+						<label
+							for="skill-access-policy-name"
+							class="flex-1 text-sm font-light capitalize"
+							class:error={validation.has('name')}
+						>
 							{m.core_name()}
+							<RequiredMark invalid={validation.has('name')} />
 						</label>
 						<input
-							id="model-access-policy-name"
+							{...validation.attrs('name', 'skill-access-policy-name')}
+							aria-required="true"
 							bind:value={skillAccessPolicy.displayName}
 							class="text-input-filled mt-0.5"
+							class:error={validation.has('name')}
 							disabled={readonly}
 						/>
+						<FieldError id="skill-access-policy-name" message={validation.message('name')} />
 					</div>
 				</div>
 			</div>
 		{/if}
 
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-2" data-invalid={validation.has('subjects') ? '' : undefined}>
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.core_users_and_groups()}</h2>
+				<div class="flex flex-col">
+					<h2 class="text-lg font-semibold" class:text-error={validation.has('subjects')}>
+						{m.core_users_and_groups()}
+						<RequiredMark invalid={validation.has('subjects')} textMessage={m.core_required_sr()} />
+					</h2>
+					<FieldError id="skill-access-policy-subjects" message={validation.message('subjects')} />
+				</div>
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
@@ -298,9 +322,21 @@
 			{/if}
 		</div>
 
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-2" data-invalid={validation.has('resources') ? '' : undefined}>
 			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{m.skills_title()}</h2>
+				<div class="flex flex-col">
+					<h2 class="text-lg font-semibold" class:text-error={validation.has('resources')}>
+						{m.skills_title()}
+						<RequiredMark
+							invalid={validation.has('resources')}
+							textMessage={m.core_required_sr()}
+						/>
+					</h2>
+					<FieldError
+						id="skill-access-policy-resources"
+						message={validation.message('resources')}
+					/>
+				</div>
 				{#if !readonly}
 					<button
 						class="btn btn-primary flex items-center gap-1 text-sm"
@@ -359,61 +395,18 @@
 			in:fly={{ x: -100 }}
 		>
 			<div class="flex w-full justify-end gap-2">
-				{#if !skillAccessPolicy.id}
-					<button
-						class="btn btn-secondary text-sm"
-						onclick={() => {
-							goto('/skills?view=access-policies');
-						}}
-					>
-						{m.common_cancel()}
-					</button>
-					<button
-						class="btn btn-primary text-sm"
-						disabled={!validate(skillAccessPolicy) || saving}
-						onclick={async () => {
-							saving = true;
-							try {
-								const response = await AdminService.createSkillAccessPolicy(skillAccessPolicy);
-								skillAccessPolicy = response;
-								onCreate?.(response);
-							} finally {
-								saving = false;
-							}
-						}}
-					>
-						{#if saving}
-							<Loading class="size-4" />
-						{:else}
-							{m.core_save()}
-						{/if}
-					</button>
-				{:else}
-					<button
-						class="btn btn-primary text-sm"
-						disabled={!validate(skillAccessPolicy) || !hasChanges || saving}
-						onclick={async () => {
-							if (!skillAccessPolicy.id) return;
-							saving = true;
-							try {
-								const response = await AdminService.updateSkillAccessPolicy(
-									skillAccessPolicy.id,
-									skillAccessPolicy
-								);
-								skillAccessPolicy = response;
-								onUpdate?.(response);
-							} finally {
-								saving = false;
-							}
-						}}
-					>
-						{#if saving}
-							<Loading class="size-4" />
-						{:else}
-							{m.core_update()}
-						{/if}
-					</button>
-				{/if}
+				<button class="btn btn-secondary text-sm" disabled={saving} onclick={cancel}>
+					{m.common_cancel()}
+				</button>
+				<button class="btn btn-primary text-sm" disabled={saving} onclick={save}>
+					{#if saving}
+						<Loading class="size-4" />
+					{:else if skillAccessPolicy.id}
+						{m.core_update()}
+					{:else}
+						{m.core_save()}
+					{/if}
+				</button>
 			</div>
 		</div>
 	{/if}
@@ -465,7 +458,7 @@
 		if (!skillAccessPolicy.id) return;
 		saving = true;
 		await AdminService.deleteSkillAccessPolicy(skillAccessPolicy.id);
-		goto('/skills?view=access-policies');
+		goto(FORM_PARENT_ROUTES.skillAccessPolicies);
 	}}
 	oncancel={() => (deletingPolicy = false)}
 />

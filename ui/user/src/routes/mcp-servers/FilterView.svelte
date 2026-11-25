@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
@@ -8,10 +9,15 @@
 	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { FORM_PARENT_ROUTES, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { completeSave } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
-	import type { MCPFilterInput, SystemMCPServerCatalogEntry } from '$lib/services/admin/types';
+	import type {
+		MCPFilter,
+		MCPFilterInput,
+		SystemMCPServerCatalogEntry
+	} from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { BookOpenText, Trash2 } from '@lucide/svelte';
@@ -49,6 +55,17 @@
 	);
 
 	const duration = PAGE_TRANSITION_DURATION;
+
+	function backToList() {
+		goto(FORM_PARENT_ROUTES.filters, { invalidateAll: true });
+	}
+
+	function handleUpdated(updated?: MCPFilter) {
+		if (!updated) return;
+		completeSave({ created: false, message: m.mcps_filters_filter_updated() });
+		invalidateAll();
+	}
+
 	const mcpServerId = $derived(filter?.id ? `sms1${filter.id}` : undefined);
 </script>
 
@@ -105,17 +122,15 @@
 			{#if currentView === 'configuration' && isGuardrail}
 				<GuardrailFilterForm
 					{filter}
-					onUpdate={() => {
-						goto('/mcp-servers?view=filters', { invalidateAll: true });
-					}}
+					onUpdate={handleUpdated}
+					onCancel={backToList}
 					readonly={profile.current.isAdminReadonly?.()}
 				/>
 			{:else if currentView === 'configuration'}
 				<FilterForm
 					{filter}
-					onUpdate={() => {
-						goto('/mcp-servers?view=filters', { invalidateAll: true });
-					}}
+					onUpdate={handleUpdated}
+					onCancel={backToList}
 					readonly={profile.current.isAdminReadonly?.()}
 					mcpSystemCatalogEntryId={entry?.id || filter.systemMCPServerCatalogEntryID}
 				/>
@@ -157,9 +172,15 @@
 		{:else}
 			<FilterForm
 				{filter}
-				onCreate={() => {
-					goto('/mcp-servers?view=filters', { invalidateAll: true });
+				onCreate={(created) => {
+					if (!created) return;
+					completeSave({
+						created: true,
+						message: m.mcps_filters_filter_created(),
+						href: `/mcp-servers/filters/${created.id}`
+					});
 				}}
+				onCancel={backToList}
 				readonly={profile.current.isAdminReadonly?.()}
 				mcpSystemCatalogEntryId={entry?.id}
 			/>

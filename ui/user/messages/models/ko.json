@@ -521,5 +521,11 @@
 	"models_connect_codex_default": "Codex 기본값",
 	"models_providers_chatgpt_subscriptions_only": "ChatGPT 구독만 사용",
 	"models_connect_codex_model_note": "ChatGPT 구독은 OpenAI 모델에서만 사용됩니다. Codex 기본값은 클라이언트의 기본 모델을 유지합니다.",
-	"models_providers_chatgpt_extra_headers_help": "ChatGPT 구독을 활성화하면 이 공급자의 추가 헤더도 chatgpt.com으로 전송됩니다. OpenAI와 공유해도 되는 값만 설정하세요."
+	"models_providers_chatgpt_extra_headers_help": "ChatGPT 구독을 활성화하면 이 공급자의 추가 헤더도 chatgpt.com으로 전송됩니다. OpenAI와 공유해도 되는 값만 설정하세요.",
+	"models_profile_fix_models": "아래 표시된 모델을 제거하거나 바꾸세요.",
+	"models_profile_fix_budgets": "아래 표시된 예산을 편집하거나 제거하세요.",
+	"models_routing_created": "라우팅 규칙을 만들었습니다.",
+	"models_routing_expression_required": "식은 필수입니다.",
+	"models_routing_targets_required": "대상을 하나 이상 추가하세요.",
+	"models_profile_created": "프로필을 만들었습니다."
 }

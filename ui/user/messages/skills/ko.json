@@ -94,5 +94,8 @@
 	"skills_syncing_notice": "시스템이 현재 구성된 Git 저장소와 동기화하고 있습니다.",
 	"skills_this_policy": "이 정책",
 	"skills_title": "스킬",
-	"skills_view_source_on_git": "Git에서 소스 보기"
+	"skills_view_source_on_git": "Git에서 소스 보기",
+	"skills_access_policy_skills_required": "스킬을 하나 이상 추가하세요.",
+	"skills_access_policy_created": "액세스 정책을 만들었습니다.",
+	"skills_access_policy_updated": "액세스 정책을 업데이트했습니다."
 }

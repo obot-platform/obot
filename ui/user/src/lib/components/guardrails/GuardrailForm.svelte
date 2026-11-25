@@ -1,11 +1,14 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
+	import FieldError from '$lib/components/FieldError.svelte';
+	import RequiredMark from '$lib/components/RequiredMark.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { parseErrorContent } from '$lib/errors';
+	import { FormValidation } from '$lib/form.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -175,19 +178,24 @@
 		}
 	});
 
-	let missingRequired = $derived(
-		(provider?.fields ?? []).some((f) => {
-			if (!f.required) return false;
-			if (f.sensitive) return !secrets[f.name]?.trim() && !configuredSecrets.includes(f.name);
-			if (f.type === 'list') {
-				return isTextList(f) ? !listText[f.name]?.trim() : !(values[f.name] as string[])?.length;
-			}
-			const v = values[f.name];
-			return v === undefined || v === null || v === '';
-		})
-	);
+	function isMissing(f: NonNullable<typeof provider>['fields'][number]) {
+		if (!f.required || f.type === 'bool') return false;
+		if (f.sensitive) return !secrets[f.name]?.trim() && !configuredSecrets.includes(f.name);
+		if (f.type === 'list') {
+			return isTextList(f) ? !listText[f.name]?.trim() : !(values[f.name] as string[])?.length;
+		}
+		const v = values[f.name];
+		return v === undefined || v === null || v === '';
+	}
 
-	let valid = $derived(!!provider && name.trim().length > 0 && !missingRequired);
+	const validation = new FormValidation<string>(() => {
+		const errors: Record<string, string> = {};
+		if (!name.trim()) errors.name = m.core_name_required();
+		for (const f of provider?.fields ?? []) {
+			if (isMissing(f)) errors[`field.${f.name}`] = m.core_field_required();
+		}
+		return errors;
+	});
 
 	function buildConfig() {
 		const config: Record<string, unknown> = {};
@@ -214,6 +222,7 @@
 
 	async function save() {
 		if (!provider) return;
+		if (!(await validation.check())) return;
 		saving = true;
 		error = '';
 		try {
@@ -306,7 +315,7 @@
 {:else if loadError || !provider}
 	<div class="notification-error rounded-md p-3 text-sm">{loadError}</div>
 {:else}
-	<div class={twMerge('flex flex-col gap-6', !embedded && 'pb-4')}>
+	<div class={twMerge('flex flex-col gap-6', !embedded && 'pb-4')} {@attach validation.attach}>
 		{#if guardrailID && !embedded}
 			<header class="flex w-full items-center justify-between gap-4">
 				<div class="flex items-center gap-2">
@@ -333,13 +342,22 @@
 			</div>
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 				<div class="flex flex-col gap-1">
-					<label for="guardrail-name" class="text-sm font-light">{m.core_name()}</label>
+					<label
+						for="guardrail-name"
+						class="text-sm font-light"
+						class:error={validation.has('name')}
+						>{m.core_name()}
+						<RequiredMark invalid={validation.has('name')} /></label
+					>
 					<input
-						id="guardrail-name"
 						class="text-input-filled"
+						class:error={validation.has('name')}
+						{...validation.attrs('name', 'guardrail-name')}
+						aria-required="true"
 						bind:value={name}
 						disabled={readonly}
 					/>
+					<FieldError id="guardrail-name" message={validation.message('name')} />
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="guardrail-description" class="text-sm font-light"
@@ -367,6 +385,8 @@
 				{@const inputID = `field-${field.name}`}
 				{@const fieldLabel = guardrailFieldLabel(provider.type, field)}
 				{@const fieldDescription = guardrailFieldDescription(provider.type, field)}
+				{@const fieldKey = `field.${field.name}`}
+				{@const invalid = validation.has(fieldKey)}
 				<div class="flex flex-col gap-1">
 					{#if field.type === 'bool'}
 						<Toggle
@@ -377,9 +397,14 @@
 							onChange={(v) => (values[field.name] = v)}
 						/>
 					{:else}
-						<label for={inputID} id={`${inputID}-label`} class="text-sm font-light">
+						<label
+							for={inputID}
+							id={`${inputID}-label`}
+							class="text-sm font-light"
+							class:error={invalid}
+						>
 							{fieldLabel}
-							{#if field.required}<span class="text-error">*</span>{/if}
+							{#if field.required}<RequiredMark {invalid} />{/if}
 						</label>
 						{#if field.sensitive}
 							<SensitiveInput
@@ -390,11 +415,14 @@
 									? m.guardrails_secret_configured_placeholder()
 									: undefined}
 								disabled={readonly}
+								error={invalid}
 							/>
 						{:else if field.type === 'textarea'}
 							<textarea
 								id={inputID}
 								class="text-input-filled min-h-24 text-sm"
+								class:error={invalid}
+								aria-invalid={invalid ? 'true' : undefined}
 								bind:value={() => String(values[field.name] ?? ''), (v) => (values[field.name] = v)}
 								disabled={readonly}></textarea>
 						{:else if field.type === 'number'}
@@ -403,6 +431,8 @@
 								type="number"
 								step="any"
 								class="text-input-filled w-40"
+								class:error={invalid}
+								aria-invalid={invalid ? 'true' : undefined}
 								bind:value={values[field.name]}
 								disabled={readonly}
 							/>
@@ -420,9 +450,16 @@
 								onSelect={(option) =>
 									(values[field.name] = option.id === DEFAULT_OPTION ? '' : option.id)}
 								disabled={readonly}
+								{invalid}
 							/>
 						{:else if field.type === 'list' && !isTextList(field)}
-							<div id={inputID} class="flex flex-wrap gap-x-4 gap-y-1">
+							<div
+								id={inputID}
+								class="flex flex-wrap gap-x-4 gap-y-1 rounded-md"
+								class:ring-1={invalid}
+								class:ring-error={invalid}
+								data-invalid={invalid ? '' : undefined}
+							>
 								{#each listChoices(field) as option (option)}
 									<label class="flex items-center gap-2 text-sm">
 										<input
@@ -457,6 +494,8 @@
 							<textarea
 								id={inputID}
 								class="text-input-filled min-h-20 font-mono text-sm"
+								class:error={invalid}
+								aria-invalid={invalid ? 'true' : undefined}
 								placeholder={m.guardrails_one_per_line()}
 								bind:value={listText[field.name]}
 								disabled={readonly}></textarea>
@@ -464,12 +503,15 @@
 							<input
 								id={inputID}
 								class="text-input-filled"
+								class:error={invalid}
+								aria-invalid={invalid ? 'true' : undefined}
 								bind:value={() => String(values[field.name] ?? ''), (v) => (values[field.name] = v)}
 								placeholder={typeof field.default === 'string' ? field.default : undefined}
 								disabled={readonly}
 							/>
 						{/if}
 					{/if}
+					<FieldError id={inputID} message={validation.message(fieldKey)} />
 					{#if fieldDescription}
 						<span class="text-muted-content text-xs">{fieldDescription}</span>
 					{/if}
@@ -589,7 +631,7 @@
 			)}
 		>
 			<button class="btn btn-secondary text-sm" onclick={onCancel}>{m.common_cancel()}</button>
-			<button class="btn btn-primary text-sm min-w-19" disabled={!valid || saving} onclick={save}>
+			<button class="btn btn-primary text-sm min-w-19" disabled={saving} onclick={save}>
 				{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 			</button>
 		</div>
