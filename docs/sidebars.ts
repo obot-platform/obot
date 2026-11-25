@@ -235,6 +235,11 @@ const sidebars = {
 					"type": "doc",
 					"id": "device-management/enforcement",
 					"label": "Policy enforcement"
+				},
+				{
+					"type": "doc",
+					"id": "device-management/kiro",
+					"label": "Deploy Kiro with Obot"
 				}
 			]
 		},
