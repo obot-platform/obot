@@ -272,6 +272,12 @@ See [experimental Claude Environments](../claude-environments/overview.md) for s
 
 **Default:** `90`
 
+### `OBOT_SERVER_DISABLE_MCPAUDIT_LOG` {#obot_server_disable_mcpaudit_log}
+
+Disables collection and persistence of new MCP audit logs, including MCP gateway traffic and tool calls reported by local agents on managed devices. Device submissions are still accepted, then discarded. Existing logs remain available.
+
+**Default:** `false`
+
 ### `OBOT_SERVER_DISABLE_LLMAUDIT_LOG` {#obot_server_disable_llmaudit_log}
 
 Disables collection and persistence of new LLM gateway audit logs. Existing logs remain available.
