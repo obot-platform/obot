@@ -24,6 +24,10 @@ import (
 )
 
 func TestProviderProxy(t *testing.T) {
+	// The proxy resolver checks lowercase names first, so inherited values can shadow this fixture.
+	for _, name := range []string{"http_proxy", "https_proxy", "no_proxy"} {
+		t.Setenv(name, "")
+	}
 	t.Setenv("HTTPS_PROXY", "http://environment.invalid:8080")
 	t.Setenv("HTTP_PROXY", "")
 	t.Setenv("NO_PROXY", "api.openai.com")

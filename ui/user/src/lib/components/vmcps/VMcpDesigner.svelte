@@ -22,6 +22,7 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { CREATE_VMCP_DROP_ID, createEntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
+	import { vmcpItemContext } from '$lib/runes/vmcps/vmcpItem.svelte';
 	import {
 		claimCreationHintForVMcp,
 		claimToolSetupForVMcp,
@@ -140,7 +141,18 @@
 		profile.current.id === selectedVMcp?.userID ||
 			(!selectedVMcp?.userID && profile.current.hasAdminAccess?.())
 	);
-	let canAccessTester = $derived(Boolean(selectedVMcp?.id && (isOwner || !selectedVMcp?.userID)));
+	// The Inspector can start a connection. For Read-Only Admins viewing a shared vMCP, require the
+	// same profile grant that enables Connect on the vMCP card.
+	let canAccessTester = $derived(
+		Boolean(
+			selectedVMcp?.id &&
+			(isOwner || !selectedVMcp.userID) &&
+			(profile.current.isAdmin?.() ||
+				!profile.current.groups.includes(Group.ADMIN_READONLY) ||
+				selectedVMcp.userID === profile.current.id ||
+				vmcpItemContext(selectedVMcp).canConnect)
+		)
+	);
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
 	let hasEntries = $derived(mcpServersAndEntries.current.entries.length > 0);
 	let canEdit = $derived(
@@ -215,7 +227,7 @@
 	$effect(() => {
 		const inspectorID = page.url.searchParams.get('inspector');
 		const vmcp = selectedVMcp;
-		if (!inspectorID || vmcp?.id !== inspectorID) return;
+		if (!canAccessTester || !inspectorID || vmcp?.id !== inspectorID) return;
 
 		untrack(() =>
 			vmcpActions?.openConnect(vmcp, undefined, {
@@ -743,6 +755,9 @@
 						context={ctx}
 						drag={entryDrag}
 						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
+						onViewDetails={!canEdit && profile.current.hasAdminAccess?.()
+							? () => createEditVMcp?.openView(item)
+							: undefined}
 						onConnect={(options) => handleConnectVMcp(item, options)}
 						onDelete={canEdit ? () => createEditVMcp?.openDelete(item) : undefined}
 						openSelectInstance={vmcpActions?.openSelectInstance}

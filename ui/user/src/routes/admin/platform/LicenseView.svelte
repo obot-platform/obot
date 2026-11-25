@@ -341,6 +341,13 @@
 		<UserLimitNotice />
 	{/if}
 
+	{#if billing && isAdminReadonly && license.syncError}
+		<div class="notification-alert flex items-center gap-3 p-3 text-sm" role="status">
+			<CircleAlert class="size-4 shrink-0" aria-hidden="true" />
+			{m.platform_billing_check_failed({ error: license.syncError })}
+		</div>
+	{/if}
+
 	{#if banner}
 		<div
 			class={twMerge(

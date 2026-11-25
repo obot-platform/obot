@@ -22,6 +22,8 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: obot_test
+          # Go tests in different packages share this server, with multiple pools per package.
+          POSTGRES_INITDB_ARGS: "--set max_connections=200"
         ports:
           - 5432:5432
         options: >-

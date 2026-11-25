@@ -25,6 +25,14 @@ import {
 
 type PageDataOverrides = Partial<LayoutData> & Record<string, unknown>;
 
+function canViewAdmin(groups: string[]): boolean {
+	return (
+		groups.includes(Group.ADMIN_READONLY) ||
+		groups.includes(Group.ADMIN) ||
+		groups.includes(Group.AUDITOR)
+	);
+}
+
 /**
  * Builds a Profile with the role helper methods the UI expects at runtime.
  */
@@ -34,9 +42,9 @@ export function createMockProfile(groups: string[] = [Group.ADMIN]): Profile {
 		groups,
 		iconURL: '',
 		loaded: true,
-		hasAdminAccess: () => groups.includes(Group.ADMIN) || groups.includes(Group.AUDITOR),
+		hasAdminAccess: () => canViewAdmin(groups),
 		isAdmin: () => groups.includes(Group.ADMIN),
-		isAdminReadonly: () => !groups.includes(Group.ADMIN) && groups.includes(Group.AUDITOR),
+		isAdminReadonly: () => !groups.includes(Group.ADMIN) && canViewAdmin(groups),
 		isOwner: () => groups.includes(Group.OWNER),
 		isBootstrapUser: () => false
 	};

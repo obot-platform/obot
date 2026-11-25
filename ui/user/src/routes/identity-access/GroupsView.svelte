@@ -38,7 +38,7 @@
 	let groupRoleAssignments = $state(untrack(() => initialAssignments));
 
 	function getRoleId(role: number): number {
-		return role & ~Role.AUDITOR;
+		return role & ~(Role.AUDITOR | Role.ADMIN_READONLY);
 	}
 
 	// Create a map for quick role lookups
@@ -127,7 +127,7 @@
 			}
 
 			// Refresh user's profile if they're in the affected group
-			if (profile.current.groups.includes(groupName)) {
+			if (profile.current.authProviderGroups?.includes(groupName)) {
 				profile.current = await UserService.getProfile();
 			}
 		} catch (error) {
@@ -223,7 +223,7 @@
 									<button
 										class="menu-button text-error"
 										disabled={!profile.current.groups.includes(Group.OWNER) &&
-											d.roleId === Role.OWNER}
+											Boolean(d.assignment.role & (Role.OWNER | Role.AUDITOR))}
 										onclick={() => (deletingGroup = d)}
 									>
 										{m.identity_access_groups_remove_role_assignment()}
@@ -250,7 +250,7 @@
 		await AdminService.deleteGroupRoleAssignment(deletingGroup.id);
 		groupRoleAssignments = await AdminService.listGroupRoleAssignments();
 		// Refresh user's profile if they're in the affected group
-		if (profile.current.groups.includes(deletingGroup.id)) {
+		if (profile.current.authProviderGroups?.includes(deletingGroup.id)) {
 			profile.current = await UserService.getProfile();
 		}
 		loading = false;

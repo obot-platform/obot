@@ -195,7 +195,7 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 
 		user.Role = provisionedDefaultRole(user.Role, "first sign-in")
 
-		if user, err = c.UpdateUser(ctx, true, user, fmt.Sprintf("%d", user.ID)); err != nil {
+		if user, err = c.updateUser(ctx, true, user, fmt.Sprintf("%d", user.ID), true); err != nil {
 			return nil, err
 		}
 	}
@@ -570,9 +570,18 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 			// We're using an existing user. See if there are any fields that need to be updated.
 			var userChanged bool
 			if !user.Role.HasRole(role) {
-				user.Role = user.Role.SwitchBaseRole(role)
-				userChanged = true
-				roleRaised = true
+				// An explicit role raise must preserve role changes made since the unlocked sign-in read.
+				var current types.User
+				if err := tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).
+					Select("role").Where("id = ?", user.ID).Take(&current).Error; err != nil {
+					return nil, false, false, fmt.Errorf("failed to lock role for user %d: %w", user.ID, err)
+				}
+				user.Role = current.Role
+				if !user.Role.HasRole(role) {
+					user.Role = user.Role.SwitchBaseRole(role)
+					userChanged = true
+					roleRaised = true
+				}
 			}
 
 			if user.Timezone == "" && timezone != "" {
@@ -615,19 +624,26 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 				if err := c.encryptUser(ctx, &u); err != nil {
 					return nil, false, false, fmt.Errorf("failed to encrypt user: %w", err)
 				}
-				// The user was read without a lock, so its lifecycle state may be stale. Only lifecycle
-				// operations write that state.
-				if err = tx.Omit(types.UserLifecycleColumns...).Updates(u).Error; err != nil {
+				// Preserve concurrent lifecycle changes, and preserve role changes unless this sign-in
+				// explicitly raised the role from the locked row.
+				omit := types.UserLifecycleColumns
+				if !roleRaised {
+					omit = append(slices.Clone(omit), "role")
+				}
+				if err = tx.Omit(omit...).Updates(u).Error; err != nil {
 					return nil, false, false, err
 				}
 			} else if userChanged {
 				// Only the columns that sign-in owns are written, so that a stale copy of the user, read without a
 				// lock, cannot overwrite a profile that SCIM wrote in the meantime.
-				if err = tx.Model(new(types.User)).Where("id = ?", user.ID).UpdateColumns(map[string]any{
-					"role":            user.Role,
+				columns := map[string]any{
 					"timezone":        user.Timezone,
 					"last_active_day": user.LastActiveDay,
-				}).Error; err != nil {
+				}
+				if roleRaised {
+					columns["role"] = user.Role
+				}
+				if err = tx.Model(new(types.User)).Where("id = ?", user.ID).UpdateColumns(columns).Error; err != nil {
 					return nil, false, false, err
 				}
 			}

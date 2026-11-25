@@ -269,13 +269,17 @@ export function openUrl(url: string, isCtrlClick: boolean) {
 }
 
 export const getUserRoleLabel = (role: number) => {
-	const withAuditor = role & Role.AUDITOR ? `, ${m.core_role_auditor()}` : '';
-	if (role & Role.OWNER) return m.core_role_owner() + withAuditor;
-	if (role & Role.ADMIN) return m.core_role_admin() + withAuditor;
-	if (role & Role.POWERUSER) return m.core_role_power_user() + withAuditor;
-	if (role & Role.POWERUSER_PLUS) return m.core_role_power_user_plus() + withAuditor;
-	if (role & Role.BASIC) return m.core_role_standard_user() + withAuditor;
-	return m.core_unknown() + withAuditor;
+	const addOns = [
+		role & Role.ADMIN_READONLY ? m.core_role_admin_readonly() : '',
+		role & Role.AUDITOR ? m.core_role_auditor() : ''
+	].filter(Boolean);
+	const suffix = addOns.length ? `, ${addOns.join(', ')}` : '';
+	if (role & Role.OWNER) return m.core_role_owner() + suffix;
+	if (role & Role.ADMIN) return m.core_role_admin() + suffix;
+	if (role & Role.POWERUSER) return m.core_role_power_user() + suffix;
+	if (role & Role.POWERUSER_PLUS) return m.core_role_power_user_plus() + suffix;
+	if (role & Role.BASIC) return m.core_role_standard_user() + suffix;
+	return addOns.length ? addOns.join(', ') : m.core_unknown();
 };
 
 // isDisabledUser reports whether a user is disabled: they keep their account, but cannot sign in or use

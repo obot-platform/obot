@@ -22,7 +22,8 @@ func TestSetDefaultUserRole(t *testing.T) {
 	for _, role := range []types.Role{
 		types.RoleBasic, types.RolePowerUser, types.RolePowerUserPlus, types.RoleAdmin,
 		types.RoleAdmin | types.RoleAuditor, types.RoleOwner, types.RoleUnknown,
-		types.RoleAuditor, types.RoleBasic | types.RoleAdmin, types.RoleAdmin | 256, 10,
+		types.RoleAuditor, types.RoleBasic | types.RoleAdmin, types.RoleAdmin | types.RoleAdminReadonly,
+		types.RoleOwner | types.RoleAdminReadonly, types.RoleBasic | types.RoleAdminReadonly, 10,
 	} {
 		t.Run(fmt.Sprint(role), func(t *testing.T) {
 			for _, owner := range []bool{false, true} {
@@ -46,7 +47,8 @@ func TestSetDefaultUserRole(t *testing.T) {
 
 				want := role
 				switch {
-				case role == types.RoleUnknown || role == types.RoleAuditor || role == types.RoleBasic|types.RoleAdmin || role == types.RoleAdmin|256 || role == 10:
+				case role == types.RoleUnknown || role == types.RoleAuditor || role == types.RoleBasic|types.RoleAdmin ||
+					role == types.RoleAdmin|types.RoleAdminReadonly || role == types.RoleOwner|types.RoleAdminReadonly || role == 10:
 					var httpErr *types.ErrHTTP
 					require.ErrorAs(t, err, &httpErr)
 					require.Equal(t, http.StatusBadRequest, httpErr.Code)

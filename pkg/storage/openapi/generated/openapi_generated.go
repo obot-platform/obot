@@ -370,6 +370,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus":                       schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPConfiguration":                         schema_obot_platform_obot_apiclient_types_VMCPConfiguration(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPConfigurationPolicy":                   schema_obot_platform_obot_apiclient_types_VMCPConfigurationPolicy(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPConfigurationPresence":                 schema_obot_platform_obot_apiclient_types_VMCPConfigurationPresence(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPInstance":                              schema_obot_platform_obot_apiclient_types_VMCPInstance(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPInstanceList":                          schema_obot_platform_obot_apiclient_types_VMCPInstanceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPInstanceManifest":                      schema_obot_platform_obot_apiclient_types_VMCPInstanceManifest(ref),
@@ -18801,6 +18802,38 @@ func schema_obot_platform_obot_apiclient_types_VMCPConfigurationPolicy(ref commo
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPConfigurationPresence(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPConfigurationPresence lists fields with stored fixed values for one component.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configuredFields": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"configuredFields"},
+			},
+		},
 	}
 }
 

@@ -156,6 +156,8 @@
 	"core_revoked": "取り消し済み",
 	"core_role_admin": "管理者",
 	"core_role_admin_description": "すべてのユーザーが完全な管理者になります。このオプションを選択する際は注意してください。",
+	"core_role_admin_readonly": "管理者（読み取り専用）",
+	"core_role_admin_readonly_description": "すべての管理設定を閲覧できますが、変更はできません。",
 	"core_role_auditor": "監査担当者",
 	"core_role_owner": "オーナー",
 	"core_role_power_user": "パワーユーザー",

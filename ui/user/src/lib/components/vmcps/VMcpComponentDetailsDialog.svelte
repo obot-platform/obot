@@ -144,7 +144,8 @@
 				bind:value={name}
 				autocomplete="off"
 				required
-				readonly={readonly || saving}
+				disabled={readonly}
+				readonly={saving}
 			/>
 		</label>
 		{#if !readonly && nameError}
@@ -176,7 +177,8 @@
 					placeholder={m.mcps_composite_no_prefix()}
 					bind:value={toolPrefix}
 					autocomplete="off"
-					readonly={readonly || saving}
+					disabled={readonly}
+					readonly={saving}
 				/>
 			</div>
 			{#if prefixIssue}

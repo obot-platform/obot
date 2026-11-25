@@ -42,6 +42,7 @@ func TestBillingLicenseShowsUsage(t *testing.T) {
 				Plan:      "Team",
 				Status:    "active",
 				PeriodEnd: &periodEnd,
+				SyncError: "billing unavailable",
 				Entitlements: types.Entitlements{
 					Users: new(int64(10)),
 				},
@@ -56,36 +57,74 @@ func TestBillingLicenseShowsUsage(t *testing.T) {
 		},
 	).Build()
 
-	rec := httptest.NewRecorder()
-	require.NoError(t, NewBillingHandler(nil, "").Get(api.Context{
-		ResponseWriter: rec,
-		Request:        httptest.NewRequest(http.MethodGet, "/api/license", nil),
-		Storage:        storage,
-		GatewayClient:  gatewayClient,
-		User: &user.DefaultInfo{
-			Groups: []string{types.GroupAdmin},
+	for _, tt := range []struct {
+		name          string
+		role          types.Role
+		wantDetails   bool
+		wantSyncError string
+	}{
+		{
+			name:          "admin",
+			role:          types.RoleAdmin,
+			wantDetails:   true,
+			wantSyncError: "billing unavailable",
 		},
-	}))
+		{
+			name:          "auditor",
+			role:          types.RoleBasic | types.RoleAuditor,
+			wantDetails:   true,
+			wantSyncError: "billing unavailable",
+		},
+		{
+			name:          "read-only admin",
+			role:          types.RoleBasic | types.RoleAdminReadonly,
+			wantDetails:   true,
+			wantSyncError: "billing unavailable",
+		},
+		{
+			name: "basic",
+			role: types.RoleBasic,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			require.NoError(t, NewBillingHandler(nil, "").Get(api.Context{
+				ResponseWriter: rec,
+				Request:        httptest.NewRequest(http.MethodGet, "/api/license", nil),
+				Storage:        storage,
+				GatewayClient:  gatewayClient,
+				User:           &user.DefaultInfo{Groups: tt.role.Groups()},
+			}))
 
-	// The entitlements are shown once, not again in the subscription.
-	var shown struct {
-		Subscription map[string]any `json:"subscription"`
+			var status BillingStatus
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &status))
+			require.Equal(t, int64(10), *status.Entitlements.Users)
+			require.True(t, status.Syncing)
+			require.True(t, status.Entitlements.Cloud)
+			require.Equal(t, tt.wantSyncError, status.SyncError)
+			if !tt.wantDetails {
+				require.Nil(t, status.Usage)
+				require.Nil(t, status.Subscription)
+				return
+			}
+
+			require.Equal(t, &types.EntitlementsUsage{
+				Users:     1,
+				MemoryMiB: 200,
+			}, status.Usage)
+			require.NotNil(t, status.Subscription)
+			require.Equal(t, "Team", status.Subscription.Plan)
+			require.Equal(t, "active", status.Subscription.Status)
+			require.True(t, periodEnd.Time.Equal(status.Subscription.PeriodEnd.GetTime()))
+
+			// The top-level entitlements already describe what the subscription grants.
+			var shown struct {
+				Subscription map[string]any `json:"subscription"`
+			}
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &shown))
+			require.NotContains(t, shown.Subscription, "entitlements")
+		})
 	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &shown))
-	require.Equal(t, "Team", shown.Subscription["plan"])
-	require.NotContains(t, shown.Subscription, "entitlements")
-
-	var status BillingStatus
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&status))
-	require.Equal(t, int64(10), *status.Entitlements.Users)
-	require.Equal(t, &types.EntitlementsUsage{
-		Users:     1,
-		MemoryMiB: 200,
-	}, status.Usage)
-	require.True(t, status.Syncing)
-	require.True(t, status.Entitlements.Cloud)
-	require.Equal(t, "active", status.Subscription.Status)
-	require.True(t, periodEnd.Time.Equal(status.Subscription.PeriodEnd.GetTime()))
 }
 
 func TestVersionReportsABilledEnvironment(t *testing.T) {

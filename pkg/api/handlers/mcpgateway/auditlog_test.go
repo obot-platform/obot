@@ -184,7 +184,7 @@ func TestListAuditLogAPIKeyFilterOptionsReturnsStructuredOptions(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=mcp_call", &user.DefaultInfo{
-		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		UID: "1", Groups: types.RoleAdmin.Groups(),
 	}, recorder)
 	ctx.SetPathValue("filter", "api_key_id")
 	if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err != nil {
@@ -222,7 +222,7 @@ func TestListAuditLogAPIKeyFilterOptionsIncludesLocalAgentKeysForMixedSources(t 
 
 	recorder := httptest.NewRecorder()
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=mcp_call,local_agent_tool_call", &user.DefaultInfo{
-		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		UID: "1", Groups: types.RoleAdmin.Groups(),
 	}, recorder)
 	ctx.SetPathValue("filter", "api_key_id")
 
@@ -487,7 +487,7 @@ func TestListAuditLogsRejectsSourceTypeQuery(t *testing.T) {
 	handler := NewAuditLogHandler(gatewayClient)
 	ctx := newAuditLogListContext(t, gatewayClient, "source_type=mcp", &user.DefaultInfo{
 		UID:    "1",
-		Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		Groups: types.RoleAdmin.Groups(),
 	})
 	err := handler.ListAuditLogs(ctx)
 	var errHTTP *types.ErrHTTP
@@ -504,7 +504,7 @@ func TestListAuditLogsLocalAgentAdminSeesMetadataNoPayload(t *testing.T) {
 	rec := httptest.NewRecorder()
 	adminCtx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=local_agent_tool_call", &user.DefaultInfo{
 		UID:    "1",
-		Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		Groups: types.RoleAdmin.Groups(),
 	}, rec)
 
 	if err := handler.ListAuditLogs(adminCtx); err != nil {
@@ -550,7 +550,7 @@ func TestListAuditLogsAdminGetsOneMixedPage(t *testing.T) {
 	rec := httptest.NewRecorder()
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient,
 		"event_type=mcp_call,local_agent_tool_call", &user.DefaultInfo{
-			UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+			UID: "1", Groups: types.RoleAdmin.Groups(),
 		}, rec)
 	if err := NewAuditLogHandler(gatewayClient).ListAuditLogs(ctx); err != nil {
 		t.Fatal(err)
@@ -599,7 +599,7 @@ func TestListAuditLogsDefaultsToAllAuthorizedSources(t *testing.T) {
 	rec := httptest.NewRecorder()
 	// No event_type in the query string: the handler must default to all authorized sources.
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "", &user.DefaultInfo{
-		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		UID: "1", Groups: types.RoleAdmin.Groups(),
 	}, rec)
 	if err := NewAuditLogHandler(gatewayClient).ListAuditLogs(ctx); err != nil {
 		t.Fatal(err)
@@ -613,7 +613,7 @@ func TestListAuditLogsDefaultsToAllAuthorizedSources(t *testing.T) {
 	}
 }
 
-func TestListAuditLogsScopesBasicAndPowerUserPlus(t *testing.T) {
+func TestListAuditLogsScopesByRole(t *testing.T) {
 	tests := []struct {
 		name      string
 		groups    []string
@@ -628,6 +628,11 @@ func TestListAuditLogsScopesBasicAndPowerUserPlus(t *testing.T) {
 			name:      "power user plus sees owned server, workspace, and owned vMCP",
 			groups:    types.RolePowerUserPlus.Groups(),
 			wantCalls: []string{"vmcp-call", "workspace-call", "owned-call"},
+		},
+		{
+			name:      "read-only admin sees organization-wide metadata",
+			groups:    (types.RoleBasic | types.RoleAdminReadonly).Groups(),
+			wantCalls: []string{"vmcp-unrelated-call", "vmcp-call", "unrelated-call", "workspace-call", "owned-call"},
 		},
 	}
 
@@ -657,6 +662,40 @@ func TestListAuditLogsScopesBasicAndPowerUserPlus(t *testing.T) {
 				if got := response.Items[i].Action.Name; got != wantCall {
 					t.Fatalf("item %d action name = %q, want %q", i, got, wantCall)
 				}
+			}
+		})
+	}
+}
+
+func TestReadOnlyAdminPreservesOwnMCPPayloadAccess(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	storageClient, logs := newAuditLogScopeTestFixture(t, "42")
+	seedMCPAuditLogs(t, gatewayClient, logs...)
+
+	events, _, err := gatewayClient.GetMCPAuditLogs(t.Context(), gatewayclient.MCPAuditLogOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := NewAuditLogHandler(gatewayClient)
+	for _, event := range events {
+		t.Run(event.MCP().MCPID, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			ctx := newAuditLogDetailContext(t, gatewayClient, fmt.Sprint(event.ID), &user.DefaultInfo{
+				UID:    "42",
+				Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups(),
+			}, rec)
+			ctx.Storage = storageClient
+			if err := handler.GetAuditLog(ctx); err != nil {
+				t.Fatal(err)
+			}
+			var detail types.AuditLogEvent
+			if err := json.Unmarshal(rec.Body.Bytes(), &detail); err != nil {
+				t.Fatal(err)
+			}
+			id := event.MCP().MCPID
+			wantPayload := id == "mcp-owned" || id == "vmcp-owned"
+			if detail.Details == nil || detail.Details.PayloadRedacted == wantPayload {
+				t.Fatalf("detail = %#v, want payload=%t", detail.Details, wantPayload)
 			}
 		})
 	}
@@ -746,7 +785,7 @@ func TestGetAuditLogLocalAgentAccessByRole(t *testing.T) {
 	auditorRec := httptest.NewRecorder()
 	auditorCtx := newAuditLogDetailContext(t, gatewayClient, "1", &user.DefaultInfo{
 		UID:    "2",
-		Groups: []string{types.GroupAuthenticated, types.GroupAuditor},
+		Groups: (types.RoleBasic | types.RoleAdminReadonly | types.RoleAuditor).Groups(),
 	}, auditorRec)
 	if err := handler.GetAuditLog(auditorCtx); err != nil {
 		t.Fatalf("auditor get local-agent log: %v", err)
@@ -759,24 +798,27 @@ func TestGetAuditLogLocalAgentAccessByRole(t *testing.T) {
 		t.Fatalf("expected auditor to see decrypted normalized payload, got %#v", auditorLog.Details)
 	}
 
-	// Admin (non-auditor) sees metadata but not the encrypted payload.
-	adminRec := httptest.NewRecorder()
-	adminCtx := newAuditLogDetailContext(t, gatewayClient, "1", &user.DefaultInfo{
-		UID:    "1",
-		Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
-	}, adminRec)
-	if err := handler.GetAuditLog(adminCtx); err != nil {
-		t.Fatalf("admin get local-agent log: %v", err)
-	}
-	var adminLog types.AuditLogEvent
-	if err := json.Unmarshal(adminRec.Body.Bytes(), &adminLog); err != nil {
-		t.Fatalf("decode admin response: %v", err)
-	}
-	if adminLog.Details == nil || !adminLog.Details.PayloadRedacted {
-		t.Fatal("expected admin detail to explicitly report payload redaction")
-	}
-	if adminLog.Details.Request != nil && !isBlankJSON(adminLog.Details.Request.Body) {
-		t.Fatalf("expected admin to be denied encrypted payload, got %#v", adminLog.Details)
+	for _, role := range []types.Role{types.RoleAdmin, types.RoleBasic | types.RoleAdminReadonly} {
+		t.Run(fmt.Sprint(role), func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			ctx := newAuditLogDetailContext(t, gatewayClient, "1", &user.DefaultInfo{
+				UID:    "1",
+				Groups: role.Groups(),
+			}, rec)
+			if err := handler.GetAuditLog(ctx); err != nil {
+				t.Fatalf("get local-agent log: %v", err)
+			}
+			var event types.AuditLogEvent
+			if err := json.Unmarshal(rec.Body.Bytes(), &event); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if event.Details == nil || !event.Details.PayloadRedacted {
+				t.Fatal("expected detail to report payload redaction")
+			}
+			if event.Details.Request != nil && !isBlankJSON(event.Details.Request.Body) {
+				t.Fatalf("expected request body to be redacted, got %#v", event.Details)
+			}
+		})
 	}
 
 	// Normal user is denied entirely.

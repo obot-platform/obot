@@ -223,6 +223,8 @@
 			}}
 			onClickRow={handleRowClick}
 			initSort={{ property: 'lastRunAt', order: 'desc' }}
+			actions={readonly ? undefined : rowActions}
+			tableSelectActions={readonly ? undefined : selectionActions}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -242,131 +244,121 @@
 					{d[property as keyof typeof d]}
 				{/if}
 			{/snippet}
-			{#snippet actions(d)}
-				<DotDotDot class="hover:dark:bg-base-100/50">
-					{#snippet icon()}
-						<Ellipsis class="size-4" />
-					{/snippet}
-
-					{#snippet children({ toggle })}
-						{#if !readonly}
-							{#if d.enabled}
-								<button
-									class="menu-button"
-									disabled={toggleAction?.id === d.id}
-									onclick={async (e) => {
-										e.stopPropagation();
-										await handleUpdateScheduledExport(d.id, { enabled: false });
-
-										toggle(false);
-									}}
-								>
-									{#if toggleAction?.id === d.id && toggleAction.action === 'pause'}
-										<Loading class="size-4" />
-									{:else}
-										<CirclePause class="size-4" />
-									{/if}
-									{m.audit_usage_export_schedules_pause()}
-								</button>
-							{:else}
-								<button
-									class="menu-button-primary"
-									disabled={toggleAction?.id === d.id}
-									onclick={async (e) => {
-										e.stopPropagation();
-										await handleUpdateScheduledExport(d.id, { enabled: true });
-										toggle(false);
-									}}
-								>
-									{#if toggleAction?.id === d.id && toggleAction.action === 'resume'}
-										<Loading class="size-4" />
-									{:else}
-										<CirclePlay class="size-4" />
-									{/if}
-									{m.audit_usage_export_schedules_resume()}
-								</button>
-							{/if}
-							<button
-								class="menu-button-destructive"
-								onclick={(e) => {
-									e.stopPropagation();
-									showDeleteConfirm = {
-										type: 'single',
-										export: d,
-										onsuccess: () => {
-											toggle(false);
-										}
-									};
-								}}
-							>
-								<Trash2 class="size-4" />
-								{m.core_delete()}
-							</button>
-						{/if}
-					{/snippet}
-				</DotDotDot>
-			{/snippet}
-			{#snippet tableSelectActions(currentSelected)}
-				{@const bulkActionState = getBulkActionState(currentSelected)}
-				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
-					{#if bulkActionState === 'pause'}
-						<button
-							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								handleBulkPause();
-							}}
-							disabled={readonly}
-						>
-							<CirclePause class="size-4" />
-							{m.audit_usage_exports_action_pause()}
-							{#if !readonly}
-								<span class="pill-primary">
-									{Object.keys(currentSelected).length}
-								</span>
-							{/if}
-						</button>
-					{:else if bulkActionState === 'resume'}
-						<button
-							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								handleBulkResume();
-							}}
-							disabled={readonly}
-						>
-							<CirclePause class="size-4" />
-							{m.audit_usage_exports_action_resume()}
-							{#if !readonly}
-								<span class="pill-primary">
-									{Object.keys(currentSelected).length}
-								</span>
-							{/if}
-						</button>
-					{/if}
-					<button
-						class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
-						onclick={() => {
-							selected = currentSelected;
-							showDeleteConfirm = {
-								type: 'multi'
-							};
-						}}
-						disabled={readonly}
-					>
-						<Trash2 class="size-4" />
-						{m.core_delete()}
-						{#if !readonly}
-							<span class="pill-primary">
-								{Object.keys(currentSelected).length}
-							</span>
-						{/if}
-					</button>
-				</div>
-			{/snippet}
 		</Table>
 	{/if}
 </div>
+
+{#snippet rowActions(d: ScheduledAuditLogExport)}
+	<DotDotDot class="hover:dark:bg-base-100/50">
+		{#snippet icon()}
+			<Ellipsis class="size-4" />
+		{/snippet}
+
+		{#snippet children({ toggle })}
+			{#if d.enabled}
+				<button
+					class="menu-button"
+					disabled={toggleAction?.id === d.id}
+					onclick={async (e) => {
+						e.stopPropagation();
+						await handleUpdateScheduledExport(d.id, { enabled: false });
+
+						toggle(false);
+					}}
+				>
+					{#if toggleAction?.id === d.id && toggleAction.action === 'pause'}
+						<Loading class="size-4" />
+					{:else}
+						<CirclePause class="size-4" />
+					{/if}
+					{m.audit_usage_export_schedules_pause()}
+				</button>
+			{:else}
+				<button
+					class="menu-button-primary"
+					disabled={toggleAction?.id === d.id}
+					onclick={async (e) => {
+						e.stopPropagation();
+						await handleUpdateScheduledExport(d.id, { enabled: true });
+						toggle(false);
+					}}
+				>
+					{#if toggleAction?.id === d.id && toggleAction.action === 'resume'}
+						<Loading class="size-4" />
+					{:else}
+						<CirclePlay class="size-4" />
+					{/if}
+					{m.audit_usage_export_schedules_resume()}
+				</button>
+			{/if}
+			<button
+				class="menu-button-destructive"
+				onclick={(e) => {
+					e.stopPropagation();
+					showDeleteConfirm = {
+						type: 'single',
+						export: d,
+						onsuccess: () => {
+							toggle(false);
+						}
+					};
+				}}
+			>
+				<Trash2 class="size-4" />
+				{m.core_delete()}
+			</button>
+		{/snippet}
+	</DotDotDot>
+{/snippet}
+{#snippet selectionActions(currentSelected: Record<string, ScheduledAuditLogExport>)}
+	{@const bulkActionState = getBulkActionState(currentSelected)}
+	<div class="flex grow items-center justify-end gap-2 px-4 py-2">
+		{#if bulkActionState === 'pause'}
+			<button
+				class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
+				onclick={() => {
+					selected = currentSelected;
+					handleBulkPause();
+				}}
+			>
+				<CirclePause class="size-4" />
+				{m.audit_usage_exports_action_pause()}
+				<span class="pill-primary">
+					{Object.keys(currentSelected).length}
+				</span>
+			</button>
+		{:else if bulkActionState === 'resume'}
+			<button
+				class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
+				onclick={() => {
+					selected = currentSelected;
+					handleBulkResume();
+				}}
+			>
+				<CirclePause class="size-4" />
+				{m.audit_usage_exports_action_resume()}
+				<span class="pill-primary">
+					{Object.keys(currentSelected).length}
+				</span>
+			</button>
+		{/if}
+		<button
+			class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
+			onclick={() => {
+				selected = currentSelected;
+				showDeleteConfirm = {
+					type: 'multi'
+				};
+			}}
+		>
+			<Trash2 class="size-4" />
+			{m.core_delete()}
+			<span class="pill-primary">
+				{Object.keys(currentSelected).length}
+			</span>
+		</button>
+	</div>
+{/snippet}
 
 <Confirm
 	msg={showDeleteConfirm?.type === 'single'

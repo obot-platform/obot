@@ -15,6 +15,7 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -385,9 +386,10 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitConcurrently(t *testing.T) {
 
 func TestFirstSignInDefaultRole(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
-		saved apitypes.Role
-		want  apitypes.Role
+		name      string
+		saved     apitypes.Role
+		groupRole apitypes.Role
+		want      apitypes.Role
 	}{
 		{
 			name:  "Admin with Auditor",
@@ -398,6 +400,17 @@ func TestFirstSignInDefaultRole(t *testing.T) {
 			name:  "multiple bases",
 			saved: apitypes.RoleAdmin | apitypes.RoleBasic,
 			want:  apitypes.RoleBasic,
+		},
+		{
+			name:  "redundant read-only admin",
+			saved: apitypes.RoleAdmin | apitypes.RoleAdminReadonly,
+			want:  apitypes.RoleBasic,
+		},
+		{
+			name:      "read-only default for a user with an admin group",
+			saved:     apitypes.RoleBasic | apitypes.RoleAdminReadonly,
+			groupRole: apitypes.RoleAdmin,
+			want:      apitypes.RoleBasic,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -410,7 +423,25 @@ func TestFirstSignInDefaultRole(t *testing.T) {
 			require.NoError(t, c.storageClient.Update(ctx, &setting))
 
 			id := &gatewaytypes.Identity{ProviderUsername: "example", ProviderUserID: "example"}
-			u, err := c.EnsureIdentity(ctx, id, "", UserLimit{Unlimited: true})
+			limit := UserLimit{Unlimited: true}
+			if tc.groupRole != apitypes.RoleUnknown {
+				// Simulate a group membership available before the first role is assigned.
+				require.NoError(t, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+					ensured, err := c.ensureIdentity(ctx, tx, id, "", apitypes.RoleUnknown, limit)
+					if err != nil {
+						return err
+					}
+					group := gatewaytypes.Group{ID: "test:admins", Name: "Administrators"}
+					if err := tx.Create(&group).Error; err != nil {
+						return err
+					}
+					if err := tx.Create(&gatewaytypes.GroupRoleAssignment{GroupName: group.ID, Role: tc.groupRole}).Error; err != nil {
+						return err
+					}
+					return tx.Create(&gatewaytypes.GroupMemberships{GroupID: group.ID, UserID: ensured.user.ID}).Error
+				}))
+			}
+			u, err := c.EnsureIdentity(ctx, id, "", limit)
 			require.NoError(t, err)
 			require.Equal(t, tc.want, u.Role)
 		})

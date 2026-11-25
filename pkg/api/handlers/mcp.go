@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -165,7 +166,7 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	}
 
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
-	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
+	if req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true" {
 		entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 		for _, entry := range list.Items {
 			entries = append(entries, convertEntry(entry))
@@ -297,7 +298,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	items := make([]types.MCPServer, 0, len(servers.Items))
 
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
-	bypassACRCheck := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
+	bypassACRCheck := req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true"
 
 	for _, server := range servers.Items {
 		if server.Spec.Template || server.Spec.CompositeName != "" {
@@ -749,6 +750,32 @@ func validateServerScope(req api.Context, server v1.MCPServer) error {
 	return nil
 }
 
+// storedServerForInspection resolves the existing deployment without creating or refreshing a connection.
+func storedServerForInspection(req api.Context) (v1.MCPServer, error) {
+	id := req.PathValue("mcp_server_id")
+	if system.IsMCPServerInstanceID(id) {
+		var instance v1.MCPServerInstance
+		if err := req.Get(&instance, id); err != nil {
+			return v1.MCPServer{}, err
+		}
+		id = instance.Spec.MCPServerName
+	}
+
+	var server v1.MCPServer
+	err := req.Get(&server, id)
+	return server, err
+}
+
+func (m *MCPHandler) launchConfigForInspection(req api.Context) (mcp.ServerConfig, error) {
+	// The route can name a connection, which ServerForAction checks for ownership.
+	resolved, config, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
+	if err != nil {
+		return mcp.ServerConfig{}, err
+	}
+	config.UserID = resolved.Spec.UserID
+	return config, nil
+}
+
 // mcpActionID lets MCPServer and vMCP routes share action handlers without sharing authorization.
 func mcpActionID(req api.Context) string {
 	return cmp.Or(req.PathValue("vmcp_id"), req.PathValue("mcp_server_id"))
@@ -1131,7 +1158,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 	var allowedServers []v1.MCPServer
 
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
-	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
+	if req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true" {
 		allowedServers = list.Items
 	} else {
 		// Apply ACR filtering for regular users and for admins without ?all=true
@@ -1393,7 +1420,7 @@ func (m *MCPHandler) vmcpComponentOAuthTargets(req api.Context, vmcpID, catalogI
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
+	server, err := storedServerForInspection(req)
 	if err != nil {
 		return err
 	}
@@ -1410,7 +1437,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support details retrieval", server.Name, server.Spec.Manifest.Runtime)
 	}
 
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+	if !req.UserCanViewAdmin() {
 		workspaceID := req.PathValue("workspace_id")
 		if workspaceID == "" {
 			return types.NewErrNotFound("MCP server %s not found", server.Name)
@@ -1433,11 +1460,20 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		}
 	}
 
-	// Use the user ID from the server rather than from the request.
-	serverConfig.UserID = server.Spec.UserID
-
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
+	var details types.MCPServerDetails
+	if !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()) {
+		details, err = m.mcpSessionManager.GetRunningServerDetails(req.Context(), server.Name)
+	} else {
+		config, configErr := m.launchConfigForInspection(req)
+		if configErr != nil {
+			return configErr
+		}
+		details, err = m.mcpSessionManager.GetOrStartServerDetails(req.Context(), config)
+	}
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
@@ -1799,7 +1835,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
+	server, err := storedServerForInspection(req)
 	if err != nil {
 		return err
 	}
@@ -1808,14 +1844,14 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		return err
 	}
 
-	if serverConfig.Runtime == types.RuntimeRemote || serverConfig.Runtime == types.RuntimeVMCP {
-		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support log retrieval", server.Name, serverConfig.Runtime)
+	if runtime := server.Spec.Manifest.Runtime; runtime == types.RuntimeRemote || runtime == types.RuntimeVMCP {
+		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support log retrieval", server.Name, runtime)
 	}
 
 	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
 	if !server.Spec.IsOwnedBy(req.User.GetUID()) || !server.Spec.IsSingleUser() {
 		// If the user doesn't own the server and is not an admin or auditor, check if they have access to the workspace.
-		if !req.UserIsAdmin() && !req.UserIsAuditor() {
+		if !req.UserCanViewAdmin() {
 			workspaceID := req.PathValue("workspace_id")
 			if workspaceID == "" {
 				return types.NewErrNotFound("MCP server %s not found", server.Name)
@@ -1839,11 +1875,20 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		}
 	}
 
-	// Use the user ID from the server rather than from the request.
-	serverConfig.UserID = server.Spec.UserID
-
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
+	var logs io.ReadCloser
+	if !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()) {
+		logs, err = m.mcpSessionManager.StreamRunningServerLogs(req.Context(), server.Name)
+	} else {
+		config, configErr := m.launchConfigForInspection(req)
+		if configErr != nil {
+			return configErr
+		}
+		logs, err = m.mcpSessionManager.StartServerIfNeededAndStreamLogs(req.Context(), config)
+	}
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}

@@ -34,9 +34,8 @@ export const load: PageLoad = async ({ fetch, url }) => {
 
 	const bootstrapStatus = await UserService.getBootstrapStatus();
 	const showSetupHandoff = url.searchParams.get('setup') === 'complete';
-	const hasAccess =
-		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.AUDITOR);
-	if (hasAccess && !showSetupHandoff) {
+	const hasAccess = profile?.hasAdminAccess?.() ?? false;
+	if (profile && hasAccess && !showSetupHandoff) {
 		const vmcps = await UserService.listVMCPs({ all: true, minimal: true, fetch });
 		throw redirect(
 			307,

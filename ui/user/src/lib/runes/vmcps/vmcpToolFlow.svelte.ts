@@ -11,7 +11,9 @@ import {
 } from '$lib/services';
 import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
 import {
+	catalogConfigurationFields,
 	getToolCounts,
+	hasSensitiveCatalogValue,
 	hasVMcpComponentConfiguration,
 	resolveVMcpComponents,
 	vmcpComponentId,
@@ -326,6 +328,11 @@ export function createVMcpToolFlow() {
 	function editConfiguration() {
 		if (!configuringEntry) return;
 		dialog = 'configure';
+	}
+
+	function canRevealComponentConfiguration() {
+		const vmcp = modifyingVMcp;
+		return Boolean(vmcp && (profile.current.isAdmin?.() || profile.current.id === vmcp.userID));
 	}
 
 	function editDetails() {
@@ -720,12 +727,15 @@ export function createVMcpToolFlow() {
 		get excludedComponentIds() {
 			return excludedComponentIds;
 		},
-		get canSeeComponentConfiguration() {
-			if (!configuringEntry || !hasVMcpComponentConfiguration(configuringEntry)) return false;
-			const vmcp = modifyingVMcp;
-			if (!vmcp) return false;
-			return Boolean(profile.current.isAdmin?.() || profile.current.id === vmcp.userID);
+		canSeeComponentConfiguration(readonly: boolean) {
+			if (!modifyingVMcp || !configuringEntry) return false;
+			if (!(profile.current.hasAdminAccess?.() || canRevealComponentConfiguration())) return false;
+			return (
+				hasVMcpComponentConfiguration(configuringEntry) ||
+				(readonly && catalogConfigurationFields(configuringEntry).some(hasSensitiveCatalogValue))
+			);
 		},
+		canRevealComponentConfiguration,
 		get postCreateConfiguration() {
 			return postCreateConfiguration;
 		},

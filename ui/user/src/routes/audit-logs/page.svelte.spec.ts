@@ -3,8 +3,10 @@ import { Group } from '$lib/services';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { worker } from '../../tests/mocks/worker';
 import AuditLogsPage from './+page.svelte';
+import LLMExportsPage from './llm/exports/+page.svelte';
+import MCPExportsPage from './mcp/exports/+page.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -43,6 +45,15 @@ describe('Audit logs page model tab', () => {
 			.element(page.getByRole('button', { name: 'LLM', exact: true }))
 			.not.toBeInTheDocument();
 	});
+
+	it.each(['mcp', 'llm'])('lets read-only admins open %s export records', async (view) => {
+		await renderAuditLogsPage([Group.USER, Group.ADMIN_READONLY], view);
+
+		await expect.element(page.getByRole('button', { name: 'Manage Exports' })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Create Export', exact: true }))
+			.not.toBeInTheDocument();
+	});
 });
 
 describe('Audit logs page Claude Environments', () => {
@@ -61,4 +72,58 @@ describe('Audit logs page Claude Environments', () => {
 			else await expect.element(tab).not.toBeInTheDocument();
 		}
 	);
+});
+
+describe('Read-Only Admin export pages', () => {
+	it.each([
+		{ type: 'mcp', ExportsPage: MCPExportsPage },
+		{ type: 'llm', ExportsPage: LLMExportsPage }
+	])('shows $type jobs and schedules without write controls', async ({ type, ExportsPage }) => {
+		const params = (appPage.url as URL).searchParams;
+		onTestFinished(() => {
+			params.delete('view');
+			params.delete('form');
+		});
+		await preparePageData({ profile: createMockProfile([Group.USER, Group.ADMIN_READONLY]) });
+		worker.use(
+			http.get('/api/audit-log-exports', ({ request }) => {
+				expect(new URL(request.url).searchParams.get('type')).toBe(type);
+				return HttpResponse.json({
+					items: [
+						{
+							id: 'job-1',
+							name: 'Completed export',
+							state: 'completed',
+							createdAt: '2026-11-20T12:00:00Z'
+						}
+					]
+				});
+			}),
+			http.get('/api/scheduled-audit-log-exports', ({ request }) => {
+				expect(new URL(request.url).searchParams.get('type')).toBe(type);
+				return HttpResponse.json({
+					items: [
+						{
+							id: 'schedule-1',
+							name: 'Daily export',
+							enabled: true,
+							schedule: { interval: 'daily', hour: 3, minute: 0 }
+						}
+					]
+				});
+			})
+		);
+
+		params.set('view', 'exports');
+		params.set('form', 'export');
+		const jobs = await render(ExportsPage);
+		await expect.element(page.getByText('Completed export', { exact: true })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add Export' })).not.toBeInTheDocument();
+		await jobs.unmount();
+
+		params.set('view', 'scheduled');
+		await render(ExportsPage);
+		await expect.element(page.getByText('Daily export', { exact: true })).toBeVisible();
+		await expect.element(page.getByRole('checkbox')).not.toBeInTheDocument();
+	});
 });

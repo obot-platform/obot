@@ -253,7 +253,7 @@ func TestConfigureWithoutDirectoryParametersRefusesResidualGroupData(t *testing.
 	s.requireNoChange()
 
 	// The administrator can list it, and provide the directory credentials instead.
-	get, rec := s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider/residual-group-data", "", clienttypes.GroupAdmin)
+	get, rec := s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider/residual-group-data", "", clienttypes.RoleAdmin.Groups()...)
 	require.NoError(t, s.handler().ResidualGroupData(get))
 	var residual clienttypes.ResidualGroupData
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &residual))
@@ -304,9 +304,9 @@ func TestSignInPageReadsSkipSCIM(t *testing.T) {
 	}
 
 	// Administrators are served what depends on SCIM, so their reads still need it.
-	req, _ := s.context(http.MethodGet, "/api/auth-providers", "", clienttypes.GroupAdmin)
+	req, _ := s.context(http.MethodGet, "/api/auth-providers", "", clienttypes.RoleAdmin.Groups()...)
 	require.Error(t, s.handler().List(req))
-	req, _ = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAdmin)
+	req, _ = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.RoleAdmin.Groups()...)
 	require.Error(t, s.handler().ByID(req))
 }
 
@@ -358,14 +358,14 @@ func TestAuthProviderServesEffectiveParametersAndSCIMState(t *testing.T) {
 	}
 
 	// Directory synchronization serves the manifest's parameters.
-	before := get(clienttypes.GroupAdmin)
+	before := get(clienttypes.RoleAdmin.Groups()...)
 	assert.Equal(t, []string{oktaIssuerParam, oktaServiceClientIDParam, oktaServicePrivateKeyParam}, names(before.RequiredConfigurationParameters))
 	assert.Empty(t, before.SCIMState)
 
 	// With a connection, the stored directory parameters are served as optional and unused, and only administrators
 	// learn the SCIM state.
 	s.connect()
-	after := get(clienttypes.GroupAdmin)
+	after := get(clienttypes.RoleAdmin.Groups()...)
 	assert.Equal(t, []string{oktaIssuerParam}, names(after.RequiredConfigurationParameters))
 	assert.Equal(t, []string{oktaServiceClientIDParam, oktaServicePrivateKeyParam}, names(after.OptionalConfigurationParameters))
 	for _, p := range after.OptionalConfigurationParameters {
@@ -381,7 +381,7 @@ func TestAuthProviderServesEffectiveParametersAndSCIMState(t *testing.T) {
 	require.NoError(t, err)
 	rotated, _, err := s.gateway.RotateSCIMConnectionToken(t.Context(), conn.ID)
 	require.NoError(t, err)
-	withToken := get(clienttypes.GroupAdmin)
+	withToken := get(clienttypes.RoleAdmin.Groups()...)
 	require.NotNil(t, withToken.SCIMTokenExpiresAt)
 	assert.WithinDuration(t, *rotated.TokenExpiresAt(), withToken.SCIMTokenExpiresAt.Time, time.Second)
 	assert.Nil(t, get().SCIMTokenExpiresAt)
@@ -390,7 +390,7 @@ func TestAuthProviderServesEffectiveParametersAndSCIMState(t *testing.T) {
 func TestAuthProviderServesTheSetupChoice(t *testing.T) {
 	s := newAuthProviderSCIMTest(t)
 
-	req, rec := s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAdmin)
+	req, rec := s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.RoleAdmin.Groups()...)
 	require.NoError(t, s.handler().ByID(req))
 	var provider clienttypes.AuthProvider
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
@@ -421,7 +421,7 @@ func TestAuthProviderServesTheSetupChoice(t *testing.T) {
 		Origin:                gatewaytypes.SCIMConnectionOriginSCIMFirst,
 	})
 	require.NoError(t, err)
-	req, rec = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAdmin)
+	req, rec = s.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.RoleAdmin.Groups()...)
 	require.NoError(t, s.handler().ByID(req))
 	provider = clienttypes.AuthProvider{}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
@@ -493,7 +493,7 @@ func TestAuthProviderServesTheEntraSetupChoice(t *testing.T) {
 	s := newAuthProviderSCIMTest(t)
 	s.useEntra()
 
-	req, rec := s.context(http.MethodGet, "/api/auth-providers/entra-auth-provider", "", clienttypes.GroupAdmin)
+	req, rec := s.context(http.MethodGet, "/api/auth-providers/entra-auth-provider", "", clienttypes.RoleAdmin.Groups()...)
 	require.NoError(t, s.handler().ByID(req))
 	var provider clienttypes.AuthProvider
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
@@ -510,7 +510,7 @@ func TestAuthProviderServesTheEntraSetupChoice(t *testing.T) {
 
 	// Okta chooses by omission, and has no choice parameter.
 	okta := newAuthProviderSCIMTest(t)
-	req, rec = okta.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAdmin)
+	req, rec = okta.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.RoleAdmin.Groups()...)
 	require.NoError(t, okta.handler().ByID(req))
 	provider = clienttypes.AuthProvider{}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))

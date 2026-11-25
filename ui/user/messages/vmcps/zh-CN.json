@@ -298,6 +298,7 @@
 	"vmcps_return_to_designer": "返回设计器",
 	"vmcps_rough_tool_estimate": "这是可用工具数量的粗略估计，确切数量可能有所不同。",
 	"vmcps_save_changes": "保存更改",
+	"vmcps_value_configured_hidden": "已配置（已隐藏）",
 	"vmcps_search_categories": "搜索类别...",
 	"vmcps_search_creators": "搜索创建者...",
 	"vmcps_search_mcp_servers": "搜索 MCP 服务器...",

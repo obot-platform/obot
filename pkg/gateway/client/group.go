@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -557,13 +558,59 @@ func (c *Client) cacheResolvedGroups(ctx context.Context, authProviderNamespace,
 			return nil
 		}
 
-		return tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
-		}).Create(&groups).Error
+		return lockAndUpsertAuthProviderGroups(tx, groups, nil)
 	}); err != nil {
 		slog.Warn("failed to cache groups resolved from the auth provider", "groups", len(groups), "error", err)
 	}
+}
+
+// Metadata upserts and membership additions must lock their combined set of existing
+// groups before either write. Concurrent upserts of new groups also use a stable order.
+func lockAndUpsertAuthProviderGroups(tx *gorm.DB, updates []types.Group, membershipGroupIDs []string) error {
+	if len(updates) == 0 && len(membershipGroupIDs) == 0 {
+		return nil
+	}
+	groupIDs := make([]string, 0, len(updates)+len(membershipGroupIDs))
+	groupIDs = append(groupIDs, membershipGroupIDs...)
+	exclusive := make(map[string]bool, len(updates))
+	for _, group := range updates {
+		groupIDs = append(groupIDs, group.ID)
+		exclusive[group.ID] = true
+	}
+	slices.Sort(groupIDs)
+	groupIDs = slices.Compact(groupIDs)
+
+	// Batch adjacent groups with the same lock strength. A group being upserted
+	// needs an exclusive lock from the start to avoid deadlocks during upgrades.
+	for start := 0; start < len(groupIDs); {
+		update := exclusive[groupIDs[start]]
+		end := start + 1
+		for end < len(groupIDs) && exclusive[groupIDs[end]] == update {
+			end++
+		}
+		strength := clause.LockingStrengthShare
+		if update {
+			strength = clause.LockingStrengthUpdate
+		}
+		if err := lockRoleGroups(tx, groupIDs[start:end], strength); err != nil {
+			return fmt.Errorf("failed to lock auth provider groups: %w", err)
+		}
+		start = end
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+
+	ordered := slices.SortedFunc(slices.Values(updates), func(a, b types.Group) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+	if err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
+	}).Create(&ordered).Error; err != nil {
+		return fmt.Errorf("failed to upsert groups: %w", err)
+	}
+	return nil
 }
 
 // ListGroupIDsForUser lists the group IDs that the given user is a member of.
@@ -846,19 +893,8 @@ func (c *Client) persistGroups(ctx context.Context, identity *types.Identity, la
 			toUpsert = append(toUpsert, group)
 		}
 
-		if len(toUpsert) > 0 {
-			if err := tx.WithContext(ctx).Clauses(clause.OnConflict{
-				Columns: []clause.Column{
-					{Name: "id"},
-				},
-				DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
-			}).Create(&toUpsert).Error; err != nil {
-				return fmt.Errorf("failed to upsert groups: %w", err)
-			}
-		}
-
 		var err error
-		membershipsChanged, groupsLost, err = c.ensureGroupMemberships(ctx, tx, identity)
+		membershipsChanged, groupsLost, err = c.ensureGroupMemberships(ctx, tx, identity, toUpsert)
 		if err != nil {
 			return fmt.Errorf("failed to update group memberships for identity: %w", err)
 		}
@@ -899,11 +935,11 @@ func (c *Client) persistGroups(ctx context.Context, identity *types.Identity, la
 	return claimed, nil
 }
 
-// ensureGroupMemberships ensures the Identity is a member of the groups it references.
+// ensureGroupMemberships persists group metadata updates and reconciles the identity's memberships.
 // Returns (membershipsChanged, groupsLost, error) where:
 //   - membershipsChanged: true if user joined or left any groups
 //   - groupsLost: true if user left at least one group
-func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity) (bool, bool, error) {
+func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity, groupUpdates []types.Group) (bool, bool, error) {
 	// Get the existing memberships for this identity
 	var memberships []types.GroupMemberships
 	if err := tx.WithContext(ctx).
@@ -919,7 +955,10 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 		existingMemberships[membership.GroupID] = membership
 	}
 
-	var toInsert []types.GroupMemberships
+	var (
+		toInsert    []types.GroupMemberships
+		addedGroups []string
+	)
 	for _, group := range identity.AuthProviderGroups {
 		if _, ok := existingMemberships[group.ID]; ok {
 			// The membership already exists, skip
@@ -931,12 +970,23 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 			UserID:  identity.UserID,
 			GroupID: group.ID,
 		})
+		addedGroups = append(addedGroups, group.ID)
+	}
+
+	if err := lockAndUpsertAuthProviderGroups(tx, groupUpdates, addedGroups); err != nil {
+		return false, false, err
 	}
 
 	// Insert new memberships
 	if len(toInsert) > 0 {
+		if err := lockUsersForRoleChanges(tx, []uint{identity.UserID}); err != nil {
+			return false, false, err
+		}
 		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&toInsert).Error; err != nil {
 			return false, false, fmt.Errorf("failed to create group memberships: %w", err)
+		}
+		if err := clearReadonlyAdminForElevatedUsers(tx, []uint{identity.UserID}); err != nil {
+			return false, false, err
 		}
 	}
 
@@ -1070,6 +1120,11 @@ func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNam
 // deleteAuthProviderGroupDataTx deletes an auth provider's groups, and the memberships and group role assignments of
 // group IDs with its group ID prefix, and resets when its identities' groups were last checked.
 func deleteAuthProviderGroupDataTx(tx *gorm.DB, authProviderNamespace, authProviderName, groupIDPrefix string) error {
+	const providerGroupScope = "auth_provider_namespace = ? AND auth_provider_name = ?"
+	// Role edits lock group rows before updating assignments. Cleanup must acquire those locks in the same order.
+	if err := lockGroupRows(tx.Where(providerGroupScope, authProviderNamespace, authProviderName), clause.LockingStrengthUpdate); err != nil {
+		return fmt.Errorf("lock cached groups for deletion: %w", err)
+	}
 	if err := tx.Where("substr(group_name, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
 		return fmt.Errorf("delete group role assignments: %w", err)
 	}
@@ -1077,7 +1132,7 @@ func deleteAuthProviderGroupDataTx(tx *gorm.DB, authProviderNamespace, authProvi
 		return fmt.Errorf("delete group memberships: %w", err)
 	}
 	if err := tx.
-		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+		Where(providerGroupScope, authProviderNamespace, authProviderName).
 		Delete(&types.Group{}).Error; err != nil {
 		return fmt.Errorf("delete cached groups: %w", err)
 	}

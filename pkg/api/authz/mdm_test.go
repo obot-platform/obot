@@ -42,6 +42,11 @@ func TestMDMRouteAuthorization(t *testing.T) {
 			canRead: true,
 		},
 		{
+			name:    "read-only admin",
+			info:    &user.DefaultInfo{Name: "admin-readonly", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()},
+			canRead: true,
+		},
+		{
 			name: "power user",
 			info: &user.DefaultInfo{Name: "power-user", Groups: types.RolePowerUser.Groups()},
 		},
@@ -199,6 +204,10 @@ func TestMDMEnrollRouteAuthorization(t *testing.T) {
 		{
 			name: "auditor",
 			info: &user.DefaultInfo{Name: "auditor", Groups: types.RoleAuditor.Groups()},
+		},
+		{
+			name: "read-only admin",
+			info: &user.DefaultInfo{Name: "admin-readonly", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()},
 		},
 		{
 			name: "basic user",

@@ -53,6 +53,7 @@
 		openEditInstanceConfiguration?: (vmcp: VMCP, instance: VMCPInstance) => void;
 		connectEl?: HTMLElement;
 		readonly?: boolean;
+		onViewDetails?: () => void;
 	}
 
 	let {
@@ -72,7 +73,8 @@
 		openUpdateConfirm,
 		openEditInstanceConfiguration,
 		connectEl = $bindable(),
-		readonly
+		readonly,
+		onViewDetails
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
@@ -297,6 +299,7 @@
 				{openUpdateConfirm}
 				{openEditInstanceConfiguration}
 				onEditDetails={!readonly ? onEdit : undefined}
+				{onViewDetails}
 				class={twMerge(
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
 					!readonly && 'cursor-pointer'

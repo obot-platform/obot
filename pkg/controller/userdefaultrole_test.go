@@ -21,14 +21,16 @@ func TestRepairDefaultUserRoleSetting(t *testing.T) {
 	require.NoError(t, store.Get(ctx, key, &setting))
 	require.Equal(t, types.RoleBasic, setting.Spec.Role)
 	for role, want := range map[types.Role]types.Role{
-		types.RoleAdmin | types.RoleAuditor: types.RoleAdmin | types.RoleAuditor,
-		types.RoleOwner:                     types.RoleOwner,
-		types.RoleAuditor:                   types.RoleBasic,
-		types.RoleAdmin | types.RoleBasic:   types.RoleBasic,
-		1:                                   types.RoleAdmin,
-		2:                                   types.RolePowerUserPlus,
-		3:                                   types.RolePowerUser,
-		10:                                  types.RoleBasic,
+		types.RoleAdmin | types.RoleAuditor:       types.RoleAdmin | types.RoleAuditor,
+		types.RoleOwner:                           types.RoleOwner,
+		types.RoleAuditor:                         types.RoleBasic,
+		types.RoleAdmin | types.RoleBasic:         types.RoleBasic,
+		types.RoleAdmin | types.RoleAdminReadonly: types.RoleBasic,
+		types.RoleOwner | types.RoleAdminReadonly: types.RoleBasic,
+		1:  types.RoleAdmin,
+		2:  types.RolePowerUserPlus,
+		3:  types.RolePowerUser,
+		10: types.RoleBasic,
 	} {
 		setting.Spec.Role = role
 		require.NoError(t, store.Update(ctx, &setting))

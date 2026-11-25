@@ -4,6 +4,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { ApiKeysService } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
 
@@ -20,9 +21,11 @@
 				{isAdmin}
 				agentAuthScope={{ ...apiKey, prefix: `ok1-${apiKey.userId}-${apiKey.id}-*****` }}
 				onDelete={async () => {
-					await (isAdmin ? ApiKeysService.deleteAnyApiKey : ApiKeysService.deleteApiKey)(
-						apiKey.id.toString()
-					);
+					await (
+						profile.current.isAdmin?.()
+							? ApiKeysService.deleteAnyApiKey
+							: ApiKeysService.deleteApiKey
+					)(apiKey.id.toString());
 					goto('/identity-access?view=agents', { replaceState: true });
 				}}
 			/>

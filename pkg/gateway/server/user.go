@@ -557,7 +557,7 @@ func trimUser(u types.User) types2.User {
 func userIsBasicOrPower(u user.Info) bool {
 	for _, group := range u.GetGroups() {
 		switch group {
-		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupAdmin, types2.GroupOwner:
+		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupAdminReadonly, types2.GroupAdmin, types2.GroupOwner:
 			return false
 		}
 	}

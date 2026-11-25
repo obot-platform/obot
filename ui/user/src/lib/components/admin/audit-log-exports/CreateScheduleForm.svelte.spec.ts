@@ -53,6 +53,8 @@ test('preserves comma-containing server names when creating, editing and viewing
 		initialData: exported
 	});
 	await expect.element(page.getByCSS('#mcp_server')).toHaveTextContent(name);
+	await expect.element(page.getByCSS('#schedule-hour')).toHaveAttribute('tabindex', '-1');
+	await expect.element(page.getByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument();
 });
 
 test('explains initial backfill and incremental exports when creating a schedule', async () => {

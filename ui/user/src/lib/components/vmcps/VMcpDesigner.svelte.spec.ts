@@ -5,6 +5,7 @@ import {
 } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 import {
 	Group,
+	UserService,
 	type MCPCatalogEntry,
 	type ToolOverride,
 	type VMCP,
@@ -2260,9 +2261,7 @@ describe('VMcpDesigner.svelte', () => {
 
 			await componentBlock().click();
 			await expect.element(page.getByRole('button', { name: 'View Tools' })).toBeVisible();
-			await expect
-				.element(page.getByRole('button', { name: 'View Configuration' }))
-				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'View Configuration' })).toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: 'Modify Tools' }))
 				.not.toBeInTheDocument();
@@ -2274,8 +2273,132 @@ describe('VMcpDesigner.svelte', () => {
 				.not.toBeInTheDocument();
 		});
 
+		it('lets a Read-Only Admin view shared vMCP details without an edit or Reset action', async () => {
+			await renderDesigner([componentEntry], orgVMcp(), {
+				groups: [Group.USER, Group.ADMIN_READONLY]
+			});
+
+			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+			await expect.element(page.getByRole('link', { name: 'View Audit Logs' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Reset', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Edit Details', exact: true }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View Details', exact: true }).click();
+			const details = page.getByRole('dialog').filter({ hasText: 'Tool search' });
+			await expect.element(details.getByRole('heading', { name: 'View Details' })).toBeVisible();
+			await expect
+				.element(details.getByRole('textbox', { name: /Name/ }))
+				.toHaveValue('Issue Tracker vMCP');
+			await expect.element(details.getByRole('textbox', { name: /Name/ })).toBeDisabled();
+			await expect.element(details.getByRole('textbox', { name: /Description/ })).toBeDisabled();
+			await expect.element(details.getByRole('checkbox', { name: 'Tool search' })).toBeDisabled();
+			await expect.element(details.getByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+		});
+
+		it.each([
+			{ role: 'Read-Only Admin', group: Group.ADMIN_READONLY, canReadPresence: true },
+			{ role: 'Auditor', group: Group.AUDITOR, canReadPresence: false }
+		])('shows component configuration policies to $role', async ({ group, canReadPresence }) => {
+			const entry: MCPCatalogEntry = {
+				...componentEntry,
+				manifest: {
+					...componentEntry.manifest,
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: true,
+							value: '',
+							usage: 'env'
+						},
+						{
+							key: 'CATALOG_TOKEN',
+							name: 'Catalog token',
+							description: 'Catalog-provided token',
+							required: true,
+							sensitive: true,
+							static: true,
+							value: '',
+							usage: 'env'
+						},
+						{
+							key: 'REGION',
+							name: 'Region',
+							description: 'Deployment region',
+							required: true,
+							sensitive: false,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			};
+			const vmcp = {
+				...orgVMcp(),
+				components: [
+					createVMCPComponent(entry, {
+						configuration: [
+							{ key: 'API_TOKEN', policy: 'fixed' },
+							{ key: 'REGION', policy: 'fixed' }
+						]
+					})
+				]
+			} satisfies VMCP;
+			const presence = vi.fn();
+			worker.use(
+				http.get(
+					`/api/vmcps/${vmcp.id}/components/${vmcp.components[0].id}/configuration-presence`,
+					() => {
+						presence();
+						return HttpResponse.json({ configuredFields: ['API_TOKEN', 'REGION'] });
+					}
+				)
+			);
+			const reveal = vi.spyOn(UserService, 'revealVMCP');
+			await renderDesigner([entry], vmcp, { groups: [Group.USER, group] });
+
+			await componentBlock().click();
+			await expect
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View Configuration' }).click();
+
+			const configuration = page
+				.getByRole('dialog')
+				.filter({ hasText: 'Configuration for GitHub' });
+			await expect
+				.element(configuration.getByRole('heading', { name: 'View GitHub' }))
+				.toBeVisible();
+			const policy = configuration.getByRole('combobox', { name: 'API token policy' });
+			await expect.element(policy).toBeDisabled();
+			await expect.element(policy).toHaveValue('fixed');
+			expect(
+				configuration.getByText('Configured (hidden)', { exact: true }).elements()
+			).toHaveLength(canReadPresence ? 3 : 1);
+			const region = configuration.getByCSS('#fixed-REGION');
+			if (canReadPresence) {
+				await expect.element(region).not.toBeInTheDocument();
+			} else {
+				await expect.element(region).toBeDisabled();
+				await expect.element(region).toHaveValue('');
+			}
+			await expect
+				.element(configuration.getByRole('button', { name: 'Reveal' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(configuration.getByRole('button', { name: 'Save' }))
+				.not.toBeInTheDocument();
+			expect(presence).toHaveBeenCalledTimes(canReadPresence ? 1 : 0);
+			expect(reveal).not.toHaveBeenCalled();
+		});
+
 		it('shows component name and tool prefix as read-only', async () => {
-			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.AUDITOR] });
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.ADMIN_READONLY] });
 
 			await componentBlock().click();
 			await page.getByRole('button', { name: 'View Details' }).click();
@@ -2286,9 +2409,10 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(details.getByRole('textbox', { name: 'Tool name prefix' }))
 				.toHaveValue('github_');
+			await expect.element(details.getByRole('textbox', { name: 'Name *' })).toBeDisabled();
 			await expect
-				.element(details.getByRole('textbox', { name: 'Name *' }))
-				.toHaveAttribute('readonly', '');
+				.element(details.getByRole('textbox', { name: 'Tool name prefix' }))
+				.toBeDisabled();
 			await expect.element(details.getByRole('button', { name: 'Save' })).not.toBeInTheDocument();
 		});
 
@@ -2441,9 +2565,9 @@ describe('VMcpDesigner.svelte', () => {
 			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
 		});
 
-		it('opens profiles as readonly for a readonly admin', async () => {
+		it('opens profiles as readonly for Read-Only Admin', async () => {
 			(appPage.url as URL).searchParams.set('view', 'profiles');
-			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.AUDITOR] });
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.ADMIN_READONLY] });
 
 			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
 			await expect
@@ -2458,6 +2582,13 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByRole('button', { name: 'Save changes' }))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByRole('button', { name: /^Delete / })).not.toBeInTheDocument();
+		});
+		it('keeps the inspector available on a Read-Only Admin user’s personal vMCP', async () => {
+			await renderDesigner([componentEntry], personalVMcp(), {
+				groups: [Group.ADMIN_READONLY]
+			});
+
+			await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
 		});
 	});
 
@@ -2680,6 +2811,39 @@ describe('VMcpDesigner.svelte', () => {
 			await expectViewTabs(['Designer', 'Inspector']);
 			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
 		});
+
+		it.each([
+			{ subjectId: getProfileResponse.id, canConnect: true },
+			{ subjectId: 'another-user', canConnect: false }
+		])(
+			'requires a profile grant for a Read-Only Admin to use the shared vMCP Inspector ($canConnect)',
+			async ({ subjectId, canConnect }) => {
+				const vmcp = orgVMcp();
+				vmcp.profiles = [
+					{
+						name: 'Engineering',
+						subjects: [{ type: 'user', id: subjectId }],
+						vmcpPermissions: { allowAllComponents: true }
+					}
+				];
+				(appPage.url as URL).searchParams.set('view', 'inspector');
+				await renderDesigner([componentEntry], vmcp, {
+					groups: [Group.USER, Group.ADMIN_READONLY]
+				});
+
+				const startSession = page.getByRole('button', { name: 'Start Session' });
+				const graph = page.getByCSS('[data-vmcp-canvas]');
+				if (canConnect) {
+					await expectViewTabs(['Designer', 'Profiles', 'Inspector']);
+					await expect.element(startSession).toBeVisible();
+					await expect.element(graph).not.toBeInTheDocument();
+				} else {
+					await expectViewTabs(['Designer', 'Profiles']);
+					await expect.element(startSession).not.toBeInTheDocument();
+					await expect.element(graph).toBeInTheDocument();
+				}
+			}
+		);
 
 		it('stays on the graph when a viewer asks for inspector', async () => {
 			(appPage.url as URL).searchParams.set('view', 'inspector');

@@ -211,6 +211,15 @@
 	);
 
 	let deploymentToDisplayTools = $state<MCPCatalogServer>();
+
+	// Admin read-only users and auditors may inspect other users' servers but not connect to them, and listing a
+	// server's live tools connects to it, so they see the tool preview instead. Their own single-user servers and
+	// deployments, which they may connect to, still show live tools.
+	let toolPreviewOnly = $derived.by(() => {
+		if (!profile.current?.isAdminReadonly?.()) return false;
+		const displayed = server ?? deploymentToDisplayTools ?? entry;
+		return !(displayed && isOwnSingleUserServer(displayed, profile.current?.id));
+	});
 	let showRegenerateToolsButton = $derived(
 		entry &&
 			!server &&
@@ -1146,6 +1155,7 @@
 				server={server ?? deploymentToDisplayTools}
 				showToolNameIssues={false}
 				previewOverride={previewToolsOverride}
+				previewOnly={toolPreviewOnly}
 			>
 				{#snippet noToolsContent()}
 					{#if onAddFromTools}

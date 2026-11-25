@@ -90,6 +90,67 @@ func TestVMCPRevealReturnsOnlyFixedConfiguration(t *testing.T) {
 	}
 }
 
+func TestVMCPComponentConfigurationPresence(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:      "vmcp-presence",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{
+			{ID: "component", Configuration: []types.VMCPConfigurationPolicy{
+				{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed},
+				{Key: "EMPTY", Policy: types.VMCPConfigurationPolicyFixed},
+				{Key: "MISSING", Policy: types.VMCPConfigurationPolicyFixed},
+				{Key: "USER_INPUT", Policy: types.VMCPConfigurationPolicyUserAllowed},
+				{Key: "BOUND", Policy: types.VMCPConfigurationPolicyFixed, SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "token"}},
+			}},
+			{ID: "other", Configuration: []types.VMCPConfigurationPolicy{
+				{Key: "OTHER_TOKEN", Policy: types.VMCPConfigurationPolicyFixed},
+			}},
+		}}},
+	}
+	secrets := map[string]string{
+		vmcpconfig.ConfigurationKey("component", "TOKEN"):      "fixed-value",
+		vmcpconfig.ConfigurationKey("component", "EMPTY"):      "",
+		vmcpconfig.ConfigurationKey("component", "USER_INPUT"): "old-value",
+		vmcpconfig.ConfigurationKey("component", "BOUND"):      "old-bound-value",
+		vmcpconfig.ConfigurationKey("other", "OTHER_TOKEN"):    "other-value",
+	}
+	vmcpconfig.VersionStaticConfiguration(vmcp, secrets)
+	gatewayClient := newHandlerTestGateway(t)
+	storage := newVMCPTestStorage(vmcp)
+	getPresence := func(componentID string) (*httptest.ResponseRecorder, error) {
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.SetPathValue("vmcp_id", vmcp.Name)
+		req.SetPathValue("component_id", componentID)
+		err := NewVMCPHandler(nil, "", "").ConfigurationPresence(api.Context{
+			ResponseWriter: recorder,
+			Request:        req,
+			Storage:        storage,
+			GatewayClient:  gatewayClient,
+		})
+		return recorder, err
+	}
+
+	empty, err := getPresence("component")
+	require.NoError(t, err)
+	require.JSONEq(t, `{"configuredFields":[]}`, empty.Body.String())
+
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+		Name:    vmcpconfig.StaticConfigurationCredentialName(vmcp),
+		Secrets: secrets,
+	}))
+	got, err := getPresence("component")
+	require.NoError(t, err)
+	require.JSONEq(t, `{"configuredFields":["TOKEN"]}`, got.Body.String())
+	require.Equal(t, "no-store", got.Header().Get("Cache-Control"))
+
+	_, err = getPresence("unknown")
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	require.Equal(t, http.StatusNotFound, httpErr.Code)
+}
+
 func TestVMCPDeconfigureDeletesConfigurationAndPublishesHashes(t *testing.T) {
 	for _, versioned := range []bool{false, true} {
 		t.Run(fmt.Sprintf("versioned=%t", versioned), func(t *testing.T) {

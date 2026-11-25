@@ -8,6 +8,7 @@
 	interface Props {
 		roleId: number;
 		hasAuditorPrivilege?: boolean;
+		hasReadOnlyAdmin?: boolean;
 		onRoleChange?: (roleId: number) => void;
 		onAuditorChange?: (hasAuditor: boolean) => void;
 	}
@@ -20,6 +21,7 @@
 	let {
 		roleId = $bindable(),
 		hasAuditorPrivilege = $bindable(false),
+		hasReadOnlyAdmin = $bindable(false),
 		onRoleChange,
 		onAuditorChange
 	}: Props = $props();
@@ -28,6 +30,7 @@
 	const canAssignAdmin = $derived(canAssignOwner || profile.current.groups.includes(Group.ADMIN));
 
 	let roleOptions: RoleOption[] = $derived([
+		...(hasReadOnlyAdmin || roleId === 0 ? [{ label: m.core_col_none(), id: 0 }] : []),
 		...(canAssignOwner ? [{ label: m.core_role_owner(), id: Role.OWNER }] : []),
 		...groupRoleOptions
 			.filter((role) => (role.id === Role.ADMIN ? canAssignAdmin : true))
@@ -47,6 +50,7 @@
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 
 	function handleRoleChange() {
+		if (roleId & (Role.ADMIN | Role.OWNER)) hasReadOnlyAdmin = false;
 		onRoleChange?.(roleId);
 	}
 
@@ -76,7 +80,7 @@
 					{m.identity_access_groups_owner_description()}
 				{:else if role.id === Role.ADMIN}
 					{m.identity_access_groups_admin_description()}
-				{:else}
+				{:else if role.id !== 0}
 					{roleDescriptionMap[role.id] ||
 						m.identity_access_groups_role_privileges({ role: role.label })}
 				{/if}
@@ -90,8 +94,20 @@
 		{@render roleUi(role)}
 	{/each}
 
+	{#if canAssignAdmin && !(roleId & (Role.ADMIN | Role.OWNER))}
+		<label class="border-base-400 flex cursor-pointer gap-4 rounded-lg border p-3">
+			<input type="checkbox" bind:checked={hasReadOnlyAdmin} />
+			<span class="flex flex-col">
+				<span class="font-semibold">{m.core_role_admin_readonly()}</span>
+				<span class="text-muted-content text-xs">
+					{m.core_role_admin_readonly_description()}
+				</span>
+			</span>
+		</label>
+	{/if}
+
 	{#if profile.current.groups.includes(Group.OWNER)}
-		{@const isDisabled = roleId === 0}
+		{@const isDisabled = roleId === 0 && !hasReadOnlyAdmin && !hasAuditorPrivilege}
 		<label
 			class={twMerge(
 				'border-base-400 hover:bg-base-100/2 active:bg-base-100/5 my-4 flex cursor-pointer gap-4 rounded-lg border p-3',
@@ -108,7 +124,7 @@
 			<div class="flex flex-col">
 				<div class="w-28 shrink-0 font-semibold">{m.core_role_auditor()}</div>
 				<p class="text-muted-content text-xs">
-					{#if auditorReadonlyAdminRoles.includes(roleId)}
+					{#if !hasReadOnlyAdmin && auditorReadonlyAdminRoles.includes(roleId)}
 						{m.identity_access_groups_auditor_readonly_description()}
 					{:else}
 						{m.identity_access_groups_auditor_description()}

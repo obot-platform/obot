@@ -14,10 +14,17 @@
 
 	let mcpLogs = $state<ReturnType<typeof AuditLogsPageContent>>();
 	let llmLogs = $state<ReturnType<typeof LlmAuditLogsContent>>();
-	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let canManageMcpExports = $derived(
+	let canCreateExports = $derived(
 		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER)
 	);
+
+	function openExportForm(view: string, form: 'export' | 'scheduled') {
+		if (view === 'mcp') {
+			mcpLogs?.handleExportRequest(form);
+		} else {
+			llmLogs?.openExportForm(form);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -52,44 +59,30 @@
 />
 
 {#snippet navActions(view: string)}
-	{#if view === 'mcp' && canManageMcpExports}
-		<button class="btn btn-secondary rounded-4xl" onclick={() => goto('/audit-logs/mcp/exports')}>
+	{#if (view === 'mcp' || view === 'llm') && (canCreateExports || profile.current.hasAdminAccess?.())}
+		<button
+			class="btn btn-secondary rounded-4xl"
+			onclick={() => goto(`/audit-logs/${view}/exports`)}
+		>
 			<Settings class="size-4" />
 			{m.audit_usage_audit_logs_manage_exports()}
 		</button>
-		<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
-			{#snippet icon()}
-				<span class="flex items-center justify-center gap-1">
-					<Plus class="size-4" />
-					{m.audit_usage_audit_logs_create_export()}
-				</span>
-			{/snippet}
-			<button class="menu-button" onclick={() => mcpLogs?.handleExportRequest('export')}>
-				{m.audit_usage_audit_logs_create_one_time_export()}
-			</button>
-			<button class="menu-button" onclick={() => mcpLogs?.handleExportRequest('scheduled')}>
-				{m.audit_usage_audit_logs_create_export_schedule()}
-			</button>
-		</DotDotDot>
-	{:else if view === 'llm' && !isAdminReadonly}
-		<button class="btn btn-secondary rounded-4xl" onclick={() => goto('/audit-logs/llm/exports')}>
-			<Settings class="size-4" />
-			{m.audit_usage_audit_logs_manage_exports()}
-		</button>
-		<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
-			{#snippet icon()}
-				<span class="flex items-center justify-center gap-1">
-					<Plus class="size-4" />
-					{m.audit_usage_audit_logs_create_export()}
-				</span>
-			{/snippet}
-			<button class="menu-button" onclick={() => llmLogs?.openExportForm('export')}>
-				{m.audit_usage_audit_logs_create_one_time_export()}
-			</button>
-			<button class="menu-button" onclick={() => llmLogs?.openExportForm('scheduled')}>
-				{m.audit_usage_audit_logs_create_export_schedule()}
-			</button>
-		</DotDotDot>
+		{#if canCreateExports}
+			<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
+				{#snippet icon()}
+					<span class="flex items-center justify-center gap-1">
+						<Plus class="size-4" />
+						{m.audit_usage_audit_logs_create_export()}
+					</span>
+				{/snippet}
+				<button class="menu-button" onclick={() => openExportForm(view, 'export')}>
+					{m.audit_usage_audit_logs_create_one_time_export()}
+				</button>
+				<button class="menu-button" onclick={() => openExportForm(view, 'scheduled')}>
+					{m.audit_usage_audit_logs_create_export_schedule()}
+				</button>
+			</DotDotDot>
+		{/if}
 	{/if}
 {/snippet}
 

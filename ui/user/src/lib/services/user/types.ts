@@ -752,6 +752,10 @@ export interface VMCPConfiguration {
 	components: Record<string, Record<string, string>>;
 }
 
+export interface VMCPConfigurationPresence {
+	configuredFields: string[];
+}
+
 export interface VMCPInstanceManifest {
 	// Null or omitted follows the current grant; an empty map selects no tools.
 	componentSet?: Record<string, VMCPComponentSet> | null;

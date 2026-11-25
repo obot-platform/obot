@@ -2,6 +2,7 @@
 	import { browser } from '$app/env';
 	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
+	import { canManageAuditExports } from '$lib/auditlogs';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
@@ -34,6 +35,7 @@
 	let scheduledExportsViewRef = $state<ScheduledExportsView>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let canManage = $derived(canManageAuditExports(profile.current.groups));
 	let createdExport = $state<AuditLogExport | null>(null);
 	let setTimeoutIds: ReturnType<typeof setTimeout>[] = [];
 
@@ -149,7 +151,7 @@
 
 <Layout showBackButton title={m.audit_usage_audit_logs_llm_exports_title()}>
 	<div class="flex min-h-full flex-col gap-8" in:fade>
-		{#if showForm}
+		{#if canManage && showForm}
 			{@render formScreen()}
 		{:else}
 			{@render mainContent()}
@@ -158,7 +160,7 @@
 
 	{#snippet rightNavActions()}
 		<div class="flex gap-2">
-			{#if !isAdminReadonly}
+			{#if canManage && !isAdminReadonly}
 				<button
 					class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 					onclick={() => openForm('storage')}
@@ -167,7 +169,9 @@
 					{m.audit_usage_audit_logs_configure_storage()}
 				</button>
 			{/if}
-			{@render addButton()}
+			{#if canManage}
+				{@render addButton()}
+			{/if}
 		</div>
 	{/snippet}
 </Layout>
@@ -207,7 +211,7 @@
 			</div>
 
 			{#if view === 'exports'}
-				<ExportsView bind:this={exportsViewRef} {query} logType="llm" />
+				<ExportsView bind:this={exportsViewRef} {query} logType="llm" readonly={!canManage} />
 			{:else if view === 'scheduled'}
 				<ScheduledExportsView
 					bind:this={scheduledExportsViewRef}
