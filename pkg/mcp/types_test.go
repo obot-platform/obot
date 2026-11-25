@@ -1,6 +1,13 @@
 package mcp
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"slices"
 	"strings"
 	"testing"
@@ -11,6 +18,29 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
+
+// testCACertificatePEM returns a freshly self-signed, well-formed CERTIFICATE PEM block.
+func testCACertificatePEM(t *testing.T) string {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
 
 func TestServerToServerConfigComponentAuditLogs(t *testing.T) {
 	for _, test := range []struct {
@@ -157,6 +187,149 @@ func TestServerToServerConfig_ContainerizedHealthzPath(t *testing.T) {
 	}
 }
 
+func TestServerToServerConfig_CACertificateMountsFilesAndEnvVars(t *testing.T) {
+	cert := testCACertificatePEM(t)
+	mcpServer := v1.MCPServer{
+		Name: "test-server",
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "example-server"},
+				Config:    []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate, Value: cert}},
+			},
+		},
+	}
+
+	config, _, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	gotKeys := make(map[string]string, len(config.Files))
+	for _, file := range config.Files {
+		gotKeys[file.EnvKey] = file.Data
+	}
+	for _, key := range types.CACertificateEnvKeys {
+		if gotKeys[key] != cert {
+			t.Fatalf("expected a File for env key %q with the cert data, files: %+v", key, config.Files)
+		}
+	}
+}
+
+func TestServerToServerConfig_InvalidCACertificateReturnsError(t *testing.T) {
+	mcpServer := v1.MCPServer{
+		Name: "test-server",
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "example-server"},
+				// Resolved from credEnv (as a bound credential or per-user option would be),
+				// not a static manifest value, so it never went through ValidateConfig.
+				Config: []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate}},
+			},
+		},
+	}
+
+	_, _, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", map[string]string{"ca-cert": "not a certificate"}, false)
+	if err == nil || !strings.Contains(err.Error(), "invalid CA certificate") {
+		t.Fatalf("expected an invalid CA certificate error, got %v", err)
+	}
+}
+
+func TestServerToServerConfig_CACertificateWrapsContainerizedCommandWhenOptedIn(t *testing.T) {
+	cert := testCACertificatePEM(t)
+	mcpServer := v1.MCPServer{
+		Name: "test-server",
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image:   "test-image",
+					Port:    8080,
+					Path:    "/mcp",
+					Command: "my-mcp-server",
+					Args:    []string{"--flag"},
+				},
+				Config: []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate, Value: cert, InstallCATrustStore: true}},
+			},
+		},
+	}
+
+	config, _, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.Command != "/bin/sh" {
+		t.Fatalf("expected command to be wrapped with /bin/sh, got %q", config.Command)
+	}
+	wantArgs := []string{"-c", caTrustStorePreamble, "--", "my-mcp-server", "--flag"}
+	if !slices.Equal(config.Args, wantArgs) {
+		t.Fatalf("unexpected wrapped args: got %v, want %v", config.Args, wantArgs)
+	}
+}
+
+func TestServerToServerConfig_CACertificateDoesNotWrapWithoutExplicitCommand(t *testing.T) {
+	cert := testCACertificatePEM(t)
+	mcpServer := v1.MCPServer{
+		Name: "test-server",
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "test-image",
+					Port:  8080,
+					Path:  "/mcp",
+				},
+				Config: []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate, Value: cert, InstallCATrustStore: true}},
+			},
+		},
+	}
+
+	config, _, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.Command != "" {
+		t.Fatalf("expected no command wrap without an explicit command override, got %q", config.Command)
+	}
+}
+
+func TestServerToServerConfig_CACertificateDoesNotWrapUnlessOptedIn(t *testing.T) {
+	cert := testCACertificatePEM(t)
+	mcpServer := v1.MCPServer{
+		Name: "test-server",
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image:   "test-image",
+					Port:    8080,
+					Path:    "/mcp",
+					Command: "my-mcp-server",
+					Args:    []string{"--flag"},
+				},
+				// InstallCATrustStore left false: even with an explicit command, wrapping
+				// an image with no shell would otherwise break a previously-working server.
+				Config: []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate, Value: cert}},
+			},
+		},
+	}
+
+	config, _, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.Command != "my-mcp-server" {
+		t.Fatalf("expected the original command to be left alone, got %q", config.Command)
+	}
+	if !slices.Equal(config.Args, []string{"--flag"}) {
+		t.Fatalf("expected the original args to be left alone, got %v", config.Args)
+	}
+}
+
 func TestServerToServerConfig_ConfigurationOptions(t *testing.T) {
 	manifest := types.MCPServerManifest{
 		Runtime:   types.RuntimeNPX,
@@ -239,6 +412,31 @@ func TestSystemServerToServerConfig_ConfigurationOptions(t *testing.T) {
 	_, _, err = SystemServerToServerConfig(server, server.ValidConnectURLs("http://localhost:8080"), "test-user-id", map[string]string{"REGION": "stale"})
 	if err == nil || !strings.Contains(err.Error(), `env "REGION" value "stale" is not one of the configured options`) {
 		t.Fatalf("expected invalid option error, got %v", err)
+	}
+}
+
+func TestSystemServerToServerConfig_CACertificateMountsFilesAndEnvVars(t *testing.T) {
+	cert := testCACertificatePEM(t)
+	manifest := types.SystemMCPServerManifest{
+		Runtime:   types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{Package: "example-server"},
+		Config:    []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate, Value: cert}},
+	}
+	server := v1.SystemMCPServer{Name: "test-system-server", Spec: v1.SystemMCPServerSpec{Manifest: manifest}}
+
+	config, _, err := SystemServerToServerConfig(server, server.ValidConnectURLs("http://localhost:8080"), "test-user-id", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	gotKeys := make(map[string]string, len(config.Files))
+	for _, file := range config.Files {
+		gotKeys[file.EnvKey] = file.Data
+	}
+	for _, key := range types.CACertificateEnvKeys {
+		if gotKeys[key] != cert {
+			t.Fatalf("expected a File for env key %q with the cert data, files: %+v", key, config.Files)
+		}
 	}
 }
 
