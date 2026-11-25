@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"slices"
 	"testing"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/auditlog"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -1157,6 +1159,64 @@ func TestGetMCPAuditLogsUnifiedFilters(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestGetMCPAuditLogsOutcomeFilterMatchesClassifyMCPOutcome checks that filtering MCP rows by
+// outcome selects exactly the rows that auditlog.ClassifyMCPOutcome, which presents each row's
+// outcome, puts in that outcome.
+func TestGetMCPAuditLogsOutcomeFilterMatchesClassifyMCPOutcome(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	base := time.Date(2026, 7, 14, 10, 0, 0, 0, time.UTC)
+
+	want := make(map[types2.AuditLogOutcomeStatus][]string)
+	for _, status := range []int{0, 200, 302, 401, 403, 404, 408, 500, 504} {
+		for _, responseError := range []string{"", "response webhook failed"} {
+			name := fmt.Sprintf("status %d, error %q", status, responseError)
+			if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{{
+				CreatedAt:  base,
+				SourceType: types2.AuditLogSourceTypeMCP,
+				UserID:     "user-mcp",
+				MCPFields: &types.MCPAuditLogFields{
+					MCPID:            "mcp-1",
+					CallType:         "tools/call",
+					CallIdentifier:   name,
+					RequestBody:      json.RawMessage(`{}`),
+					ResponseReceived: status != 0,
+					ResponseStatus:   status,
+					Error:            responseError,
+				},
+			}}); err != nil {
+				t.Fatalf("insert MCP log %q: %v", name, err)
+			}
+			outcome := auditlog.ClassifyMCPOutcome(status, responseError)
+			want[outcome] = append(want[outcome], name)
+		}
+	}
+
+	for _, outcome := range []types2.AuditLogOutcomeStatus{
+		types2.AuditLogOutcomeStatusSuccess,
+		types2.AuditLogOutcomeStatusFailure,
+		types2.AuditLogOutcomeStatusDenied,
+		types2.AuditLogOutcomeStatusTimeout,
+		types2.AuditLogOutcomeStatusUnknown,
+	} {
+		t.Run(string(outcome), func(t *testing.T) {
+			logs, _, err := c.GetMCPAuditLogs(ctx, MCPAuditLogOptions{Outcome: []string{string(outcome)}})
+			if err != nil {
+				t.Fatalf("list: %v", err)
+			}
+			got := make([]string, 0, len(logs))
+			for _, log := range logs {
+				got = append(got, log.MCP().CallIdentifier)
+			}
+			slices.Sort(got)
+			slices.Sort(want[outcome])
+			if !slices.Equal(got, want[outcome]) {
+				t.Fatalf("outcome %s: got %q, want %q", outcome, got, want[outcome])
+			}
+		})
+	}
 }
 
 func validLocalAgentAuditLog(occurredAt time.Time, idempotencyKey string, status types2.AuditLogOutcomeStatus) types.MCPAuditLog {
