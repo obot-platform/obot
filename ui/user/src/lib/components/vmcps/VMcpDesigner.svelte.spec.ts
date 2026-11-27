@@ -1195,6 +1195,112 @@ describe('VMcpDesigner.svelte', () => {
 			return page.getByRole('dialog').filter({ hasText: 'Rename MCP Server' });
 		}
 
+		const sharedToolCases = [
+			{
+				title: 'prefixes tools shared by separate catalog connections',
+				previousOverrides: toolOverrides,
+				prefix: 'github_work_'
+			},
+			{
+				title: 'skips a prefix that would collide with a preview-only sibling tool',
+				previousOverrides: undefined,
+				prefix: 'github_work_2_'
+			},
+			{
+				title: 'keeps tool names when only disabled sibling tools share them',
+				previousOverrides: [{ name: 'create_issue' }, { name: 'list_issues' }],
+				prefix: ''
+			}
+		] satisfies { title: string; previousOverrides: ToolOverride[] | undefined; prefix: string }[];
+
+		for (const { title, previousOverrides, prefix } of sharedToolCases) {
+			it(title, async () => {
+				const entry = createMCPCatalogEntry({
+					id: 'entry-github-work',
+					name: 'GitHub Work',
+					runtime: 'remote',
+					manifest: { remoteConfig: { fixedURL: 'https://example.com/work/mcp' } }
+				});
+				const originalEntry = createMCPCatalogEntry({
+					id: componentEntry.id,
+					name: 'GitHub',
+					runtime: 'remote',
+					manifest: {
+						remoteConfig: { fixedURL: 'https://example.com/personal/mcp' },
+						toolPreview: [
+							...(componentEntry.manifest.toolPreview ?? []),
+							{ id: 'github_work_create_issue', name: 'github_work_create_issue' }
+						]
+					}
+				});
+				const vmcp = createVMCP(
+					{
+						components: [createVMCPComponent(originalEntry, { toolOverrides: previousOverrides })]
+					},
+					[originalEntry]
+				);
+				const update = vi.fn();
+				let current = vmcp;
+				const componentId = 'component-github-work';
+				worker.use(
+					http.get(`/api/vmcps/${vmcp.id}`, () => HttpResponse.json(current)),
+					http.put(`/api/vmcps/${vmcp.id}`, async ({ request }) => {
+						const manifest = (await request.json()) as VMCPManifest;
+						update(manifest);
+						current = {
+							...current,
+							...manifest,
+							components: componentsFrom(manifest).map((component) => ({
+								...component,
+								id: component.id || componentId
+							}))
+						};
+						return HttpResponse.json(current);
+					}),
+					http.post(`/api/vmcps/${vmcp.id}/components/${componentId}/generate-tool-previews`, () =>
+						HttpResponse.json({
+							...entry,
+							manifest: { ...entry.manifest, toolPreview: componentEntry.manifest.toolPreview }
+						})
+					)
+				);
+				mockEntryDetails(entry);
+				await renderDesigner([originalEntry, entry], vmcp);
+
+				const { el } = await pressCard(panelCard('GitHub Work'), 37);
+				const to = centerOf(await vmcpCard().element());
+				pointer(el, 'pointermove', 37, to);
+				await tick();
+				pointer(el, 'pointerup', 37, to);
+
+				const addTools = page.getByRole('dialog').filter({ hasText: 'Add Tools' });
+				await addTools.getByRole('button', { name: /Managed/ }).click();
+				await page.getByRole('button', { name: 'Configure Tools', exact: true }).click();
+
+				const editor = page.getByRole('dialog').filter({ hasText: 'Create an issue' });
+				const confirm = editor.getByRole('button', { name: 'Confirm' });
+				await expect.element(confirm).toBeEnabled();
+				await expect
+					.element(editor.getByText(`${prefix}create_issue`, { exact: true }))
+					.toBeVisible();
+				await confirm.click();
+
+				await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+				const [original, added] = componentsFrom(update.mock.calls[1][0]);
+				expect(original).toEqual(vmcp.components[0]);
+				expect(added).toMatchObject({
+					id: componentId,
+					mcpServerCatalogEntryID: entry.id,
+					toolPrefix: prefix,
+					toolOverrides: toolOverrides.map((tool) => ({ ...tool, enabled: true }))
+				});
+				expect(added.toolOverrides?.map((tool) => tool.overrideName)).toEqual([
+					undefined,
+					undefined
+				]);
+			});
+		}
+
 		it('asks for a different component name when a catalog entry is added again from mobile', async () => {
 			responsive.isMobile = true;
 			const vmcp = createIssueTrackerVMcp();

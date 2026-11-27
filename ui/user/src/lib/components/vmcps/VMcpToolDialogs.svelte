@@ -343,6 +343,7 @@
 	existingTools={flow.tools}
 	existingToolPrefix={flow.existingToolPrefix}
 	otherEffectiveNames={flow.otherEffectiveNames}
+	suggestToolPrefix={flow.suggestToolPrefix}
 	{readonly}
 	onCancel={flow.close}
 	onSuccess={(config) => {
