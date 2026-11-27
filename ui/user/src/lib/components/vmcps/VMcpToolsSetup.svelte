@@ -36,6 +36,7 @@
 		existingTools?: CompositeServerToolRow[];
 		existingToolPrefix?: string;
 		otherEffectiveNames?: string[];
+		suggestToolPrefix?: (tools: CompositeServerToolRow[]) => string;
 		onCancel?: () => void;
 		onSuccess?: (config: { toolOverrides: ToolOverride[]; toolPrefix: string }) => void;
 		additionalActions?: Snippet;
@@ -49,6 +50,7 @@
 		existingTools = [],
 		existingToolPrefix,
 		otherEffectiveNames,
+		suggestToolPrefix,
 		onCancel,
 		onSuccess,
 		additionalActions: additionalActionsSnippet,
@@ -347,6 +349,7 @@
 
 	function openEditor() {
 		previewConfig = {};
+		toolPrefix ||= suggestToolPrefix?.(tools) ?? '';
 		dialogPhase = 'editor';
 		setupDialog?.close();
 		editDialog?.open();

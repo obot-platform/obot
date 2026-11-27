@@ -9,7 +9,13 @@ import {
 	type VMCPComponent,
 	type VMCPConfigurationPolicy
 } from '$lib/services';
-import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
+import {
+	MAX_TOOL_NAME_LENGTH,
+	MAX_TOOL_PREFIX_LENGTH,
+	deriveToolPrefix,
+	effectiveToolName,
+	toolOverridesFromRows
+} from '$lib/services/user/mcp';
 import {
 	catalogConfigurationFields,
 	getToolCounts,
@@ -161,18 +167,20 @@ export function createVMcpToolFlow() {
 	let toolSearchError = $state<string>();
 	const recommendedVMcpIDs = new SvelteSet<string>();
 
+	const otherComponents = $derived(
+		(modifyingVMcp?.components ?? []).filter(
+			(component) => vmcpComponentId(component) !== configuringComponentId
+		)
+	);
 	const otherEffectiveNames = $derived(
-		compositeEffectiveToolNames(
-			(modifyingVMcp?.components ?? []).filter(
-				(component) => vmcpComponentId(component) !== configuringComponentId
-			)
+		otherComponents.flatMap((component) =>
+			toolRowsFromComponent(component)
+				.filter((row) => row.enabled)
+				.map((row) => effectiveToolName(row.name, row.overrideName, component.toolPrefix))
 		)
 	);
 	const otherToolPrefixes = $derived(
-		(modifyingVMcp?.components ?? [])
-			.filter((component) => vmcpComponentId(component) !== configuringComponentId)
-			.map((component) => (component.toolPrefix ?? '').trim())
-			.filter(Boolean)
+		otherComponents.map((component) => (component.toolPrefix ?? '').trim()).filter(Boolean)
 	);
 	const existingToolPrefix = $derived(
 		(modifyingVMcp?.components ?? []).find(
@@ -322,6 +330,30 @@ export function createVMcpToolFlow() {
 		if (!pending) return;
 
 		openSetup(pending.vmcp, persistedAddedComponent(pending.component, pending.vmcp));
+	}
+
+	function suggestToolPrefix(rows: CompositeServerToolRow[]) {
+		if (modifyingExistingComponent || !configuringComponent) return '';
+		const siblingNames = new SvelteSet(otherEffectiveNames);
+		const names = rows
+			.filter((row) => row.enabled && !row.removed)
+			.map((row) => effectiveToolName(row.name, row.overrideName, undefined));
+		if (!names.some((name) => siblingNames.has(name))) return '';
+
+		const stem = deriveToolPrefix(configuringComponent.name).slice(0, -1) || 'server';
+		const maxPrefixLength = names.reduce(
+			(limit, name) => Math.min(limit, MAX_TOOL_NAME_LENGTH - name.length),
+			MAX_TOOL_PREFIX_LENGTH
+		);
+		const usedPrefixes = new SvelteSet(otherToolPrefixes);
+		for (let index = 1; ; index += 1) {
+			const suffix = index === 1 ? '_' : `_${index}_`;
+			if (suffix.length >= maxPrefixLength) return '';
+			const prefix = stem.slice(0, maxPrefixLength - suffix.length) + suffix;
+			if (!usedPrefixes.has(prefix) && !names.some((name) => siblingNames.has(prefix + name))) {
+				return prefix;
+			}
+		}
 	}
 
 	function editConfiguration() {
@@ -753,6 +785,7 @@ export function createVMcpToolFlow() {
 		editComponent,
 		promptRemoveComponent,
 		offerToolSelection,
+		suggestToolPrefix,
 		handleVMcpCreated,
 		selectToolsForAdded,
 		editConfiguration,
